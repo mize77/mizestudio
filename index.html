@@ -3691,7 +3691,15 @@ function showContextMenu(x,y,el){ contextTarget=el; const isP=el && !isBall(el);
   add('Change Team',()=>changeTeam(contextTarget),isP);
   add((el?.dataset.locked==='true'?'Unlock':'Lock'),()=>lockObject(contextTarget),!!el);
   add('Hide',()=>hideObject(contextTarget),!!el);
-  contextMenu.style.left=Math.min(x,window.innerWidth-210)+'px'; contextMenu.style.top=Math.min(y,window.innerHeight-300)+'px'; contextMenu.style.display='block';
+  // Position by measuring the menu's real rendered size rather than a
+  // hardcoded estimate -- a fixed guess here goes stale every time an item
+  // is added or removed (as just happened with Left Arm/Right Arm/No
+  // Block), and on a tablet a tall menu opened near the bottom of the
+  // board needs real numbers, not a guess, to stay fully on screen.
+  contextMenu.style.left='0px'; contextMenu.style.top='0px'; contextMenu.style.display='block';
+  const menuW=contextMenu.offsetWidth, menuH=contextMenu.offsetHeight, margin=8;
+  contextMenu.style.left=Math.max(margin, Math.min(x, window.innerWidth-menuW-margin))+'px';
+  contextMenu.style.top=Math.max(margin, Math.min(y, window.innerHeight-menuH-margin))+'px';
 }
 function hideContextMenu(){ contextMenu.style.display='none'; contextTarget=null; }
 board.addEventListener('contextmenu', e=>{ const el=e.target.closest?.('.player') || (e.target===ball?ball:null); if(!el) return; e.preventDefault(); if(isBall(el)){ clearSelection(); setSelected(el,true); showContextMenu(e.clientX,e.clientY,el); } });
