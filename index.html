@@ -43,8 +43,7 @@
     button { padding:11px 12px; min-height:44px; font-size:14px; }
     #controlsPanel button { min-height:42px; }
     .miniBtnRow button { min-height:38px; }
-    .player .rotateHandle { opacity:.55; width:22px; height:22px; }
-    .rotateHandle::before { content:""; position:absolute; inset:-14px; border-radius:50%; }
+    .player .rotateHandle { display:none; }
     #ball::before { content:""; position:absolute; inset:-14px; border-radius:50%; }
     #contextMenu button { padding:12px 10px; min-height:44px; }
   }
@@ -1975,6 +1974,12 @@ function fieldToBoardX(x) { return clamp(x,0,M.fieldW) + M.fieldX; }
 function fieldToBoardY(y) { return clamp(y,0,M.fieldH) + M.fieldY; }
 
 function isCmd(e) { return e.metaKey || e.ctrlKey || multiSelectMode; }
+// Checks the viewport's NARROW dimension rather than just width, so an
+// iPhone held in landscape (where innerWidth alone could exceed 600px)
+// still correctly reads as phone-class rather than being mistaken for an
+// iPad. iPhones' narrow dimension tops out around 430px; iPad mini's is
+// 744px -- 500px sits safely between the two.
+function isSmallTouchScreen(){ return Math.min(window.innerWidth, window.innerHeight) <= 500; }
 function isBall(el) { return el === ball; }
 function placeAny(el) { if(isBall(el)) placeBall(); else place(el); }
 function setSelected(el,on=true) { if(on) selected.add(el); else selected.delete(el); el.classList.toggle('selected',on); updateInspector(); updatePlayerActionBar(); }
@@ -2139,7 +2144,11 @@ function makePlayer([label,team,x,y,pose,rot]) {
       // the separate long-press-for-context-menu system). A MARKED
       // (selected) player moves instead, exactly like the mouse/single-
       // finger-move path below. Tap it (no drag) to mark/unmark it.
-      if(!selected.has(el)){
+      // On a genuinely small (phone-class) screen, this is skipped
+      // entirely -- a player renders too small there to reliably tell
+      // "tap to spin" from "tap to move" apart, so touch always moves and
+      // rotation is exclusively via the Player Action Bar's spin buttons.
+      if(!isSmallTouchScreen() && !selected.has(el)){
         recordHistory();
         rotating = el;
         moved = false;
