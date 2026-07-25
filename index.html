@@ -1863,7 +1863,14 @@ function makePlayer([label,team,x,y,pose,rot]) {
     if(layerState.lockPlayers || el.dataset.locked==='true') return;
     if(mode==='ball') { recordHistory(); moveBallTo(el); updateInspector(); return; }
     if(mode!=='select') return;
-    if(e.target.classList.contains('rotateHandle')) return;
+    // On touch devices, the rotate handle's enlarged hit-zone (added for
+    // accessibility in the coarse-pointer touch-target pass) can cover most
+    // of a small mobile player. A touch landing there should still be
+    // treated as a normal player touch -- single finger moves, a second
+    // finger rotates -- not silently swallowed as "touched the handle".
+    // Mouse users still get precise handle-only rotation via its own
+    // pointerdown listener below.
+    if(e.target.classList.contains('rotateHandle') && e.pointerType!=='touch') return;
     if(e.button===2){
       // Right mouse button: don't know yet if this is a rotate-drag or a
       // simple right-click for the context menu -- resolved on move/contextmenu.
@@ -1903,7 +1910,7 @@ function makePlayer([label,team,x,y,pose,rot]) {
       if(ballCarrier===el) moveBallTo(el,ballHand);
     }
   });
-  handle.addEventListener('pointerdown', e=>{ if(layerState.lockPlayers || el.dataset.locked==='true') return; if(mode!=='select') return; recordHistory(); rotating=el; el.classList.add('rotating'); handle.setPointerCapture(e.pointerId); e.stopPropagation(); e.preventDefault(); });
+  handle.addEventListener('pointerdown', e=>{ if(layerState.lockPlayers || el.dataset.locked==='true') return; if(mode!=='select') return; if(e.pointerType==='touch') return; recordHistory(); rotating=el; el.classList.add('rotating'); handle.setPointerCapture(e.pointerId); e.stopPropagation(); e.preventDefault(); });
   el.addEventListener('dblclick', e=>{
     if(layerState.lockPlayers || el.dataset.locked==='true') return;
     if(e.target.classList.contains('rotateHandle')) return;
