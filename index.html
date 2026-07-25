@@ -1880,21 +1880,24 @@ function makePlayer([label,team,x,y,pose,rot]) {
       return;
     }
     if(e.pointerType==='touch'){
-      const list=playerActiveTouches.get(el)||[];
-      list.push(e.pointerId);
-      playerActiveTouches.set(el, list);
-      if(list.length>=2){
-        // A second finger just landed on this player while it was already
-        // being touched -- switch to rotate, driven by this new touch point.
-        if(dragging?.group?.some(item=>item.el===el)) dragging=null;
-        touchRotating={ el, pointerId:e.pointerId };
+      // Touch model: an UNMARKED player spins in place with a single finger
+      // (no second finger needed -- the old two-finger detection had no
+      // pointerId filtering on the drag math, so a second finger anywhere
+      // on screen could hijack the drag position, and it also raced with
+      // the separate long-press-for-context-menu system). A MARKED
+      // (selected) player moves instead, exactly like the mouse/single-
+      // finger-move path below. Tap it (no drag) to mark/unmark it.
+      if(!selected.has(el)){
         recordHistory();
+        rotating = el;
+        moved = false;
         el.classList.add('rotating');
         el.setPointerCapture(e.pointerId);
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
         return;
       }
     }
+
     if(isCmd(e)) { toggleSelected(el); moved=false; e.preventDefault(); return; }
     startGroupDrag(el,e); el.setPointerCapture(e.pointerId); e.preventDefault();
   });
@@ -2097,7 +2100,7 @@ document.addEventListener('pointermove', e=>{
     if(ballCarrier && !dragging.group.some(item=>isBall(item.el)) && dragging.group.some(item=>item.el===ballCarrier)) moveBallTo(ballCarrier,ballHand);
     moved=true;
   }
-  if(rotating) { const p=pxToM(e); const x=+rotating.dataset.x, y=+rotating.dataset.y; const a=Math.atan2(p.y-y,p.x-x)*180/Math.PI+90; rotating.dataset.rot=a; place(rotating); if(ballCarrier===rotating) moveBallTo(rotating,ballHand); }
+  if(rotating) { const p=pxToM(e); const x=+rotating.dataset.x, y=+rotating.dataset.y; const a=Math.atan2(p.y-y,p.x-x)*180/Math.PI+90; rotating.dataset.rot=a; place(rotating); if(ballCarrier===rotating) moveBallTo(rotating,ballHand); moved=true; }
   if(startArrow && previewLine) { const p=pxToM(e); if(startArrow.type==='highlight') { previewLine.setAttribute('cx',(startArrow.x+p.x)/2); previewLine.setAttribute('cy',(startArrow.y+p.y)/2); previewLine.setAttribute('rx',Math.abs(p.x-startArrow.x)/2); previewLine.setAttribute('ry',Math.abs(p.y-startArrow.y)/2); } else { previewLine.setAttribute('x2',p.x); previewLine.setAttribute('y2',p.y); } }
   if(measureStart && previewLine) { const p=pxToM(e); updateMeasure(previewLine, measureStart.x, measureStart.y, p.x, p.y); }
   if(freehandPoints && freehandPath) { const p=pxToM(e); freehandPoints.push({x:p.x,y:p.y}); freehandPath.setAttribute('d', pointsToPath(freehandPoints)); if(freehandPressures){ freehandPressures.push(e.pressure); freehandPath.setAttribute('stroke-width', penPressureToStrokeWidth(e.pressure)); } }
