@@ -704,6 +704,7 @@
       <button class="toolListBtn" data-panel="presentationStudioPanel">Presentation Studio</button>
       <button class="toolListBtn" data-panel="objectEngineDebugPanel">Object Engine (Scene JSON)</button>
       <button class="toolListBtn" data-panel="panel_saved_formations">Saved Formations</button>
+      <button class="toolListBtn" data-panel="addPlayerPanel">Add Player</button>
       <button class="toolListBtn" data-panel="aboutDiagnosticsPanel">About &amp; Diagnostics</button>
       <button class="toolListBtn devModeOnly" data-panel="developerModePanel" style="display:none;">Developer Mode: Sport Templates</button>
 
@@ -730,6 +731,7 @@
   <button id="paClaimBallBtn" class="playerActionBtn" title="Give the ball to this player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0M4.5 16.5c3-3 10-3 15 0"/></svg></button>
   <button id="paInspectorBtn" class="playerActionBtn" title="Open Inspector for this player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="18" r="2"/></svg></button>
   <button id="paChangeTeamBtn" class="playerActionBtn" title="Change this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
+  <button id="paAddPlayerBtn" class="playerActionBtn" title="Add a new player to this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg></button>
 </div>
 <div id="quickCommandBar">
   <span id="quickCommandBarHandle" title="Drag to move this bar anywhere on screen">&#9776;</span>
@@ -784,6 +786,13 @@
     <div style="font-size:11px;color:#8a7000;margin:2px 0 8px;">Activating swaps the field geometry and markings on the real board. Player counts, formations, and Practice Studio still assume water polo -- that generalization is a later stage. Use "Restore Water Polo" to go back at any time.</div>
     <div class="smallRow"><button type="button" id="devTplNewBtn">New Template</button><button type="button" id="devTplDeleteBtn">Delete Custom Template</button></div>
     <div class="smallRow"><label>ID<input type="text" id="devTplId" placeholder="e.g. soccer"></label><label>Name<input type="text" id="devTplName" placeholder="e.g. Soccer"></label></div>
+    <div class="smallRow"><label>Status<select id="devTplStatus">
+      <option value="draft">Draft</option>
+      <option value="test">Test</option>
+      <option value="approved">Approved</option>
+      <option value="published">Published</option>
+      <option value="deprecated">Deprecated</option>
+    </select></label><span id="devTplStatusBadge" style="align-self:center;font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px;"></span></div>
     <div class="setupSpecGroupHeading">Field</div>
     <div class="smallRow">
       <label>Surface<select id="devFieldSurface">
@@ -822,7 +831,9 @@
     <div class="smallRow full"><button type="button" id="devAddGoalBtn">+ Add Goal</button></div>
     <div class="setupSpecGroupHeading">Preview</div>
     <div style="border:1px solid #ccd6d6;border-radius:8px;overflow:hidden;background:#c9d6d6;"><svg id="devTplPreviewSvg" viewBox="0 0 29 24" style="width:100%;display:block;"></svg></div>
-    <div class="smallRow full" style="margin-top:8px;">
+    <div class="smallRow full" style="margin-top:8px;"><button type="button" id="devValidateBtn">Validate</button></div>
+    <div id="devValidationResults" style="font-size:12px;margin:4px 0 8px;"></div>
+    <div class="smallRow full">
       <button type="button" id="devTplSaveBtn">Save Template</button>
       <button type="button" id="devTplExportBtn">Export JSON</button>
       <button type="button" id="devTplImportBtn">Import JSON</button>
@@ -1027,7 +1038,7 @@ const MizeDialog = (function(){
   <div class="toolPanelHeader"><h3>Team Manager</h3><button class="closeToolPanelBtn">&#10005;</button></div>
   <div class="toolPanelBody">
 <button id="refreshTeamBtn">Refresh Teams</button>
-    <button id="toggleNamesBtn" data-tip="Show or hide player name labels on the board. Shift+N toggles this from anywhere.">Show Player Names</button>
+    <button id="toggleNamesBtn" data-tip="Show or hide player name labels on the board. Shift+T toggles this from anywhere.">Show Player Names</button>
     <div class="smallRow" style="margin-top:8px;">
       <label>Set All Players to<select id="bulkCategory">
         <option value="mens">Men's</option>
@@ -1124,6 +1135,7 @@ const ICONS = {"blue_goalie_v": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA
 const ASPECT = {"blue_v": 0.5132743362831859, "blue_h": 1.3849557522123894, "white_v": 0.5132743362831859, "white_h": 1.3849557522123894, "blue_goalie_v": 0.5132743362831859, "blue_goalie_h": 1.3849557522123894, "white_goalie_v": 0.5132743362831859, "white_goalie_h": 1.3849557522123894};
 const M = { W:29, H:24, fieldX:2, fieldY:2, fieldW:25, fieldH:20 };
 const board = document.getElementById('board');
+const fieldSvg = document.getElementById('fieldSvg');
 const arrows = document.getElementById('arrows');
 const arrowsGroup = document.getElementById('arrowsGroup');
 const fieldZonesSvg = document.getElementById('fieldZonesSvg');
@@ -1240,16 +1252,39 @@ MIZE.Sports.MARKING_TYPES = ['line','circle','arc','rect','ellipse','exclusionZo
 function makeSportTemplate(overrides){
   return Object.assign({
     id:'', name:'', schemaVersion: MIZE.Sports.SCHEMA_VERSION,
+    status: 'draft',
     field: { width:29, height:24, playAreaX:2, playAreaY:2, playAreaWidth:25, playAreaHeight:20, surface:'water', surfaceColor:'#1a6b8f', lineColor:'#ffffff' },
     markings: [],
     goals: [],
     formation: { fieldPlayersPerTeam:6, hasGoalkeeper:true, presetSetups:[], zoneSets:[] },
-    playerVisual: { orientationMode:'continuous', discreteDirections:8, poses:['default'] }
+    playerVisual: { orientationMode:'continuous', discreteDirections:8, poses:['default'] },
+    terminology: { field:'Field', player:'Player', goalkeeper:'Goalkeeper', formation:'Formation', fieldZonesLabel:'Field Zones', playerSetupsLabel:'Player Setups', shotBlockLabel:'Shot Block Corridors', goalieVisionLabel:'Goalie Vision', roles:['Field Player','Goalkeeper'], playingObjectName:'Ball' },
+    // Playing Object (spec Section 5.2) -- describes what, if anything, the
+    // sport's players control. hasHand governs whether the "left/right
+    // hand" possession-side concept applies (meaningless for a puck or
+    // disc); type:'none' means the sport has no controlled object at all,
+    // in which case the ball and every ball-related control is hidden
+    // entirely rather than shown but meaningless.
+    playingObject: { type:'ball', hasHand:true, attachesToPlayer:true },
+    // Per spec Section 7 -- explicit per-sport switches for tools that are
+    // currently visible unconditionally regardless of whether they make
+    // sense for the active sport. Defaults are deliberately conservative
+    // (mostly off) for a brand-new custom template, since these are all
+    // water-polo-shaped tactical concepts today; a new sport shouldn't
+    // silently inherit them just because the schema has a slot for them.
+    featureSupport: { ballOwnership:true, shotBlocking:false, goalieVision:false, ghostMode:true, timeline:true, frontCourtView:false, shotClock:true, multipleGoals:false },
+    // Sport Capability Map (per the recommended addition) -- answers
+    // conceptual yes/no questions about the sport itself, independent of
+    // which platform tools happen to be built yet. This is read/write data
+    // today, informing future decisions; only a couple of fields
+    // (hasGoalkeeper, variableDimensions) currently reflect anything
+    // enforced elsewhere in the app.
+    capabilities: { hasPossession:true, hasGoalkeeper:true, hasFixedFormations:true, usesShotClock:true, playersCanLeaveField:false, objectAttachesToPlayer:true, directionSwitches:false, hasMultiplePeriods:true, variableDimensions:true }
   }, overrides);
 }
 MIZE.Sports.TEMPLATES = {
   water_polo: makeSportTemplate({
-    id:'water_polo', name:'Water Polo',
+    id:'water_polo', name:'Water Polo', status:'published',
     field: { width:29, height:24, playAreaX:2, playAreaY:2, playAreaWidth:25, playAreaHeight:20, surface:'water', surfaceColor:'#1a6b8f', lineColor:'#ffffff' },
     markings: [
       { type:'line', x1:2, y1:2, x2:2, y2:22, label:'Goal line (left)' },
@@ -1273,7 +1308,11 @@ MIZE.Sports.TEMPLATES = {
       ],
       zoneSets: ['offense','defense','6v5','5v6','counterOffense','counterDefense']
     },
-    playerVisual: { orientationMode:'continuous', discreteDirections:8, poses:['default'] }
+    playerVisual: { orientationMode:'continuous', discreteDirections:8, poses:['default'] },
+    terminology: { field:'Pool', player:'Player', goalkeeper:'Goalkeeper', formation:'Formation', fieldZonesLabel:'Field Zones', playerSetupsLabel:'Player Setups', shotBlockLabel:'Shot Block Corridors', goalieVisionLabel:'Goalie Vision', roles:['Driver','Wing','Flat','Point','Center','Center Defender','Goalkeeper'], playingObjectName:'Ball' },
+    playingObject: { type:'ball', hasHand:true, attachesToPlayer:true },
+    featureSupport: { ballOwnership:true, shotBlocking:true, goalieVision:true, ghostMode:true, timeline:true, frontCourtView:true, shotClock:true, multipleGoals:false },
+    capabilities: { hasPossession:true, hasGoalkeeper:true, hasFixedFormations:true, usesShotClock:true, playersCanLeaveField:true, objectAttachesToPlayer:true, directionSwitches:false, hasMultiplePeriods:true, variableDimensions:true }
   }),
   // Minimal land-sport demo template: proves out the discrete-orientation
   // player-visual concept with a generated placeholder token (colored disc +
@@ -1281,7 +1320,7 @@ MIZE.Sports.TEMPLATES = {
   // artwork. Swapping in real multi-pose sprites later means changing
   // playerVisual.poses and supplying images, not touching the architecture.
   soccer_demo: makeSportTemplate({
-    id:'soccer_demo', name:'Soccer (Demo Template)',
+    id:'soccer_demo', name:'Soccer (Demo Template)', status:'draft',
     field: { width:26, height:18, playAreaX:1, playAreaY:1, playAreaWidth:24, playAreaHeight:16, surface:'grass', surfaceColor:'#2e7d32', lineColor:'#ffffff' },
     markings: [
       { type:'line', x1:13, y1:1, x2:13, y2:17, label:'Halfway line' },
@@ -1302,7 +1341,11 @@ MIZE.Sports.TEMPLATES = {
       presetSetups: [ { key:'full11v11', label:'11v11 \u2013 Full Teams', blueCount:10, blueGoalie:true, whiteCount:10, whiteGoalie:true } ],
       zoneSets: []
     },
-    playerVisual: { orientationMode:'discrete', discreteDirections:8, poses:['default'] }
+    playerVisual: { orientationMode:'discrete', discreteDirections:8, poses:['default'] },
+    terminology: { field:'Pitch', player:'Player', goalkeeper:'Goalkeeper', formation:'Formation', fieldZonesLabel:'Field Zones', playerSetupsLabel:'Player Setups', shotBlockLabel:'Shot Block Corridors', goalieVisionLabel:'Goalie Vision', roles:['Forward','Midfielder','Defender','Goalkeeper'], playingObjectName:'Ball' },
+    playingObject: { type:'ball', hasHand:false, attachesToPlayer:true },
+    featureSupport: { ballOwnership:true, shotBlocking:false, goalieVision:false, ghostMode:true, timeline:true, frontCourtView:false, shotClock:false, multipleGoals:false },
+    capabilities: { hasPossession:true, hasGoalkeeper:true, hasFixedFormations:true, usesShotClock:false, playersCanLeaveField:false, objectAttachesToPlayer:true, directionSwitches:true, hasMultiplePeriods:true, variableDimensions:true }
   })
 };
 MIZE.Sports.activeId = 'water_polo';
@@ -1311,6 +1354,79 @@ function loadCustomSportTemplates(){ try { return JSON.parse(localStorage.getIte
 function saveCustomSportTemplate(tpl){ const all=loadCustomSportTemplates(); all[tpl.id]=MIZE.Storage.stampRecord({ ...tpl, type:'sportTemplate' }); localStorage.setItem(SPORT_TEMPLATES_KEY, JSON.stringify(all)); }
 function deleteCustomSportTemplate(id){ const all=loadCustomSportTemplates(); delete all[id]; localStorage.setItem(SPORT_TEMPLATES_KEY, JSON.stringify(all)); }
 function allSportTemplates(){ return { ...MIZE.Sports.TEMPLATES, ...loadCustomSportTemplates() }; }
+const TERMINOLOGY_DEFAULTS = { field:'Field', player:'Player', goalkeeper:'Goalkeeper', formation:'Formation', fieldZonesLabel:'Field Zones', playerSetupsLabel:'Player Setups', shotBlockLabel:'Shot Block Corridors', goalieVisionLabel:'Goalie Vision', roles:['Field Player','Goalkeeper'], playingObjectName:'Ball' };
+function term(key){
+  const tpl = allSportTemplates()[MIZE.Sports.activeId];
+  const v = tpl && tpl.terminology ? tpl.terminology[key] : undefined;
+  return (v !== undefined && v !== null && v !== '') ? v : TERMINOLOGY_DEFAULTS[key];
+}
+function refreshTerminologyUI(){
+  const fz=document.getElementById('fieldZonesToggleBtn');
+  if(fz){ fz.textContent = term('fieldZonesLabel'); }
+  const ps=document.getElementById('playerSetupsToggleBtn');
+  if(ps){ ps.textContent = term('playerSetupsLabel'); }
+  const sb=document.getElementById('shotBlockToggleBtn');
+  if(sb){ const isOn = sb.textContent.indexOf(': On')!==-1; sb.textContent = term('shotBlockLabel') + (isOn ? ': On' : ': Off'); }
+  // Team Manager's role dropdown already reads term('roles') fresh every
+  // time it renders (see renderTeamManager), so it naturally picks up the
+  // active sport's terminology next time it's opened/refreshed -- it isn't
+  // re-rendered proactively here because this function also runs during
+  // the very first page-load call to applySportTemplateForBoard, before
+  // several later-declared globals (e.g. `ball`) exist yet, and
+  // renderTeamManager/renderHiddenPanel depend on those.
+}
+const PLAYING_OBJECT_DEFAULTS = { type:'ball', hasHand:true, attachesToPlayer:true };
+function playingObject(key){
+  const tpl = allSportTemplates()[MIZE.Sports.activeId];
+  const v = tpl && tpl.playingObject ? tpl.playingObject[key] : undefined;
+  return (v !== undefined && v !== null) ? v : PLAYING_OBJECT_DEFAULTS[key];
+}
+// Renames and hides ball-related controls based on the active sport's
+// playingObject: a sport with hasHand:false (e.g. soccer, where players
+// don't hold the ball in a hand) hides the left/right-hand controls but
+// keeps the ball itself; a sport with type:'none' (no controlled object at
+// all) hides the ball and every ball-related control entirely, rather than
+// leaving a meaningless "Ball" on a field for a sport that has none.
+function refreshPlayingObjectUI(){
+  const objName = term('playingObjectName');
+  const lb=document.getElementById('ballLeftBtn'), rb=document.getElementById('ballRightBtn');
+  const hasNoObject = playingObject('type')==='none';
+  const hasHand = playingObject('hasHand') && !hasNoObject;
+  if(lb){ lb.textContent = objName+' \u2192 Left Hand'; lb.style.display = hasHand ? '' : 'none'; }
+  if(rb){ rb.textContent = objName+' \u2192 Right Hand'; rb.style.display = hasHand ? '' : 'none'; }
+  const ballEl = document.getElementById('ball');
+  if(ballEl) ballEl.style.display = hasNoObject ? 'none' : '';
+  const claimBtn = document.getElementById('paClaimBallBtn');
+  if(claimBtn){ claimBtn.style.display = hasNoObject ? 'none' : ''; claimBtn.title = 'Give the '+objName.toLowerCase()+' to this player'; }
+}
+function feature(key){
+  const tpl = allSportTemplates()[MIZE.Sports.activeId];
+  const v = tpl && tpl.featureSupport ? tpl.featureSupport[key] : undefined;
+  return (v !== undefined && v !== null) ? v : FEATURE_SUPPORT_DEFAULTS[key];
+}
+// Hides (rather than merely leaving semi-functional) the tools tied to
+// tactical concepts the active sport doesn't declare support for, per spec
+// Section 7. Uses inline style.display so it can't conflict with the
+// existing presentation-mode class-based visibility rules on some of these
+// same buttons (inline style always wins, and setting it back to '' simply
+// restores whatever those rules already dictate).
+function refreshFeatureVisibility(){
+  const sb=document.getElementById('shotBlockToggleBtn');
+  if(sb) sb.style.display = feature('shotBlocking') ? '' : 'none';
+  const gv=document.getElementById('goalieVisionToggleBtn');
+  if(gv) gv.style.display = feature('goalieVision') ? '' : 'none';
+  const fc=document.getElementById('viewOptionFrontCourt');
+  if(fc) fc.style.display = feature('frontCourtView') ? '' : 'none';
+  const sc=document.getElementById('shotClockToggleBtn');
+  if(sc) sc.style.display = feature('shotClock') ? '' : 'none';
+  // If the sport switched away from Front Court support while that view
+  // was active, fall back to Full Court rather than leaving the board
+  // stuck in a now-hidden, unreachable view.
+  if(!feature('frontCourtView') && typeof frontCourtActive !== 'undefined' && frontCourtActive && typeof toggleFrontCourt === 'function'){
+    toggleFrontCourt(false);
+    if(typeof updateViewOptionCards === 'function') updateViewOptionCards();
+  }
+}
 
 // ===== Developer Mode: Sport Template Editor (Field Template Editor) =====
 const DEV_MARKING_FIELD_SETS = {
@@ -1322,6 +1438,71 @@ const DEV_MARKING_FIELD_SETS = {
   exclusionZone: ['x','y','w','h']
 };
 const DEV_FIELD_LABELS = { x1:'x1',y1:'y1',x2:'x2',y2:'y2',cx:'cx',cy:'cy',r:'r',rx:'rx',ry:'ry',startAngle:'start\u00B0',endAngle:'end\u00B0',x:'x',y:'y',w:'w',h:'h' };
+// ===== Sport Template Validation Engine (spec Section 8) =====
+// Read-only: inspects a template and returns a list of findings, each
+// tagged 'error' | 'warning' | 'recommendation'. Only 'error' blocks
+// activation on the live board -- warnings and recommendations are shown
+// but don't prevent proceeding, since a developer mid-experiment should
+// still be able to preview an incomplete sport.
+function validateSportTemplate(tpl){
+  const results = [];
+  const err = (message)=>results.push({level:'error', message});
+  const warn = (message)=>results.push({level:'warning', message});
+  const rec = (message)=>results.push({level:'recommendation', message});
+
+  if(!tpl){ err('No template provided.'); return { passed:false, results }; }
+  if(!tpl.id) err('Template has no ID.');
+  if(!tpl.name) err('Template has no name.');
+  if(tpl.schemaVersion !== MIZE.Sports.SCHEMA_VERSION) warn('Schema version ('+tpl.schemaVersion+') does not match the current version ('+MIZE.Sports.SCHEMA_VERSION+') -- may need a migration step before this template is fully compatible.');
+
+  // Field
+  const f = tpl.field;
+  if(!f || !f.width || !f.height) err('Field width and height must both be set.');
+  else {
+    if(!f.playAreaWidth || !f.playAreaHeight) warn('Play area width/height is not set -- markings and player positions may render incorrectly.');
+    if(f.playAreaX<0 || f.playAreaY<0 || (f.playAreaX+f.playAreaWidth)>f.width || (f.playAreaY+f.playAreaHeight)>f.height) warn('Play area extends outside the total field dimensions.');
+    if(!f.surface) rec('No surface type set -- consider choosing one for clarity in Developer Mode.');
+  }
+
+  // Goals
+  if(!tpl.goals || tpl.goals.length===0) warn('No goals/targets defined -- shot-related tools (Shot Block Corridors, Goalie Vision, shooting angle) will have nothing to reference.');
+  else tpl.goals.forEach((g,i)=>{ if(g.x===undefined || g.y===undefined) err('Goal #'+(i+1)+' is missing a position (x/y).'); });
+
+  // Markings -- reuse the same required-field map the editor itself uses
+  (tpl.markings||[]).forEach((m,i)=>{
+    if(!m.type) { err('Marking #'+(i+1)+' has no type.'); return; }
+    const required = DEV_MARKING_FIELD_SETS[m.type];
+    if(!required){ warn('Marking #'+(i+1)+' ("'+(m.label||m.type)+'") has an unrecognized type "'+m.type+'".'); return; }
+    const missing = required.filter(k=> m[k]===undefined || m[k]===null || Number.isNaN(+m[k]));
+    if(missing.length) err('Marking #'+(i+1)+' ("'+(m.label||m.type)+'") is missing: '+missing.join(', ')+'.');
+  });
+
+  // Formation
+  const fm = tpl.formation;
+  if(!fm || !fm.fieldPlayersPerTeam || fm.fieldPlayersPerTeam<1) err('Field players per team must be at least 1.');
+  (fm?.presetSetups||[]).forEach((p,i)=>{
+    if(!p.key || !p.label) err('Preset setup #'+(i+1)+' is missing a key or label.');
+    if(typeof p.blueCount!=='number' || typeof p.whiteCount!=='number') err('Preset setup "'+(p.label||p.key||'#'+(i+1))+'" is missing player counts.');
+  });
+  if(!fm?.presetSetups?.length) rec('No preset setups defined -- Player Setups will show a "no presets yet" message for this sport.');
+
+  // Terminology
+  if(!tpl.terminology) rec('No terminology defined -- every label will fall back to generic defaults (e.g. "Field", "Player").');
+  else {
+    ['field','player','goalkeeper'].forEach(k=>{ if(!tpl.terminology[k]) rec('Terminology key "'+k+'" is not set -- the generic default will be used.'); });
+    if(!Array.isArray(tpl.terminology.roles) || !tpl.terminology.roles.length) rec('No roles defined -- Team Manager will show generic role names for this sport.');
+  }
+
+  // Feature Support / Capability Map consistency
+  const feat = tpl.featureSupport, cap = tpl.capabilities;
+  if(feat && cap){
+    if(feat.shotClock && cap.usesShotClock===false) warn('Shot Clock is enabled in Feature Support, but the Capability Map says this sport does not use a shot clock -- these usually should agree.');
+    if(feat.goalieVision && cap.hasGoalkeeper===false) warn('Goalie Vision is enabled in Feature Support, but the Capability Map says this sport has no goalkeeper.');
+  }
+  if(fm && cap && fm.hasGoalkeeper !== undefined && cap.hasGoalkeeper !== undefined && fm.hasGoalkeeper !== cap.hasGoalkeeper) warn('formation.hasGoalkeeper and capabilities.hasGoalkeeper disagree -- these usually should match.');
+
+  return { passed: !results.some(r=>r.level==='error'), results };
+}
 let devCurrentTemplate = null; // working copy; nothing is persisted until Save
 
 function renderDevMarkingsList(){
@@ -1461,9 +1642,29 @@ function applySportTemplateForBoard(id){
   localStorage.setItem(ACTIVE_SPORT_KEY, MIZE.Sports.activeId);
   const label = document.getElementById('devActiveSportLabel');
   if(label){ const all=allSportTemplates(); label.textContent = 'Active on board: ' + (all[MIZE.Sports.activeId]?.name || 'Water Polo'); }
+  refreshTerminologyUI();
+  refreshFeatureVisibility();
+  refreshPlayingObjectUI();
 }
+function renderValidationResults(validation){
+  const box = document.getElementById('devValidationResults');
+  if(!box) return;
+  if(!validation.results.length){ box.innerHTML = '<div style="color:#1b7a3d;font-weight:700;">Passed -- no issues found.</div>'; return; }
+  const colors = { error:'#b3261e', warning:'#8a6d00', recommendation:'#3a5a6b' };
+  const labels = { error:'Error', warning:'Warning', recommendation:'Recommendation' };
+  box.innerHTML = validation.results.map(r=>
+    '<div style="color:'+colors[r.level]+';margin-bottom:3px;"><b>'+labels[r.level]+':</b> '+r.message+'</div>'
+  ).join('') + '<div style="margin-top:6px;font-weight:700;color:'+(validation.passed?'#1b7a3d':'#b3261e')+';">'+(validation.passed?'Passed (warnings/recommendations do not block activation)':'Failed -- fix errors before activating')+'</div>';
+}
+document.getElementById('devValidateBtn')?.addEventListener('click', ()=>{
+  if(!devCurrentTemplate){ MizeDialog.alert('Select or create a template first.'); return; }
+  renderValidationResults(validateSportTemplate(devCurrentTemplate));
+});
 document.getElementById('devActivateOnBoardBtn')?.addEventListener('click', async ()=>{
   if(!devCurrentTemplate){ MizeDialog.alert('Select or create a template first.'); return; }
+  const validation = validateSportTemplate(devCurrentTemplate);
+  renderValidationResults(validation);
+  if(!validation.passed){ MizeDialog.alert('This template has validation errors and cannot be activated yet. See the Validate results above for details.'); return; }
   if(devCurrentTemplate.id!=='water_polo' && !(await MizeDialog.confirm('Activate "'+devCurrentTemplate.name+'" on the live board? This changes the field geometry and markings shown to anyone using the board right now.'))) return;
   applySportTemplateForBoard(devCurrentTemplate.id);
 });
@@ -1471,18 +1672,51 @@ document.getElementById('devRestoreWaterPoloBtn')?.addEventListener('click', ()=
 applySportTemplateForBoard(MIZE.Sports.activeId);
 let devPreviewTimer=null;
 function devUpdatePreviewSoon(){ clearTimeout(devPreviewTimer); devPreviewTimer=setTimeout(devRenderPreview, 80); }
+const SPORT_STATUS_INFO = {
+  draft: { label:'Draft', color:'#54605f', bg:'#e4e8e8' },
+  test: { label:'Test', color:'#8a6d00', bg:'#fff2cc' },
+  approved: { label:'Approved', color:'#1b6e3a', bg:'#dcf3e3' },
+  published: { label:'Published', color:'#0b4f8a', bg:'#dbeaf7' },
+  deprecated: { label:'Deprecated', color:'#8a1f1f', bg:'#fbe0e0' }
+};
+function devUpdateStatusBadge(){
+  const badge = document.getElementById('devTplStatusBadge'); if(!badge) return;
+  const info = SPORT_STATUS_INFO[devCurrentTemplate?.status] || SPORT_STATUS_INFO.draft;
+  badge.textContent = info.label;
+  badge.style.color = info.color;
+  badge.style.background = info.bg;
+}
+document.getElementById('devTplStatus')?.addEventListener('change', (e)=>{
+  if(!devCurrentTemplate) return;
+  const newStatus = e.target.value;
+  const gated = newStatus==='approved' || newStatus==='published';
+  if(gated){
+    devSyncFormIntoCurrentTemplate();
+    const validation = validateSportTemplate(devCurrentTemplate);
+    renderValidationResults(validation);
+    if(!validation.passed){
+      MizeDialog.alert('This template has validation errors and cannot be marked "'+SPORT_STATUS_INFO[newStatus].label+'" until they\'re fixed. See the Validate results above.');
+      e.target.value = devCurrentTemplate.status||'draft';
+      return;
+    }
+  }
+  devCurrentTemplate.status = newStatus;
+  devUpdateStatusBadge();
+});
 function devPopulateTemplateSelect(){
   const sel = document.getElementById('devTplSelect'); if(!sel) return;
   const prev = sel.value;
   sel.innerHTML = '';
   const all = allSportTemplates();
-  Object.keys(all).forEach(id=>{ const o=document.createElement('option'); o.value=id; o.textContent=all[id].name||id; sel.appendChild(o); });
+  Object.keys(all).forEach(id=>{ const o=document.createElement('option'); const statusLabel=(SPORT_STATUS_INFO[all[id].status]||SPORT_STATUS_INFO.draft).label; o.value=id; o.textContent=(all[id].name||id)+' ('+statusLabel+')'; sel.appendChild(o); });
   if(all[prev]) sel.value = prev;
 }
 function devLoadTemplateIntoForm(tpl){
   devCurrentTemplate = JSON.parse(JSON.stringify(tpl)); // edit a copy; nothing persists until Save
   document.getElementById('devTplId').value = devCurrentTemplate.id||'';
   document.getElementById('devTplName').value = devCurrentTemplate.name||'';
+  document.getElementById('devTplStatus').value = devCurrentTemplate.status||'draft';
+  devUpdateStatusBadge();
   document.getElementById('devFieldSurface').value = devCurrentTemplate.field.surface||'grass';
   document.getElementById('devFieldSurfaceColor').value = devCurrentTemplate.field.surfaceColor||'#2e7d32';
   document.getElementById('devFieldLineColor').value = devCurrentTemplate.field.lineColor||'#ffffff';
@@ -3202,7 +3436,7 @@ document.addEventListener('keydown', e=>{
   if(k==='y'){
     toggleShotBlock(); e.preventDefault(); return;
   }
-  if(k==='n'){
+  if(k==='t'){
     toggleNames(); e.preventDefault(); return;
   }
   if(k==='h'){
@@ -3668,6 +3902,7 @@ function hideObject(el){ if(!el) return; recordHistory('Hide '+displayName(el));
 function giveBallToSelected(el){ if(!el || isBall(el)) return; recordHistory(); moveBallTo(el,ballHand||'right'); setMode('select'); }
 
 const contextMenu=document.getElementById('contextMenu'); let contextTarget=null;
+document.querySelector('.toolListBtn[data-panel="addPlayerPanel"]')?.addEventListener('click', ()=> openAddPlayerPanel());
 // ===== Player Action Bar =====
 // Persistent alternative to the long-press context menu for the most
 // common per-player actions, specifically because holding a player to move
@@ -3694,6 +3929,12 @@ document.getElementById('paTogglePoseBtn')?.addEventListener('click', ()=>{ if(p
 document.getElementById('paClaimBallBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) giveBallToSelected(playerActionBarTarget); });
 document.getElementById('paInspectorBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) openToolPanel('inspectorPanel'); });
 document.getElementById('paChangeTeamBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) changeTeam(playerActionBarTarget); });
+document.getElementById('paAddPlayerBtn')?.addEventListener('click', ()=>{
+  if(!playerActionBarTarget) return;
+  const el = playerActionBarTarget;
+  const isWhite = el.dataset.team==='white' || (el.dataset.team==='goalie' && el.dataset.label && el.dataset.label[0]==='W');
+  openAddPlayerPanel(isWhite ? 'white' : 'blue');
+});
 // Touch-accessible equivalent of the Shift+L/R keyboard shortcut, added to
 // the (touch-reachable) right-click/long-press context menu. Tied to the
 // specific player the menu was opened on, so it's unambiguous: if that
@@ -3730,7 +3971,7 @@ function showContextMenu(x,y,el){ contextTarget=el; const isP=el && !isBall(el);
   contextMenu.appendChild(Object.assign(document.createElement('div'),{className:'sep'}));
   add('Bring Forward',()=>bringForward(contextTarget),!!el);
   add('Send Back',()=>sendBack(contextTarget),!!el);
-  add('Give Ball',()=>giveBallToSelected(contextTarget),isP);
+  if(playingObject('type')!=='none') add('Give '+term('playingObjectName'),()=>giveBallToSelected(contextTarget),isP);
   add('Left Arm',()=>setArmSide(contextTarget,'left'),isP);
   add('Right Arm',()=>setArmSide(contextTarget,'right'),isP);
   add('No Block',()=>clearBlockArm(contextTarget),isP);
@@ -3791,7 +4032,7 @@ function pasteClipboard(){ if(!clipboard?.length) return; recordHistory('Paste (
 
 function renderTeamManager(){ renderHiddenPanel(); const box=document.getElementById('teamManagerList'); if(!box) return; box.innerHTML=''; const groups={blue:'Blue Team',white:'White Team',goalie:'Goalkeepers'};
   Object.entries(groups).forEach(([team,title])=>{ const players=[...document.querySelectorAll('.player')].filter(p=>p.dataset.team===team); if(!players.length) return; const head=document.createElement('div'); head.className='teamRowTitle'; head.textContent=title; box.appendChild(head);
-    players.forEach(el=>{ const row=document.createElement('div'); row.className='teamRow'; const cap=capText(el.dataset.label); row.innerHTML='<div class="teamRowTitle">'+cap+' — '+(el.dataset.name||el.dataset.label)+'</div>'; const name=document.createElement('input'); name.value=el.dataset.name||el.dataset.label; name.placeholder='Name'; const role=document.createElement('select'); ['Driver','Wing','Flat','Point','Center','Center Defender','Goalkeeper'].forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; role.appendChild(o); }); role.value=el.dataset.role||(team==='goalie'?'Goalkeeper':'Driver'); name.onchange=()=>{ recordHistory(); el.dataset.name=name.value||el.dataset.label; updatePlayerVisual(el); updateInspector(); renderTeamManager(); }; role.onchange=()=>{ recordHistory(); el.dataset.role=role.value; updateInspector(); }; row.appendChild(name); row.appendChild(role); box.appendChild(row); }); });
+    players.forEach(el=>{ const row=document.createElement('div'); row.className='teamRow'; const cap=capText(el.dataset.label); row.innerHTML='<div class="teamRowTitle">'+cap+' — '+(el.dataset.name||el.dataset.label)+'</div>'; const name=document.createElement('input'); name.value=el.dataset.name||el.dataset.label; name.placeholder='Name'; const role=document.createElement('select'); const roleOptions=term('roles'); roleOptions.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; role.appendChild(o); }); role.value=el.dataset.role||(team==='goalie'?(roleOptions[roleOptions.length-1]||'Goalkeeper'):(roleOptions[0]||'Driver')); name.onchange=()=>{ recordHistory(); el.dataset.name=name.value||el.dataset.label; updatePlayerVisual(el); updateInspector(); renderTeamManager(); }; role.onchange=()=>{ recordHistory(); el.dataset.role=role.value; updateInspector(); }; row.appendChild(name); row.appendChild(role); box.appendChild(row); }); });
 }
 document.getElementById('refreshTeamBtn').onclick=renderTeamManager;
 function toggleNames(){
@@ -4207,11 +4448,12 @@ renderFieldZones();
 document.getElementById('fieldZonesToggleBtn')?.classList.toggle('active', MIZE.State.fieldZones.active !== 'none');
 renderQuickCommandBar();
 // ===== Add Player (Shift+N) =====
-function openAddPlayerPanel(){
+function openAddPlayerPanel(presetTeam){
   document.getElementById('addPlayerName').value = '';
   document.getElementById('addPlayerCapNumber').value = '1';
   document.getElementById('addPlayerTypeField').checked = true;
-  document.getElementById('addPlayerTeamWhite').checked = true;
+  if(presetTeam==='blue') document.getElementById('addPlayerTeamBlue').checked = true;
+  else document.getElementById('addPlayerTeamWhite').checked = true;
   openToolPanel('addPlayerPanel');
 }
 // Player labels (e.g. 'B1', 'WG') are the stable identifier ball-carrier
