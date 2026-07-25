@@ -622,7 +622,7 @@
       <button id="ballBtn" class="modeBtn" data-tip="Tap this, then tap a player to give them the ball in their right hand.">Ball to Player</button>
       <button id="ballLeftBtn" data-tip="Move the ball to the current carrier's (or selected player's) left hand.">Ball &#8594; Left Hand</button>
       <button id="ballRightBtn" data-tip="Move the ball to the current carrier's (or selected player's) right hand.">Ball &#8594; Right Hand</button>
-      <button id="shotBlockToggleBtn" data-tip="Show a translucent triangular corridor behind each defender's blocking arm, showing how much of the shot they're covering. Shift+Y toggles this on/off. Select a defender, then Shift+L / Shift+R to assign their blocking arm, Shift+Q to turn their block off, Shift+A to turn it back on.">Shot Block Corridors: Off</button>
+      <button id="shotBlockToggleBtn" data-tip="Show a translucent triangular corridor behind each defender's blocking arm, showing how much of the shot they're covering. Shift+Y toggles this on/off. Select a defender, then Shift+L / Shift+R to assign their blocking arm (or right-click/long-press the defender and choose Left Arm / Right Arm / No Block).">Shot Block Corridors: Off</button>
       <button id="goalieVisionToggleBtn" data-tip="Show each goalie's field of view as a green cone, always centered on the ball. A wider, lighter secondary cone shows the peripheral area they should also stay aware of.">Goalie Vision Field: Off</button>
       <button id="shootingAngleToggleBtn" data-tip="Show two dotted lines from the ball to each goal post for the current ball carrier, marking their shooting angle -- and the point the goalie should center on. Only shows for a vertical (non-swimming) player with the ball.">Shooting Angle: Off</button>
     </div>
@@ -1032,7 +1032,7 @@ const MizeDialog = (function(){
 <div class="toolPanel" id="panel_shortcuts">
   <div class="toolPanelHeader"><h3>Shortcuts</h3><button class="closeToolPanelBtn">&#10005;</button></div>
   <div class="toolPanelBody">
-<div class="shortcutHelp"><b>Keyboard:</b><br>⌘C copy · ⌘V paste · ⌘D duplicate · ⌘Z undo · ⌘⇧Z redo · Delete remove · Space play/stop · H highlight · A pass arrow · N note · G ghost · Shift+L/R ball hand<br><br><b>On iPhone/iPad:</b> use the Copy, Paste, Delete Selected, and Ball → Left/Right Hand buttons above. Turn on Multi-Select to tap several items, or drag an empty area to box-select. Hold a player or the ball to open its menu (duplicate, rotate, give ball, lock, hide...).</div>
+<div class="shortcutHelp"><b>Keyboard:</b><br>⌘C copy · ⌘V paste · ⌘D duplicate · ⌘Z undo · ⌘⇧Z redo · Delete remove · Space play/stop · H highlight · A pass arrow · N note · G ghost · Shift+L/R ball hand<br><br><b>On iPhone/iPad:</b> use the Copy, Paste, Delete Selected, and Ball → Left/Right Hand buttons above. Turn on Multi-Select to tap several items, or drag an empty area to box-select. Hold a player or the ball to open its menu (duplicate, rotate, give ball, left/right arm, no block, lock, hide...).</div>
   </div>
 </div>
 <div class="toolPanel" id="workflowHelpPanel">
@@ -3648,6 +3648,34 @@ function hideObject(el){ if(!el) return; recordHistory('Hide '+displayName(el));
 function giveBallToSelected(el){ if(!el || isBall(el)) return; recordHistory(); moveBallTo(el,ballHand||'right'); setMode('select'); }
 
 const contextMenu=document.getElementById('contextMenu'); let contextTarget=null;
+// Touch-accessible equivalent of the Shift+L/R keyboard shortcut, added to
+// the (touch-reachable) right-click/long-press context menu. Tied to the
+// specific player the menu was opened on, so it's unambiguous: if that
+// player is the current ball carrier, this moves the ball to that hand; for
+// any other player, it sets their shot-blocking arm instead. Deliberately
+// separate from the keydown handler's own L/R logic (which additionally
+// falls back to a global ball carrier and special-cases goalie vision) to
+// avoid any risk of changing that already-working keyboard behavior.
+function setArmSide(el, side){
+  if(!el || isBall(el)) return;
+  if(el === ballCarrier){
+    recordHistory();
+    moveBallTo(el, side);
+  } else {
+    recordHistory('Set Block Arm: '+displayName(el));
+    el.dataset.blockArm = side;
+    el.dataset.blockArmSaved = side;
+    renderShotBlockCorridors();
+    renderGoalieVision();
+  }
+}
+function clearBlockArm(el){
+  if(!el || isBall(el)) return;
+  recordHistory('Deactivate Block: '+displayName(el));
+  el.dataset.blockArm = 'none';
+  renderShotBlockCorridors();
+  renderGoalieVision();
+}
 function showContextMenu(x,y,el){ contextTarget=el; const isP=el && !isBall(el); contextMenu.innerHTML='';
   const add=(label,fn,enabled=true)=>{ const b=document.createElement('button'); b.textContent=label; b.disabled=!enabled; b.onclick=(ev)=>{ ev.stopPropagation(); const target=contextTarget; contextMenu.style.display='none'; fn(target); contextTarget=null; }; contextMenu.appendChild(b); };
   add('Duplicate',()=>duplicateObject(contextTarget),isP);
@@ -3657,6 +3685,9 @@ function showContextMenu(x,y,el){ contextTarget=el; const isP=el && !isBall(el);
   add('Bring Forward',()=>bringForward(contextTarget),!!el);
   add('Send Back',()=>sendBack(contextTarget),!!el);
   add('Give Ball',()=>giveBallToSelected(contextTarget),isP);
+  add('Left Arm',()=>setArmSide(contextTarget,'left'),isP);
+  add('Right Arm',()=>setArmSide(contextTarget,'right'),isP);
+  add('No Block',()=>clearBlockArm(contextTarget),isP);
   add('Change Team',()=>changeTeam(contextTarget),isP);
   add((el?.dataset.locked==='true'?'Unlock':'Lock'),()=>lockObject(contextTarget),!!el);
   add('Hide',()=>hideObject(contextTarget),!!el);
