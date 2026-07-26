@@ -97,6 +97,8 @@
   #controlsPanel .sideHint { margin-top:6px; font-size:12px; line-height:1.35; color:#5d6868; }
   @media (max-width: 900px) { #controlsPanel { width:100%; } #controlsPanel .sideHint { display:none; } }
   #board { position:relative; width:100%; aspect-ratio:29/24; background:#ffffff; box-shadow:0 8px 24px rgba(0,0,0,.18); overflow:hidden; touch-action:none; user-select:none; margin:0 auto; }
+  #stageWrap.frontcourt { overflow:hidden; }
+  #board.frontcourt { transform:scale(var(--fc-width-scale, 1)); transform-origin:center; }
   #board.frontcourt { aspect-ratio:16/11; }
   .viewOptionsGrid { display:flex; gap:14px; justify-content:center; }
   .viewOptionCard { display:flex; flex-direction:column; align-items:center; gap:8px; background:#f5f7f7; border:2px solid #b7c4c4; border-radius:12px; padding:14px 18px; cursor:pointer; font-size:13px; font-weight:700; color:#2c3e3e; }
@@ -5168,6 +5170,8 @@ function toggleFrontCourt(on){
   const inPresentationWidened=document.body.classList.contains('presentation')||document.body.classList.contains('presentation-real');
   frontCourtActive=on;
   board.classList.toggle('frontcourt', on);
+  document.getElementById('stageWrap')?.classList.toggle('frontcourt', on);
+  board.style.setProperty('--fc-width-scale', on ? (M.H/M.fieldH) : 1);
   if(on){
     // Front Court's crop/rotation math is tuned specifically for the normal
     // 29x24 field -- if presentation's widened venue was showing, switch
@@ -6113,7 +6117,12 @@ function fitBoardToScreen(){
     const margin=inPresentation ? (isReal?12:20) : 20;
     const availW=Math.max(280, viewportWidth()-margin);
     const availH=Math.max(220, viewportHeight()-margin);
-    const ratioW=24, ratioH=FC_TOTAL;
+    // ratioW uses the playable pool width (M.fieldH) rather than the full
+    // board height (M.H) -- M.H includes 2m of purely decorative margin
+    // band above and below the pool on each side, which was wasting about
+    // a sixth of the available width on non-playable content in this
+    // already-cropped, action-focused view.
+    const ratioW=M.fieldH, ratioH=FC_TOTAL;
     let boardW=availW, boardH=boardW*ratioH/ratioW;
     if(boardH>availH){ boardH=availH; boardW=boardH*ratioW/ratioH; }
     board.style.width=boardW+'px';
