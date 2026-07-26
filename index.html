@@ -2001,6 +2001,18 @@ let FC_CROPX1 = M.fieldX + FC_DEPTH;      // board-space x boundary of the visib
 const FC_MARGIN = 2;                      // extra blank space beyond the canvas edge, so the goal + ejection zone aren't flush against the screen
 const FC_LOW = -FC_MARGIN;                // lowest board-space x shown (-2)
 let FC_TOTAL = FC_CROPX1 - FC_LOW;        // total depth mapped to screen height (16.5)
+// The Front Court crop window (FC_LOW to FC_CROPX1) only ever showed one
+// goal and some distance beyond it -- these two describe the FULL
+// scrollable range (goal-to-goal, both directions), used to let the board
+// be genuinely taller than the viewport so it can be scrolled all the way
+// to the other goal. FC_FULL_MIN_Y is negative (the far/white-goal end
+// maps to a negative position relative to the current default crop, not a
+// larger positive one -- verified by hand before implementing this).
+// FC_FULL_HEIGHT is a fixed span (goal-line-margin to goal-line-margin)
+// independent of zoom level; FC_FULL_MIN_Y depends on the current crop
+// (FC_CROPX1) and is recomputed alongside it in setFrontCourtDepth.
+let FC_FULL_MIN_Y = FC_CROPX1 - M.W;
+let FC_FULL_HEIGHT = M.W - FC_LOW;
 function rect() { return board.getBoundingClientRect(); }
 let presentationFieldWidened=false;
 const PRESENT_VIEWBOX_W=35, PRESENT_VIEWBOX_H=28, PRESENT_SHIFT_X=3, PRESENT_SHIFT_Y=2;
@@ -2013,18 +2025,18 @@ function toPctY(y) { if(presentationFieldWidened) return ((y+PRESENT_SHIFT_Y)/PR
 function frontCourtScreenPercent(x, y){
   return {
     left: ((y-M.fieldY)/M.fieldH*100)+'%',
-    top: clamp((FC_CROPX1-x)/FC_TOTAL*100,-25,125)+'%'
+    top: clamp((FC_CROPX1-x-FC_FULL_MIN_Y)/FC_FULL_HEIGHT*100,-25,125)+'%'
   };
 }
 function pxToM(e) {
   const r=rect();
   const fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
-  if(frontCourtActive) return { x: FC_CROPX1 - fy*FC_TOTAL, y: fx*M.fieldH + M.fieldY };
+  if(frontCourtActive) return { x: FC_CROPX1 - FC_FULL_MIN_Y - fy*FC_FULL_HEIGHT, y: fx*M.fieldH + M.fieldY };
   if(presentationFieldWidened) return { x: fx*PRESENT_VIEWBOX_W - PRESENT_SHIFT_X, y: fy*PRESENT_VIEWBOX_H - PRESENT_SHIFT_Y };
   return { x: fx*M.W, y: fy*M.H };
 }
 function meterPxX(m) { return rect().width / (frontCourtActive ? M.fieldH : (presentationFieldWidened ? PRESENT_VIEWBOX_W : M.W)) * m; }
-function meterPxY(m) { return rect().height / (frontCourtActive ? FC_TOTAL : (presentationFieldWidened ? PRESENT_VIEWBOX_H : M.H)) * m; }
+function meterPxY(m) { return rect().height / (frontCourtActive ? FC_FULL_HEIGHT : (presentationFieldWidened ? PRESENT_VIEWBOX_H : M.H)) * m; }
 function clamp(v,a,b) { return Math.max(a,Math.min(b,v)); }
 function boardToFieldX(x) { return clamp(x - M.fieldX, 0, M.fieldW); }
 function boardToFieldY(y) { return clamp(y - M.fieldY, 0, M.fieldH); }
@@ -2174,8 +2186,8 @@ function sizePlayer(el) {
 }
 function place(el) {
   const x=+el.dataset.x, y=+el.dataset.y;
-  if(frontCourtActive) { const scr=frontCourtScreenPercent(x,y); el.style.left=scr.left; el.style.top=scr.top; }
-  else { el.style.left=toPctX(x); el.style.top=toPctY(y); }
+  const scr=MIZE.Field.toScreenPercent(boardToFieldX(x), boardToFieldY(y));
+  el.style.left=scr.left; el.style.top=scr.top;
   const baseRot=+el.dataset.rot||0;
   const displayRot = frontCourtActive ? (baseRot-90) : baseRot;
   el.style.setProperty('--rot', displayRot+'deg'); sizePlayer(el);
@@ -2328,8 +2340,8 @@ function placeBall() {
   const d=Math.max(12, Math.min(meterPxX(.38), meterPxY(.38)));
   ball.style.width=d+'px'; ball.style.height=d+'px';
   const x=+ball.dataset.x, y=+ball.dataset.y;
-  if(frontCourtActive) { const scr=frontCourtScreenPercent(x,y); ball.style.left=scr.left; ball.style.top=scr.top; }
-  else { ball.style.left=toPctX(x); ball.style.top=toPctY(y); }
+  const scr=MIZE.Field.toScreenPercent(boardToFieldX(x), boardToFieldY(y));
+  ball.style.left=scr.left; ball.style.top=scr.top;
   updateBallOwnerStatus();
   renderShotBlockCorridors();
   renderGoalieVision();
@@ -2947,7 +2959,7 @@ renderSavedPresentations();
 function clearGhosts() { ghostLayer.innerHTML=''; }
 function addGhostsFromState(st) {
   clearGhosts(); if(!ghostMode || !st?.players) return;
-  st.players.forEach(p=>{ const g=document.createElement('div'); g.className='ghost'; g.dataset.team=p.team; g.dataset.pose=p.pose; if(frontCourtActive){ const scr=frontCourtScreenPercent(p.x,p.y); g.style.left=scr.left; g.style.top=scr.top; } else { g.style.left=toPctX(p.x); g.style.top=toPctY(p.y); } g.style.setProperty('--rot',(p.rot||0)+'deg');
+  st.players.forEach(p=>{ const g=document.createElement('div'); g.className='ghost'; g.dataset.team=p.team; g.dataset.pose=p.pose; const scr=MIZE.Field.toScreenPercent(boardToFieldX(p.x), boardToFieldY(p.y)); g.style.left=scr.left; g.style.top=scr.top; g.style.setProperty('--rot',(p.rot||0)+'deg');
     const body=document.createElement('div'); body.className='playerBody'; const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label); body.appendChild(img); g.appendChild(body); ghostLayer.appendChild(g);
     if(p.pose==='h') { img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; } else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label)])+'px'; }
   });
@@ -5188,13 +5200,13 @@ document.getElementById('timelineQuickAccessSelect')?.addEventListener('change',
 // ===== Front Court (half-court, goal-at-bottom) view =====
 function setFieldRotation(on){
   if(on){
-    fieldSvg.setAttribute('viewBox',M.fieldY+' 0 '+M.fieldH+' '+FC_TOTAL);
+    fieldSvg.setAttribute('viewBox',M.fieldY+' '+FC_FULL_MIN_Y+' '+M.fieldH+' '+FC_FULL_HEIGHT);
     fieldGroup.setAttribute('transform','rotate(-90, '+(FC_CROPX1/2)+', '+(FC_CROPX1/2)+')');
-    fieldZonesSvg.setAttribute('viewBox',M.fieldY+' 0 '+M.fieldH+' '+FC_TOTAL);
+    fieldZonesSvg.setAttribute('viewBox',M.fieldY+' '+FC_FULL_MIN_Y+' '+M.fieldH+' '+FC_FULL_HEIGHT);
     fieldZonesGroup.setAttribute('transform','rotate(-90, '+(FC_CROPX1/2)+', '+(FC_CROPX1/2)+')');
-    arrows.setAttribute('viewBox',M.fieldY+' 0 '+M.fieldH+' '+FC_TOTAL);
+    arrows.setAttribute('viewBox',M.fieldY+' '+FC_FULL_MIN_Y+' '+M.fieldH+' '+FC_FULL_HEIGHT);
     arrowsGroup.setAttribute('transform','rotate(-90, '+(FC_CROPX1/2)+', '+(FC_CROPX1/2)+')');
-    shotBlockSvg.setAttribute('viewBox',M.fieldY+' 0 '+M.fieldH+' '+FC_TOTAL);
+    shotBlockSvg.setAttribute('viewBox',M.fieldY+' '+FC_FULL_MIN_Y+' '+M.fieldH+' '+FC_FULL_HEIGHT);
     shotBlockGroup.setAttribute('transform','rotate(-90, '+(FC_CROPX1/2)+', '+(FC_CROPX1/2)+')');
   } else {
     // Restore whichever "off" viewBox is actually correct -- the normal
@@ -5253,6 +5265,8 @@ function setFrontCourtDepth(depth){
   FC_DEPTH=depth;
   FC_CROPX1=M.fieldX+FC_DEPTH;
   FC_TOTAL=FC_CROPX1-FC_LOW;
+  FC_FULL_MIN_Y=FC_CROPX1-M.W;
+  FC_FULL_HEIGHT=M.W-FC_LOW;
   if(frontCourtActive){
     setFieldRotation(true);
     renderAllPositions();
@@ -6105,9 +6119,17 @@ function renderShootingAngle(){
   if(!shootingAngleActive || !ballCarrier || isBall(ballCarrier)) return;
   if(ballCarrier.dataset.team==='goalie') return;
   if(ballCarrier.dataset.pose==='h') return; // horizontal players are swimming, no shot to line up
-  const side=playerSide(ballCarrier);
-  const goal=goalPointFor(side);
   const bx=+ball.dataset.x, by=+ball.dataset.y;
+  // Target whichever goal is in the same half of the field as the ball
+  // currently sits, rather than assuming a fixed team-based attacking
+  // direction (the previous rule) -- more robust for diagrams of counter-
+  // attacks, turnovers, or any scenario where the "normal" attacking
+  // direction doesn't match what's actually being diagrammed. Reuses the
+  // existing goalPointFor() helper (goalPointFor('white') returns blue's
+  // own goal, and vice versa, since it's phrased as "the goal this side
+  // attacks") rather than recomputing goal geometry separately.
+  const fieldMidX = M.fieldX + M.fieldW/2;
+  const goal = bx < fieldMidX ? goalPointFor('white') : goalPointFor('blue');
   const ns='http://www.w3.org/2000/svg';
   [goal.y-1.5, goal.y+1.5].forEach(postY=>{
     const line=document.createElementNS(ns,'line');
@@ -6156,12 +6178,14 @@ function viewportHeight(){ return window.visualViewport ? window.visualViewport.
 function fitBoardToScreen(){
   const board=document.getElementById('board');
   if(!board) return;
-  // Front Court has its own 24:FC_TOTAL (16:11) aspect ratio. Compute this
-  // explicitly via JS rather than relying on CSS aspect-ratio -- that CSS
-  // approach turned out to be fragile, since a same-specificity rule from
-  // presentation mode (aspect-ratio:auto, needed for its own sizing) could
-  // silently override it whenever both classes were active together,
-  // collapsing the board to zero height.
+  // Front Court's board is sized explicitly via JS rather than relying on
+  // CSS aspect-ratio -- that CSS approach turned out to be fragile, since a
+  // same-specificity rule from presentation mode (aspect-ratio:auto,
+  // needed for its own sizing) could silently override it whenever both
+  // classes were active together, collapsing the board to zero height.
+  // The board's height now represents the FULL scrollable field length
+  // (FC_FULL_HEIGHT), not just the current zoom crop -- see the
+  // stageWrap scrolling setup below.
   if(frontCourtActive){
     const inPresentation=document.body.classList.contains('presentation')||document.body.classList.contains('presentation-real');
     const isReal=document.body.classList.contains('presentation-real');
@@ -6173,14 +6197,24 @@ function fitBoardToScreen(){
     // band above and below the pool on each side, which was wasting about
     // a sixth of the available width on non-playable content in this
     // already-cropped, action-focused view.
-    const ratioW=M.fieldH, ratioH=FC_TOTAL;
-    let boardW=availW, boardH=boardW*ratioH/ratioW;
-    if(boardH>availH){ boardH=availH; boardW=boardH*ratioW/ratioH; }
+    const ratioW=M.fieldH;
+    const boardW=availW;
+    const pxPerUnit=boardW/ratioW;
+    // Board height is now the FULL scrollable field length (goal to goal,
+    // both directions), not just the current zoom crop -- deliberately
+    // taller than the viewport, so the field can be scrolled all the way
+    // to the other goal instead of being permanently cropped to one end.
+    const boardH=pxPerUnit*FC_FULL_HEIGHT;
     board.style.aspectRatio='auto';
     board.style.width=boardW+'px';
     board.style.height=boardH+'px';
+    const wrap=document.getElementById('stageWrap');
+    if(wrap){ wrap.style.height=availH+'px'; wrap.style.overflowY='auto'; }
     document.querySelectorAll('.player').forEach(place);
     placeBall();
+    // Scroll to exactly where the old, non-scrollable crop used to show by
+    // default -- nothing changes unless the coach actually scrolls further.
+    if(wrap) wrap.scrollTop = pxPerUnit * (-FC_FULL_MIN_Y);
     return;
   }
   if(document.body.classList.contains('presentation') || document.body.classList.contains('presentation-real')){
@@ -6218,6 +6252,7 @@ function fitBoardToScreen(){
     if(boardW>availW){ boardW=availW; boardH=boardW*M.H/M.W; }
   }
   board.style.aspectRatio='';
+  { const wrap=document.getElementById('stageWrap'); if(wrap){ wrap.style.height=''; wrap.style.overflowY=''; } }
   board.style.width=boardW+'px';
   board.style.height=boardH+'px';
   document.querySelectorAll('.player').forEach(place);
