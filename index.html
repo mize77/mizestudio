@@ -97,7 +97,6 @@
   #controlsPanel .sideHint { margin-top:6px; font-size:12px; line-height:1.35; color:#5d6868; }
   @media (max-width: 900px) { #controlsPanel { width:100%; } #controlsPanel .sideHint { display:none; } }
   #board { position:relative; width:100%; aspect-ratio:29/24; background:#ffffff; box-shadow:0 8px 24px rgba(0,0,0,.18); overflow:hidden; touch-action:none; user-select:none; margin:0 auto; }
-  #board.frontcourt { aspect-ratio:16/11; }
   .viewOptionsGrid { display:flex; gap:14px; justify-content:center; }
   .viewOptionCard { display:flex; flex-direction:column; align-items:center; gap:8px; background:#f5f7f7; border:2px solid #b7c4c4; border-radius:12px; padding:14px 18px; cursor:pointer; font-size:13px; font-weight:700; color:#2c3e3e; }
   .viewOptionCard:hover { border-color:#124d4d; }
@@ -754,16 +753,16 @@
   <button id="paClaimBallBtn" class="playerActionBtn" title="Give the ball to this player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0M4.5 16.5c3-3 10-3 15 0"/></svg></button>
   <button id="paInspectorBtn" class="playerActionBtn" title="Open Inspector for this player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="18" r="2"/></svg></button>
   <button id="paChangeTeamBtn" class="playerActionBtn" title="Change this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
-  <button id="paPassLeftBtn" class="playerActionBtn touchHiddenActionBtn" title="Pass left (only works if this player has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
-  <button id="paPassRightBtn" class="playerActionBtn touchHiddenActionBtn" title="Pass right (only works if this player has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
+  <button id="paPassLeftBtn" class="playerActionBtn touchHiddenActionBtn" title="Pass left (works if this player\u2019s team has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
+  <button id="paPassRightBtn" class="playerActionBtn touchHiddenActionBtn" title="Pass right (works if this player\u2019s team has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
   <button id="paDriveLeftBtn" class="playerActionBtn touchHiddenActionBtn" title="Drive to the left post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L18 6M18 6H10M18 6V14"/></svg></button>
   <button id="paDriveRightBtn" class="playerActionBtn touchHiddenActionBtn" title="Drive to the right post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20L6 6M6 6H14M6 6V14"/></svg></button>
   <button id="paAddPlayerBtn" class="playerActionBtn" title="Add a new player to this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg></button>
 </div>
 <div id="directionPad">
-  <button id="dpadPassLeftBtn" class="dpadBtn dpadCornerBtn" title="Pass left (only works if the marked player has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
+  <button id="dpadPassLeftBtn" class="dpadBtn dpadCornerBtn" title="Pass left (works if the marked player\u2019s team has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
   <button id="dpadUpBtn" class="dpadBtn" title="Move up">&#9650;</button>
-  <button id="dpadPassRightBtn" class="dpadBtn dpadCornerBtn" title="Pass right (only works if the marked player has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
+  <button id="dpadPassRightBtn" class="dpadBtn dpadCornerBtn" title="Pass right (works if the marked player\u2019s team has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
   <button id="dpadLeftBtn" class="dpadBtn" title="Move left">&#9664;</button>
   <button id="dpadNextBtn" class="dpadBtn" title="Jump to next teammate (by number)"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M5 5l9 7-9 7z"/><rect x="16" y="5" width="3" height="14"/></svg></button>
   <button id="dpadRightBtn" class="dpadBtn" title="Move right">&#9654;</button>
@@ -2007,6 +2006,16 @@ let presentationFieldWidened=false;
 const PRESENT_VIEWBOX_W=35, PRESENT_VIEWBOX_H=28, PRESENT_SHIFT_X=3, PRESENT_SHIFT_Y=2;
 function toPctX(x) { if(presentationFieldWidened) return ((x+PRESENT_SHIFT_X)/PRESENT_VIEWBOX_W*100)+'%'; return (x/M.W*100)+'%'; }
 function toPctY(y) { if(presentationFieldWidened) return ((y+PRESENT_SHIFT_Y)/PRESENT_VIEWBOX_H*100)+'%'; return (y/M.H*100)+'%'; }
+// Single source of truth for "data coordinate -> screen percentage" under
+// Front Court view -- previously hand-written separately for players, the
+// ball, and ghosts (three copies of the same formula). pxToM below is its
+// inverse (screen click -> data coordinate), already a single function.
+function frontCourtScreenPercent(x, y){
+  return {
+    left: ((y-M.fieldY)/M.fieldH*100)+'%',
+    top: clamp((FC_CROPX1-x)/FC_TOTAL*100,-25,125)+'%'
+  };
+}
 function pxToM(e) {
   const r=rect();
   const fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
@@ -2021,6 +2030,47 @@ function boardToFieldX(x) { return clamp(x - M.fieldX, 0, M.fieldW); }
 function boardToFieldY(y) { return clamp(y - M.fieldY, 0, M.fieldH); }
 function fieldToBoardX(x) { return clamp(x,0,M.fieldW) + M.fieldX; }
 function fieldToBoardY(y) { return clamp(y,0,M.fieldH) + M.fieldY; }
+// ===== MIZE.Field: the recommended API for new field-of-play-space work =====
+// Per the coordinate system audit: nearly everything in this app currently
+// treats the full board (field + deck) as the primary reference frame,
+// with the playing field as a derived offset within it -- backwards from
+// how a coach actually thinks ("2m from the goal line," "on the
+// sideline"). boardToFieldX/Y and fieldToBoardX/Y above already solve this
+// correctly, but are only ever used by the Inspector panel. This
+// namespace (reserved but empty since MIZE was first set up) is the
+// recommended home for ALL new position logic going forward, so field-of-
+// play coordinates are the natural way to think about a position, not a
+// special case. Existing rendering math and stored data are deliberately
+// left untouched -- this is purely an additive layer new code can build
+// against.
+MIZE.Field.width = function(){ return M.fieldW; };
+MIZE.Field.height = function(){ return M.fieldH; };
+MIZE.Field.centerX = function(){ return M.fieldW/2; };
+MIZE.Field.centerY = function(){ return M.fieldH/2; };
+// Pure field-space <-> board-space conversion. Thin wrappers, not
+// reimplementations -- there is still exactly one place (the four
+// board/field functions above) where this conversion actually happens.
+MIZE.Field.toBoardX = function(x){ return fieldToBoardX(x); };
+MIZE.Field.toBoardY = function(y){ return fieldToBoardY(y); };
+MIZE.Field.fromBoardX = function(x){ return boardToFieldX(x); };
+MIZE.Field.fromBoardY = function(y){ return boardToFieldY(y); };
+// Field-space -> on-screen percentage, in one step, for whichever view is
+// currently active -- new code should never need to know whether Front
+// Court is on, or manually convert to board-space first.
+MIZE.Field.toScreenPercent = function(x, y){
+  const bx=MIZE.Field.toBoardX(x), by=MIZE.Field.toBoardY(y);
+  if(frontCourtActive) return frontCourtScreenPercent(bx, by);
+  return { left: toPctX(bx), top: toPctY(by) };
+};
+// Clamps a field-space coordinate to stay within the actual playing
+// surface (0,0 to width,height) -- for any future feature that
+// shouldn't allow something to be positioned on the deck. Not applied to
+// existing movement/dragging yet, since that's stored/clamped in
+// board-space today and changing it is exactly the kind of migration the
+// audit flagged as a separate, later decision.
+MIZE.Field.clamp = function(x, y){
+  return { x: clamp(x, 0, M.fieldW), y: clamp(y, 0, M.fieldH) };
+};
 
 function isCmd(e) { return e.metaKey || e.ctrlKey || multiSelectMode; }
 // Checks the viewport's NARROW dimension rather than just width, so an
@@ -2124,7 +2174,7 @@ function sizePlayer(el) {
 }
 function place(el) {
   const x=+el.dataset.x, y=+el.dataset.y;
-  if(frontCourtActive) { el.style.left=((y-M.fieldY)/M.fieldH*100)+'%'; el.style.top=clamp((FC_CROPX1-x)/FC_TOTAL*100,-25,125)+'%'; }
+  if(frontCourtActive) { const scr=frontCourtScreenPercent(x,y); el.style.left=scr.left; el.style.top=scr.top; }
   else { el.style.left=toPctX(x); el.style.top=toPctY(y); }
   const baseRot=+el.dataset.rot||0;
   const displayRot = frontCourtActive ? (baseRot-90) : baseRot;
@@ -2278,7 +2328,7 @@ function placeBall() {
   const d=Math.max(12, Math.min(meterPxX(.38), meterPxY(.38)));
   ball.style.width=d+'px'; ball.style.height=d+'px';
   const x=+ball.dataset.x, y=+ball.dataset.y;
-  if(frontCourtActive) { ball.style.left=((y-M.fieldY)/M.fieldH*100)+'%'; ball.style.top=clamp((FC_CROPX1-x)/FC_TOTAL*100,-25,125)+'%'; }
+  if(frontCourtActive) { const scr=frontCourtScreenPercent(x,y); ball.style.left=scr.left; ball.style.top=scr.top; }
   else { ball.style.left=toPctX(x); ball.style.top=toPctY(y); }
   updateBallOwnerStatus();
   renderShotBlockCorridors();
@@ -2897,7 +2947,7 @@ renderSavedPresentations();
 function clearGhosts() { ghostLayer.innerHTML=''; }
 function addGhostsFromState(st) {
   clearGhosts(); if(!ghostMode || !st?.players) return;
-  st.players.forEach(p=>{ const g=document.createElement('div'); g.className='ghost'; g.dataset.team=p.team; g.dataset.pose=p.pose; if(frontCourtActive){ g.style.left=((p.y-M.fieldY)/M.fieldH*100)+'%'; g.style.top=clamp((FC_CROPX1-p.x)/FC_TOTAL*100,-25,125)+'%'; } else { g.style.left=toPctX(p.x); g.style.top=toPctY(p.y); } g.style.setProperty('--rot',(p.rot||0)+'deg');
+  st.players.forEach(p=>{ const g=document.createElement('div'); g.className='ghost'; g.dataset.team=p.team; g.dataset.pose=p.pose; if(frontCourtActive){ const scr=frontCourtScreenPercent(p.x,p.y); g.style.left=scr.left; g.style.top=scr.top; } else { g.style.left=toPctX(p.x); g.style.top=toPctY(p.y); } g.style.setProperty('--rot',(p.rot||0)+'deg');
     const body=document.createElement('div'); body.className='playerBody'; const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label); body.appendChild(img); g.appendChild(body); ghostLayer.appendChild(g);
     if(p.pose==='h') { img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; } else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label)])+'px'; }
   });
@@ -4104,12 +4154,18 @@ function findLateralTeammate(carrier, side){
   candidates.sort((a,b)=>Math.abs(+a.dataset.y-carrierY)-Math.abs(+b.dataset.y-carrierY));
   return candidates[0];
 }
-function passToLateral(side, carrierOverride){
-  const carrier = carrierOverride || ballCarrier;
-  if(!carrier || isBall(carrier) || carrier!==ballCarrier) return;
-  const target = findLateralTeammate(carrier, side);
+function passToLateral(side, markedPlayer){
+  if(!ballCarrier || isBall(ballCarrier)) return;
+  // The marked player only gates WHETHER a pass is allowed (same team as
+  // the carrier) -- the pass itself always originates from the actual
+  // carrier's position, never from the marked player's position. This is
+  // why marking the goalie still correctly passes the ball among the
+  // field players near the actual carrier, rather than doing nothing or
+  // passing near the goalie.
+  if(markedPlayer && teamColorOf(markedPlayer)!==teamColorOf(ballCarrier)) return;
+  const target = findLateralTeammate(ballCarrier, side);
   if(!target) return;
-  recordHistory('Pass '+side+': '+displayName(carrier)+' -> '+displayName(target));
+  recordHistory('Pass '+side+': '+displayName(ballCarrier)+' -> '+displayName(target));
   moveBallTo(target, ballHand||'right');
 }
 // Computes a point 2m from the goal LINE, into the playing field --
@@ -4137,14 +4193,13 @@ function driveToPost(side, targetOverride){
   if(targetX===null) return;
   const defenderTeam = teamKey==='blue' ? 'white' : 'blue';
   const wantSmallerY = (side==='left') === goalieLeftIsSmallerY(defenderTeam);
-  // The goal object's own y value doesn't reliably represent the pool's
-  // true vertical center (confirmed: water polo's goals have y:10.1, but
-  // every other reference point in the app -- player formations, goalie
-  // positions, ball reset -- consistently uses y:12). Anchor to the play
-  // area's actual geometric center instead, which is robust for any sport
-  // template and correctly resolves to 12 for water polo.
-  const fieldCenterY = (tpl.field.playAreaY||0) + (tpl.field.playAreaHeight||0)/2;
-  const targetY = wantSmallerY ? fieldCenterY - 1.5 : fieldCenterY + 1.5;
+  // Reuses the same shared goalYRangeFor() helper Shot Block Corridors
+  // already uses, instead of duplicating the field-center calculation here
+  // -- this was previously its own separate (if algebraically equivalent)
+  // calculation, which is exactly the kind of duplication that let a
+  // similar bug slip through uncaught elsewhere in the app.
+  const {min:goalYMin, max:goalYMax} = goalYRangeFor();
+  const targetY = wantSmallerY ? goalYMin : goalYMax;
   recordHistory('Drive to '+side+' post: '+displayName(el));
   el.dataset.x = targetX;
   el.dataset.y = targetY;
@@ -4213,8 +4268,8 @@ function showContextMenu(x,y,el){ contextTarget=el; const isP=el && !isBall(el);
   add('Send Back',()=>sendBack(contextTarget),!!el);
   if(playingObject('type')!=='none') add('Give '+term('playingObjectName'),()=>giveBallToSelected(contextTarget),isP);
   if(!isTouchDevice() && playingObject('type')!=='none'){
-    add('Pass Left',()=>passToLateral('left',contextTarget),isP && contextTarget===ballCarrier, isP && contextTarget!==ballCarrier ? 'Only available when right-clicking the player who currently has the ball' : null);
-    add('Pass Right',()=>passToLateral('right',contextTarget),isP && contextTarget===ballCarrier, isP && contextTarget!==ballCarrier ? 'Only available when right-clicking the player who currently has the ball' : null);
+    add('Pass Left',()=>passToLateral('left',contextTarget),isP && ballCarrier && teamColorOf(contextTarget)===teamColorOf(ballCarrier), isP && !(ballCarrier && teamColorOf(contextTarget)===teamColorOf(ballCarrier)) ? 'Only available when the right-clicked player\u2019s team currently has the ball' : null);
+    add('Pass Right',()=>passToLateral('right',contextTarget),isP && ballCarrier && teamColorOf(contextTarget)===teamColorOf(ballCarrier), isP && !(ballCarrier && teamColorOf(contextTarget)===teamColorOf(ballCarrier)) ? 'Only available when the right-clicked player\u2019s team currently has the ball' : null);
   }
   add('Left Arm',()=>setArmSide(contextTarget,'left'),isP);
   add('Right Arm',()=>setArmSide(contextTarget,'right'),isP);
@@ -6121,6 +6176,7 @@ function fitBoardToScreen(){
     const ratioW=M.fieldH, ratioH=FC_TOTAL;
     let boardW=availW, boardH=boardW*ratioH/ratioW;
     if(boardH>availH){ boardH=availH; boardW=boardH*ratioW/ratioH; }
+    board.style.aspectRatio='auto';
     board.style.width=boardW+'px';
     board.style.height=boardH+'px';
     document.querySelectorAll('.player').forEach(place);
@@ -6161,6 +6217,7 @@ function fitBoardToScreen(){
     boardW=boardH*M.W/M.H;
     if(boardW>availW){ boardW=availW; boardH=boardW*M.H/M.W; }
   }
+  board.style.aspectRatio='';
   board.style.width=boardW+'px';
   board.style.height=boardH+'px';
   document.querySelectorAll('.player').forEach(place);
