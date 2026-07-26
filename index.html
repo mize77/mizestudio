@@ -326,7 +326,7 @@
   .playerActionBtn:active { background:#0d3838; }
   .playerActionBtn svg { width:20px; height:20px; pointer-events:none; }
   .playerActionMaskIcon { display:inline-block; width:30px; aspect-ratio:1000/584; background-color:currentColor; -webkit-mask-size:contain; -webkit-mask-repeat:no-repeat; -webkit-mask-position:center; mask-size:contain; mask-repeat:no-repeat; mask-position:center; pointer-events:none; }
-  @media (pointer:coarse) { .playerActionBtn { width:44px; height:44px; } .playerActionBtn svg { width:23px; height:23px; } .playerActionMaskIcon { width:36px; } }
+  @media (pointer:coarse) { .playerActionBtn { width:44px; height:44px; } .playerActionBtn svg { width:23px; height:23px; } .playerActionMaskIcon { width:36px; } .touchHiddenActionBtn { display:none; } }
   #teamManagerList { display:flex; flex-direction:column; gap:8px; max-height:260px; overflow:auto; }
   .teamRow { border:1px solid #e1e6e6; border-radius:8px; padding:7px; background:#fafafa; }
   .teamRowTitle { font-size:12px; font-weight:900; margin-bottom:5px; }
@@ -754,12 +754,16 @@
   <button id="paClaimBallBtn" class="playerActionBtn" title="Give the ball to this player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0M4.5 16.5c3-3 10-3 15 0"/></svg></button>
   <button id="paInspectorBtn" class="playerActionBtn" title="Open Inspector for this player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="18" r="2"/></svg></button>
   <button id="paChangeTeamBtn" class="playerActionBtn" title="Change this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
+  <button id="paPassLeftBtn" class="playerActionBtn touchHiddenActionBtn" title="Pass left (only works if this player has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
+  <button id="paPassRightBtn" class="playerActionBtn touchHiddenActionBtn" title="Pass right (only works if this player has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
+  <button id="paDriveLeftBtn" class="playerActionBtn touchHiddenActionBtn" title="Drive to the left post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L18 6M18 6H10M18 6V14"/></svg></button>
+  <button id="paDriveRightBtn" class="playerActionBtn touchHiddenActionBtn" title="Drive to the right post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20L6 6M6 6H14M6 6V14"/></svg></button>
   <button id="paAddPlayerBtn" class="playerActionBtn" title="Add a new player to this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg></button>
 </div>
 <div id="directionPad">
-  <button id="dpadPassLeftBtn" class="dpadBtn dpadCornerBtn" title="Pass to the player left of the ball carrier (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
+  <button id="dpadPassLeftBtn" class="dpadBtn dpadCornerBtn" title="Pass left (only works if the marked player has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
   <button id="dpadUpBtn" class="dpadBtn" title="Move up">&#9650;</button>
-  <button id="dpadPassRightBtn" class="dpadBtn dpadCornerBtn" title="Pass to the player right of the ball carrier (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
+  <button id="dpadPassRightBtn" class="dpadBtn dpadCornerBtn" title="Pass right (only works if the marked player has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
   <button id="dpadLeftBtn" class="dpadBtn" title="Move left">&#9664;</button>
   <button id="dpadNextBtn" class="dpadBtn" title="Jump to next teammate (by number)"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M5 5l9 7-9 7z"/><rect x="16" y="5" width="3" height="14"/></svg></button>
   <button id="dpadRightBtn" class="dpadBtn" title="Move right">&#9654;</button>
@@ -1025,6 +1029,10 @@ const MizeDialog = (function(){
         <svg viewBox="0 0 62 100" class="viewOptionIcon"><rect x="4" y="4" width="54" height="92" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><rect x="21" y="90" width="20" height="6" fill="currentColor"/></svg>
         <span>Front Court</span>
       </button>
+      <button type="button" class="viewOptionCard" id="viewOptionFrontCourtZoomed" data-view="front-zoomed">
+        <svg viewBox="0 0 62 100" class="viewOptionIcon"><rect x="4" y="4" width="54" height="92" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><rect x="4" y="4" width="54" height="46" fill="currentColor" fill-opacity="0.15"/><rect x="21" y="42" width="20" height="6" fill="currentColor"/></svg>
+        <span>Front Court (Zoomed)</span>
+      </button>
     </div>
   </div>
 </div>
@@ -1192,6 +1200,7 @@ MIZE.State.shotClock = {
 };
 let smartPositioningActive=true;
 let frontCourtActive=false;
+let frontCourtZoomed=false;
 let multiSelectMode=false;
 let snapEnabled=false;
 let ghostMode=false;
@@ -1451,12 +1460,15 @@ function refreshFeatureVisibility(){
   if(gv) gv.style.display = feature('goalieVision') ? '' : 'none';
   const fc=document.getElementById('viewOptionFrontCourt');
   if(fc) fc.style.display = feature('frontCourtView') ? '' : 'none';
+  const fcz=document.getElementById('viewOptionFrontCourtZoomed');
+  if(fcz) fcz.style.display = feature('frontCourtView') ? '' : 'none';
   const sc=document.getElementById('shotClockToggleBtn');
   if(sc) sc.style.display = feature('shotClock') ? '' : 'none';
   // If the sport switched away from Front Court support while that view
   // was active, fall back to Full Court rather than leaving the board
   // stuck in a now-hidden, unreachable view.
   if(!feature('frontCourtView') && typeof frontCourtActive !== 'undefined' && frontCourtActive && typeof toggleFrontCourt === 'function'){
+    frontCourtZoomed = false;
     toggleFrontCourt(false);
     if(typeof updateViewOptionCards === 'function') updateViewOptionCards();
   }
@@ -1983,11 +1995,13 @@ const initial = [
   ['W1','white',22.5,6,'v',0],['W2','white',21.3,9.5,'h',270],['W3','white',19,12,'v',0],['W4','white',21.3,14.5,'h',270],['W5','white',22.5,18,'h',270],['W6','white',17.5,16,'v',0],['WG','goalie',25.8,12,'v',270]
 ];
 
-const FC_DEPTH = M.fieldW/2;              // 12.5m - depth of the visible half, from the goal line
-const FC_CROPX1 = M.fieldX + FC_DEPTH;    // board-space x boundary of the visible crop (14.5)
+const FC_DEFAULT_DEPTH = M.fieldW/2;      // 12.5m -- the original Front Court depth
+const FC_ZOOM_DEPTH = 8;                  // 8m -- the more zoomed-in crop, showing players larger
+let FC_DEPTH = FC_DEFAULT_DEPTH;          // 12.5m - depth of the visible half, from the goal line
+let FC_CROPX1 = M.fieldX + FC_DEPTH;      // board-space x boundary of the visible crop (14.5)
 const FC_MARGIN = 2;                      // extra blank space beyond the canvas edge, so the goal + ejection zone aren't flush against the screen
 const FC_LOW = -FC_MARGIN;                // lowest board-space x shown (-2)
-const FC_TOTAL = FC_CROPX1 - FC_LOW;      // total depth mapped to screen height (16.5)
+let FC_TOTAL = FC_CROPX1 - FC_LOW;        // total depth mapped to screen height (16.5)
 function rect() { return board.getBoundingClientRect(); }
 let presentationFieldWidened=false;
 const PRESENT_VIEWBOX_W=35, PRESENT_VIEWBOX_H=28, PRESENT_SHIFT_X=3, PRESENT_SHIFT_Y=2;
@@ -4092,7 +4106,7 @@ function findLateralTeammate(carrier, side){
 }
 function passToLateral(side, carrierOverride){
   const carrier = carrierOverride || ballCarrier;
-  if(!carrier || isBall(carrier)) return;
+  if(!carrier || isBall(carrier) || carrier!==ballCarrier) return;
   const target = findLateralTeammate(carrier, side);
   if(!target) return;
   recordHistory('Pass '+side+': '+displayName(carrier)+' -> '+displayName(target));
@@ -4123,7 +4137,14 @@ function driveToPost(side, targetOverride){
   if(targetX===null) return;
   const defenderTeam = teamKey==='blue' ? 'white' : 'blue';
   const wantSmallerY = (side==='left') === goalieLeftIsSmallerY(defenderTeam);
-  const targetY = wantSmallerY ? opponentGoal.y - 1.5 : opponentGoal.y + 1.5;
+  // The goal object's own y value doesn't reliably represent the pool's
+  // true vertical center (confirmed: water polo's goals have y:10.1, but
+  // every other reference point in the app -- player formations, goalie
+  // positions, ball reset -- consistently uses y:12). Anchor to the play
+  // area's actual geometric center instead, which is robust for any sport
+  // template and correctly resolves to 12 for water polo.
+  const fieldCenterY = (tpl.field.playAreaY||0) + (tpl.field.playAreaHeight||0)/2;
+  const targetY = wantSmallerY ? fieldCenterY - 1.5 : fieldCenterY + 1.5;
   recordHistory('Drive to '+side+' post: '+displayName(el));
   el.dataset.x = targetX;
   el.dataset.y = targetY;
@@ -4132,8 +4153,8 @@ function driveToPost(side, targetOverride){
   place(el);
   if(ballCarrier===el) moveBallTo(el, ballHand);
 }
-document.getElementById('dpadPassLeftBtn')?.addEventListener('click', ()=>passToLateral('left'));
-document.getElementById('dpadPassRightBtn')?.addEventListener('click', ()=>passToLateral('right'));
+document.getElementById('dpadPassLeftBtn')?.addEventListener('click', ()=>passToLateral('left', playerActionBarTarget));
+document.getElementById('dpadPassRightBtn')?.addEventListener('click', ()=>passToLateral('right', playerActionBarTarget));
 document.getElementById('dpadDriveLeftBtn')?.addEventListener('click', ()=>driveToPost('left'));
 document.getElementById('dpadDriveRightBtn')?.addEventListener('click', ()=>driveToPost('right'));
 document.getElementById('paLeftArmBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) setArmSide(playerActionBarTarget,'left'); });
@@ -4150,6 +4171,10 @@ document.getElementById('paAddPlayerBtn')?.addEventListener('click', ()=>{
   const isWhite = el.dataset.team==='white' || (el.dataset.team==='goalie' && el.dataset.label && el.dataset.label[0]==='W');
   openAddPlayerPanel(isWhite ? 'white' : 'blue');
 });
+document.getElementById('paPassLeftBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) passToLateral('left', playerActionBarTarget); });
+document.getElementById('paPassRightBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) passToLateral('right', playerActionBarTarget); });
+document.getElementById('paDriveLeftBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) driveToPost('left', playerActionBarTarget); });
+document.getElementById('paDriveRightBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) driveToPost('right', playerActionBarTarget); });
 // Touch-accessible equivalent of the Shift+L/R keyboard shortcut, added to
 // the (touch-reachable) right-click/long-press context menu. Tied to the
 // specific player the menu was opened on, so it's unambiguous: if that
@@ -5161,10 +5186,32 @@ function toggleFrontCourt(on){
 }
 function updateViewOptionCards(){
   document.getElementById('viewOptionFullCourt')?.classList.toggle('active', !frontCourtActive);
-  document.getElementById('viewOptionFrontCourt')?.classList.toggle('active', frontCourtActive);
+  document.getElementById('viewOptionFrontCourt')?.classList.toggle('active', frontCourtActive && !frontCourtZoomed);
+  document.getElementById('viewOptionFrontCourtZoomed')?.classList.toggle('active', frontCourtActive && frontCourtZoomed);
 }
-document.getElementById('viewOptionFullCourt')?.addEventListener('click', ()=>{ toggleFrontCourt(false); updateViewOptionCards(); closeToolPanels(); });
-document.getElementById('viewOptionFrontCourt')?.addEventListener('click', ()=>{ toggleFrontCourt(true); updateViewOptionCards(); closeToolPanels(); });
+// Recomputes the Front Court crop depth (how much of the field's length is
+// shown) and, if Front Court is currently active, re-applies the rotation/
+// viewBox and repositions every player, the ball, and ghosts to match --
+// otherwise they'd stay at their old on-screen spot until their next
+// unrelated position update.
+function setFrontCourtDepth(depth){
+  FC_DEPTH=depth;
+  FC_CROPX1=M.fieldX+FC_DEPTH;
+  FC_TOTAL=FC_CROPX1-FC_LOW;
+  if(frontCourtActive){
+    setFieldRotation(true);
+    renderAllPositions();
+    fitBoardToScreen();
+  }
+}
+function toggleFrontCourtZoom(on){
+  frontCourtZoomed=on;
+  if(!frontCourtActive) toggleFrontCourt(true); // zooming implies wanting Front Court active
+  setFrontCourtDepth(on ? FC_ZOOM_DEPTH : FC_DEFAULT_DEPTH);
+}
+document.getElementById('viewOptionFullCourt')?.addEventListener('click', ()=>{ frontCourtZoomed=false; toggleFrontCourt(false); updateViewOptionCards(); closeToolPanels(); });
+document.getElementById('viewOptionFrontCourt')?.addEventListener('click', ()=>{ frontCourtZoomed=false; toggleFrontCourt(true); setFrontCourtDepth(FC_DEFAULT_DEPTH); updateViewOptionCards(); closeToolPanels(); });
+document.getElementById('viewOptionFrontCourtZoomed')?.addEventListener('click', ()=>{ toggleFrontCourtZoom(true); updateViewOptionCards(); closeToolPanels(); });
 updateViewOptionCards();
 
 // ===== Hidden Objects recovery =====
