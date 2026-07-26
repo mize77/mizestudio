@@ -97,8 +97,7 @@
   #controlsPanel .sideHint { margin-top:6px; font-size:12px; line-height:1.35; color:#5d6868; }
   @media (max-width: 900px) { #controlsPanel { width:100%; } #controlsPanel .sideHint { display:none; } }
   #board { position:relative; width:100%; aspect-ratio:29/24; background:#ffffff; box-shadow:0 8px 24px rgba(0,0,0,.18); overflow:hidden; touch-action:none; user-select:none; margin:0 auto; }
-  #stageWrap.frontcourt { overflow:hidden; }
-  #board.frontcourt { transform:scale(var(--fc-width-scale, 1)); transform-origin:center; }
+  #board.frontcourt #fieldSideBands, #board.frontcourt #brandRespect, #board.frontcourt #brandFairPlay, #board.frontcourt #brandHaveFun, #board.frontcourt #brandPlaySmart { display:none; }
   #board.frontcourt { aspect-ratio:16/11; }
   .viewOptionsGrid { display:flex; gap:14px; justify-content:center; }
   .viewOptionCard { display:flex; flex-direction:column; align-items:center; gap:8px; background:#f5f7f7; border:2px solid #b7c4c4; border-radius:12px; padding:14px 18px; cursor:pointer; font-size:13px; font-weight:700; color:#2c3e3e; }
@@ -2012,11 +2011,11 @@ function toPctY(y) { if(presentationFieldWidened) return ((y+PRESENT_SHIFT_Y)/PR
 function pxToM(e) {
   const r=rect();
   const fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
-  if(frontCourtActive) return { x: FC_CROPX1 - fy*FC_TOTAL, y: fx*M.H };
+  if(frontCourtActive) return { x: FC_CROPX1 - fy*FC_TOTAL, y: fx*M.fieldH + M.fieldY };
   if(presentationFieldWidened) return { x: fx*PRESENT_VIEWBOX_W - PRESENT_SHIFT_X, y: fy*PRESENT_VIEWBOX_H - PRESENT_SHIFT_Y };
   return { x: fx*M.W, y: fy*M.H };
 }
-function meterPxX(m) { return rect().width / (frontCourtActive ? M.H : (presentationFieldWidened ? PRESENT_VIEWBOX_W : M.W)) * m; }
+function meterPxX(m) { return rect().width / (frontCourtActive ? M.fieldH : (presentationFieldWidened ? PRESENT_VIEWBOX_W : M.W)) * m; }
 function meterPxY(m) { return rect().height / (frontCourtActive ? FC_TOTAL : (presentationFieldWidened ? PRESENT_VIEWBOX_H : M.H)) * m; }
 function clamp(v,a,b) { return Math.max(a,Math.min(b,v)); }
 function boardToFieldX(x) { return clamp(x - M.fieldX, 0, M.fieldW); }
@@ -2126,7 +2125,7 @@ function sizePlayer(el) {
 }
 function place(el) {
   const x=+el.dataset.x, y=+el.dataset.y;
-  if(frontCourtActive) { el.style.left=(y/M.H*100)+'%'; el.style.top=clamp((FC_CROPX1-x)/FC_TOTAL*100,-25,125)+'%'; }
+  if(frontCourtActive) { el.style.left=((y-M.fieldY)/M.fieldH*100)+'%'; el.style.top=clamp((FC_CROPX1-x)/FC_TOTAL*100,-25,125)+'%'; }
   else { el.style.left=toPctX(x); el.style.top=toPctY(y); }
   const baseRot=+el.dataset.rot||0;
   const displayRot = frontCourtActive ? (baseRot-90) : baseRot;
@@ -2280,7 +2279,7 @@ function placeBall() {
   const d=Math.max(12, Math.min(meterPxX(.38), meterPxY(.38)));
   ball.style.width=d+'px'; ball.style.height=d+'px';
   const x=+ball.dataset.x, y=+ball.dataset.y;
-  if(frontCourtActive) { ball.style.left=(y/M.H*100)+'%'; ball.style.top=clamp((FC_CROPX1-x)/FC_TOTAL*100,-25,125)+'%'; }
+  if(frontCourtActive) { ball.style.left=((y-M.fieldY)/M.fieldH*100)+'%'; ball.style.top=clamp((FC_CROPX1-x)/FC_TOTAL*100,-25,125)+'%'; }
   else { ball.style.left=toPctX(x); ball.style.top=toPctY(y); }
   updateBallOwnerStatus();
   renderShotBlockCorridors();
@@ -2899,7 +2898,7 @@ renderSavedPresentations();
 function clearGhosts() { ghostLayer.innerHTML=''; }
 function addGhostsFromState(st) {
   clearGhosts(); if(!ghostMode || !st?.players) return;
-  st.players.forEach(p=>{ const g=document.createElement('div'); g.className='ghost'; g.dataset.team=p.team; g.dataset.pose=p.pose; if(frontCourtActive){ g.style.left=(p.y/M.H*100)+'%'; g.style.top=clamp((FC_CROPX1-p.x)/FC_TOTAL*100,-25,125)+'%'; } else { g.style.left=toPctX(p.x); g.style.top=toPctY(p.y); } g.style.setProperty('--rot',(p.rot||0)+'deg');
+  st.players.forEach(p=>{ const g=document.createElement('div'); g.className='ghost'; g.dataset.team=p.team; g.dataset.pose=p.pose; if(frontCourtActive){ g.style.left=((p.y-M.fieldY)/M.fieldH*100)+'%'; g.style.top=clamp((FC_CROPX1-p.x)/FC_TOTAL*100,-25,125)+'%'; } else { g.style.left=toPctX(p.x); g.style.top=toPctY(p.y); } g.style.setProperty('--rot',(p.rot||0)+'deg');
     const body=document.createElement('div'); body.className='playerBody'; const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label); body.appendChild(img); g.appendChild(body); ghostLayer.appendChild(g);
     if(p.pose==='h') { img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; } else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label)])+'px'; }
   });
@@ -5135,13 +5134,13 @@ document.getElementById('timelineQuickAccessSelect')?.addEventListener('change',
 // ===== Front Court (half-court, goal-at-bottom) view =====
 function setFieldRotation(on){
   if(on){
-    fieldSvg.setAttribute('viewBox','0 0 24 '+FC_TOTAL);
+    fieldSvg.setAttribute('viewBox',M.fieldY+' 0 '+M.fieldH+' '+FC_TOTAL);
     fieldGroup.setAttribute('transform','rotate(-90, '+(FC_CROPX1/2)+', '+(FC_CROPX1/2)+')');
-    fieldZonesSvg.setAttribute('viewBox','0 0 24 '+FC_TOTAL);
+    fieldZonesSvg.setAttribute('viewBox',M.fieldY+' 0 '+M.fieldH+' '+FC_TOTAL);
     fieldZonesGroup.setAttribute('transform','rotate(-90, '+(FC_CROPX1/2)+', '+(FC_CROPX1/2)+')');
-    arrows.setAttribute('viewBox','0 0 24 '+FC_TOTAL);
+    arrows.setAttribute('viewBox',M.fieldY+' 0 '+M.fieldH+' '+FC_TOTAL);
     arrowsGroup.setAttribute('transform','rotate(-90, '+(FC_CROPX1/2)+', '+(FC_CROPX1/2)+')');
-    shotBlockSvg.setAttribute('viewBox','0 0 24 '+FC_TOTAL);
+    shotBlockSvg.setAttribute('viewBox',M.fieldY+' 0 '+M.fieldH+' '+FC_TOTAL);
     shotBlockGroup.setAttribute('transform','rotate(-90, '+(FC_CROPX1/2)+', '+(FC_CROPX1/2)+')');
   } else {
     // Restore whichever "off" viewBox is actually correct -- the normal
@@ -5170,8 +5169,6 @@ function toggleFrontCourt(on){
   const inPresentationWidened=document.body.classList.contains('presentation')||document.body.classList.contains('presentation-real');
   frontCourtActive=on;
   board.classList.toggle('frontcourt', on);
-  document.getElementById('stageWrap')?.classList.toggle('frontcourt', on);
-  board.style.setProperty('--fc-width-scale', on ? (M.H/M.fieldH) : 1);
   if(on){
     // Front Court's crop/rotation math is tuned specifically for the normal
     // 29x24 field -- if presentation's widened venue was showing, switch
