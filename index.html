@@ -6210,6 +6210,14 @@ function fitBoardToScreen(){
     board.style.height=boardH+'px';
     const wrap=document.getElementById('stageWrap');
     if(wrap){ wrap.style.height=availH+'px'; wrap.style.overflowY='auto'; }
+    // #board itself has touch-action:none (needed elsewhere to keep the
+    // browser from hijacking player-drag gestures), which also silently
+    // blocks the browser from ever starting a native scroll on touch
+    // devices when a touch begins anywhere on it -- and since #board is
+    // essentially the entire visible field, that's virtually everywhere.
+    // pan-y allows vertical scrolling specifically, without affecting
+    // .player/#ball, which keep their own independent touch-action:none.
+    board.style.touchAction='pan-y';
     document.querySelectorAll('.player').forEach(place);
     placeBall();
     // Scroll to exactly where the old, non-scrollable crop used to show by
@@ -6253,6 +6261,7 @@ function fitBoardToScreen(){
   }
   board.style.aspectRatio='';
   { const wrap=document.getElementById('stageWrap'); if(wrap){ wrap.style.height=''; wrap.style.overflowY=''; } }
+  board.style.touchAction='';
   board.style.width=boardW+'px';
   board.style.height=boardH+'px';
   document.querySelectorAll('.player').forEach(place);
