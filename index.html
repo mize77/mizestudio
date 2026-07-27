@@ -136,6 +136,9 @@
   line.arrow { cursor:pointer; pointer-events:stroke; }
 
   #selectionRect { position:absolute; border:2px dashed #ffcc00; background:rgba(255,204,0,.12); z-index:12; pointer-events:none; display:none; }
+  .fcScrollZone { position:absolute; top:0; height:100%; touch-action:pan-y; z-index:4; display:none; }
+  #fcScrollZoneLeft { left:0; }
+  #fcScrollZoneRight { right:0; }
   .toolGroup { border-top:1px solid #e1e6e6; padding-top:8px; margin-top:4px; display:flex; flex-direction:column; gap:8px; }
   #timelinePanel { position:absolute; top:0; left:0; width:100%; z-index:15; background:rgba(255,255,255,.97); border:1px solid #d9e0e0; border-radius:12px; padding:10px; box-shadow:0 4px 16px rgba(0,0,0,.18); transform:translateY(-130%); transition:transform .25s ease; }
   #timelinePanel.shown { transform:translateY(0); }
@@ -192,6 +195,7 @@
   
   #shotClockToggleBtn.active { background:#ffcf40; color:#20200a; }
   .shotClockCorner { display:none; position:absolute; top:3%; z-index:50; text-align:center; background:rgba(255,255,255,.92); padding:6px 10px; border-radius:8px; box-shadow:0 4px 14px rgba(0,0,0,.25); }
+  .shotClockCorner.shotClockViewportFixed { position:fixed; }
   .shotClockCorner.active { display:block; }
   #shotClockLeft { left:3%; }
   #shotClockRight { right:3%; }
@@ -599,6 +603,8 @@
   <div id="ball" data-x="14.5" data-y="12"></div>
   <div id="ghostLayer"></div>
   <div id="selectionRect"></div>
+  <div id="fcScrollZoneLeft" class="fcScrollZone"></div>
+  <div id="fcScrollZoneRight" class="fcScrollZone"></div>
   <div id="copyrightText">© 2026 XquiX LLC / The Perfect Goalie. All rights reserved.</div>
   <div id="shotClockLeft" class="shotClockCorner">
     <div class="shotClockNumber">28</div>
@@ -5251,6 +5257,53 @@ function toggleFrontCourt(on){
   renderAllPositions();
   fitBoardToScreen();
 }
+// Shows/sizes the two narrow scroll-only strips (left/right sideline
+// margin) when Front Court is active, so the browser can natively scroll
+// there without competing with drawing tools (highlight, measure,
+// freehand, pass arrows) that need full JS control over the rest of the
+// field. Width is 2m of the actual playable width, computed dynamically
+// rather than a hardcoded percentage, so it stays correct for any field
+// size.
+function refreshFrontCourtScrollZones(){
+  const left=document.getElementById('fcScrollZoneLeft');
+  const right=document.getElementById('fcScrollZoneRight');
+  if(!left || !right) return;
+  if(frontCourtActive){
+    const widthPct=(2/M.fieldH*100)+'%';
+    left.style.width=widthPct; left.style.display='block';
+    right.style.width=widthPct; right.style.display='block';
+  } else {
+    left.style.display='none';
+    right.style.display='none';
+  }
+}
+// Anchors the shot clocks to the top corners of #stageWrap's own visible
+// area (not the raw browser viewport) via position:fixed with computed
+// pixel coordinates -- #stageWrap's bounds already correctly differ
+// between desktop (narrower, alongside the sidebar) and mobile (full
+// width), so this stays visually correct on both without special-casing
+// either. Needed specifically because Front Court's board can now be
+// scrolled; position:absolute (the normal, non-Front-Court behavior) would
+// scroll the shot clocks out of view along with everything else.
+function refreshShotClockPosition(){
+  const left=document.getElementById('shotClockLeft');
+  const right=document.getElementById('shotClockRight');
+  const wrap=document.getElementById('stageWrap');
+  if(!left || !right) return;
+  if(frontCourtActive && wrap){
+    const r=wrap.getBoundingClientRect();
+    const margin=10;
+    left.classList.add('shotClockViewportFixed');
+    right.classList.add('shotClockViewportFixed');
+    left.style.top=(r.top+margin)+'px'; left.style.left=(r.left+margin)+'px'; left.style.right='';
+    right.style.top=(r.top+margin)+'px'; right.style.right=(viewportWidth()-r.right+margin)+'px'; right.style.left='';
+  } else {
+    left.classList.remove('shotClockViewportFixed');
+    right.classList.remove('shotClockViewportFixed');
+    left.style.top=''; left.style.left=''; left.style.right='';
+    right.style.top=''; right.style.right=''; right.style.left='';
+  }
+}
 function updateViewOptionCards(){
   document.getElementById('viewOptionFullCourt')?.classList.toggle('active', !frontCourtActive);
   document.getElementById('viewOptionFrontCourt')?.classList.toggle('active', frontCourtActive && !frontCourtZoomed);
@@ -6217,12 +6270,19 @@ function fitBoardToScreen(){
     // essentially the entire visible field, that's virtually everywhere.
     // pan-y allows vertical scrolling specifically, without affecting
     // .player/#ball, which keep their own independent touch-action:none.
-    board.style.touchAction='pan-y';
+    // NOTE: #board itself deliberately keeps touch-action:none here (not
+    // pan-y) -- setting it board-wide broke every drawing tool (highlight,
+    // measure, freehand, pass arrows), which all rely on the browser NOT
+    // intercepting touch-drags on the field. Scrolling is instead handled
+    // by two narrow overlay strips (see fcScrollZoneLeft/Right below),
+    // confined to a 2m margin along each sideline.
     document.querySelectorAll('.player').forEach(place);
     placeBall();
     // Scroll to exactly where the old, non-scrollable crop used to show by
     // default -- nothing changes unless the coach actually scrolls further.
     if(wrap) wrap.scrollTop = pxPerUnit * (-FC_FULL_MIN_Y);
+    refreshFrontCourtScrollZones();
+    refreshShotClockPosition();
     return;
   }
   if(document.body.classList.contains('presentation') || document.body.classList.contains('presentation-real')){
@@ -6261,7 +6321,8 @@ function fitBoardToScreen(){
   }
   board.style.aspectRatio='';
   { const wrap=document.getElementById('stageWrap'); if(wrap){ wrap.style.height=''; wrap.style.overflowY=''; } }
-  board.style.touchAction='';
+  refreshFrontCourtScrollZones();
+  refreshShotClockPosition();
   board.style.width=boardW+'px';
   board.style.height=boardH+'px';
   document.querySelectorAll('.player').forEach(place);
