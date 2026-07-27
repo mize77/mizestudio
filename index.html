@@ -5259,12 +5259,16 @@ function toggleFrontCourt(on){
   fitBoardToScreen();
 }
 // Shows/sizes the two narrow scroll-only strips (left/right sideline
-// margin) when Front Court is active, so the browser can natively scroll
-// there without competing with drawing tools (highlight, measure,
-// freehand, pass arrows) that need full JS control over the rest of the
-// field. Width is 2m of the actual playable width, computed dynamically
-// rather than a hardcoded percentage, so it stays correct for any field
-// size.
+// margin) when Front Court is active. Actual scrolling is driven entirely
+// by JS (see wireFrontCourtScrollZoneDrag below) rather than the
+// browser's native touch-action gesture handling -- that approach was
+// tried twice and didn't reliably work on iPhone, likely due to some
+// interaction between touch-action and the app's own pointer event
+// handling that's hard to fully verify without live device testing. This
+// manual approach removes that dependency entirely: the zones just track
+// the pointer directly and set scrollTop themselves. Width is 2m of the
+// actual playable width, computed dynamically rather than a hardcoded
+// percentage, so it stays correct for any field size.
 function refreshFrontCourtScrollZones(){
   const left=document.getElementById('fcScrollZoneLeft');
   const right=document.getElementById('fcScrollZoneRight');
@@ -5278,6 +5282,39 @@ function refreshFrontCourtScrollZones(){
     right.style.display='none';
   }
 }
+// Manually drives #stageWrap's scrollTop from pointer movement within a
+// scroll zone -- "content follows the finger" (dragging up reveals more
+// below, i.e. increases scrollTop; dragging down reveals more above).
+// stopPropagation prevents this from also reaching #board's own
+// pointerdown handler (which has its own guard for this case too, but
+// this keeps the two paths fully independent, not relying on the guard
+// alone).
+function wireFrontCourtScrollZoneDrag(zoneEl){
+  if(!zoneEl) return;
+  let dragging=false, startY=0, startScrollTop=0;
+  zoneEl.addEventListener('pointerdown', e=>{
+    const wrap=document.getElementById('stageWrap');
+    if(!wrap) return;
+    dragging=true;
+    startY=e.clientY;
+    startScrollTop=wrap.scrollTop;
+    zoneEl.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  zoneEl.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const wrap=document.getElementById('stageWrap');
+    if(!wrap) return;
+    wrap.scrollTop = startScrollTop - (e.clientY - startY);
+    e.preventDefault();
+  });
+  const end=()=>{ dragging=false; };
+  zoneEl.addEventListener('pointerup', end);
+  zoneEl.addEventListener('pointercancel', end);
+}
+wireFrontCourtScrollZoneDrag(document.getElementById('fcScrollZoneLeft'));
+wireFrontCourtScrollZoneDrag(document.getElementById('fcScrollZoneRight'));
 // Anchors the shot clocks to the top corners of #stageWrap's own visible
 // area (not the raw browser viewport) via position:fixed with computed
 // pixel coordinates -- #stageWrap's bounds already correctly differ
