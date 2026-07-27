@@ -343,6 +343,19 @@
     #emptyFieldAddBtn { top:auto; bottom:10px; }
     #emptyFieldAddBox { top:auto; bottom:62px; }
   }
+  /* Same top-left spot the Player Action Bar and the empty-field "+" use --
+     the three are mutually exclusive (0 players / exactly 1 marked / more
+     than 1 marked), so there's never a clash. Delete is destructive, so
+     this gets the same red the app already uses for its other "remove"
+     controls (see #spotlightRemoveBtn) rather than the teal of the other
+     two -- mainly for touch devices (iPad/iPhone), where there's no
+     Delete key to fall back on for a multi-selection.  */
+  #multiDeleteBtn { position:fixed; top:10px; left:10px; z-index:1470; width:44px; height:44px; border-radius:50%; border:none; background:#e53935; color:#fff; font-size:28px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
+  #multiDeleteBtn.visible { display:flex; }
+  #multiDeleteBtn:hover { background:#c62828; }
+  @media (max-width:500px), (max-height:500px) {
+    #multiDeleteBtn { top:auto; bottom:10px; }
+  }
   #directionPad { position:fixed; right:10px; bottom:10px; z-index:1470; width:170px; height:170px; border-radius:50%; background:radial-gradient(circle, rgba(10,40,40,.92) 60%, rgba(10,40,40,.75) 100%); box-shadow:0 4px 16px rgba(0,0,0,.35); display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:4px; padding:10px; transform:translateX(160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #directionPad.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
   .dpadBtn { background:rgba(18,77,77,.92); color:#fff; border:none; font-size:22px; display:flex; align-items:center; justify-content:center; touch-action:none; }
@@ -823,6 +836,7 @@
   <button id="paAddPlayerBtn" class="playerActionBtn" title="Add a new player to this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg></button>
 </div>
 <button id="emptyFieldAddBtn" title="No players on the field yet -- add some">+</button>
+<button id="multiDeleteBtn" title="Delete all marked players">&#8722;</button>
 <div id="emptyFieldAddBox">
   <div class="efaTitle">Quick Add</div>
   <button type="button" id="efaCombo1v1">Blue Goalie + 1 &nbsp;vs&nbsp; White 1</button>
@@ -4485,8 +4499,18 @@ function updatePlayerActionBar(){
     playerActionBarTarget=null;
     bar.classList.remove('visible');
   }
+  updateMultiDeleteButton();
   updateDirectionPad();
 }
+// Stands in the same top-left spot as the Player Action Bar/empty-field
+// "+" whenever more than one item is marked -- on iPad/iPhone there's no
+// Delete key to fall back on, so a multi-selection otherwise had no
+// touch-friendly way to be removed in one go (short of the Editing menu's
+// Delete Selected button).
+function updateMultiDeleteButton(){
+  document.getElementById('multiDeleteBtn')?.classList.toggle('visible', selected.size>1);
+}
+document.getElementById('multiDeleteBtn')?.addEventListener('click', deleteSelectedObject);
 // Direction Pad: a game-controller-style thumb control for the bottom
 // corner, complementing (not replacing) drag-to-move -- useful because on
 // a phone-sized screen a marked player can be a genuinely small, fiddly
