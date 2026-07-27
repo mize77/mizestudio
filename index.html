@@ -12,6 +12,15 @@
 <title>XquiX Studio by MIZE</title>
 <style>
   :root { --dark:#263238; --teal:#4bb8bd; --marker-red:#e53935; --marker-yellow:#ffd400; --marker-green:#145a32; }
+  #splashScreen { position:fixed; inset:0; z-index:99999; background:#ffffff; display:flex; align-items:center; justify-content:center; overflow:hidden; pointer-events:none; animation:splashFadeOut 1s ease 3s forwards; }
+  .splashSpotlight { position:absolute; width:60vw; height:60vw; min-width:400px; min-height:400px; border-radius:50%; background:radial-gradient(circle, rgba(75,184,189,.4) 0%, rgba(75,184,189,0) 70%); opacity:0; animation:splashGlow 3s ease-in forwards; }
+  #splashSpotlight1 { top:-25%; left:-15%; }
+  #splashSpotlight2 { top:-30%; right:-15%; animation-delay:.3s; }
+  #splashSpotlight3 { bottom:-30%; left:20%; animation-delay:.6s; }
+  #splashLogo { position:relative; z-index:1; width:50vw; max-width:520px; min-width:220px; transform:scale(1); animation:splashZoom 3s cubic-bezier(.25,.1,.25,1) forwards; }
+  @keyframes splashZoom { from { transform:scale(1); } to { transform:scale(1.35); } }
+  @keyframes splashGlow { from { opacity:0; } to { opacity:1; } }
+  @keyframes splashFadeOut { from { opacity:1; } to { opacity:0; } }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; }
   body { margin:0; font-family:Arial, Helvetica, sans-serif; background:#eef2f2; color:var(--dark); -webkit-text-size-adjust:100%; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; overscroll-behavior:none; }
@@ -134,6 +143,8 @@
   #ball.selected { outline:2px solid #ffcc00; outline-offset:4px; }
 
   #copyrightText { position:absolute; right:.75%; bottom:.45%; z-index:10; pointer-events:none; font-size:clamp(8px,.72vw,12px); color:#263238; background:rgba(255,255,255,.78); padding:3px 6px; border-radius:6px; font-weight:700; }
+  #brandLogoPresentation { display:none; position:fixed; height:28px; opacity:.8; z-index:1600; pointer-events:none; }
+  body.presentation #brandLogoPresentation, body.presentation-real #brandLogoPresentation { display:block; }
   line.arrow { cursor:pointer; pointer-events:stroke; }
 
   #selectionRect { position:absolute; border:2px dashed #ffcc00; background:rgba(255,204,0,.12); z-index:12; pointer-events:none; display:none; }
@@ -412,6 +423,12 @@
 </style>
 </head>
 <body class="hideNames">
+<div id="splashScreen">
+  <div id="splashSpotlight1" class="splashSpotlight"></div>
+  <div id="splashSpotlight2" class="splashSpotlight"></div>
+  <div id="splashSpotlight3" class="splashSpotlight"></div>
+  <img id="splashLogo" alt="">
+</div>
 <button id="exitPresentationBtn" title="Exit Presentation">&#10005;</button>
 <div id="presentationPlaybackBar">
   <button id="presentationPrevBtn" title="Previous slide (Left Arrow)">&#8592;</button>
@@ -472,6 +489,7 @@
   <div class="stageLight" style="left:85%;"><div class="stageLightYoke"></div><div class="stageLightHousing"></div><div class="stageLightBarnDoor bl"></div><div class="stageLightBarnDoor br"></div><div class="stageLightLens"></div><div class="stageLightCone"></div></div>
 </div>
 <header>
+  <img id="brandLogoHeader" alt="" style="height:32px;vertical-align:middle;margin-right:8px;">
   <h1>MIZE Studio <span style="font-size:12px;color:#6c7777;">Tactical Studio</span></h1>
   <button id="openPracticeStudioBtn" style="font-size:13px;font-weight:700;">Practice Studio (Preview) →</button>
   <div id="ballOwnerStatus" style="font-size:12.5px;font-weight:700;color:#2c3e3e;background:#eef4f4;border:1px solid #c3d2d2;border-radius:8px;padding:6px 10px;display:inline-block;">Ball Owner: — (loose ball)</div>
@@ -483,6 +501,7 @@
 </header>
 <div id="practiceStudioView" style="display:none;">
   <div id="practiceStudioHeader">
+    <img id="brandLogoPracticeStudio" alt="" style="height:28px;vertical-align:middle;">
     <button id="closePracticeStudioBtn">← Back to Tactical Studio</button>
     <h2>Practice Studio <span style="font-weight:400;font-size:13px;color:#6c7777;">(Preview — read-only board data, session builder)</span></h2>
   </div>
@@ -523,6 +542,7 @@
   </div>
 </div>
 <div id="workspace">
+<img id="brandLogoPresentation" alt="">
 <div id="studioTrack">
 <div class="studioFrame" id="videoFrame">
   <div class="studioFramePlaceholder" id="videoFramePlaceholder">
@@ -640,6 +660,7 @@
 </div>
 </div>
 <aside id="controlsPanel">
+  <img id="brandLogoSidebar" alt="" style="height:36px;display:block;margin:0 auto 8px;">
   <button id="closeSidebarBtn" title="Hide Sidebar">Hide Sidebar &#10095;</button>
   <div class="panelTitle">Commands</div>
   <label class="tooltipToggle"><input type="checkbox" id="tooltipsEnabled" checked> Show help tooltips on hover</label>
@@ -734,6 +755,7 @@
       <button class="toolListBtn" data-panel="addPlayerPanel">Add Player</button>
       <button class="toolListBtn" data-panel="aboutDiagnosticsPanel">About &amp; Diagnostics</button>
       <button class="toolListBtn devModeOnly" data-panel="developerModePanel" style="display:none;">Developer Mode: Sport Templates</button>
+      <button class="toolListBtn devModeOnly" data-panel="brandingManagerPanel" style="display:none;">Developer Mode: Branding</button>
 
     </div>
   </details>
@@ -881,6 +903,79 @@
       <button type="button" id="devTplExportBtn">Export JSON</button>
       <button type="button" id="devTplImportBtn">Import JSON</button>
       <input type="file" id="devTplImportFile" accept="application/json" style="display:none;">
+    </div>
+  </div>
+</div>
+<div class="toolPanel devModeOnly" id="brandingManagerPanel" style="width:min(720px,94vw);display:none;">
+  <div class="toolPanelHeader"><h3>Developer Mode: Branding</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+    <div style="font-size:12px;color:#54605f;margin-bottom:10px;">Upload logos and adjust their size, opacity, and visibility for each placement. Changes apply immediately and are saved to this browser. This is Developer Mode only for now -- once the subscription/authorization model is built, this becomes the customer-facing branding manager.</div>
+    <button type="button" id="brandResetAllBtn" style="margin-bottom:10px;">Reset All Branding to Defaults</button>
+
+    <div class="brandingRow" data-key="fieldLogo" style="border-bottom:1px solid #e2e8e8;padding-bottom:10px;margin-bottom:10px;">
+      <div style="font-weight:700;margin-bottom:4px;">Field (center logo)</div>
+      <div class="smallRow full">
+        <button type="button" class="brandUploadBtn">Upload Logo</button>
+        <input type="file" class="brandFileInput" accept="image/*" style="display:none;">
+        <label><input type="checkbox" class="brandEnabledCheck"> Enabled</label>
+        <label>Size <input type="number" class="brandSizeInput" min="1" max="15" step="0.5" style="width:55px;"></label>
+        <label>Opacity <input type="number" class="brandOpacityInput" min="0" max="1" step="0.05" style="width:55px;"></label>
+        <button type="button" class="brandResetBtn">Reset</button>
+      </div>
+    </div>
+
+    <div class="brandingRow" data-key="headerLogo" style="border-bottom:1px solid #e2e8e8;padding-bottom:10px;margin-bottom:10px;">
+      <div style="font-weight:700;margin-bottom:4px;">Header</div>
+      <div class="smallRow full">
+        <button type="button" class="brandUploadBtn">Upload Logo</button>
+        <input type="file" class="brandFileInput" accept="image/*" style="display:none;">
+        <label><input type="checkbox" class="brandEnabledCheck"> Enabled</label>
+        <label>Height (px) <input type="number" class="brandSizeInput" min="12" max="120" step="1" style="width:55px;"></label>
+        <label>Opacity <input type="number" class="brandOpacityInput" min="0" max="1" step="0.05" style="width:55px;"></label>
+        <button type="button" class="brandResetBtn">Reset</button>
+      </div>
+    </div>
+
+    <div class="brandingRow" data-key="sidebarLogo" style="border-bottom:1px solid #e2e8e8;padding-bottom:10px;margin-bottom:10px;">
+      <div style="font-weight:700;margin-bottom:4px;">Sidebar</div>
+      <div class="smallRow full">
+        <button type="button" class="brandUploadBtn">Upload Logo</button>
+        <input type="file" class="brandFileInput" accept="image/*" style="display:none;">
+        <label><input type="checkbox" class="brandEnabledCheck"> Enabled</label>
+        <label>Height (px) <input type="number" class="brandSizeInput" min="12" max="120" step="1" style="width:55px;"></label>
+        <label>Opacity <input type="number" class="brandOpacityInput" min="0" max="1" step="0.05" style="width:55px;"></label>
+        <button type="button" class="brandResetBtn">Reset</button>
+      </div>
+    </div>
+
+    <div class="brandingRow" data-key="presentationLogo" style="border-bottom:1px solid #e2e8e8;padding-bottom:10px;margin-bottom:10px;">
+      <div style="font-weight:700;margin-bottom:4px;">Presentation Mode (watermark)</div>
+      <div class="smallRow full">
+        <button type="button" class="brandUploadBtn">Upload Logo</button>
+        <input type="file" class="brandFileInput" accept="image/*" style="display:none;">
+        <label><input type="checkbox" class="brandEnabledCheck"> Enabled</label>
+        <label>Height (px) <input type="number" class="brandSizeInput" min="12" max="120" step="1" style="width:55px;"></label>
+        <label>Opacity <input type="number" class="brandOpacityInput" min="0" max="1" step="0.05" style="width:55px;"></label>
+        <label>Corner <select class="brandCornerSelect">
+          <option value="top-left">Top Left</option>
+          <option value="top-right">Top Right</option>
+          <option value="bottom-left">Bottom Left</option>
+          <option value="bottom-right">Bottom Right</option>
+        </select></label>
+        <button type="button" class="brandResetBtn">Reset</button>
+      </div>
+    </div>
+
+    <div class="brandingRow" data-key="practiceStudioLogo" style="padding-bottom:10px;margin-bottom:10px;">
+      <div style="font-weight:700;margin-bottom:4px;">Practice Studio</div>
+      <div class="smallRow full">
+        <button type="button" class="brandUploadBtn">Upload Logo</button>
+        <input type="file" class="brandFileInput" accept="image/*" style="display:none;">
+        <label><input type="checkbox" class="brandEnabledCheck"> Enabled</label>
+        <label>Height (px) <input type="number" class="brandSizeInput" min="12" max="120" step="1" style="width:55px;"></label>
+        <label>Opacity <input type="number" class="brandOpacityInput" min="0" max="1" step="0.05" style="width:55px;"></label>
+        <button type="button" class="brandResetBtn">Reset</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1245,6 +1340,209 @@ MIZE.UI.applyProductConfig = function(){
   if (copyrightEl) copyrightEl.textContent = MIZE.config.copyright;
 };
 MIZE.UI.applyProductConfig();
+// ===== MIZE.Branding: first milestone of the Branding Engine =====
+// Per the branding audit: covers only the two things that are genuinely
+// hardcoded today (the field-center logo and the four perimeter texts),
+// not the full spec (locked/editable tiers, branding profiles,
+// subscription permissions, or locations like Login/Dashboard/Exports
+// that don't exist as features yet). Follows the same pattern already
+// proven by MIZE.config/applyProductConfig: one config object, one apply
+// function per concern, called once at load so the config is the actual
+// source of truth from the start -- even though today's defaults are
+// deliberately set to exactly match what was already hardcoded, so
+// nothing visibly changes yet.
+MIZE.Branding = {
+  fieldLogo: {
+    enabled: true,
+    href: null, // null = leave whatever's already in the HTML (today's XquiX Studio logo) untouched; set this to swap in a different image
+    width: 4,
+    height: 3.08,
+    opacity: 0.92
+  },
+  // One entry per existing perimeter text position. Keys describe screen
+  // position (left/right side, upper/lower along that side), matching
+  // this field's actual layout -- not the spec document's own "top"
+  // example, which doesn't correspond to how this field is laid out.
+  perimeterText: {
+    leftUpper:  { text:'RESPECT',    visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
+    leftLower:  { text:'FAIR PLAY',  visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
+    rightUpper: { text:'HAVE FUN',   visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
+    rightLower: { text:'PLAY SMART', visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 }
+  },
+  // The four plain HTML (non-field) logo placements. href:null on each
+  // means "use the shared default logo" (read once from the field logo's
+  // own embedded image below, rather than duplicating that same base64
+  // data four more times in the page) -- set an individual href to
+  // override just that one placement with something different.
+  headerLogo:         { enabled:true, href:null, height:32,  opacity:1 },
+  sidebarLogo:        { enabled:true, href:null, height:36,  opacity:1 },
+  presentationLogo:   { enabled:true, href:null, height:28,  opacity:.8, corner:'bottom-right' },
+  practiceStudioLogo: { enabled:true, href:null, height:28,  opacity:1 }
+};
+// ----- Persistence (Developer Mode logo uploads need to survive a reload) -----
+MIZE.Branding.STORAGE_KEY = 'xquixBrandingV1';
+MIZE.Branding.saveToStorage = function(){
+  try{
+    const data = {
+      fieldLogo: MIZE.Branding.fieldLogo,
+      perimeterText: MIZE.Branding.perimeterText,
+      headerLogo: MIZE.Branding.headerLogo,
+      sidebarLogo: MIZE.Branding.sidebarLogo,
+      presentationLogo: MIZE.Branding.presentationLogo,
+      practiceStudioLogo: MIZE.Branding.practiceStudioLogo
+    };
+    localStorage.setItem(MIZE.Branding.STORAGE_KEY, JSON.stringify(data));
+  } catch(e){ /* storage full or unavailable -- fail silently, in-memory config still works for this session */ }
+};
+MIZE.Branding.loadFromStorage = function(){
+  let saved;
+  try{ saved = JSON.parse(localStorage.getItem(MIZE.Branding.STORAGE_KEY) || 'null'); } catch(e){ saved = null; }
+  if(!saved) return;
+  // Merge key-by-key rather than replacing wholesale, so a schema that
+  // gains new fields later doesn't lose them just because an older saved
+  // blob doesn't have them yet.
+  ['fieldLogo','perimeterText','headerLogo','sidebarLogo','presentationLogo','practiceStudioLogo'].forEach(section=>{
+    if(!saved[section]) return;
+    Object.keys(saved[section]).forEach(key=>{
+      if(typeof MIZE.Branding[section][key] === 'object' && MIZE.Branding[section][key] !== null){
+        Object.assign(MIZE.Branding[section][key], saved[section][key]);
+      } else {
+        MIZE.Branding[section][key] = saved[section][key];
+      }
+    });
+  });
+};
+// Maps each perimeter text config key to the existing DOM element it
+// controls -- these ids/positions were hand-authored field markup long
+// before this engine existed, so the engine adapts to them rather than
+// the other way around.
+const MIZE_BRANDING_PERIMETER_EL_MAP = { leftUpper:'brandRespect', leftLower:'brandFairPlay', rightUpper:'brandHaveFun', rightLower:'brandPlaySmart' };
+// Same idea for the four plain HTML logo placements.
+const MIZE_BRANDING_HTML_LOGO_MAP = { headerLogo:'brandLogoHeader', sidebarLogo:'brandLogoSidebar', presentationLogo:'brandLogoPresentation', practiceStudioLogo:'brandLogoPracticeStudio' };
+MIZE.Branding.getLogo = function(key){
+  const fieldMap = { 'field.center': 'fieldLogo', 'header':'headerLogo', 'sidebar':'sidebarLogo', 'presentation':'presentationLogo', 'practiceStudio':'practiceStudioLogo' };
+  const shortKey = fieldMap[key];
+  return shortKey ? MIZE.Branding[shortKey] : null;
+};
+MIZE.Branding.getText = function(key){
+  const map = { 'field.perimeter.leftUpper':'leftUpper', 'field.perimeter.leftLower':'leftLower', 'field.perimeter.rightUpper':'rightUpper', 'field.perimeter.rightLower':'rightLower' };
+  const shortKey = map[key];
+  return shortKey ? MIZE.Branding.perimeterText[shortKey] : null;
+};
+MIZE.Branding.applyFieldLogo = function(){
+  const logo = document.getElementById('fieldCenterLogo');
+  if(!logo) return;
+  const cfg = MIZE.Branding.fieldLogo;
+  logo.style.display = cfg.enabled ? '' : 'none';
+  if(!cfg.enabled) return;
+  if(cfg.href) logo.setAttribute('href', cfg.href);
+  // Always recentered on the field's true center, so changing width/
+  // height (e.g. a customer's logo has a different aspect ratio) never
+  // shifts the logo off-center the way just resizing in place would.
+  const centerX = M.fieldX + M.fieldW/2, centerY = M.fieldY + M.fieldH/2;
+  logo.setAttribute('width', cfg.width);
+  logo.setAttribute('height', cfg.height);
+  logo.setAttribute('x', centerX - cfg.width/2);
+  logo.setAttribute('y', centerY - cfg.height/2);
+  logo.setAttribute('opacity', cfg.opacity);
+};
+MIZE.Branding.applyPerimeterText = function(){
+  Object.keys(MIZE_BRANDING_PERIMETER_EL_MAP).forEach(key=>{
+    const el = document.getElementById(MIZE_BRANDING_PERIMETER_EL_MAP[key]);
+    if(!el) return;
+    const cfg = MIZE.Branding.perimeterText[key];
+    el.style.display = cfg.visible ? '' : 'none';
+    el.textContent = cfg.text;
+    el.setAttribute('fill', cfg.color);
+    el.setAttribute('font-family', cfg.font);
+    el.setAttribute('font-size', cfg.fontSize);
+    el.setAttribute('textLength', cfg.textLength);
+  });
+};
+MIZE.Branding.applyHtmlLogos = function(){
+  // Shared default image, read once from the field logo's own embedded
+  // data rather than storing the same base64 blob five times over.
+  const defaultHref = document.getElementById('fieldCenterLogo')?.getAttribute('href') || '';
+  Object.keys(MIZE_BRANDING_HTML_LOGO_MAP).forEach(key=>{
+    const el = document.getElementById(MIZE_BRANDING_HTML_LOGO_MAP[key]);
+    if(!el) return;
+    const cfg = MIZE.Branding[key];
+    el.style.display = cfg.enabled ? '' : 'none';
+    if(!cfg.enabled) return;
+    el.src = cfg.href || defaultHref;
+    el.style.height = cfg.height + 'px';
+    el.style.opacity = cfg.opacity;
+  });
+  // Presentation logo's corner is separately positionable, since it's the
+  // one fixed-position placement among the four.
+  const presEl = document.getElementById('brandLogoPresentation');
+  if(presEl){
+    const corner = MIZE.Branding.presentationLogo.corner || 'bottom-right';
+    presEl.style.top = corner.startsWith('top') ? '16px' : '';
+    presEl.style.bottom = corner.startsWith('bottom') ? '16px' : '';
+    presEl.style.left = corner.endsWith('left') ? '16px' : '';
+    presEl.style.right = corner.endsWith('right') ? '16px' : '';
+  }
+};
+MIZE.Branding.apply = function(){
+  MIZE.Branding.applyFieldLogo();
+  MIZE.Branding.applyPerimeterText();
+  MIZE.Branding.applyHtmlLogos();
+};
+MIZE.Branding.loadFromStorage();
+MIZE.Branding.apply();
+// Pristine snapshot of the defaults, captured before loadFromStorage()
+// could modify anything in place -- Reset buttons restore from this,
+// not from whatever happens to be currently loaded.
+MIZE.Branding.DEFAULTS = JSON.parse(JSON.stringify({
+  fieldLogo: { enabled:true, href:null, width:4, height:3.08, opacity:0.92 },
+  perimeterText: {
+    leftUpper:  { text:'RESPECT',    visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
+    leftLower:  { text:'FAIR PLAY',  visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
+    rightUpper: { text:'HAVE FUN',   visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
+    rightLower: { text:'PLAY SMART', visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 }
+  },
+  headerLogo:         { enabled:true, href:null, height:32,  opacity:1 },
+  sidebarLogo:        { enabled:true, href:null, height:36,  opacity:1 },
+  presentationLogo:   { enabled:true, href:null, height:28,  opacity:.8, corner:'bottom-right' },
+  practiceStudioLogo: { enabled:true, href:null, height:28,  opacity:1 }
+}));
+// ===== Splash screen =====
+// Runs after MIZE.Branding.apply() above, so it picks up whatever logo is
+// actually configured (including a customer's own uploaded branding),
+// rather than a hardcoded image of its own.
+(function(){
+  const splash = document.getElementById('splashScreen');
+  const logoImg = document.getElementById('splashLogo');
+  const fieldLogoHref = document.getElementById('fieldCenterLogo')?.getAttribute('href');
+  if(splash && logoImg && fieldLogoHref) logoImg.src = fieldLogoHref;
+  // Removed from the render tree entirely once the animation finishes
+  // (4s total: 3s zoom/glow + 1s fade), not just left at opacity:0.
+  if(splash) setTimeout(()=>{ splash.style.display = 'none'; }, 4200);
+})();
+// Resizes an uploaded image file down to a reasonable max dimension
+// before it's used as a logo -- without this, a customer uploading a
+// full-resolution photo could push the stored config past localStorage's
+// size limit, or noticeably slow down every subsequent page load.
+function resizeImageFileToDataUri(file, maxDim, callback){
+  const reader = new FileReader();
+  reader.onload = function(){
+    const img = new Image();
+    img.onload = function(){
+      let w = img.width, h = img.height;
+      if(w > maxDim || h > maxDim){
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w*scale); h = Math.round(h*scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL('image/png'));
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
 // Standard metadata shape for every saved item (formation, tactical package,
 // practice session). Existing saved records predate this and lack these
 // fields entirely -- readers must keep treating them as valid, so this is
@@ -1868,6 +2166,88 @@ document.querySelector('.toolListBtn[data-panel="developerModePanel"]')?.addEven
   if(activeTpl){ document.getElementById('devTplSelect').value = activeTpl.id; devLoadTemplateIntoForm(activeTpl); }
   const label = document.getElementById('devActiveSportLabel');
   if(label) label.textContent = 'Active on board: ' + (all[MIZE.Sports.activeId]?.name || 'Water Polo');
+});
+
+// ===== Branding Manager (Developer Mode) =====
+// Populates each row's controls from the current MIZE.Branding config.
+// "Size" means width+height together (proportionally) for the field
+// logo specifically (an SVG image needing both explicit), and just
+// height for the other four (plain <img> tags that auto-scale width).
+function renderBrandingManagerPanel(){
+  document.querySelectorAll('#brandingManagerPanel .brandingRow').forEach(row=>{
+    const key = row.dataset.key;
+    const cfg = key==='fieldLogo' ? MIZE.Branding.fieldLogo : MIZE.Branding[key];
+    row.querySelector('.brandEnabledCheck').checked = !!cfg.enabled;
+    row.querySelector('.brandSizeInput').value = key==='fieldLogo' ? cfg.width : cfg.height;
+    row.querySelector('.brandOpacityInput').value = cfg.opacity;
+    const cornerSel = row.querySelector('.brandCornerSelect');
+    if(cornerSel) cornerSel.value = cfg.corner || 'bottom-right';
+  });
+}
+document.querySelector('.toolListBtn[data-panel="brandingManagerPanel"]')?.addEventListener('click', renderBrandingManagerPanel);
+document.querySelectorAll('#brandingManagerPanel .brandingRow').forEach(row=>{
+  const key = row.dataset.key;
+  const cfg = ()=> key==='fieldLogo' ? MIZE.Branding.fieldLogo : MIZE.Branding[key];
+
+  row.querySelector('.brandUploadBtn')?.addEventListener('click', ()=>{
+    row.querySelector('.brandFileInput').click();
+  });
+  row.querySelector('.brandFileInput')?.addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    resizeImageFileToDataUri(file, 400, (dataUri)=>{
+      cfg().href = dataUri;
+      MIZE.Branding.apply();
+      MIZE.Branding.saveToStorage();
+    });
+    e.target.value = ''; // allow re-selecting the same file later
+  });
+  row.querySelector('.brandEnabledCheck')?.addEventListener('change', (e)=>{
+    cfg().enabled = e.target.checked;
+    MIZE.Branding.apply();
+    MIZE.Branding.saveToStorage();
+  });
+  row.querySelector('.brandSizeInput')?.addEventListener('input', (e)=>{
+    const v = +e.target.value || 0;
+    if(key==='fieldLogo'){
+      const c = cfg();
+      const ratio = c.height / (c.width || 1); // preserve aspect ratio when resizing
+      c.width = v; c.height = +(v * ratio).toFixed(2);
+    } else {
+      cfg().height = v;
+    }
+    MIZE.Branding.apply();
+    MIZE.Branding.saveToStorage();
+  });
+  row.querySelector('.brandOpacityInput')?.addEventListener('input', (e)=>{
+    cfg().opacity = +e.target.value;
+    MIZE.Branding.apply();
+    MIZE.Branding.saveToStorage();
+  });
+  row.querySelector('.brandCornerSelect')?.addEventListener('change', (e)=>{
+    cfg().corner = e.target.value;
+    MIZE.Branding.apply();
+    MIZE.Branding.saveToStorage();
+  });
+  row.querySelector('.brandResetBtn')?.addEventListener('click', ()=>{
+    const defaults = key==='fieldLogo' ? MIZE.Branding.DEFAULTS.fieldLogo : MIZE.Branding.DEFAULTS[key];
+    Object.assign(cfg(), JSON.parse(JSON.stringify(defaults)));
+    MIZE.Branding.apply();
+    MIZE.Branding.saveToStorage();
+    renderBrandingManagerPanel();
+  });
+});
+document.getElementById('brandResetAllBtn')?.addEventListener('click', async ()=>{
+  if(!(await MizeDialog.confirm('Reset ALL branding (every logo and the field text) back to defaults? This cannot be undone.'))) return;
+  ['fieldLogo','headerLogo','sidebarLogo','presentationLogo','practiceStudioLogo'].forEach(key=>{
+    Object.assign(MIZE.Branding[key], JSON.parse(JSON.stringify(MIZE.Branding.DEFAULTS[key])));
+  });
+  Object.keys(MIZE.Branding.perimeterText).forEach(key=>{
+    Object.assign(MIZE.Branding.perimeterText[key], JSON.parse(JSON.stringify(MIZE.Branding.DEFAULTS.perimeterText[key])));
+  });
+  MIZE.Branding.apply();
+  MIZE.Branding.saveToStorage();
+  renderBrandingManagerPanel();
 });
 
 // ===== About & Diagnostics (Stage 8 -- finishing the previously incomplete panel) =====
@@ -2973,7 +3353,7 @@ function addGhostsFromState(st) {
   });
 }
 function toggleGhostMode() { ghostMode=!ghostMode; document.getElementById('ghostBtn').classList.toggle('active',ghostMode); if(!ghostMode) clearGhosts(); else if(frames[currentFrame-1]) addGhostsFromState(frames[currentFrame-1]); }
-const PRESENT_SKIP_IDS=['fieldBgRect','goalFrameL1','goalFrameL2','goalFrameR1','goalFrameR2','fieldSideBands','brandRespect','brandFairPlay','brandHaveFun','brandPlaySmart','fieldDimLabel'];
+const PRESENT_SKIP_IDS=['fieldBgRect','goalFrameL1','goalFrameL2','goalFrameR1','goalFrameR2','fieldSideBands','brandRespect','brandFairPlay','brandHaveFun','brandPlaySmart','fieldDimLabel','fieldCenterLogo'];
 function buildPresentationFieldGroup(){
   if(document.getElementById('presentationFieldGroup')) return; // build once
   const svg=document.getElementById('fieldSvg');
