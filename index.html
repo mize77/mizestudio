@@ -288,6 +288,18 @@
   .stageLight.spotlightDimmed .stageLightCone { display:none; }
   .stageLight.spotlightDimmed .stageLightLens { opacity:.22; box-shadow:none; }
   .stageLight.spotlightResponsible .stageLightCone { background:linear-gradient(to bottom, rgba(255,238,180,.34) 0%, rgba(255,238,180,.16) 55%, rgba(255,238,180,.10) 85%, rgba(255,238,180,.06) 100%); }
+  /* Splash screen reuses the exact same fixture rig (yoke/housing/barn
+     doors) as Presentation Mode's Stage Lights, so the intro reads as the
+     same studio from the first frame. The rig hardware itself is visible
+     immediately (it's just hanging structure); only the lens glow and
+     light cone fade in, "getting lighter and lighter" as the intro plays,
+     blending into the reveal of the actual app underneath. mix-blend-mode
+     is overridden from the presentation version's "screen" (which needs a
+     dark backdrop to read at all) to a plain warm gradient, since the
+     splash background is white and "screen" against white is invisible. */
+  .splashStageLight .stageLightLens { opacity:0; animation:splashStageLightGlow 3s ease-in forwards; }
+  .splashStageLight .stageLightCone { mix-blend-mode:normal; background:linear-gradient(to bottom, rgba(255,193,74,.4) 0%, rgba(255,193,74,.18) 35%, rgba(255,224,150,.06) 70%, transparent 92%); opacity:0; animation:splashStageLightGlow 3s ease-in forwards; }
+  @keyframes splashStageLightGlow { from { opacity:0; } to { opacity:1; } }
   body.presentation #board { position:relative; flex:0 0 auto; margin:0; box-shadow:0 20px 60px rgba(0,0,0,.5); aspect-ratio:auto; }
   body.presentation #frameNote { font-size:18px; min-height:60px; }
   #timelinePanel:not(.detached) { position:fixed; top:50%; bottom:auto; left:50%; width:min(760px,92vw); max-height:82vh; max-height:82dvh; border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.45); z-index:1530; transform:translate(-50%,-50%) translateY(150vh); transition:transform .25s ease; pointer-events:none; }
@@ -315,6 +327,22 @@
   #contextMenu .sep { height:1px; background:#e1e6e6; margin:5px 0; }
   #playerActionBar { position:fixed; top:10px; left:10px; z-index:1470; display:grid; grid-template-columns:repeat(2, auto); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #playerActionBar.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
+  /* Stands in for the Player Action Bar in its usual spot when the field
+     has no players at all -- with nothing to mark, the normal bar can
+     never appear, so there'd otherwise be no way back onto the field. */
+  #emptyFieldAddBtn { position:fixed; top:10px; left:10px; z-index:1470; width:44px; height:44px; border-radius:50%; border:none; background:rgba(18,77,77,.92); color:#fff; font-size:26px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
+  #emptyFieldAddBtn.visible { display:flex; }
+  #emptyFieldAddBtn:hover { background:#1a6363; }
+  #emptyFieldAddBox { position:fixed; top:62px; left:10px; z-index:1470; display:none; flex-direction:column; gap:6px; background:rgba(18,77,77,.95); padding:10px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); width:240px; max-height:80vh; overflow-y:auto; }
+  #emptyFieldAddBox.open { display:flex; }
+  #emptyFieldAddBox .efaTitle { color:#cfe6e6; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-bottom:2px; }
+  #emptyFieldAddBox button { text-align:left; font-size:12.5px; padding:8px 10px; border-radius:8px; border:none; background:rgba(255,255,255,.12); color:#fff; cursor:pointer; }
+  #emptyFieldAddBox button:hover { background:rgba(255,255,255,.24); }
+  #emptyFieldAddBox .efaSingleBtn { border-top:1px solid rgba(255,255,255,.2); margin-top:2px; padding-top:8px; }
+  @media (max-width:500px), (max-height:500px) {
+    #emptyFieldAddBtn { top:auto; bottom:10px; }
+    #emptyFieldAddBox { top:auto; bottom:62px; }
+  }
   #directionPad { position:fixed; right:10px; bottom:10px; z-index:1470; width:170px; height:170px; border-radius:50%; background:radial-gradient(circle, rgba(10,40,40,.92) 60%, rgba(10,40,40,.75) 100%); box-shadow:0 4px 16px rgba(0,0,0,.35); display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:4px; padding:10px; transform:translateX(160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #directionPad.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
   .dpadBtn { background:rgba(18,77,77,.92); color:#fff; border:none; font-size:22px; display:flex; align-items:center; justify-content:center; touch-action:none; }
@@ -427,6 +455,10 @@
   <div id="splashSpotlight1" class="splashSpotlight"></div>
   <div id="splashSpotlight2" class="splashSpotlight"></div>
   <div id="splashSpotlight3" class="splashSpotlight"></div>
+  <div class="stageLight splashStageLight" style="left:15%;animation-delay:0s;"><div class="stageLightYoke"></div><div class="stageLightHousing"></div><div class="stageLightBarnDoor bl"></div><div class="stageLightBarnDoor br"></div><div class="stageLightLens"></div><div class="stageLightCone"></div></div>
+  <div class="stageLight splashStageLight" style="left:38%;animation-delay:.25s;"><div class="stageLightYoke"></div><div class="stageLightHousing"></div><div class="stageLightBarnDoor bl"></div><div class="stageLightBarnDoor br"></div><div class="stageLightLens"></div><div class="stageLightCone"></div></div>
+  <div class="stageLight splashStageLight" style="left:62%;animation-delay:.5s;"><div class="stageLightYoke"></div><div class="stageLightHousing"></div><div class="stageLightBarnDoor bl"></div><div class="stageLightBarnDoor br"></div><div class="stageLightLens"></div><div class="stageLightCone"></div></div>
+  <div class="stageLight splashStageLight" style="left:85%;animation-delay:.75s;"><div class="stageLightYoke"></div><div class="stageLightHousing"></div><div class="stageLightBarnDoor bl"></div><div class="stageLightBarnDoor br"></div><div class="stageLightLens"></div><div class="stageLightCone"></div></div>
   <img id="splashLogo" alt="">
 </div>
 <button id="exitPresentationBtn" title="Exit Presentation">&#10005;</button>
@@ -672,6 +704,7 @@
     <button type="button" class="cmdCatHeader">Movement &amp; Ball <span class="chev">&#9656;</span></button>
     <div class="cmdFlyout">
       <button id="selectBtn" class="active modeBtn" data-tip="Drag players or the ball. Tap a player (without dragging) to switch it between vertical and horizontal.">Move / Toggle</button>
+      <button id="addPlayerFromMovementBtn" data-tip="Add a player to the field -- also useful when there are no players at all to mark or select.">Add Player</button>
       <button id="smartPositioningToggleBtn" class="active" data-tip="When on, the ball carrier automatically faces the goal they're attacking while being moved, and a vertical defender within 2m of the ball carrier automatically stays squared to them while being moved. You can always override this afterward with the rotate handle.">Smart Positioning: On</button>
       <button id="multiSelectBtn" data-tip="Turn on to tap multiple players/ball to select them together, like holding ⌘/Ctrl while clicking.">Multi-Select: Off</button>
       <button id="ballBtn" class="modeBtn" data-tip="Tap this, then tap a player to give them the ball in their right hand.">Ball to Player</button>
@@ -748,6 +781,7 @@
       <button class="toolListBtn" data-panel="panel_shortcuts">Shortcuts</button>
       <button class="toolListBtn" data-panel="workflowHelpPanel">How to Use New Tools</button>
       <button class="toolListBtn" data-panel="versionHistoryPanel">Version History</button>
+      <button class="toolListBtn" data-panel="recoveryPanel">Recovery</button>
       <button class="toolListBtn" data-panel="packagePanel">Tactical Packages</button>
       <button class="toolListBtn" data-panel="presentationStudioPanel">Presentation Studio</button>
       <button class="toolListBtn" data-panel="objectEngineDebugPanel">Object Engine (Scene JSON)</button>
@@ -787,6 +821,17 @@
   <button id="paDriveLeftBtn" class="playerActionBtn touchHiddenActionBtn" title="Drive to the left post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L18 6M18 6H10M18 6V14"/></svg></button>
   <button id="paDriveRightBtn" class="playerActionBtn touchHiddenActionBtn" title="Drive to the right post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20L6 6M6 6H14M6 6V14"/></svg></button>
   <button id="paAddPlayerBtn" class="playerActionBtn" title="Add a new player to this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg></button>
+</div>
+<button id="emptyFieldAddBtn" title="No players on the field yet -- add some">+</button>
+<div id="emptyFieldAddBox">
+  <div class="efaTitle">Quick Add</div>
+  <button type="button" id="efaCombo1v1">Blue Goalie + 1 &nbsp;vs&nbsp; White 1</button>
+  <button type="button" id="efaCombo2v2">Blue Goalie + 2 &nbsp;vs&nbsp; White 2</button>
+  <button type="button" id="efaCombo3v3">Blue Goalie + 3 &nbsp;vs&nbsp; White 3</button>
+  <button type="button" id="efaCombo5v5">Blue Goalie + 5 &nbsp;vs&nbsp; White 5</button>
+  <button type="button" id="efaCombo5v6">Blue Goalie + 5 &nbsp;vs&nbsp; White 6</button>
+  <button type="button" id="efaCombo6v6">Blue Goalie + 6 &nbsp;vs&nbsp; White 6</button>
+  <button type="button" id="efaSingle" class="efaSingleBtn">Add a Single Player&#8230;</button>
 </div>
 <div id="directionPad">
   <button id="dpadPassLeftBtn" class="dpadBtn dpadCornerBtn" title="Pass left (works if the marked player\u2019s team has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
@@ -1223,6 +1268,13 @@ const MizeDialog = (function(){
 <div style="font-size:12px;color:#54605f;margin-bottom:6px;">Autosaves in the background as you work. Save a named checkpoint before trying something risky, and restore it later if needed.</div>
     <button id="saveCheckpointBtn" style="width:100%;margin-bottom:8px;">Save Checkpoint Now</button>
     <div id="versionHistoryList"></div>
+  </div>
+</div>
+<div class="toolPanel" id="recoveryPanel">
+  <div class="toolPanelHeader"><h3>Recovery</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+<div style="font-size:12px;color:#54605f;margin-bottom:6px;">The app always reopens exactly where you left off. If that's not the session you wanted, restore one of the last 3 sessions here -- captured automatically whenever you closed or switched away from a session, not just every few seconds.</div>
+    <div id="sessionHistoryList"></div>
   </div>
 </div>
 <div class="toolPanel" id="packagePanel">
@@ -2780,22 +2832,26 @@ function updateMeasure(g,x1,y1,x2,y2) {
   const d=Math.hypot(x2-x1,y2-y1); t.setAttribute('x',(x1+x2)/2+.15); t.setAttribute('y',(y1+y2)/2-.15); t.textContent=d.toFixed(2)+' m';
 }
 placeBall();
-// Guards against runAutosave() firing (it runs once immediately on load,
-// independent of this IIFE's async pause at the confirm dialog) and
-// overwriting the very autosave record being offered for recovery before
-// the coach has answered. Cleared in `finally` so it resets exactly once
-// regardless of which branch below is taken.
+// Previously asked "Restore your last autosaved session?" via a confirm
+// dialog on every single load. Per spec, restoration now happens
+// automatically and silently -- the coach can still reach further back via
+// the Recovery panel (last 3 session snapshots, captured at natural
+// session-boundary points -- see "Session Recovery History" below), so a
+// load-time dialog would only add a click without adding any real safety.
+// Guards against runAutosave() firing mid-load (it also runs once
+// immediately) and overwriting the very autosave record this IIFE is still
+// reading. Cleared in `finally` so it resets exactly once regardless of
+// which branch below is taken.
 let suppressAutosaveUntilRecoveryDecided = true;
-(async function loadDefaultFormation(){
+(function loadDefaultFormation(){
   try {
     try {
       const autosaveRaw = localStorage.getItem('tpgAutosaveV1');
       if(autosaveRaw){
         const autosave = MIZE.Storage.readRecord(JSON.parse(autosaveRaw));
         if(autosave && autosave.state && autosave.savedAt){
-          const when = new Date(autosave.savedAt).toLocaleString();
-          const restore = await MizeDialog.confirm('Restore your last autosaved session from '+when+'?', 'Recover Session');
-          if(restore){ loadState(autosave.state); return; }
+          loadState(autosave.state);
+          return;
         }
       }
     } catch(err) {}
@@ -4411,6 +4467,7 @@ function giveBallToSelected(el){ if(!el || isBall(el)) return; recordHistory(); 
 
 const contextMenu=document.getElementById('contextMenu'); let contextTarget=null;
 document.querySelector('.toolListBtn[data-panel="addPlayerPanel"]')?.addEventListener('click', ()=> openAddPlayerPanel());
+document.getElementById('addPlayerFromMovementBtn')?.addEventListener('click', ()=> openAddPlayerPanel());
 // ===== Player Action Bar =====
 // Persistent alternative to the long-press context menu for the most
 // common per-player actions, specifically because holding a player to move
@@ -4614,8 +4671,8 @@ document.getElementById('dpadDriveLeftBtn')?.addEventListener('click', ()=>drive
 document.getElementById('dpadDriveRightBtn')?.addEventListener('click', ()=>driveToPost('right'));
 document.getElementById('paLeftArmBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) setArmSide(playerActionBarTarget,'left'); });
 document.getElementById('paRightArmBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) setArmSide(playerActionBarTarget,'right'); });
-document.getElementById('paSpinCwBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) rotateBy(playerActionBarTarget,30); });
-document.getElementById('paSpinCcwBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) rotateBy(playerActionBarTarget,-30); });
+document.getElementById('paSpinCwBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) rotateBy(playerActionBarTarget,15); });
+document.getElementById('paSpinCcwBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) rotateBy(playerActionBarTarget,-15); });
 document.getElementById('paTogglePoseBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) togglePose(playerActionBarTarget); });
 document.getElementById('paClaimBallBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) giveBallToSelected(playerActionBarTarget); });
 document.getElementById('paInspectorBtn')?.addEventListener('click', ()=>{ if(playerActionBarTarget) openToolPanel('inspectorPanel'); });
@@ -5430,6 +5487,99 @@ document.getElementById('playerSetupsToggleBtn')?.addEventListener('click', ()=>
   document.getElementById('playerSetupsToggleBtn')?.classList.add('active');
   renderQuickCommandBar();
 });
+
+// ===== Empty-Field Quick Add =====
+// With zero players on the board, nothing can ever be marked/selected, so
+// the normal Player Action Bar (and its own Add Player button) can never
+// appear. This floating "+" stands in for it, in the same top-left spot,
+// offering either a single player (the existing Add Player panel) or one
+// of three common shooting/power-play combos.
+// Zone angles match the Field Zones "offense" wedges (FIELD_ZONE_DEFS)
+// exactly, so a combo's attacking line lands right on the same zone
+// markers a coach already sees when Field Zones is toggled on.
+const QUICK_ADD_ZONE_ANGLE = { z1:-72, z2:-36, z3:0, z4:36, z5:72, center:0 };
+// Priority order per spec: 1st player -> Zone 3, 2nd -> Zone 1, 3rd ->
+// Zone 5, 4th -> Zone 2, 5th -> Zone 4, 6th -> Zone 6 (center/hole).
+const QUICK_ADD_ZONE_ORDER = ['z3','z1','z5','z2','z4','center'];
+const QUICK_ADD_OUTER_R = (FIELD_ZONE_INNER_R + FIELD_ZONE_OUTER_R) / 2; // 6.5m -- the offense ring itself
+const QUICK_ADD_CENTER_R = FIELD_ZONE_INNER_R / 2; // 2m -- standard hole/2m-set depth
+const QUICK_ADD_INNER_R = 3; // defensive marking depth: between the 1m goalie and the 6.5m attacking ring
+const QUICK_ADD_CENTER_INNER_R = 1.5; // a 6th Blue defender marking the center/hole sits tight between the goalie (1m) and the Zone-3 defender (3m), not stacked on either
+function quickAddZonePosition(index, ring){
+  const zoneId = QUICK_ADD_ZONE_ORDER[index % QUICK_ADD_ZONE_ORDER.length];
+  const phi = QUICK_ADD_ZONE_ANGLE[zoneId];
+  const r = zoneId==='center' ? (ring==='inner' ? QUICK_ADD_CENTER_INNER_R : QUICK_ADD_CENTER_R) : (ring==='inner' ? QUICK_ADD_INNER_R : QUICK_ADD_OUTER_R);
+  const pt = fieldZonePolarPt(phi, r);
+  return [+pt.x.toFixed(2), +pt.y.toFixed(2)];
+}
+// Every combo sets up around the LEFT goal in Full Court view, per spec --
+// Blue defends it (goalie + any extra field players marking the same zone
+// angles at a closer radius), White attacks it from the standard offense
+// zones. The 6-on-5 combo deliberately leaves Zone 6/center unmarked on
+// defense, matching how a real 5-defender shape covers a 6-attacker set.
+const QUICK_ADD_COMBOS = {
+  combo1v1: { label:'Blue Goalie + 1 vs White 1', blueField:1, whiteField:1 },
+  combo2v2: { label:'Blue Goalie + 2 vs White 2', blueField:2, whiteField:2 },
+  combo3v3: { label:'Blue Goalie + 3 vs White 3', blueField:3, whiteField:3 },
+  combo5v5: { label:'Blue Goalie + 5 vs White 5', blueField:5, whiteField:5 },
+  combo5v6: { label:'Blue Goalie + 5 vs White 6', blueField:5, whiteField:6 },
+  combo6v6: { label:'Blue Goalie + 6 vs White 6', blueField:6, whiteField:6 }
+};
+function applyQuickAddCombo(key){
+  const def = QUICK_ADD_COMBOS[key];
+  if(!def) return;
+  recordHistory('Quick Add: '+def.label);
+  clearSelection();
+  document.querySelectorAll('.player').forEach(e=>e.remove());
+  ballCarrier = null;
+  const goaliePt = fieldZonePolarPt(0, 1); // 1m ahead of the goal-line, central to the goal, facing straight outward
+  const bg = makePlayer(['BG','goalie', +goaliePt.x.toFixed(2), +goaliePt.y.toFixed(2), 'v', 90]);
+  updatePlayerVisual(bg); bg.querySelector('.capNumber').textContent='G';
+  for(let i=0;i<def.blueField;i++){
+    const [x,y] = quickAddZonePosition(i,'inner');
+    const el = makePlayer(['B'+(i+1),'blue',x,y,'v',90]);
+    updatePlayerVisual(el);
+  }
+  let firstWhite=null;
+  for(let i=0;i<def.whiteField;i++){
+    const [x,y] = quickAddZonePosition(i,'outer');
+    const el = makePlayer(['W'+(i+1),'white',x,y,'v',270]);
+    updatePlayerVisual(el);
+    if(i===0) firstWhite=el;
+  }
+  clearArrows(true);
+  if(firstWhite) moveBallTo(firstWhite,'right'); else placeBall();
+  renderTeamManager();
+  closeEmptyFieldAddBox();
+}
+function openEmptyFieldAddBox(){ document.getElementById('emptyFieldAddBox')?.classList.add('open'); }
+function closeEmptyFieldAddBox(){ document.getElementById('emptyFieldAddBox')?.classList.remove('open'); }
+document.getElementById('emptyFieldAddBtn')?.addEventListener('click', ()=>{
+  const box=document.getElementById('emptyFieldAddBox');
+  if(box?.classList.contains('open')) closeEmptyFieldAddBox(); else openEmptyFieldAddBox();
+});
+document.getElementById('efaCombo1v1')?.addEventListener('click', ()=>applyQuickAddCombo('combo1v1'));
+document.getElementById('efaCombo2v2')?.addEventListener('click', ()=>applyQuickAddCombo('combo2v2'));
+document.getElementById('efaCombo3v3')?.addEventListener('click', ()=>applyQuickAddCombo('combo3v3'));
+document.getElementById('efaCombo5v5')?.addEventListener('click', ()=>applyQuickAddCombo('combo5v5'));
+document.getElementById('efaCombo5v6')?.addEventListener('click', ()=>applyQuickAddCombo('combo5v6'));
+document.getElementById('efaCombo6v6')?.addEventListener('click', ()=>applyQuickAddCombo('combo6v6'));
+document.getElementById('efaSingle')?.addEventListener('click', ()=>{ closeEmptyFieldAddBox(); openAddPlayerPanel(); });
+document.addEventListener('pointerdown', e=>{
+  const box=document.getElementById('emptyFieldAddBox'), btn=document.getElementById('emptyFieldAddBtn');
+  if(box && box.classList.contains('open') && !box.contains(e.target) && e.target!==btn) closeEmptyFieldAddBox();
+});
+// A MutationObserver (rather than hooking every call site that adds/
+// removes players -- Reset, Load, Player Setups, Delete, etc.) so this
+// stays correct automatically no matter which of those paths empties or
+// repopulates the field.
+function updateEmptyFieldAddButton(){
+  const hasPlayers = document.querySelectorAll('.player').length>0;
+  document.getElementById('emptyFieldAddBtn')?.classList.toggle('visible', !hasPlayers);
+  if(hasPlayers) closeEmptyFieldAddBox();
+}
+new MutationObserver(updateEmptyFieldAddButton).observe(board, { childList:true });
+updateEmptyFieldAddButton();
 (function(){
   const bar=document.getElementById('quickCommandBar');
   const handle=document.getElementById('quickCommandBarHandle');
@@ -6011,6 +6161,52 @@ let autosaveTimer=setInterval(runAutosave, 20000);
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') runAutosave(); });
 window.addEventListener('beforeunload', runAutosave);
 runAutosave();
+
+// ===== Session Recovery History =====
+// Separate from the single rolling `tpgAutosaveV1` record above (which the
+// app now restores from automatically and silently on load) and from the
+// manual, coach-named Version History below. This keeps the last 3
+// *session* snapshots -- captured only at natural session-boundary points
+// (the tab going hidden, or the page unloading), not on the 20-second
+// autosave tick, so the 3 entries are meaningfully different sessions
+// rather than near-identical moments seconds apart.
+const SESSION_HISTORY_KEY = 'tpgSessionHistoryV1';
+const MAX_SESSION_HISTORY = 3;
+const SESSION_HISTORY_MIN_GAP_MS = 10000; // guards against 'hidden' and 'beforeunload' both firing during the same tab-close, which would otherwise push two near-identical entries
+let lastSessionHistoryPushAt = 0;
+function getSessionHistory(){ try { return JSON.parse(localStorage.getItem(SESSION_HISTORY_KEY)||'[]'); } catch(err) { return []; } }
+function captureSessionHistorySnapshot(){
+  if(suppressAutosaveUntilRecoveryDecided) return; // don't capture the load-in-progress state as if it were a completed session
+  const now = Date.now();
+  if(now - lastSessionHistoryPushAt < SESSION_HISTORY_MIN_GAP_MS) return;
+  lastSessionHistoryPushAt = now;
+  try {
+    const list = getSessionHistory();
+    list.unshift(MIZE.Storage.stampRecord({ savedAt:new Date().toISOString(), state:getState() }));
+    while(list.length>MAX_SESSION_HISTORY) list.pop();
+    localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(list));
+    renderSessionHistory();
+  } catch(err) { /* storage full or unavailable -- best-effort, same as autosave */ }
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') captureSessionHistorySnapshot(); });
+window.addEventListener('beforeunload', captureSessionHistorySnapshot);
+function renderSessionHistory(){
+  const box=document.getElementById('sessionHistoryList'); if(!box) return;
+  const list=getSessionHistory();
+  box.innerHTML = list.length ? '' : '<div style="font-size:12px;color:#7c8a8a;">No previous sessions saved yet -- this fills in as you close or switch away from a session.</div>';
+  list.forEach((v,i)=>{
+    const row=document.createElement('div'); row.className='versionRow';
+    const meta=document.createElement('div'); meta.className='versionMeta';
+    const label=document.createElement('div'); label.className='versionLabel'; label.textContent = i===0 ? 'Most Recent Session' : (i+1)+' Sessions Ago';
+    const time=document.createElement('div'); time.className='versionTime'; time.textContent=new Date(v.savedAt).toLocaleString();
+    meta.appendChild(label); meta.appendChild(time);
+    const restore=document.createElement('button'); restore.textContent='Restore';
+    restore.onclick=async ()=>{ if(!(await MizeDialog.confirm('Restore this session from '+new Date(v.savedAt).toLocaleString()+'? Current board state will be pushed to Undo first.'))) return; recordHistory('Before Restoring Session'); loadState(MIZE.Storage.readRecord(v).state); closeToolPanels(); };
+    row.appendChild(meta); row.appendChild(restore);
+    box.appendChild(row);
+  });
+}
+renderSessionHistory();
 
 // ===== Version History (named checkpoints, separate from linear undo) =====
 const VERSION_HISTORY_KEY = 'tpgVersionHistoryV1';
