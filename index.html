@@ -2502,6 +2502,7 @@ document.addEventListener('pointerup', e=>{
 ball.addEventListener('pointerdown', e=>{ if(layerState.lockBall || ball.dataset.locked==='true') return; if(mode!=='select' && mode!=='ball') return; if(isCmd(e)) { toggleSelected(ball); moved=false; e.preventDefault(); return; } startGroupDrag(ball,e); ball.setPointerCapture(e.pointerId); e.preventDefault(); });
 attachLongPress(ball, ()=>ball);
 board.addEventListener('pointerdown', e=>{
+  if(frontCourtActive && e.target.closest && e.target.closest('.fcScrollZone')) return; // let the browser handle scrolling natively here; never start a drawing gesture or call preventDefault
   if(e.target.closest && (e.target.closest('.player') || e.target===ball || e.target.closest('.drawing'))) return;
   if(mode==='select') { if(!isCmd(e)) { clearSelection(); startSelectionBox(e); board.setPointerCapture(e.pointerId); e.preventDefault(); } return; }
   if(['pass','swim','drive','shot','screen'].includes(mode)) { const p=pxToM(e); startArrow={x:p.x,y:p.y,type:mode}; previewLine=drawLine(p.x,p.y,p.x,p.y,mode,true); board.setPointerCapture(e.pointerId); e.preventDefault(); }
