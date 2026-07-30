@@ -139,6 +139,14 @@
   .player:hover .rotateHandle, .player.rotating .rotateHandle { opacity:1; }
   .rotateHandle::after { content:""; position:absolute; left:50%; top:100%; width:1.5px; height:11px; background:#263238; transform:translateX(-50%); opacity:.65; }
   #ball { position:absolute; width:18px; height:18px; border-radius:50%; background:#ffd400; border:3px solid white; box-shadow:0 1px 5px rgba(0,0,0,.45); transform:translate(-50%,-50%); z-index:7; cursor:grab; touch-action:none; }
+  /* Class-based twin of #ball for additional balls (multi-ball drills) --
+     #ball is a singular, unique-id element, so any 2nd/3rd ball needs a
+     class selector instead. Same look, same behavior, just no hand-carry
+     mechanic (no player ever "holds" an extra ball). */
+  .extraBall { position:absolute; width:18px; height:18px; border-radius:50%; background:#ffd400; border:3px solid white; box-shadow:0 1px 5px rgba(0,0,0,.45); transform:translate(-50%,-50%); z-index:7; cursor:grab; touch-action:none; }
+  .extraBall::before { content:""; position:absolute; inset:-14px; border-radius:50%; }
+  .extraBall::after { content:""; position:absolute; inset:3px; border:1px solid rgba(0,0,0,.35); border-radius:50%; transform:rotate(25deg); }
+  .extraBall.selected { outline:2px solid #ffcc00; outline-offset:4px; }
   #ball::after { content:""; position:absolute; inset:3px; border:1px solid rgba(0,0,0,.35); border-radius:50%; transform:rotate(25deg); }
   #ball.selected { outline:2px solid #ffcc00; outline-offset:4px; }
 
@@ -181,7 +189,7 @@
   #packageList { display:flex; flex-direction:column; gap:6px; max-height:110px; overflow:auto; }
   #packageList button { font-size:12px; padding:7px 8px; }
   body.hidePlayers .player { display:none; }
-  body.hideBall #ball { display:none; }
+  body.hideBall #ball, body.hideBall .extraBall { display:none; }
   body.hideDrawings #arrows .drawing[data-kind="line"] { display:none; }
   body.hideHighlights #arrows .drawing[data-kind="highlight"] { display:none; }
   body.hideNotes #arrows .drawing[data-kind="note"] { display:none; }
@@ -325,23 +333,33 @@
   #contextMenu button { display:block; width:100%; text-align:left; border:0; border-radius:7px; padding:8px 9px; background:#fff; font-weight:700; }
   #contextMenu button:hover { background:#eef7f8; }
   #contextMenu .sep { height:1px; background:#e1e6e6; margin:5px 0; }
-  #playerActionBar { position:fixed; top:10px; left:10px; z-index:1470; display:grid; grid-template-columns:repeat(2, auto); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
+  #playerActionBar { position:fixed; top:10px; left:10px; z-index:1540; display:grid; grid-template-columns:repeat(2, auto); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #playerActionBar.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
-  /* Stands in for the Player Action Bar in its usual spot when the field
-     has no players at all -- with nothing to mark, the normal bar can
-     never appear, so there'd otherwise be no way back onto the field. */
-  #emptyFieldAddBtn { position:fixed; top:10px; left:10px; z-index:1470; width:44px; height:44px; border-radius:50%; border:none; background:rgba(18,77,77,.92); color:#fff; font-size:26px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
+  /* General-purpose Add menu (player/formation/sequence) -- shares the
+     Player Action Bar's top-left spot and shows whenever nothing is
+     currently marked, whether or not the field has players on it. Hides
+     the moment something is selected, since the Player Action Bar or the
+     multi-delete button take over that same spot then. */
+  #emptyFieldAddBtn { position:fixed; top:10px; left:10px; z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:rgba(18,77,77,.92); color:#fff; font-size:26px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
   #emptyFieldAddBtn.visible { display:flex; }
   #emptyFieldAddBtn:hover { background:#1a6363; }
-  #emptyFieldAddBox { position:fixed; top:62px; left:10px; z-index:1470; display:none; flex-direction:column; gap:6px; background:rgba(18,77,77,.95); padding:10px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); width:240px; max-height:80vh; overflow-y:auto; }
-  #emptyFieldAddBox.open { display:flex; }
-  #emptyFieldAddBox .efaTitle { color:#cfe6e6; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-bottom:2px; }
-  #emptyFieldAddBox button { text-align:left; font-size:12.5px; padding:8px 10px; border-radius:8px; border:none; background:rgba(255,255,255,.12); color:#fff; cursor:pointer; }
-  #emptyFieldAddBox button:hover { background:rgba(255,255,255,.24); }
-  #emptyFieldAddBox .efaSingleBtn { border-top:1px solid rgba(255,255,255,.2); margin-top:2px; padding-top:8px; }
+  #emptyFieldMenuBox, #emptyFieldAddBox, #emptyFieldSequenceBox { position:fixed; top:62px; left:10px; z-index:1540; display:none; flex-direction:column; gap:6px; background:rgba(18,77,77,.95); padding:10px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); width:240px; max-height:80vh; overflow-y:auto; }
+  #emptyFieldMenuBox.open, #emptyFieldAddBox.open, #emptyFieldSequenceBox.open { display:flex; }
+  #emptyFieldMenuBox .efaTitle, #emptyFieldAddBox .efaTitle, #emptyFieldSequenceBox .efaTitle { color:#cfe6e6; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-bottom:2px; }
+  #emptyFieldMenuBox button, #emptyFieldAddBox button, #emptyFieldSequenceBox button { text-align:left; font-size:12.5px; padding:8px 10px; border-radius:8px; border:none; background:rgba(255,255,255,.12); color:#fff; cursor:pointer; }
+  #emptyFieldMenuBox button:hover, #emptyFieldAddBox button:hover, #emptyFieldSequenceBox button:hover { background:rgba(255,255,255,.24); }
+  #emptyFieldAddBox .efaOrgLabel, #emptyFieldSequenceBox .efaOrgLabel { color:#9fc7c7; font-size:11px; margin:-2px 0 2px; }
+  #emptyFieldAddBox .efaDevRow, #emptyFieldSequenceBox .efaDevRow { display:flex; flex-direction:column; gap:6px; background:rgba(0,0,0,.18); border-radius:8px; padding:6px; margin-bottom:2px; }
+  #emptyFieldAddBox .efaDevRow select, #emptyFieldSequenceBox .efaDevRow select { font-size:12px; padding:5px; border-radius:6px; border:none; }
+  #emptyFieldAddBox .efaEmpty, #emptyFieldSequenceBox .efaEmpty { font-size:12px; color:#9fc7c7; padding:4px 2px; }
+  #emptyFieldAddBox .efaLibRow, #emptyFieldSequenceBox .efaLibRow { display:flex; gap:6px; align-items:center; }
+  #emptyFieldAddBox .efaLibRow button:first-child, #emptyFieldSequenceBox .efaLibRow button:first-child { flex:1; }
+  #emptyFieldAddBox .efaLibRow .efaDelBtn, #emptyFieldSequenceBox .efaLibRow .efaDelBtn { flex:0 0 auto; padding:8px 10px; background:rgba(229,57,53,.35); }
+  #emptyFieldAddBox .efaLibRow .efaDelBtn:hover, #emptyFieldSequenceBox .efaLibRow .efaDelBtn:hover { background:rgba(229,57,53,.55); }
+  #emptyFieldAddBox .efaBackBtn, #emptyFieldSequenceBox .efaBackBtn { border-top:1px solid rgba(255,255,255,.2); margin-top:2px; padding-top:8px; background:none; }
   @media (max-width:500px), (max-height:500px) {
     #emptyFieldAddBtn { top:auto; bottom:10px; }
-    #emptyFieldAddBox { top:auto; bottom:62px; }
+    #emptyFieldMenuBox, #emptyFieldAddBox, #emptyFieldSequenceBox { top:auto; bottom:62px; }
   }
   /* Same top-left spot the Player Action Bar and the empty-field "+" use --
      the three are mutually exclusive (0 players / exactly 1 marked / more
@@ -350,13 +368,13 @@
      controls (see #spotlightRemoveBtn) rather than the teal of the other
      two -- mainly for touch devices (iPad/iPhone), where there's no
      Delete key to fall back on for a multi-selection.  */
-  #multiDeleteBtn { position:fixed; top:10px; left:10px; z-index:1470; width:44px; height:44px; border-radius:50%; border:none; background:#e53935; color:#fff; font-size:28px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
+  #multiDeleteBtn { position:fixed; top:10px; left:10px; z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:#e53935; color:#fff; font-size:28px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
   #multiDeleteBtn.visible { display:flex; }
   #multiDeleteBtn:hover { background:#c62828; }
   @media (max-width:500px), (max-height:500px) {
     #multiDeleteBtn { top:auto; bottom:10px; }
   }
-  #directionPad { position:fixed; right:10px; bottom:10px; z-index:1470; width:170px; height:170px; border-radius:50%; background:radial-gradient(circle, rgba(10,40,40,.92) 60%, rgba(10,40,40,.75) 100%); box-shadow:0 4px 16px rgba(0,0,0,.35); display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:4px; padding:10px; transform:translateX(160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
+  #directionPad { position:fixed; right:10px; bottom:10px; z-index:1540; width:170px; height:170px; border-radius:50%; background:radial-gradient(circle, rgba(10,40,40,.92) 60%, rgba(10,40,40,.75) 100%); box-shadow:0 4px 16px rgba(0,0,0,.35); display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:4px; padding:10px; transform:translateX(160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #directionPad.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
   .dpadBtn { background:rgba(18,77,77,.92); color:#fff; border:none; font-size:22px; display:flex; align-items:center; justify-content:center; touch-action:none; }
   .dpadBtn:active { background:#0d3838; }
@@ -768,6 +786,7 @@
   <div class="cmdCategory" data-cat="formations">
     <button type="button" class="cmdCatHeader">Formations &amp; Packages <span class="chev">&#9656;</span></button>
     <div class="cmdFlyout">
+      <button id="newBtn" data-tip="Clear the field completely -- no players, just the ball at center. Use Reset instead to go back to the starting formation.">New</button>
       <button id="resetBtn" data-tip="Reset the board back to the starting formation.">Reset</button>
       <button id="saveFormationBtn" data-tip="Save the current player positions as a reusable formation.">Save Formation</button>
       <button id="savePackageBtn" data-tip="Save the whole timeline (all frames) as a tactical package.">Save Package</button>
@@ -835,17 +854,27 @@
   <button id="paDriveRightBtn" class="playerActionBtn touchHiddenActionBtn" title="Drive to the right post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20L6 6M6 6H14M6 6V14"/></svg></button>
   <button id="paAddPlayerBtn" class="playerActionBtn" title="Add a new player to this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg></button>
 </div>
-<button id="emptyFieldAddBtn" title="No players on the field yet -- add some">+</button>
+<button id="emptyFieldAddBtn" title="Add players, a formation, or a sequence/drill">+</button>
 <button id="multiDeleteBtn" title="Delete all marked players">&#8722;</button>
+<div id="emptyFieldMenuBox">
+  <div class="efaTitle">Add</div>
+  <button type="button" id="efaMenuPlayer">Add Player</button>
+  <button type="button" id="efaMenuFormation">Add Formation</button>
+  <button type="button" id="efaMenuSequence">Add Sequence/Drill</button>
+</div>
 <div id="emptyFieldAddBox">
-  <div class="efaTitle">Quick Add</div>
-  <button type="button" id="efaCombo1v1">Blue Goalie + 1 &nbsp;vs&nbsp; White 1</button>
-  <button type="button" id="efaCombo2v2">Blue Goalie + 2 &nbsp;vs&nbsp; White 2</button>
-  <button type="button" id="efaCombo3v3">Blue Goalie + 3 &nbsp;vs&nbsp; White 3</button>
-  <button type="button" id="efaCombo5v5">Blue Goalie + 5 &nbsp;vs&nbsp; White 5</button>
-  <button type="button" id="efaCombo5v6">Blue Goalie + 5 &nbsp;vs&nbsp; White 6</button>
-  <button type="button" id="efaCombo6v6">Blue Goalie + 6 &nbsp;vs&nbsp; White 6</button>
-  <button type="button" id="efaSingle" class="efaSingleBtn">Add a Single Player&#8230;</button>
+  <div class="efaTitle">Add Formation</div>
+  <div id="efaFormationOrgLabel" class="efaOrgLabel"></div>
+  <div id="efaFormationDevRow" class="efaDevRow" style="display:none;"></div>
+  <div id="efaFormationList"></div>
+  <button type="button" id="efaFormationBack" class="efaBackBtn">&#8592; Back</button>
+</div>
+<div id="emptyFieldSequenceBox">
+  <div class="efaTitle">Add Sequence/Drill</div>
+  <div id="efaSequenceOrgLabel" class="efaOrgLabel"></div>
+  <div id="efaSequenceDevRow" class="efaDevRow" style="display:none;"></div>
+  <div id="efaSequenceList"></div>
+  <button type="button" id="efaSequenceBack" class="efaBackBtn">&#8592; Back</button>
 </div>
 <div id="directionPad">
   <button id="dpadPassLeftBtn" class="dpadBtn dpadCornerBtn" title="Pass left (works if the marked player\u2019s team has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
@@ -1210,10 +1239,11 @@ const MizeDialog = (function(){
 <div class="toolPanel" id="addPlayerPanel">
   <div class="toolPanelHeader"><h3>Add Player</h3><button class="closeToolPanelBtn">&#10005;</button></div>
   <div class="toolPanelBody">
-    <div class="smallRow full"><label><input type="radio" name="addPlayerType" id="addPlayerTypeField" value="field" checked> Field Player</label><label><input type="radio" name="addPlayerType" id="addPlayerTypeGoalie" value="goalie"> Goalkeeper</label></div>
-    <div class="smallRow full"><label><input type="radio" name="addPlayerTeam" id="addPlayerTeamWhite" value="white" checked> Team White</label><label><input type="radio" name="addPlayerTeam" id="addPlayerTeamBlue" value="blue"> Team Blue</label></div>
-    <div class="smallRow full"><label>Name<input type="text" id="addPlayerName" placeholder="Player name"></label></div>
-    <div class="smallRow"><label>Cap Number<input type="number" id="addPlayerCapNumber" min="1" max="99" value="1"></label></div>
+    <div class="smallRow full"><label><input type="radio" name="addPlayerType" id="addPlayerTypeField" value="field" checked> Field Player</label><label><input type="radio" name="addPlayerType" id="addPlayerTypeGoalie" value="goalie"> Goalkeeper</label><label><input type="radio" name="addPlayerType" id="addPlayerTypeBall" value="ball"> Ball</label></div>
+    <div class="smallRow full" id="addPlayerTeamRow"><label><input type="radio" name="addPlayerTeam" id="addPlayerTeamWhite" value="white" checked> Team White</label><label><input type="radio" name="addPlayerTeam" id="addPlayerTeamBlue" value="blue"> Team Blue</label></div>
+    <div class="smallRow full" id="addPlayerNameRow"><label>Name<input type="text" id="addPlayerName" placeholder="Player name"></label></div>
+    <div class="smallRow" id="addPlayerCapRow"><label>Cap Number<input type="number" id="addPlayerCapNumber" min="1" max="99" value="1"></label></div>
+    <div class="smallRow full" id="addPlayerBallNote" style="display:none;font-size:12px;color:#54605f;">Adds another ball to the field -- for drills that need more than one ball in play at once. It can be dragged around freely but, unlike the main ball, isn't carried in a player's hand.</div>
     <div class="smallRow full"><button type="button" id="addPlayerConfirmBtn">Add to Field</button></div>
   </div>
 </div>
@@ -2394,6 +2424,55 @@ function toggleDeveloperMode(){
   applyDeveloperModeVisibility();
   MizeDialog.alert(devModeActive ? 'Developer Mode enabled.' : 'Developer Mode disabled.');
 }
+// ===== Organization Profiles (curated default Formations & Sequences) =====
+// A single static HTML file has no real backend, so there's no genuine
+// multi-device "sign in" here -- this is a local simulation, stored in
+// this browser exactly like Developer Mode itself. It lets Developer Mode
+// switch which organization's curated Formation/Sequence defaults are
+// active, so a provisioned org's device can be tested/previewed without
+// needing real server-side accounts. Everyone (dev mode or not) sees
+// whichever org is currently active; only Developer Mode can switch it or
+// add new curated entries.
+const ORG_LIST_KEY = 'mizeOrgListV1';
+const ACTIVE_ORG_KEY = 'mizeActiveOrgV1';
+const ORG_FORMATION_LIBRARY_KEY = 'mizeOrgFormationLibraryV1';
+const ORG_SEQUENCE_LIBRARY_KEY = 'mizeOrgSequenceLibraryV1';
+function getOrgList(){
+  try {
+    const list = JSON.parse(localStorage.getItem(ORG_LIST_KEY)||'null');
+    if(list && list.length) return list;
+  } catch(err) {}
+  return [{id:'default', name:'Default'}];
+}
+function saveOrgList(list){ localStorage.setItem(ORG_LIST_KEY, JSON.stringify(list)); }
+function getActiveOrgId(){ return localStorage.getItem(ACTIVE_ORG_KEY) || 'default'; }
+function setActiveOrgId(id){ localStorage.setItem(ACTIVE_ORG_KEY, id); }
+function activeOrgName(){ const org=getOrgList().find(o=>o.id===getActiveOrgId()); return org ? org.name : 'Default'; }
+function getFormationLibraryAll(){ try { return JSON.parse(localStorage.getItem(ORG_FORMATION_LIBRARY_KEY)||'{}'); } catch(err) { return {}; } }
+function getFormationLibrary(orgId){ return getFormationLibraryAll()[orgId] || {}; }
+function saveFormationLibraryEntry(orgId, name, tags){
+  const all = getFormationLibraryAll();
+  if(!all[orgId]) all[orgId] = {};
+  all[orgId][name] = { ...MIZE.Storage.makeMetadata('formation', name, tags||[]), state:getState() };
+  localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(all));
+}
+function deleteFormationLibraryEntry(orgId, name){
+  const all = getFormationLibraryAll();
+  if(all[orgId]){ delete all[orgId][name]; localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(all)); }
+}
+function getSequenceLibraryAll(){ try { return JSON.parse(localStorage.getItem(ORG_SEQUENCE_LIBRARY_KEY)||'{}'); } catch(err) { return {}; } }
+function getSequenceLibrary(orgId){ return getSequenceLibraryAll()[orgId] || {}; }
+function saveSequenceLibraryEntry(orgId, name, tags){
+  const all = getSequenceLibraryAll();
+  if(!all[orgId]) all[orgId] = {};
+  if(frames.length) frames[currentFrame]=makeFrameState();
+  all[orgId][name] = { ...MIZE.Storage.makeMetadata('tacticalPackage', name, tags||[]), frames:frames.length?frames:[makeFrameState()], current:getState() };
+  localStorage.setItem(ORG_SEQUENCE_LIBRARY_KEY, JSON.stringify(all));
+}
+function deleteSequenceLibraryEntry(orgId, name){
+  const all = getSequenceLibraryAll();
+  if(all[orgId]){ delete all[orgId][name]; localStorage.setItem(ORG_SEQUENCE_LIBRARY_KEY, JSON.stringify(all)); }
+}
 // New rotate gestures (in addition to the existing visible rotate handle):
 // mouse right-button-drag, and a second finger landing on an already-active
 // touch-drag player. Tracked separately from the handle-based `rotating` so
@@ -2545,11 +2624,19 @@ function isCmd(e) { return e.metaKey || e.ctrlKey || multiSelectMode; }
 // 744px -- 500px sits safely between the two.
 function isSmallTouchScreen(){ return Math.min(window.innerWidth, window.innerHeight) <= 500; }
 function isBall(el) { return el === ball; }
+// A "simple" ball -- freely draggable/selectable/deletable like a player,
+// but deliberately without the hand-carry mechanic (no ballCarrier/ballHand
+// tracking, no rotation or pose). Kept as a distinct check from isBall()
+// rather than folded into it, because a handful of call sites (deleting,
+// resetting to center) specifically need to keep treating the ONE primary
+// ball differently from any number of extra ones.
+function isExtraBall(el) { return !!(el && el.classList && el.classList.contains('extraBall')); }
+function isAnyBall(el) { return isBall(el) || isExtraBall(el); }
 function placeAny(el) { if(isBall(el)) placeBall(); else place(el); }
 function setSelected(el,on=true) { if(on) selected.add(el); else selected.delete(el); el.classList.toggle('selected',on); updateInspector(); updatePlayerActionBar(); }
 function toggleSelected(el) { setSelected(el,!selected.has(el)); }
 function clearSelection() { selected.forEach(el=>el.classList.remove('selected')); selected.clear(); updateInspector(); updatePlayerActionBar(); }
-function selectableItems() { return [...document.querySelectorAll('.player'), ball]; }
+function selectableItems() { return [...document.querySelectorAll('.player'), ball, ...document.querySelectorAll('.extraBall')]; }
 function getDrawingTranslate(el){
   const t=el.getAttribute('transform')||'';
   const m=t.match(/translate\(\s*(-?[\d.]+)[,\s]+(-?[\d.]+)\s*\)/);
@@ -2560,7 +2647,7 @@ function isDrawingEl(el){ return el.classList && el.classList.contains('drawing'
 function isLockedForDrag(el){
   if(!el) return false;
   if(el.dataset.locked==='true') return true;
-  if(isBall(el)) return layerState.lockBall;
+  if(isAnyBall(el)) return layerState.lockBall;
   if(!isDrawingEl(el)) return layerState.lockPlayers;
   return false;
 }
@@ -2641,12 +2728,46 @@ function place(el) {
   const x=+el.dataset.x, y=+el.dataset.y;
   const scr=MIZE.Field.toScreenPercent(boardToFieldX(x), boardToFieldY(y));
   el.style.left=scr.left; el.style.top=scr.top;
-  const baseRot=+el.dataset.rot||0;
-  const displayRot = frontCourtActive ? (baseRot-90) : baseRot;
-  el.style.setProperty('--rot', displayRot+'deg'); sizePlayer(el);
+  if(isExtraBall(el)){
+    sizeExtraBall(el);
+  } else {
+    const baseRot=+el.dataset.rot||0;
+    const displayRot = frontCourtActive ? (baseRot-90) : baseRot;
+    el.style.setProperty('--rot', displayRot+'deg'); sizePlayer(el);
+  }
   renderShotBlockCorridors();
   renderGoalieVision();
   renderShootingAngle();
+}
+// Sizes an extra ball exactly like the primary ball (see placeBall()) --
+// kept in its own function since extra balls go through the generic
+// place() above rather than placeBall(), which is reserved for the one
+// primary/carriable ball.
+function sizeExtraBall(el){
+  const d=Math.max(12, Math.min(meterPxX(.38), meterPxY(.38)));
+  el.style.width=d+'px'; el.style.height=d+'px';
+}
+// Creates an additional, simple ball -- draggable, selectable, deletable,
+// lockable/hideable like a player, but with no hand-carry mechanic (no
+// rotation, no pose, never a ballCarrier). For drills that need more than
+// one ball on the field at once. Offsetting each new one diagonally away
+// from field center avoids it landing exactly on top of the primary ball
+// or a previously added extra one.
+function makeExtraBall(x, y){
+  const el=document.createElement('div');
+  el.className='extraBall';
+  el.dataset.id=genObjectId();
+  el.dataset.x=x; el.dataset.y=y;
+  board.appendChild(el);
+  place(el);
+  el.addEventListener('pointerdown', e=>{
+    if(layerState.lockBall || el.dataset.locked==='true') return;
+    if(mode!=='select' && mode!=='ball') return;
+    if(isCmd(e)) { toggleSelected(el); moved=false; e.preventDefault(); return; }
+    startGroupDrag(el,e); el.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  attachLongPress(el, ()=>el);
+  return el;
 }
 function capText(label) { return label==='BG'||label==='WG' ? 'G' : (String(label).match(/\d+/)?.[0] || label); }
 function attachLongPress(el, getTarget) {
@@ -2802,6 +2923,12 @@ function placeBall() {
 }
 
 function reset() { recordHistory('Reset Formation'); clearSelection(); document.querySelectorAll('.player').forEach(e=>e.remove()); initial.forEach(makePlayer); ballCarrier=null; ballHand='right'; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); clearArrows(true); }
+// Distinct from reset() (which repopulates the starting 12-player
+// formation): this clears the field completely -- no players, no extra
+// balls, just the one ball recentered. Recorded to Undo like every other
+// board-changing action, so it's a safe, reversible way to start a session
+// from a genuinely blank slate.
+function newBoard() { recordHistory('New (Empty Field)'); clearSelection(); document.querySelectorAll('.player').forEach(e=>e.remove()); document.querySelectorAll('.extraBall').forEach(e=>e.remove()); ballCarrier=null; ballHand='right'; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); clearArrows(true); renderTeamManager(); }
 function clearArrows(skipHistory=false) { if(!skipHistory) recordHistory('Clear Arrows'); [...arrows.querySelectorAll('.drawing')].forEach(l=>l.remove()); }
 function drawLine(x1,y1,x2,y2,type,preview=false) {
   const l=document.createElementNS('http://www.w3.org/2000/svg','line');
@@ -2877,6 +3004,15 @@ let suppressAutosaveUntilRecoveryDecided = true;
       }
     } catch(err) {}
     reset();
+  } catch(err) {
+    // Whatever the cause -- a corrupted autosave record, a storage quota
+    // error, anything -- this must never be allowed to propagate. This
+    // code runs at the very top of the script; an uncaught exception here
+    // would silently abort every remaining addEventListener call further
+    // down the file (menus, sidebar, Quick Command Bar, Timeline, this
+    // very Add menu), leaving a fully unresponsive app with no visible
+    // error. A blank board beats a frozen one.
+    console.error('loadDefaultFormation failed, falling back to an empty board:', err);
   } finally {
     suppressAutosaveUntilRecoveryDecided = false;
   }
@@ -3001,6 +3137,7 @@ function getState() {
   return {
     players:[...document.querySelectorAll('.player')].map(el=>({label:el.dataset.label,team:el.dataset.team,name:el.dataset.name||el.dataset.label,role:el.dataset.role||'',x:+el.dataset.x,y:+el.dataset.y,pose:el.dataset.pose,rot:+el.dataset.rot||0,locked:el.dataset.locked==='true',hidden:el.dataset.hidden==='true',blockArm:el.dataset.blockArm||'none',blockArmSaved:el.dataset.blockArmSaved||'right',blockMaxAngle:+el.dataset.blockMaxAngle||15,category:el.dataset.category||'',sizePercent:+el.dataset.sizePercent||100,visionDistance:+el.dataset.visionDistance||5,secondaryVisionAngle:+el.dataset.secondaryVisionAngle||0,showPrimaryVision:el.dataset.showPrimaryVision==='true',showSecondaryVision:el.dataset.showSecondaryVision==='true'})),
     ball:{x:+ball.dataset.x,y:+ball.dataset.y,carrier:ballCarrier?.dataset.label||null,hand:ballHand},
+    extraBalls:[...document.querySelectorAll('.extraBall')].map(el=>({x:+el.dataset.x,y:+el.dataset.y,locked:el.dataset.locked==='true',hidden:el.dataset.hidden==='true'})),
     drawings:[...arrows.querySelectorAll('.drawing')].map(d=>{
       const t=getDrawingTranslate(d);
       let base;
@@ -3028,8 +3165,9 @@ function getState() {
   };
 }
 function loadState(st) {
-  clearSelection(); document.querySelectorAll('.player').forEach(e=>e.remove()); clearArrows(true); ballCarrier=null;
+  clearSelection(); document.querySelectorAll('.player').forEach(e=>e.remove()); document.querySelectorAll('.extraBall').forEach(e=>e.remove()); clearArrows(true); ballCarrier=null;
   st.players.forEach(p=>{ const el=makePlayer([p.label,p.team,p.x,p.y,p.pose,p.rot]); el.dataset.name=p.name||p.label; el.dataset.role=p.role||(p.team==='goalie'?'Goalkeeper':'Driver'); el.querySelector('.label').textContent=el.dataset.name||p.label; el.dataset.locked=p.locked?'true':'false'; el.dataset.hidden=p.hidden?'true':'false'; el.style.display=p.hidden?'none':''; el.dataset.blockArm=p.blockArm||'none'; el.dataset.blockArmSaved=p.blockArmSaved||'right'; el.dataset.blockMaxAngle=p.blockMaxAngle||15; el.dataset.category=p.category||''; el.dataset.sizePercent=p.sizePercent||100; el.dataset.visionDistance=p.visionDistance||5; el.dataset.secondaryVisionAngle=p.secondaryVisionAngle||0; el.dataset.showPrimaryVision=(p.showPrimaryVision!==false)?'true':'false'; el.dataset.showSecondaryVision=p.showSecondaryVision?'true':'false'; });
+  (st.extraBalls||[]).forEach(b=>{ const el=makeExtraBall(b.x,b.y); el.dataset.locked=b.locked?'true':'false'; el.dataset.hidden=b.hidden?'true':'false'; el.style.display=b.hidden?'none':''; });
   ball.dataset.x=st.ball?.x ?? 14.5; ball.dataset.y=st.ball?.y ?? 12; ballHand=st.ball?.hand||'right';
   const carrierLabel=st.ball?.carrier; if(carrierLabel) ballCarrier=[...document.querySelectorAll('.player')].find(p=>p.dataset.label===carrierLabel)||null;
   if(ballCarrier) moveBallTo(ballCarrier,ballHand); else placeBall();
@@ -3179,17 +3317,17 @@ function updateInspector() {
   }
   document.getElementById('inspX').value=boardToFieldX(+el.dataset.x||0).toFixed(1);
   document.getElementById('inspY').value=boardToFieldY(+el.dataset.y||0).toFixed(1);
-  document.getElementById('inspRot').value=isBall(el)?0:Math.round(+el.dataset.rot||0);
-  document.getElementById('inspPose').disabled=isBall(el);
-  document.getElementById('inspRot').disabled=isBall(el);
-  document.getElementById('inspPose').value=isBall(el)?'v':(el.dataset.pose||'v');
-  document.getElementById('inspBlockMaxAngle').disabled=isBall(el);
-  document.getElementById('inspBlockMaxAngle').value=isBall(el)?15:(+el.dataset.blockMaxAngle||15);
-  document.getElementById('inspCategory').disabled=isBall(el);
-  document.getElementById('inspCategory').value=isBall(el)?'':(el.dataset.category||'');
-  document.getElementById('inspSizePercent').disabled=isBall(el);
-  document.getElementById('inspSizePercent').value=isBall(el)?100:(+el.dataset.sizePercent||100);
-  const isGoalie=!isBall(el) && el.dataset.team==='goalie';
+  document.getElementById('inspRot').value=isAnyBall(el)?0:Math.round(+el.dataset.rot||0);
+  document.getElementById('inspPose').disabled=isAnyBall(el);
+  document.getElementById('inspRot').disabled=isAnyBall(el);
+  document.getElementById('inspPose').value=isAnyBall(el)?'v':(el.dataset.pose||'v');
+  document.getElementById('inspBlockMaxAngle').disabled=isAnyBall(el);
+  document.getElementById('inspBlockMaxAngle').value=isAnyBall(el)?15:(+el.dataset.blockMaxAngle||15);
+  document.getElementById('inspCategory').disabled=isAnyBall(el);
+  document.getElementById('inspCategory').value=isAnyBall(el)?'':(el.dataset.category||'');
+  document.getElementById('inspSizePercent').disabled=isAnyBall(el);
+  document.getElementById('inspSizePercent').value=isAnyBall(el)?100:(+el.dataset.sizePercent||100);
+  const isGoalie=!isAnyBall(el) && el.dataset.team==='goalie';
   document.getElementById('visionFieldRow').style.display=isGoalie?'':'none';
   document.getElementById('secondaryVisionRow').style.display=isGoalie?'':'none';
   document.getElementById('visionCheckboxRow').style.display=isGoalie?'':'none';
@@ -3243,7 +3381,7 @@ function applyInspector() {
   _inspLockedField.apply(el);
   _inspHiddenField.apply(el);
   el.style.display=el.dataset.hidden==='true'?'none':'';
-  if(!isBall(el)) {
+  if(!isAnyBall(el)) {
     el.dataset.rot=+document.getElementById('inspRot').value||0;
     el.dataset.pose=document.getElementById('inspPose').value;
     _inspBlockMaxAngleField.applyTo(el, 'blockMaxAngle');
@@ -3257,6 +3395,7 @@ function applyInspector() {
     }
     place(el); if(ballCarrier===el) moveBallTo(el,ballHand);
   }
+  else if(isExtraBall(el)) { place(el); }
   else { placeBall(); }
   renderHiddenPanel();
   renderShotBlockCorridors();
@@ -3922,6 +4061,7 @@ document.getElementById('eraseBtn').onclick=()=>setMode('erase');
 document.getElementById('clearBtn').onclick=()=>clearArrows();
 document.getElementById('undoBtn').onclick=undo;
 document.getElementById('redoBtn').onclick=redo;
+document.getElementById('newBtn').onclick=newBoard;
 document.getElementById('resetBtn').onclick=reset;
 document.getElementById('saveFormationBtn').onclick=saveFormation;
 document.getElementById('duplicateBtn').onclick=duplicateSelected;
@@ -3939,7 +4079,7 @@ function toggleMultiSelect(){
 document.getElementById('multiSelectBtn').onclick=toggleMultiSelect;
 function ballToHand(hand){
   const el = ballCarrier || singleSelection();
-  if(!el || isBall(el)) return;
+  if(!el || isAnyBall(el)) return;
   recordHistory(); moveBallTo(el, hand); updateInspector();
 }
 document.getElementById('ballLeftBtn').onclick=()=>ballToHand('left');
@@ -3947,10 +4087,31 @@ document.getElementById('ballRightBtn').onclick=()=>ballToHand('right');
 document.getElementById('deleteSelectedBtn').onclick=()=>deleteSelectedObject();
 document.getElementById('copySelectedBtn').onclick=()=>copySelected();
 document.getElementById('pasteSelectedBtn').onclick=()=>pasteClipboard();
+// Marks a whole team's field players at once -- goalies are deliberately
+// excluded (they're on a separate dataset.team of their own, 'goalie',
+// rather than 'blue'/'white', so a plain team filter already leaves them
+// out with no extra check needed).
+function selectAllTeam(team){
+  clearSelection();
+  document.querySelectorAll('.player').forEach(el=>{ if(el.dataset.team===team) setSelected(el,true); });
+}
+// Marks every player on the field, goalies included.
+function selectAllPlayers(){
+  clearSelection();
+  document.querySelectorAll('.player').forEach(el=>setSelected(el,true));
+}
 document.addEventListener('keydown', e=>{
   const tag=(document.activeElement?.tagName||'').toLowerCase();
   if(['input','textarea','select'].includes(tag) || document.activeElement?.isContentEditable) return;
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='z') { if(e.shiftKey) redo(); else undo(); e.preventDefault(); return; }
+  // Select All / Select Team. e.code (the physical key) is used for the
+  // Alt/Option-modified pair rather than e.key, because holding Option on
+  // a Mac keyboard turns "B"/"W" into a composed special character (e.g.
+  // Option+B types "\u222b") in e.key -- e.code stays "KeyB"/"KeyW"
+  // regardless of what modifiers are held.
+  if((e.metaKey||e.ctrlKey) && !e.altKey && e.key.toLowerCase()==='a') { selectAllPlayers(); e.preventDefault(); return; }
+  if((e.metaKey||e.ctrlKey) && e.altKey && e.code==='KeyB') { selectAllTeam('blue'); e.preventDefault(); return; }
+  if((e.metaKey||e.ctrlKey) && e.altKey && e.code==='KeyW') { selectAllTeam('white'); e.preventDefault(); return; }
   if(e.key==='Escape' && document.body.classList.contains('presentation')) { togglePresentation(); return; }
   if(document.body.classList.contains('presentation') && (e.key==='ArrowLeft' || e.key==='ArrowRight')) {
     if(activePresentation){ presentationStep(e.key==='ArrowRight'?1:-1); }
@@ -3978,14 +4139,14 @@ document.addEventListener('keydown', e=>{
   const k=e.key.toLowerCase();
   const sel=singleSelection();
   if((k==='l'||k==='r')){
-    if(k==='l' && sel && !isBall(sel) && sel.dataset.team==='goalie'){
+    if(k==='l' && sel && !isAnyBall(sel) && sel.dataset.team==='goalie'){
       recordHistory('Toggle Secondary Vision Cone');
       sel.dataset.showSecondaryVision = sel.dataset.showSecondaryVision==='true' ? 'false' : 'true';
       renderGoalieVision(); updateInspector();
       e.preventDefault();
       return;
     }
-    if(sel && !isBall(sel) && sel!==ballCarrier){
+    if(sel && !isAnyBall(sel) && sel!==ballCarrier){
       recordHistory('Set Block Arm: '+displayName(sel));
       sel.dataset.blockArm = k==='l' ? 'left' : 'right';
       sel.dataset.blockArmSaved = sel.dataset.blockArm;
@@ -3996,17 +4157,17 @@ document.addEventListener('keydown', e=>{
     }
     return;
   }
-  if(k==='b' && sel && !isBall(sel)){
+  if(k==='b' && sel && !isAnyBall(sel)){
     recordHistory('Ball to '+displayName(sel));
     moveBallTo(sel, ballHand||'right');
     e.preventDefault(); return;
   }
-  if(k==='q' && sel && !isBall(sel)){
+  if(k==='q' && sel && !isAnyBall(sel)){
     recordHistory('Deactivate Block: '+displayName(sel));
     sel.dataset.blockArm='none'; renderShotBlockCorridors();
   renderGoalieVision(); e.preventDefault(); return;
   }
-  if(k==='a' && sel && !isBall(sel)){
+  if(k==='a' && sel && !isAnyBall(sel)){
     recordHistory('Activate Block: '+displayName(sel));
     sel.dataset.blockArm = sel.dataset.blockArmSaved || 'right'; renderShotBlockCorridors();
   renderGoalieVision(); e.preventDefault(); return;
@@ -4018,7 +4179,7 @@ document.addEventListener('keydown', e=>{
     toggleNames(); e.preventDefault(); return;
   }
   if(k==='h'){
-    const items=(selected.size ? [...selected] : (sel ? [sel] : [])).filter(el=>!isBall(el));
+    const items=(selected.size ? [...selected] : (sel ? [sel] : [])).filter(el=>!isAnyBall(el));
     if(items.length){
       recordHistory('Set Horizontal');
       items.forEach(el=>{
@@ -4031,7 +4192,7 @@ document.addEventListener('keydown', e=>{
     return;
   }
   if(k==='v'){
-    const items=(selected.size ? [...selected] : (sel ? [sel] : [])).filter(el=>!isBall(el));
+    const items=(selected.size ? [...selected] : (sel ? [sel] : [])).filter(el=>!isAnyBall(el));
     if(items.length){
       recordHistory('Set Vertical');
       items.forEach(el=>{ el.dataset.pose='v'; place(el); if(ballCarrier===el) moveBallTo(el, ballHand); });
@@ -4040,7 +4201,7 @@ document.addEventListener('keydown', e=>{
     return;
   }
   if(k==='p'){
-    const items=(selected.size ? [...selected] : (sel ? [sel] : [])).filter(el=>!isBall(el) && el.dataset.team==='goalie');
+    const items=(selected.size ? [...selected] : (sel ? [sel] : [])).filter(el=>!isAnyBall(el) && el.dataset.team==='goalie');
     if(items.length){
       recordHistory('Toggle Primary Vision Cone');
       items.forEach(el=>{ el.dataset.showPrimaryVision = el.dataset.showPrimaryVision==='true' ? 'false' : 'true'; });
@@ -4050,7 +4211,7 @@ document.addEventListener('keydown', e=>{
     return;
   }
   if(k==='s' || k==='w'){
-    const items=(selected.size ? [...selected] : (sel ? [sel] : [])).filter(el=>!isBall(el));
+    const items=(selected.size ? [...selected] : (sel ? [sel] : [])).filter(el=>!isAnyBall(el));
     if(items.length){
       recordHistory(k==='s' ? 'Rotate 30\u00b0 Clockwise' : 'Rotate 30\u00b0 Counter-Clockwise');
       items.forEach(el=>{
@@ -4436,16 +4597,16 @@ function applySnapToElement(el){ if(!snapEnabled || !el || isBall(el) || isDrawi
 function toggleSnap(){ snapEnabled=!snapEnabled; const b=document.getElementById('snapBtn'); b.textContent=snapEnabled?'Snap: On':'Snap: Off'; b.classList.toggle('active',snapEnabled); }
 document.getElementById('snapBtn').onclick=toggleSnap;
 
-function displayName(el){ return el?.dataset.name || el?.dataset.label || 'Object'; }
-function updatePlayerVisual(el){ if(!el || isBall(el)) return; el.querySelector('.label').textContent=displayName(el); el.querySelector('.capNumber').textContent=capText(el.dataset.label); place(el); }
+function displayName(el){ if(isAnyBall(el)) return 'Ball'; return el?.dataset.name || el?.dataset.label || 'Object'; }
+function updatePlayerVisual(el){ if(!el || isAnyBall(el)) return; el.querySelector('.label').textContent=displayName(el); el.querySelector('.capNumber').textContent=capText(el.dataset.label); place(el); }
 
 const oldUpdateInspector=updateInspector;
 updateInspector=function(){
   oldUpdateInspector();
   const el=singleSelection();
   const ids=['inspName','inspTeam','inspRole'];
-  ids.forEach(id=>{ const n=document.getElementById(id); if(n) n.disabled=!el || isBall(el); });
-  if(!el || isBall(el)) return;
+  ids.forEach(id=>{ const n=document.getElementById(id); if(n) n.disabled=!el || isAnyBall(el); });
+  if(!el || isAnyBall(el)) return;
   document.getElementById('inspName').value=el.dataset.name||el.dataset.label;
   document.getElementById('inspTeam').value=el.dataset.team||'blue';
   document.getElementById('inspRole').value=el.dataset.role||(el.dataset.team==='goalie'?'Goalkeeper':'Driver');
@@ -4455,7 +4616,7 @@ applyInspector=function(){
   const el=singleSelection();
   if(!el) return;
   oldApplyInspector();
-  if(!isBall(el)){
+  if(!isAnyBall(el)){
     recordHistory();
     el.dataset.name=document.getElementById('inspName').value||el.dataset.label;
     el.dataset.team=document.getElementById('inspTeam').value||el.dataset.team;
@@ -4466,18 +4627,18 @@ applyInspector=function(){
 ['inspName','inspTeam','inspRole'].forEach(id=>document.getElementById(id)?.addEventListener('change',applyInspector));
 
 function changeTeam(el){
-  if(!el || isBall(el)) return; recordHistory();
+  if(!el || isAnyBall(el)) return; recordHistory();
   const order=['blue','white','goalie']; const next=order[(order.indexOf(el.dataset.team)+1)%order.length];
   el.dataset.team=next; if(next==='goalie') el.dataset.role='Goalkeeper'; updatePlayerVisual(el); updateInspector(); renderTeamManager();
 }
-function rotate90(el){ if(!el || isBall(el)) return; recordHistory('Rotate '+displayName(el)); el.dataset.rot=((+el.dataset.rot||0)+90)%360; place(el); if(ballCarrier===el) moveBallTo(el,ballHand); updateInspector(); }
-function rotateBy(el, deltaDeg){ if(!el || isBall(el)) return; recordHistory('Rotate '+displayName(el)); el.dataset.rot=((+el.dataset.rot||0)+deltaDeg+360)%360; place(el); if(ballCarrier===el) moveBallTo(el,ballHand); updateInspector(); }
-function togglePose(el){ if(!el || isBall(el)) return; recordHistory('Switch Body Position: '+displayName(el)); el.dataset.pose = el.dataset.pose==='h'?'v':'h'; place(el); if(ballCarrier===el) moveBallTo(el,ballHand); updateInspector(); }
-function bringForward(el){ if(!el) return; recordHistory(); el.style.zIndex=(+(el.style.zIndex|| (isBall(el)?7:6))+1); }
-function sendBack(el){ if(!el) return; recordHistory(); el.style.zIndex=Math.max(2, +(el.style.zIndex|| (isBall(el)?7:6))-1); }
+function rotate90(el){ if(!el || isAnyBall(el)) return; recordHistory('Rotate '+displayName(el)); el.dataset.rot=((+el.dataset.rot||0)+90)%360; place(el); if(ballCarrier===el) moveBallTo(el,ballHand); updateInspector(); }
+function rotateBy(el, deltaDeg){ if(!el || isAnyBall(el)) return; recordHistory('Rotate '+displayName(el)); el.dataset.rot=((+el.dataset.rot||0)+deltaDeg+360)%360; place(el); if(ballCarrier===el) moveBallTo(el,ballHand); updateInspector(); }
+function togglePose(el){ if(!el || isAnyBall(el)) return; recordHistory('Switch Body Position: '+displayName(el)); el.dataset.pose = el.dataset.pose==='h'?'v':'h'; place(el); if(ballCarrier===el) moveBallTo(el,ballHand); updateInspector(); }
+function bringForward(el){ if(!el) return; recordHistory(); el.style.zIndex=(+(el.style.zIndex|| (isAnyBall(el)?7:6))+1); }
+function sendBack(el){ if(!el) return; recordHistory(); el.style.zIndex=Math.max(2, +(el.style.zIndex|| (isAnyBall(el)?7:6))-1); }
 function lockObject(el){ if(!el) return; recordHistory((el.dataset.locked==='true'?'Unlock ':'Lock ')+displayName(el)); el.dataset.locked=el.dataset.locked==='true'?'false':'true'; updateInspector(); }
 function hideObject(el){ if(!el) return; recordHistory('Hide '+displayName(el)); el.dataset.hidden='true'; el.style.display='none'; clearSelection(); renderHiddenPanel(); }
-function giveBallToSelected(el){ if(!el || isBall(el)) return; recordHistory(); moveBallTo(el,ballHand||'right'); setMode('select'); }
+function giveBallToSelected(el){ if(!el || isAnyBall(el)) return; recordHistory(); moveBallTo(el,ballHand||'right'); setMode('select'); }
 
 const contextMenu=document.getElementById('contextMenu'); let contextTarget=null;
 document.querySelector('.toolListBtn[data-panel="addPlayerPanel"]')?.addEventListener('click', ()=> openAddPlayerPanel());
@@ -4492,7 +4653,7 @@ function updatePlayerActionBar(){
   const bar=document.getElementById('playerActionBar');
   if(!bar) return;
   const only=singleSelection();
-  if(only && !isBall(only)){
+  if(only && !isAnyBall(only)){
     playerActionBarTarget=only;
     bar.classList.add('visible');
   } else {
@@ -4500,6 +4661,7 @@ function updatePlayerActionBar(){
     bar.classList.remove('visible');
   }
   updateMultiDeleteButton();
+  updateEmptyFieldAddButton();
   updateDirectionPad();
 }
 // Stands in the same top-left spot as the Player Action Bar/empty-field
@@ -4720,7 +4882,7 @@ document.getElementById('paDriveRightBtn')?.addEventListener('click', ()=>{ if(p
 // falls back to a global ball carrier and special-cases goalie vision) to
 // avoid any risk of changing that already-working keyboard behavior.
 function setArmSide(el, side){
-  if(!el || isBall(el)) return;
+  if(!el || isAnyBall(el)) return;
   if(el === ballCarrier){
     recordHistory();
     moveBallTo(el, side);
@@ -4733,13 +4895,13 @@ function setArmSide(el, side){
   }
 }
 function clearBlockArm(el){
-  if(!el || isBall(el)) return;
+  if(!el || isAnyBall(el)) return;
   recordHistory('Deactivate Block: '+displayName(el));
   el.dataset.blockArm = 'none';
   renderShotBlockCorridors();
   renderGoalieVision();
 }
-function showContextMenu(x,y,el){ contextTarget=el; const isP=el && !isBall(el); contextMenu.innerHTML='';
+function showContextMenu(x,y,el){ contextTarget=el; const isP=el && !isAnyBall(el); contextMenu.innerHTML='';
   const add=(label,fn,enabled=true,title=null)=>{ const b=document.createElement('button'); b.textContent=label; b.disabled=!enabled; if(title) b.title=title; b.onclick=(ev)=>{ ev.stopPropagation(); const target=contextTarget; contextMenu.style.display='none'; fn(target); contextTarget=null; }; contextMenu.appendChild(b); };
   add('Duplicate',()=>duplicateObject(contextTarget),isP);
   add('Delete',()=>deleteObject(contextTarget),!!el);
@@ -4773,14 +4935,14 @@ function showContextMenu(x,y,el){ contextTarget=el; const isP=el && !isBall(el);
   contextMenu.style.top=Math.max(margin, Math.min(y, window.innerHeight-menuH-margin))+'px';
 }
 function hideContextMenu(){ contextMenu.style.display='none'; contextTarget=null; }
-board.addEventListener('contextmenu', e=>{ const el=e.target.closest?.('.player') || (e.target===ball?ball:null); if(!el) return; e.preventDefault(); if(isBall(el)){ clearSelection(); setSelected(el,true); showContextMenu(e.clientX,e.clientY,el); } });
+board.addEventListener('contextmenu', e=>{ const el=e.target.closest?.('.player') || (e.target===ball?ball:e.target.closest?.('.extraBall')) || null; if(!el) return; e.preventDefault(); if(isAnyBall(el)){ clearSelection(); setSelected(el,true); showContextMenu(e.clientX,e.clientY,el); } });
 document.addEventListener('click', e=>{ if(!e.target.closest('#contextMenu')) hideContextMenu(); });
 
-function duplicateObject(el){ if(!el || isBall(el)) return; if(isDrawingEl(el)){ recordHistory('Duplicate Drawing'); const clone=el.cloneNode(true); clone.dataset.id=genObjectId(); const t=getDrawingTranslate(el); setDrawingTranslate(clone, t.x+0.6, t.y+0.6); arrowsGroup.appendChild(clone); clearSelection(); setSelected(clone,true); return; } recordHistory('Duplicate '+displayName(el)); const label=nextCopyLabel(el.dataset.label); const n=makePlayer([label,el.dataset.team,(+el.dataset.x)+0.6,(+el.dataset.y)+0.6,el.dataset.pose,+el.dataset.rot||0]); n.dataset.name=(el.dataset.name||el.dataset.label)+' copy'; n.dataset.role=el.dataset.role||''; updatePlayerVisual(n); clearSelection(); setSelected(n,true); renderTeamManager(); }
+function duplicateObject(el){ if(!el || isAnyBall(el)) return; if(isDrawingEl(el)){ recordHistory('Duplicate Drawing'); const clone=el.cloneNode(true); clone.dataset.id=genObjectId(); const t=getDrawingTranslate(el); setDrawingTranslate(clone, t.x+0.6, t.y+0.6); arrowsGroup.appendChild(clone); clearSelection(); setSelected(clone,true); return; } recordHistory('Duplicate '+displayName(el)); const label=nextCopyLabel(el.dataset.label); const n=makePlayer([label,el.dataset.team,(+el.dataset.x)+0.6,(+el.dataset.y)+0.6,el.dataset.pose,+el.dataset.rot||0]); n.dataset.name=(el.dataset.name||el.dataset.label)+' copy'; n.dataset.role=el.dataset.role||''; updatePlayerVisual(n); clearSelection(); setSelected(n,true); renderTeamManager(); }
 function nextCopyLabel(base){ let b=(base||'P').replace(/ copy.*$/,''); let i=2; let label=b+' copy'; const labels=new Set([...document.querySelectorAll('.player')].map(p=>p.dataset.label)); while(labels.has(label)){ label=b+' copy '+i++; } return label; }
 function deleteObject(el){ if(!el) return; recordHistory('Delete '+displayName(el)); if(isBall(el)){ ballCarrier=null; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); clearSelection(); return; } if(ballCarrier===el) ballCarrier=null; el.remove(); clearSelection(); renderTeamManager(); }
 // override old single-object functions to support current context/multi-selection better
-function duplicateSelected(){ const el=singleSelection(); if(el && !isBall(el)) duplicateObject(el); }
+function duplicateSelected(){ const el=singleSelection(); if(el && !isAnyBall(el)) duplicateObject(el); }
 function deleteSelectedObject(){ const items=[...selected]; if(!items.length) return; recordHistory('Delete Selected ('+items.length+')'); items.forEach(el=>{ if(isBall(el)){ ballCarrier=null; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); } else { if(ballCarrier===el) ballCarrier=null; el.remove(); } }); clearSelection(); renderTeamManager(); }
 // Batch versions of lockObject/hideObject/bringForward/sendBack (below) for
 // the current multi-selection, mirroring deleteSelectedObject's pattern:
@@ -4803,15 +4965,15 @@ function hideSelected(){
 function bringForwardSelected(){
   const items=[...selected]; if(!items.length) return;
   recordHistory('Bring Forward Selected ('+items.length+')');
-  items.forEach(el=>{ el.style.zIndex=(+(el.style.zIndex|| (isBall(el)?7:6))+1); });
+  items.forEach(el=>{ el.style.zIndex=(+(el.style.zIndex|| (isAnyBall(el)?7:6))+1); });
 }
 function sendBackSelected(){
   const items=[...selected]; if(!items.length) return;
   recordHistory('Send Back Selected ('+items.length+')');
-  items.forEach(el=>{ el.style.zIndex=Math.max(2, +(el.style.zIndex|| (isBall(el)?7:6))-1); });
+  items.forEach(el=>{ el.style.zIndex=Math.max(2, +(el.style.zIndex|| (isAnyBall(el)?7:6))-1); });
 }
 
-function copySelected(){ const items=[...selected].filter(el=>!isBall(el) && !isDrawingEl(el)); if(!items.length) return; clipboard=items.map(el=>({label:el.dataset.label,team:el.dataset.team,name:el.dataset.name,role:el.dataset.role,x:+el.dataset.x,y:+el.dataset.y,pose:el.dataset.pose,rot:+el.dataset.rot||0})); }
+function copySelected(){ const items=[...selected].filter(el=>!isAnyBall(el) && !isDrawingEl(el)); if(!items.length) return; clipboard=items.map(el=>({label:el.dataset.label,team:el.dataset.team,name:el.dataset.name,role:el.dataset.role,x:+el.dataset.x,y:+el.dataset.y,pose:el.dataset.pose,rot:+el.dataset.rot||0})); }
 function pasteClipboard(){ if(!clipboard?.length) return; recordHistory('Paste ('+clipboard.length+')'); clearSelection(); clipboard.forEach(p=>{ const label=nextCopyLabel(p.label); const n=makePlayer([label,p.team,p.x+0.75,p.y+0.75,p.pose,p.rot]); n.dataset.name=(p.name||p.label)+' copy'; n.dataset.role=p.role||''; updatePlayerVisual(n); setSelected(n,true); }); renderTeamManager(); }
 
 function renderTeamManager(){ renderHiddenPanel(); const box=document.getElementById('teamManagerList'); if(!box) return; box.innerHTML=''; const groups={blue:'Blue Team',white:'White Team',goalie:'Goalkeepers'};
@@ -5232,12 +5394,22 @@ renderFieldZones();
 document.getElementById('fieldZonesToggleBtn')?.classList.toggle('active', MIZE.State.fieldZones.active !== 'none');
 renderQuickCommandBar();
 // ===== Add Player (Shift+N) =====
+function updateAddPlayerPanelVisibility(){
+  const isBallType = document.getElementById('addPlayerTypeBall').checked;
+  document.getElementById('addPlayerTeamRow').style.display = isBallType ? 'none' : '';
+  document.getElementById('addPlayerNameRow').style.display = isBallType ? 'none' : '';
+  document.getElementById('addPlayerCapRow').style.display = isBallType ? 'none' : '';
+  document.getElementById('addPlayerBallNote').style.display = isBallType ? '' : 'none';
+  document.getElementById('addPlayerConfirmBtn').textContent = isBallType ? 'Add Ball to Field' : 'Add to Field';
+}
+document.querySelectorAll('input[name="addPlayerType"]').forEach(r=>r.addEventListener('change', updateAddPlayerPanelVisibility));
 function openAddPlayerPanel(presetTeam){
   document.getElementById('addPlayerName').value = '';
   document.getElementById('addPlayerCapNumber').value = '1';
   document.getElementById('addPlayerTypeField').checked = true;
   if(presetTeam==='blue') document.getElementById('addPlayerTeamBlue').checked = true;
   else document.getElementById('addPlayerTeamWhite').checked = true;
+  updateAddPlayerPanelVisibility();
   openToolPanel('addPlayerPanel');
 }
 // Player labels (e.g. 'B1', 'WG') are the stable identifier ball-carrier
@@ -5257,6 +5429,18 @@ function nextAvailableLabel(prefix, desiredSuffix){
   return prefix+n;
 }
 function confirmAddPlayer(){
+  if(document.getElementById('addPlayerTypeBall').checked){
+    // Staggers each newly added ball diagonally away from field center, so
+    // it doesn't land exactly on top of the primary ball or a previously
+    // added extra one -- same +0.6-per-step convention duplicateObject()
+    // already uses for players.
+    recordHistory('Add Ball');
+    const n = document.querySelectorAll('.extraBall').length;
+    const el = makeExtraBall(14.5 + 0.6*(n+1), 12 + 0.6*(n+1));
+    clearSelection(); setSelected(el, true);
+    closeToolPanels();
+    return;
+  }
   const isGoalie = document.getElementById('addPlayerTypeGoalie').checked;
   const team = document.getElementById('addPlayerTeamWhite').checked ? 'white' : 'blue';
   const name = document.getElementById('addPlayerName').value.trim();
@@ -5577,32 +5761,214 @@ function applyQuickAddCombo(key){
   closeEmptyFieldAddBox();
 }
 function openEmptyFieldAddBox(){ document.getElementById('emptyFieldAddBox')?.classList.add('open'); }
-function closeEmptyFieldAddBox(){ document.getElementById('emptyFieldAddBox')?.classList.remove('open'); }
-document.getElementById('emptyFieldAddBtn')?.addEventListener('click', ()=>{
-  const box=document.getElementById('emptyFieldAddBox');
-  if(box?.classList.contains('open')) closeEmptyFieldAddBox(); else openEmptyFieldAddBox();
-});
-document.getElementById('efaCombo1v1')?.addEventListener('click', ()=>applyQuickAddCombo('combo1v1'));
-document.getElementById('efaCombo2v2')?.addEventListener('click', ()=>applyQuickAddCombo('combo2v2'));
-document.getElementById('efaCombo3v3')?.addEventListener('click', ()=>applyQuickAddCombo('combo3v3'));
-document.getElementById('efaCombo5v5')?.addEventListener('click', ()=>applyQuickAddCombo('combo5v5'));
-document.getElementById('efaCombo5v6')?.addEventListener('click', ()=>applyQuickAddCombo('combo5v6'));
-document.getElementById('efaCombo6v6')?.addEventListener('click', ()=>applyQuickAddCombo('combo6v6'));
-document.getElementById('efaSingle')?.addEventListener('click', ()=>{ closeEmptyFieldAddBox(); openAddPlayerPanel(); });
-document.addEventListener('pointerdown', e=>{
-  const box=document.getElementById('emptyFieldAddBox'), btn=document.getElementById('emptyFieldAddBtn');
-  if(box && box.classList.contains('open') && !box.contains(e.target) && e.target!==btn) closeEmptyFieldAddBox();
-});
-// A MutationObserver (rather than hooking every call site that adds/
-// removes players -- Reset, Load, Player Setups, Delete, etc.) so this
-// stays correct automatically no matter which of those paths empties or
-// repopulates the field.
-function updateEmptyFieldAddButton(){
-  const hasPlayers = document.querySelectorAll('.player').length>0;
-  document.getElementById('emptyFieldAddBtn')?.classList.toggle('visible', !hasPlayers);
-  if(hasPlayers) closeEmptyFieldAddBox();
+// Builds a full board `state` (same shape getState()/loadState() use)
+// for a Quick Add combo, entirely in memory -- no DOM mutation. Kept
+// separate from applyQuickAddCombo() above (which DOES touch the live
+// board) so seeding the default Formation library can never disturb
+// whatever a coach currently has on screen.
+function buildQuickAddComboState(key){
+  const def = QUICK_ADD_COMBOS[key];
+  if(!def) return null;
+  const blank = { locked:false, hidden:false, blockArm:'none', blockArmSaved:'right', blockMaxAngle:15, category:'', sizePercent:100, visionDistance:5, secondaryVisionAngle:0, showPrimaryVision:true, showSecondaryVision:false };
+  const goaliePt = fieldZonePolarPt(0, 1);
+  const players = [{ label:'BG', team:'goalie', name:'BG', role:'Goalkeeper', x:+goaliePt.x.toFixed(2), y:+goaliePt.y.toFixed(2), pose:'v', rot:90, ...blank }];
+  for(let i=0;i<def.blueField;i++){
+    const [x,y] = quickAddZonePosition(i,'inner');
+    players.push({ label:'B'+(i+1), team:'blue', name:'B'+(i+1), role:'Driver', x, y, pose:'v', rot:90, ...blank });
+  }
+  for(let i=0;i<def.whiteField;i++){
+    const [x,y] = quickAddZonePosition(i,'outer');
+    players.push({ label:'W'+(i+1), team:'white', name:'W'+(i+1), role:'Driver', x, y, pose:'v', rot:270, ...blank });
+  }
+  return {
+    players,
+    // Ball position is a placeholder -- loadState() resolves the 'W1'
+    // carrier label back to the actual player and calls moveBallTo(),
+    // which computes the real hand-offset position, same as it does for
+    // any other saved formation with a carrier set.
+    ball:{ x:14.5, y:12, carrier: def.whiteField>0 ? 'W1' : null, hand:'right' },
+    extraBalls:[],
+    drawings:[],
+    layers:{ players:true, ball:true, drawings:true, highlights:true, notes:true, ghosts:true }
+  };
 }
-new MutationObserver(updateEmptyFieldAddButton).observe(board, { childList:true });
+// Runs once (guarded by the presence of the 'default' key) to populate the
+// org-scoped Formation library with the app's existing built-in combos,
+// and to give the sample "USA Water Polo" test org a couple of
+// illustrative entries so the org-switching concept is visibly
+// testable -- these are placeholder content reusing the same built-in
+// combos under different names, not real USA Water Polo playbook material.
+function seedOrgLibrariesIfNeeded(){
+  const formLibAll = getFormationLibraryAll();
+  if(!formLibAll['default']){
+    const lib = {};
+    Object.keys(QUICK_ADD_COMBOS).forEach(key=>{
+      const def = QUICK_ADD_COMBOS[key];
+      const st = buildQuickAddComboState(key);
+      if(st) lib[def.label] = { ...MIZE.Storage.makeMetadata('formation', def.label, ['default']), state: st };
+    });
+    formLibAll['default'] = lib;
+    localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(formLibAll));
+  }
+  if(!formLibAll['usa_water_polo']){
+    const usaLib = {};
+    const s1 = buildQuickAddComboState('combo6v6');
+    if(s1) usaLib['USA WP \u2013 6v6 Scrimmage Start'] = { ...MIZE.Storage.makeMetadata('formation', 'USA WP \u2013 6v6 Scrimmage Start', ['usa-water-polo','sample']), state:s1 };
+    const s2 = buildQuickAddComboState('combo5v6');
+    if(s2) usaLib['USA WP \u2013 6-on-5 Set'] = { ...MIZE.Storage.makeMetadata('formation', 'USA WP \u2013 6-on-5 Set', ['usa-water-polo','sample']), state:s2 };
+    formLibAll['usa_water_polo'] = usaLib;
+    localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(formLibAll));
+  }
+  const seqLibAll = getSequenceLibraryAll();
+  let seqChanged = false;
+  if(!seqLibAll['default']){ seqLibAll['default'] = {}; seqChanged = true; }
+  if(!seqLibAll['usa_water_polo']){ seqLibAll['usa_water_polo'] = {}; seqChanged = true; }
+  if(seqChanged) localStorage.setItem(ORG_SEQUENCE_LIBRARY_KEY, JSON.stringify(seqLibAll));
+}
+try { seedOrgLibrariesIfNeeded(); } catch(err) { console.error('seedOrgLibrariesIfNeeded failed (continuing without it):', err); }
+function closeEmptyFieldAddBox(){ document.getElementById('emptyFieldAddBox')?.classList.remove('open'); }
+function openEmptyFieldMenu(){ document.getElementById('emptyFieldMenuBox')?.classList.add('open'); }
+function closeEmptyFieldMenu(){ document.getElementById('emptyFieldMenuBox')?.classList.remove('open'); }
+function openEmptyFieldSequenceBox(){ document.getElementById('emptyFieldSequenceBox')?.classList.add('open'); }
+function closeEmptyFieldSequenceBox(){ document.getElementById('emptyFieldSequenceBox')?.classList.remove('open'); }
+function closeAllEmptyFieldBoxes(){ closeEmptyFieldMenu(); closeEmptyFieldAddBox(); closeEmptyFieldSequenceBox(); }
+function anyEmptyFieldBoxOpen(){
+  return !!(document.getElementById('emptyFieldMenuBox')?.classList.contains('open')
+    || document.getElementById('emptyFieldAddBox')?.classList.contains('open')
+    || document.getElementById('emptyFieldSequenceBox')?.classList.contains('open'));
+}
+// Shared by both the Add Formation and Add Sequence boxes: in Developer
+// Mode, renders an org switcher (which organization's curated defaults are
+// being viewed/edited), a way to register a new test organization, and a
+// "save current board as default" button. Regular users never see this --
+// they just see whichever org is already active, simulating "signed in
+// as" without any real backend account behind it.
+function renderOrgDevRow(container, { onOrgChange, onSaveDefault, saveLabel }){
+  container.innerHTML = '';
+  if(!devModeActive){ container.style.display='none'; return; }
+  container.style.display='';
+  const orgId = getActiveOrgId();
+  const sel = document.createElement('select');
+  getOrgList().forEach(o=>{ const opt=document.createElement('option'); opt.value=o.id; opt.textContent=o.name; if(o.id===orgId) opt.selected=true; sel.appendChild(opt); });
+  sel.addEventListener('change', ()=>{ setActiveOrgId(sel.value); onOrgChange(); });
+  const addOrgBtn = document.createElement('button'); addOrgBtn.type='button'; addOrgBtn.textContent='+ New Test Organization\u2026';
+  addOrgBtn.addEventListener('click', async ()=>{
+    const name = await MizeDialog.prompt('New organization name (for testing):'); if(!name) return;
+    const id = name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || ('org_'+Date.now());
+    const list = getOrgList();
+    if(!list.some(o=>o.id===id)){ list.push({id, name:name.trim()}); saveOrgList(list); }
+    setActiveOrgId(id);
+    onOrgChange();
+  });
+  const saveBtn = document.createElement('button'); saveBtn.type='button'; saveBtn.textContent=saveLabel;
+  saveBtn.addEventListener('click', onSaveDefault);
+  container.appendChild(sel); container.appendChild(addOrgBtn); container.appendChild(saveBtn);
+}
+function renderFormationLibraryBox(){
+  const orgId = getActiveOrgId();
+  document.getElementById('efaFormationOrgLabel').textContent = 'Showing: ' + activeOrgName();
+  renderOrgDevRow(document.getElementById('efaFormationDevRow'), {
+    onOrgChange: renderFormationLibraryBox,
+    saveLabel: '+ Save Current Board as Default',
+    onSaveDefault: async ()=>{
+      const name = await MizeDialog.prompt('Name this default formation:'); if(!name) return;
+      saveFormationLibraryEntry(getActiveOrgId(), name, ['default']);
+      renderFormationLibraryBox();
+    }
+  });
+  const list = document.getElementById('efaFormationList'); list.innerHTML='';
+  const lib = getFormationLibrary(orgId);
+  const names = Object.keys(lib);
+  if(!names.length){ list.innerHTML='<div class="efaEmpty">No formations yet for this organization.</div>'; return; }
+  names.forEach(name=>{
+    const rec = lib[name];
+    const row = document.createElement('div'); row.className='efaLibRow';
+    const b = document.createElement('button'); b.type='button'; b.textContent=name;
+    b.addEventListener('click', ()=>{ recordHistory('Add Formation: '+name); loadState(formationRecordState(rec)); closeAllEmptyFieldBoxes(); });
+    row.appendChild(b);
+    if(devModeActive){
+      const del = document.createElement('button'); del.type='button'; del.className='efaDelBtn'; del.textContent='\u2715'; del.title='Remove from this organization\u2019s defaults';
+      del.addEventListener('click', async (ev)=>{
+        ev.stopPropagation();
+        if(!(await MizeDialog.confirm('Remove "'+name+'" from '+activeOrgName()+'\u2019s default formations?'))) return;
+        deleteFormationLibraryEntry(orgId, name);
+        renderFormationLibraryBox();
+      });
+      row.appendChild(del);
+    }
+    list.appendChild(row);
+  });
+}
+function renderSequenceLibraryBox(){
+  const orgId = getActiveOrgId();
+  document.getElementById('efaSequenceOrgLabel').textContent = 'Showing: ' + activeOrgName();
+  renderOrgDevRow(document.getElementById('efaSequenceDevRow'), {
+    onOrgChange: renderSequenceLibraryBox,
+    saveLabel: '+ Save Current Sequence as Default',
+    onSaveDefault: async ()=>{
+      const name = await MizeDialog.prompt('Name this default sequence/drill:'); if(!name) return;
+      saveSequenceLibraryEntry(getActiveOrgId(), name, ['default']);
+      renderSequenceLibraryBox();
+    }
+  });
+  const list = document.getElementById('efaSequenceList'); list.innerHTML='';
+  const lib = getSequenceLibrary(orgId);
+  const names = Object.keys(lib);
+  if(!names.length){ list.innerHTML='<div class="efaEmpty">No sequences/drills yet for this organization.</div>'; return; }
+  names.forEach(name=>{
+    const rec = lib[name];
+    const row = document.createElement('div'); row.className='efaLibRow';
+    const b = document.createElement('button'); b.type='button'; b.textContent=name;
+    b.addEventListener('click', ()=>{
+      recordHistory('Add Sequence: '+name);
+      if(frames.length) frames[currentFrame]=makeFrameState();
+      const pkg = MIZE.Storage.readRecord(rec);
+      frames = pkg.frames || [pkg.current];
+      currentFrame = 0;
+      loadFrame(0);
+      closeAllEmptyFieldBoxes();
+    });
+    row.appendChild(b);
+    if(devModeActive){
+      const del = document.createElement('button'); del.type='button'; del.className='efaDelBtn'; del.textContent='\u2715'; del.title='Remove from this organization\u2019s defaults';
+      del.addEventListener('click', async (ev)=>{
+        ev.stopPropagation();
+        if(!(await MizeDialog.confirm('Remove "'+name+'" from '+activeOrgName()+'\u2019s default sequences?'))) return;
+        deleteSequenceLibraryEntry(orgId, name);
+        renderSequenceLibraryBox();
+      });
+      row.appendChild(del);
+    }
+    list.appendChild(row);
+  });
+}
+document.getElementById('emptyFieldAddBtn')?.addEventListener('click', ()=>{
+  if(anyEmptyFieldBoxOpen()) closeAllEmptyFieldBoxes(); else openEmptyFieldMenu();
+});
+document.getElementById('efaMenuPlayer')?.addEventListener('click', ()=>{ closeAllEmptyFieldBoxes(); openAddPlayerPanel(); });
+document.getElementById('efaMenuFormation')?.addEventListener('click', ()=>{ closeEmptyFieldMenu(); renderFormationLibraryBox(); openEmptyFieldAddBox(); });
+document.getElementById('efaMenuSequence')?.addEventListener('click', ()=>{ closeEmptyFieldMenu(); renderSequenceLibraryBox(); openEmptyFieldSequenceBox(); });
+document.getElementById('efaFormationBack')?.addEventListener('click', ()=>{ closeEmptyFieldAddBox(); openEmptyFieldMenu(); });
+document.getElementById('efaSequenceBack')?.addEventListener('click', ()=>{ closeEmptyFieldSequenceBox(); openEmptyFieldMenu(); });
+document.addEventListener('pointerdown', e=>{
+  const btn=document.getElementById('emptyFieldAddBtn');
+  if(!anyEmptyFieldBoxOpen() || e.target===btn) return;
+  const menu=document.getElementById('emptyFieldMenuBox'), formBox=document.getElementById('emptyFieldAddBox'), seqBox=document.getElementById('emptyFieldSequenceBox');
+  if(menu?.contains(e.target) || formBox?.contains(e.target) || seqBox?.contains(e.target)) return;
+  closeAllEmptyFieldBoxes();
+});
+// Shares its top-left corner with the Player Action Bar (single selection)
+// and the multi-delete button (multi-selection), so it's visible whenever
+// neither of those is -- i.e. nothing is currently marked -- regardless of
+// whether the field itself is empty or already has players on it. Driven
+// by updatePlayerActionBar() (called on every selection change) rather
+// than a player-count observer, since visibility no longer depends on how
+// many players are on the field.
+function updateEmptyFieldAddButton(){
+  const noSelection = selected.size===0;
+  document.getElementById('emptyFieldAddBtn')?.classList.toggle('visible', noSelection);
+  if(!noSelection) closeAllEmptyFieldBoxes();
+}
 updateEmptyFieldAddButton();
 (function(){
   const bar=document.getElementById('quickCommandBar');
@@ -5933,13 +6299,13 @@ updateViewOptionCards();
 function renderHiddenPanel(){
   const list=document.getElementById('hiddenList');
   if(!list) return;
-  const items=[...document.querySelectorAll('.player'), ball].filter(el=>el.dataset.hidden==='true');
+  const items=[...document.querySelectorAll('.player'), ball, ...document.querySelectorAll('.extraBall')].filter(el=>el.dataset.hidden==='true');
   if(!items.length){ list.innerHTML='No hidden objects.'; return; }
   list.innerHTML='';
   items.forEach(el=>{
     const row=document.createElement('div');
     row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;';
-    const nameLabel = isBall(el) ? 'Ball' : (el.dataset.name || el.dataset.label);
+    const nameLabel = displayName(el);
     row.innerHTML='<span>'+nameLabel+'</span>';
     const btn=document.createElement('button');
     btn.textContent='Show'; btn.style.cssText='padding:4px 10px;';
@@ -6023,7 +6389,7 @@ document.getElementById('importLibraryFile').addEventListener('change', e=>{
 const OBJECT_ENGINE_SCHEMA_VERSION = 1;
 
 function objectEngineType(el){
-  if(isBall(el)) return 'ball';
+  if(isAnyBall(el)) return 'ball';
   if(el.classList?.contains('player')) return el.dataset.team==='goalie' ? 'goalkeeper' : 'player';
   const kind = el.dataset?.kind;
   if(kind==='line'){
@@ -6137,7 +6503,7 @@ function applyCanonicalPatch(el, patch){
   }
   if(typeof patch.locked==='boolean') el.dataset.locked = patch.locked ? 'true' : 'false';
   if(patch.coachingDNA) el.dataset.dna = JSON.stringify(patch.coachingDNA);
-  if(el.classList?.contains('player')) place(el); else if(isBall(el)) placeBall();
+  if(el.classList?.contains('player') || isAnyBall(el)) placeAny(el);
 }
 
 // Returns every object currently on the board as canonical Object Engine
@@ -6147,6 +6513,7 @@ function getSceneObjects(){
   const objects = [];
   document.querySelectorAll('.player').forEach(el=>objects.push(toCanonicalObject(el)));
   objects.push(toCanonicalObject(ball));
+  document.querySelectorAll('.extraBall').forEach(el=>objects.push(toCanonicalObject(el)));
   document.querySelectorAll('#arrowsGroup .drawing').forEach(el=>objects.push(toCanonicalObject(el)));
   return objects;
 }
@@ -6584,7 +6951,7 @@ function faceRotationTo(fromX, fromY, toX, toY){
   return ((r%360)+360)%360;
 }
 function maybeAutoFace(el){
-  if(!smartPositioningActive || !el || isBall(el) || isDrawingEl(el)) return;
+  if(!smartPositioningActive || !el || isAnyBall(el) || isDrawingEl(el)) return;
   const ex=+el.dataset.x, ey=+el.dataset.y;
   // Case 1: the ball carrier always faces the center of the goal they're attacking.
   if(ballCarrier===el){
@@ -6709,7 +7076,7 @@ function updateShotBlockDiagnostic(){
   if(!box) return;
   if(!shotBlockActive){ box.style.display='none'; return; }
   const sel=singleSelection();
-  if(!sel || isBall(sel)){ box.style.display='none'; return; }
+  if(!sel || isAnyBall(sel)){ box.style.display='none'; return; }
   const attacker=ballCarrier || nearestPlayerToBall();
   const result=computeShotBlockCorridor(sel, attacker);
   box.style.display='block';
