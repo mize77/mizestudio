@@ -133,6 +133,53 @@
   .player[data-team="blue"] .capNumber { color:#fff; background:rgba(0,55,210,.86); border-color:#fff; }
   .player[data-team="goalie"] .capNumber { color:#fff; background:rgba(220,0,0,.86); border-color:#fff; }
   .ghost { position:absolute; transform:translate(-50%,-50%); opacity:.22; pointer-events:none; z-index:5; filter:grayscale(.15); }
+  /* ===== Tutorial Mode ===== */
+  /* A pulsing ring drawn AROUND the target rather than a dimmed overlay
+     with a cutout -- dimming the rest of the board made it hard to
+     actually see a movement or the effect of an action while it was
+     happening, which was exactly the feedback that led to this. No
+     backdrop at all, so the full board stays visible at all times.
+     left/top/width/height are plain pixel box-model values set directly
+     in JS (not CSS custom properties) on every poll tick -- deliberately
+     NOT transitioned: several targets sit inside a sidebar category that
+     itself slides into view (its own CSS transition), and having the ring
+     chase that with a second, independent transition of its own is what
+     produced the "disoriented"/lagging ring reported after opening a menu
+     -- it's much more reliable to just snap to the latest measurement. */
+  #tutorialSpotlight, .tutorialSpotlightRing { display:none; position:fixed; box-sizing:border-box; border-radius:50%; border:4px solid #ffca28; box-shadow:0 0 0 2px rgba(0,0,0,.4), 0 0 22px 6px rgba(255,202,40,.85); pointer-events:none; z-index:1560; animation:tutorialRingPulse 1.3s ease-in-out infinite; }
+  body.tutorialModeActive #tutorialSpotlight.show, body.tutorialModeActive .tutorialSpotlightRing.show { display:block; }
+  @keyframes tutorialRingPulse { 0%,100% { opacity:.7; } 50% { opacity:1; } }
+  /* Ghost TARGETS (where something needs to go) are visually distinct from
+     the existing grayscale "previous frame" ghosts: a warm gold tint with a
+     soft pulse, so a coach never confuses "where it was" with "where it
+     needs to go." left/top ARE transitioned here (unlike the ring above) --
+     a ghost's from/to positions are both set by this code itself in a
+     controlled two-frame sequence (see renderTutorialGhost), not chasing a
+     second independent transition, so there's no compounding-lag risk. */
+  .tutorialGhostTarget { position:absolute; transform:translate(-50%,-50%); opacity:.5; pointer-events:none; z-index:1555; filter:sepia(.5) saturate(3) hue-rotate(-10deg); transition:left 1.1s ease-in-out, top 1.1s ease-in-out; }
+  .tutorialGhostTarget.pulsing { animation:tutorialGhostPulse 1.6s ease-in-out infinite; }
+  .tutorialGhostTarget img { display:block; }
+  @keyframes tutorialGhostPulse { 0%,100% { opacity:.35; } 50% { opacity:.65; } }
+  /* Moved to the TOP of the screen (was bottom-centered) -- the Timeline's
+     floating Remote Control is also bottom-centered, and the banner (with
+     its higher z-index) was rendering right on top of it, hiding the very
+     Play button a "Press Play" step was asking for. */
+  /* Positioned dynamically per-step by positionTutorialBanner() (JS sets
+     left/top to a point beside the field); this just centers the box on
+     that point and caps its width so it reads as a side panel rather than
+     a banner spanning the screen. */
+  #tutorialBanner { display:none; position:fixed; transform:translate(-50%,-50%); z-index:1570; width:min(260px,42vw); background:#124d4d; color:#fff; border-radius:14px; box-shadow:0 10px 34px rgba(0,0,0,.4); padding:14px 16px; text-align:left; }
+  body.tutorialModeActive #tutorialBanner { display:block; }
+  #tutorialBanner .tutorialStepCount { font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#9fe6c8; margin-bottom:4px; }
+  #tutorialBanner .tutorialInstruction { font-size:14.5px; font-weight:600; line-height:1.4; text-align:left; }
+  #tutorialBanner .tutorialSuccessLine { font-size:13px; color:#9fe6c8; font-weight:700; margin-top:6px; display:none; }
+  #tutorialBanner .tutorialSuccessLine.show { display:block; }
+  /* Directly below the Save/Open button (also top-right, 44px + 10px gap)
+     rather than on top of it -- the two were rendering in the exact same
+     spot, and Exit Tutorial (always visible during the tutorial) was
+     covering the button Step 1 asks the coach to tap. */
+  #tutorialExitBtn { position:fixed; top:64px; right:10px; z-index:1570; display:none; background:rgba(20,30,30,.85); color:#fff; border:none; border-radius:20px; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  body.tutorialModeActive #tutorialExitBtn { display:block; }
   .ghost img { display:block; }
   #measureText { font-size:.45px; font-weight:800; fill:#263238; paint-order:stroke; stroke:white; stroke-width:.12; pointer-events:none; }
   .rotateHandle { position:absolute; left:50%; top:-8px; width:16px; height:16px; border-radius:50%; background:rgba(255,255,255,.85); border:1.5px solid #263238; box-shadow:0 1px 3px rgba(0,0,0,.35); transform:translate(-50%,-50%); cursor:grab; z-index:9; touch-action:none; opacity:0; transition:opacity .12s; }
@@ -361,6 +408,24 @@
     #emptyFieldAddBtn { top:auto; bottom:10px; }
     #emptyFieldMenuBox, #emptyFieldAddBox, #emptyFieldSequenceBox { top:auto; bottom:62px; }
   }
+  /* ===== Save/Open (top-right mirror of the top-left Add menu) ===== */
+  #saveOpenBtn { position:fixed; top:10px; right:10px; z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:rgba(18,77,77,.92); color:#fff; font-size:20px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
+  #saveOpenBtn.visible { display:flex; }
+  #saveOpenBtn:hover { background:#1a6363; }
+  #saveOpenMenuBox, #openItemBox, #saveItemBox { position:fixed; top:62px; right:10px; z-index:1540; display:none; flex-direction:column; gap:6px; background:rgba(18,77,77,.95); padding:10px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); width:260px; max-height:80vh; overflow-y:auto; }
+  #saveOpenMenuBox.open, #openItemBox.open, #saveItemBox.open { display:flex; }
+  #saveOpenMenuBox .efaTitle, #openItemBox .efaTitle, #saveItemBox .efaTitle { color:#cfe6e6; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-bottom:2px; }
+  #saveOpenMenuBox button, #openItemBox button, #saveItemBox button { text-align:left; font-size:12.5px; padding:8px 10px; border-radius:8px; border:none; background:rgba(255,255,255,.12); color:#fff; cursor:pointer; }
+  #saveOpenMenuBox button:hover, #openItemBox button:hover, #saveItemBox button:hover { background:rgba(255,255,255,.24); }
+  #openItemBox input[type="text"], #saveItemBox input[type="text"], #saveItemBox select { font-size:12.5px; padding:7px 8px; border-radius:8px; border:none; background:rgba(255,255,255,.9); color:#123; }
+  #openItemBox .efaEmpty, #saveItemBox .efaEmpty { font-size:12px; color:#9fc7c7; padding:4px 2px; }
+  #openItemBox .efaBackBtn, #saveItemBox .efaBackBtn { border-top:1px solid rgba(255,255,255,.2); margin-top:2px; padding-top:8px; background:none; }
+  #saveItemBox .soSaveBtn { background:#1a6363; font-weight:700; text-align:center; }
+  #saveItemBox .soSaveBtn:hover { background:#218080; }
+  @media (max-width:500px), (max-height:500px) {
+    #saveOpenBtn { top:auto; bottom:10px; }
+    #saveOpenMenuBox, #openItemBox, #saveItemBox { top:auto; bottom:62px; }
+  }
   /* Same top-left spot the Player Action Bar and the empty-field "+" use --
      the three are mutually exclusive (0 players / exactly 1 marked / more
      than 1 marked), so there's never a clash. Delete is destructive, so
@@ -508,6 +573,13 @@
 <button id="studioNavLeft" title="Turn camera left">&#8249;</button>
 <button id="studioNavRight" title="Turn camera right">&#8250;</button>
 <div id="spotlightOverlay"></div>
+<div id="tutorialSpotlight"></div>
+<div id="tutorialBanner">
+  <div class="tutorialStepCount" id="tutorialStepCount"></div>
+  <div class="tutorialInstruction" id="tutorialInstruction"></div>
+  <div class="tutorialSuccessLine" id="tutorialSuccessLine"></div>
+</div>
+<button id="tutorialExitBtn" title="Leave the guided tutorial at any time">Exit Tutorial</button>
 <div id="spotlightHitArea"></div>
 <div id="spotlightResizeHandle"></div>
 <button id="spotlightRemoveBtn" title="Remove spotlight">&#10005;</button>
@@ -686,6 +758,7 @@
   <svg id="shotBlockSvg" viewBox="0 0 29 24" preserveAspectRatio="none"><g id="shotBlockGroup"><g id="goalieVisionLayer"></g><g id="shotBlockLayer"></g><g id="shootingAngleLayer"></g></g></svg>
   <div id="ball" data-x="14.5" data-y="12"></div>
   <div id="ghostLayer"></div>
+  <div id="tutorialGhostLayer"></div>
   <div id="selectionRect"></div>
   <div id="fcScrollZoneLeft" class="fcScrollZone"></div>
   <div id="fcScrollZoneRight" class="fcScrollZone"></div>
@@ -821,6 +894,8 @@
       <button class="toolListBtn" data-panel="addPlayerPanel">Add Player</button>
       <button class="toolListBtn" data-panel="aboutDiagnosticsPanel">About &amp; Diagnostics</button>
       <button class="toolListBtn devModeOnly" data-panel="developerModePanel" style="display:none;">Developer Mode: Sport Templates</button>
+      <button class="devModeOnly" id="devPreviewTutorialBtn" style="display:none;">Preview Tutorial Engine (Demo)</button>
+      <button class="devModeOnly" id="devPreviewRealTutorialBtn" style="display:none;">Preview: First Coaching Session</button>
       <button class="toolListBtn devModeOnly" data-panel="brandingManagerPanel" style="display:none;">Developer Mode: Branding</button>
 
     </div>
@@ -875,6 +950,27 @@
   <div id="efaSequenceDevRow" class="efaDevRow" style="display:none;"></div>
   <div id="efaSequenceList"></div>
   <button type="button" id="efaSequenceBack" class="efaBackBtn">&#8592; Back</button>
+</div>
+<button id="saveOpenBtn" title="Save or open a formation/sequence">&#128190;</button>
+<div id="saveOpenMenuBox">
+  <div class="efaTitle">Save / Open</div>
+  <button type="button" id="soMenuOpenFormation">Open Formation</button>
+  <button type="button" id="soMenuOpenSequence">Open Sequence</button>
+  <button type="button" id="soMenuSaveFormation">Save Formation</button>
+  <button type="button" id="soMenuSaveSequence">Save Sequence</button>
+</div>
+<div id="openItemBox">
+  <div class="efaTitle" id="openItemTitle">Open</div>
+  <input type="text" id="openItemSearch" placeholder="Search by name...">
+  <div id="openItemList"></div>
+  <button type="button" id="openItemBackBtn" class="efaBackBtn">&#8592; Back</button>
+</div>
+<div id="saveItemBox">
+  <div class="efaTitle" id="saveItemTitle">Save</div>
+  <select id="saveItemExisting"></select>
+  <input type="text" id="saveItemName" placeholder="Name for this item...">
+  <button type="button" id="saveItemConfirmBtn" class="soSaveBtn">Save</button>
+  <button type="button" id="saveItemBackBtn" class="efaBackBtn">&#8592; Back</button>
 </div>
 <div id="directionPad">
   <button id="dpadPassLeftBtn" class="dpadBtn dpadCornerBtn" title="Pass left (works if the marked player\u2019s team has the ball)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0"/></svg></button>
@@ -1325,10 +1421,10 @@ const MizeDialog = (function(){
   <div class="toolPanelHeader"><h3>Tactical Packages</h3><button class="closeToolPanelBtn">&#10005;</button></div>
   <div class="toolPanelBody">
 <div style="display:flex;gap:6px;margin-bottom:4px;">
-      <button id="exportLibraryBtn" style="flex:1;">Export Library (All)</button>
-      <button id="importLibraryBtn" style="flex:1;">Import Library (All)</button>
+      <button id="exportLibraryBtn" style="flex:1;">Export Everything</button>
+      <button id="importLibraryBtn" style="flex:1;">Import</button>
     </div>
-    <div style="font-size:11px;color:#54605f;margin-bottom:8px;">Exports every saved formation, tactical package, and practice session into one file. To use this on another device: save the exported file into a folder synced by iCloud Drive or Google Drive, then open this app on the other device and use Import to pick that same file.</div>
+    <div style="font-size:11px;color:#54605f;margin-bottom:8px;">"Export Everything" downloads every saved formation, tactical package, and practice session into one file. Each saved formation and package below also has its own \u2913 Export button, for sharing just that one item -- Import accepts either kind of file. To use this on another device: save the exported file into a folder synced by iCloud Drive or Google Drive, then open this app on the other device and use Import to pick that same file.</div>
     <input type="file" id="importLibraryFile" accept="application/json" style="display:none;">
     <input type="text" id="packageTagFilter" placeholder="Filter by tag (e.g. counterattack, U16)" style="width:100%;margin-bottom:8px;padding:6px 8px;font-size:12px;box-sizing:border-box;">
     <div id="packageList"></div>
@@ -2473,6 +2569,34 @@ function deleteSequenceLibraryEntry(orgId, name){
   const all = getSequenceLibraryAll();
   if(all[orgId]){ delete all[orgId][name]; localStorage.setItem(ORG_SEQUENCE_LIBRARY_KEY, JSON.stringify(all)); }
 }
+// ===== User identity (for per-user save namespacing) =====
+// Every saved formation/sequence is keyed as "<user name> <item name>" so
+// two different people's identically-named saves never collide once real
+// accounts exist. There is no real subscription/account system in a single
+// static HTML file, though -- same limitation as the Organization
+// simulation above -- so per spec, this is unconditionally "XquiX" for
+// now, Developer Mode included. This one function is the only place that
+// will need to change once real per-user login exists.
+function getActiveUserName(){ return 'XquiX'; }
+// One-time, idempotent migration: anything saved before this naming scheme
+// existed gets the current user name prefixed on, so nothing already saved
+// (including formations/sequences built earlier in this project) becomes
+// invisible once the new Save/Open panel starts filtering by user name.
+function migrateSavesToUserNamePrefix(){
+  const prefix = getActiveUserName()+' ';
+  [ 'wpStrategyFormationsV5', 'tpgTacticalPackagesV8' ].forEach(storeKey=>{
+    const store = JSON.parse(localStorage.getItem(storeKey)||'{}');
+    let changed = false;
+    const migrated = {};
+    Object.keys(store).forEach(key=>{
+      const newKey = key.startsWith(prefix) ? key : prefix+key;
+      if(newKey !== key) changed = true;
+      migrated[newKey] = { ...store[key], name:newKey };
+    });
+    if(changed) localStorage.setItem(storeKey, JSON.stringify(migrated));
+  });
+}
+try { migrateSavesToUserNamePrefix(); } catch(err) { console.error('migrateSavesToUserNamePrefix failed:', err); }
 // New rotate gestures (in addition to the existing visible rotate handle):
 // mouse right-button-drag, and a second finger landing on an already-active
 // touch-drag player. Tracked separately from the handle-based `rotating` so
@@ -2922,13 +3046,45 @@ function placeBall() {
   renderShootingAngle();
 }
 
-function reset() { recordHistory('Reset Formation'); clearSelection(); document.querySelectorAll('.player').forEach(e=>e.remove()); initial.forEach(makePlayer); ballCarrier=null; ballHand='right'; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); clearArrows(true); }
+// Declared here (far above the rest of Tutorial Mode, which lives with the
+// Playback Checkpoint system much further down) because reset() and
+// newBoard() below need to check it, and both can be invoked by the
+// startup fallback chain (loadDefaultFormation(), just below) on every
+// single page load -- referencing a `let` before its declaration throws in
+// JS, so this one flag can't wait for the rest of the Tutorial Mode block.
+let tutorialModeActive = false;
+function reset() {
+  if(tutorialModeActive){
+    // Reset Behavior (Tutorial Mode spec): during a guided tutorial, Reset
+    // restores the Playback Checkpoint captured earlier instead of jumping
+    // back to the starting formation -- the real tutorial's step 15 has
+    // the coach press Reset expecting exactly this. If no checkpoint has
+    // been captured yet, Reset is simply inert during the tutorial rather
+    // than doing its normal (unrelated, disruptive) thing.
+    if(typeof hasPlaybackCheckpoint==='function' && hasPlaybackCheckpoint()) restorePlaybackCheckpoint();
+    closeSidebarMenu();
+    return;
+  }
+  recordHistory('Reset Formation'); clearSelection(); document.querySelectorAll('.player').forEach(e=>e.remove()); initial.forEach(makePlayer); ballCarrier=null; ballHand='right'; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); clearArrows(true);
+  closeSidebarMenu();
+}
+// Reset lives inside the sidebar Menu -- leaving the menu open right after
+// using it isn't useful, so this closes both the menu itself and whichever
+// category was expanded inside it.
+function closeSidebarMenu(){
+  document.getElementById('controlsPanel')?.classList.remove('open');
+  document.querySelectorAll('.cmdCategory.open').forEach(c=>c.classList.remove('open'));
+  if(typeof syncPresentationPanelBackdrop==='function') syncPresentationPanelBackdrop();
+}
 // Distinct from reset() (which repopulates the starting 12-player
 // formation): this clears the field completely -- no players, no extra
 // balls, just the one ball recentered. Recorded to Undo like every other
 // board-changing action, so it's a safe, reversible way to start a session
 // from a genuinely blank slate.
-function newBoard() { recordHistory('New (Empty Field)'); clearSelection(); document.querySelectorAll('.player').forEach(e=>e.remove()); document.querySelectorAll('.extraBall').forEach(e=>e.remove()); ballCarrier=null; ballHand='right'; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); clearArrows(true); renderTeamManager(); }
+function newBoard() {
+  if(tutorialModeActive) return; // starting from a blank board isn't part of any guided tutorial step
+  recordHistory('New (Empty Field)'); clearSelection(); document.querySelectorAll('.player').forEach(e=>e.remove()); document.querySelectorAll('.extraBall').forEach(e=>e.remove()); ballCarrier=null; ballHand='right'; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); clearArrows(true); renderTeamManager();
+}
 function clearArrows(skipHistory=false) { if(!skipHistory) recordHistory('Clear Arrows'); [...arrows.querySelectorAll('.drawing')].forEach(l=>l.remove()); }
 function drawLine(x1,y1,x2,y2,type,preview=false) {
   const l=document.createElementNS('http://www.w3.org/2000/svg','line');
@@ -3204,24 +3360,47 @@ async function saveFormation() {
   const name=await MizeDialog.prompt('Name this formation:'); if(!name) return;
   const tagsInput=await MizeDialog.prompt('Coaching DNA tags (comma-separated, optional) — e.g. counterattack, 6-on-5, U16:','');
   const coachingDNA=(tagsInput||'').split(',').map(t=>t.trim()).filter(Boolean);
-  const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-  saved[name]={ ...MIZE.Storage.makeMetadata('formation', name, coachingDNA), state:getState(), engineObjects:getSceneObjects() };
-  localStorage.setItem('wpStrategyFormationsV5',JSON.stringify(saved)); renderCustomSystems();
+  try {
+    const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
+    saved[name]={ ...MIZE.Storage.makeMetadata('formation', name, coachingDNA), state:getState(), engineObjects:getSceneObjects() };
+    localStorage.setItem('wpStrategyFormationsV5',JSON.stringify(saved)); renderCustomSystems();
+  } catch(err) {
+    // Without this, a failed write (most commonly the browser's storage
+    // quota being full) looks identical to a successful save from the
+    // person's side -- both prompts complete normally, nothing ever
+    // appears in the list, with no indication anything went wrong.
+    await MizeDialog.alert('Could not save "'+name+'": '+err.message+'. This usually means local storage is full -- check About & Diagnostics for how much is in use, and consider exporting and deleting some older saved formations/packages.', 'Save Failed');
+  }
 }
 function formationRecordState(rec){ rec = MIZE.Storage.readRecord(rec); return (rec && typeof rec==='object' && rec.state) ? rec.state : rec; }
+// A Formation is a single snapshot with no concept of a timeline -- but
+// loadState() only ever replaces the board's own content (players/ball/
+// drawings), never the separate `frames` array the Timeline strip renders
+// from. Without this, opening a Formation while a multi-frame Sequence is
+// active leaves the Timeline still showing every frame of that old
+// Sequence, even though the board itself no longer matches any of them.
+function resetTimelineForFormationLoad(){
+  frames=[]; currentFrame=0;
+  if(typeof renderFrames==='function') renderFrames();
+}
 function formationRecordTags(rec){ return (rec && typeof rec==='object' && rec.state) ? (rec.coachingDNA||[]) : []; }
 function renderCustomSystems() {
   const box=document.getElementById('customSystems'); box.innerHTML='';
   const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
+  const totalCount=Object.keys(saved).length;
   const filter=(document.getElementById('formationTagFilter')?.value||'').trim().toLowerCase();
+  let shownCount=0;
   Object.keys(saved).forEach(name=>{
     const rec=saved[name];
     const tags=formationRecordTags(rec);
     if(filter && !tags.some(t=>t.toLowerCase().includes(filter))) return;
+    shownCount++;
     const row=document.createElement('div'); row.className='formationRow';
     const topRow=document.createElement('div'); topRow.style.cssText='display:flex;align-items:center;gap:6px;';
     const b=document.createElement('button'); b.className='formationLoadBtn'; b.style.flex='1'; b.textContent=name; b.title='Load saved formation';
-    b.onclick=()=>{ recordHistory('Load Formation: '+name); loadState(formationRecordState(rec)); closeToolPanels(); };
+    b.onclick=()=>{ recordHistory('Load Formation: '+name); loadState(formationRecordState(rec)); resetTimelineForFormationLoad(); closeToolPanels(); };
+    const exp=document.createElement('button'); exp.textContent='\u2913'; exp.title='Export this formation as its own file'; exp.style.cssText='flex:0 0 auto;padding:4px 9px;';
+    exp.onclick=(ev)=>{ ev.stopPropagation(); exportSingleRecord('formation', name, rec); };
     const del=MIZE.UI.ConfirmDeleteButton(
       'Delete saved formation "'+name+'"? This cannot be undone.',
       ()=>{
@@ -3232,7 +3411,7 @@ function renderCustomSystems() {
       },
       { title:'Delete this formation', style:'flex:0 0 auto;padding:4px 9px;', stopPropagation:true }
     );
-    topRow.appendChild(b); topRow.appendChild(del);
+    topRow.appendChild(b); topRow.appendChild(exp); topRow.appendChild(del);
     row.appendChild(topRow);
     if(tags.length){
       const tagRow=document.createElement('div'); tagRow.className='formationTags';
@@ -3241,6 +3420,14 @@ function renderCustomSystems() {
     }
     box.appendChild(row);
   });
+  if(filter && shownCount===0 && totalCount>0){
+    const msg=document.createElement('div'); msg.style.cssText='font-size:12px;color:#54605f;padding:8px 2px;';
+    msg.textContent='No formations match "'+filter+'" -- you have '+totalCount+' saved, just none tagged with that. ';
+    const clearBtn=document.createElement('button'); clearBtn.textContent='Clear filter'; clearBtn.style.cssText='margin-top:4px;';
+    clearBtn.onclick=()=>{ document.getElementById('formationTagFilter').value=''; renderCustomSystems(); };
+    msg.appendChild(document.createElement('br')); msg.appendChild(clearBtn);
+    box.appendChild(msg);
+  }
 }
 document.getElementById('formationTagFilter')?.addEventListener('input', renderCustomSystems);
 
@@ -3418,27 +3605,43 @@ async function savePackage() {
   const name=await MizeDialog.prompt('Name this tactical package:'); if(!name) return;
   const tagsInput=await MizeDialog.prompt('Coaching DNA tags (comma-separated, optional) — e.g. counterattack, 6-on-5, U16:','');
   const coachingDNA=(tagsInput||'').split(',').map(t=>t.trim()).filter(Boolean);
-  const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
-  packs[name]={...MIZE.Storage.makeMetadata('tacticalPackage', name, coachingDNA), frames:frames.length?frames:[makeFrameState()], current:getState()};
-  localStorage.setItem('tpgTacticalPackagesV8',JSON.stringify(packs)); renderPackages();
+  try {
+    const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
+    packs[name]={...MIZE.Storage.makeMetadata('tacticalPackage', name, coachingDNA), frames:frames.length?frames:[makeFrameState()], current:getState()};
+    localStorage.setItem('tpgTacticalPackagesV8',JSON.stringify(packs)); renderPackages();
+  } catch(err) {
+    await MizeDialog.alert('Could not save "'+name+'": '+err.message+'. This usually means local storage is full -- check About & Diagnostics for how much is in use, and consider exporting and deleting some older saved formations/packages.', 'Save Failed');
+  }
 }
 function renderPackages() {
   const box=document.getElementById('packageList'); if(!box) return; box.innerHTML='';
   const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
+  const totalCount=Object.keys(packs).length;
   const filter=(document.getElementById('packageTagFilter')?.value||'').trim().toLowerCase();
+  let shownCount=0;
   Object.keys(packs).forEach(name=>{
     const tags=packs[name].coachingDNA||[]; // absent entirely on packages saved before tagging existed
     if(filter && !tags.some(t=>t.toLowerCase().includes(filter))) return;
+    shownCount++;
     const row=document.createElement('div'); row.className='miniBtnRow';
     const load=document.createElement('button'); load.textContent=name; load.title='Load tactical package'; load.onclick=()=>{ recordHistory('Load Package: '+name); if(frames.length) frames[currentFrame]=makeFrameState(); const pkg=MIZE.Storage.readRecord(packs[name]); frames=pkg.frames||[pkg.current]; currentFrame=0; loadFrame(0); closeToolPanels(); };
+    const exp=document.createElement('button'); exp.textContent='\u2913'; exp.title='Export this package/sequence as its own file'; exp.onclick=(ev)=>{ ev.stopPropagation(); exportSingleRecord('sequence', name, packs[name]); };
     const del=MIZE.UI.ConfirmDeleteButton('Delete package "'+name+'"?', ()=>{ const p=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}'); delete p[name]; localStorage.setItem('tpgTacticalPackagesV8',JSON.stringify(p)); renderPackages(); }, { title:'Delete package' });
-    row.appendChild(load); row.appendChild(del); box.appendChild(row);
+    row.appendChild(load); row.appendChild(exp); row.appendChild(del); box.appendChild(row);
     if(tags.length){
       const tagRow=document.createElement('div'); tagRow.className='formationTags';
       tags.forEach(t=>{ const chip=document.createElement('span'); chip.className='dnaChip'; chip.textContent=t; tagRow.appendChild(chip); });
       box.appendChild(tagRow);
     }
   });
+  if(filter && shownCount===0 && totalCount>0){
+    const msg=document.createElement('div'); msg.style.cssText='font-size:12px;color:#54605f;padding:8px 2px;';
+    msg.textContent='No packages match "'+filter+'" -- you have '+totalCount+' saved, just none tagged with that. ';
+    const clearBtn=document.createElement('button'); clearBtn.textContent='Clear filter'; clearBtn.style.cssText='margin-top:4px;';
+    clearBtn.onclick=()=>{ document.getElementById('packageTagFilter').value=''; renderPackages(); };
+    msg.appendChild(document.createElement('br')); msg.appendChild(clearBtn);
+    box.appendChild(msg);
+  }
 }
 document.getElementById('packageTagFilter')?.addEventListener('input', renderPackages);
 
@@ -4063,10 +4266,8 @@ document.getElementById('undoBtn').onclick=undo;
 document.getElementById('redoBtn').onclick=redo;
 document.getElementById('newBtn').onclick=newBoard;
 document.getElementById('resetBtn').onclick=reset;
-document.getElementById('saveFormationBtn').onclick=saveFormation;
 document.getElementById('duplicateBtn').onclick=duplicateSelected;
 document.getElementById('deleteObjBtn').onclick=deleteSelectedObject;
-document.getElementById('savePackageBtn').onclick=savePackage;
 document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit');
 document.getElementById('presentationRealBtn').onclick=()=>togglePresentation('real');
 document.getElementById('exitPresentationBtn').onclick=()=>togglePresentation();
@@ -4540,6 +4741,638 @@ function computeElapsedPackageDuration(){
   for(let idx=0; idx<currentFrame; idx++) total+=frames[idx].duration||0.9;
   return Math.max(0, Math.round(total));
 }
+// ===== Playback Checkpoint (temporary) =====
+// Distinct from a saved formation (wpStrategyFormationsV5) and a saved
+// sequence (tpgTacticalPackagesV8): a single transient snapshot of the
+// entire board plus which frame playback was on and which analytical tools
+// were active, held only in memory for this session. Built for Tutorial
+// Mode's "rewind to where you paused" behavior, but written as ordinary
+// top-level functions rather than anything tutorial-specific, so a plain
+// "Checkpoint" button elsewhere in the app can reuse this exact mechanism
+// later with no rework -- per the spec's own Future Compatibility note.
+let playbackCheckpoint = null;
+function capturePlaybackCheckpoint(){
+  playbackCheckpoint = {
+    state: getState(),
+    frameIndex: currentFrame,
+    shotBlockActive, shootingAngleActive, ghostMode
+  };
+}
+function restorePlaybackCheckpoint(){
+  if(!playbackCheckpoint) return false;
+  loadState(playbackCheckpoint.state);
+  currentFrame = Math.min(playbackCheckpoint.frameIndex, Math.max(0, frames.length-1));
+  shotBlockActive = playbackCheckpoint.shotBlockActive; _shotBlockUI.render();
+  shootingAngleActive = playbackCheckpoint.shootingAngleActive; _shootingAngleUI.render();
+  ghostMode = playbackCheckpoint.ghostMode; document.getElementById('ghostBtn')?.classList.toggle('active', ghostMode);
+  renderFrames();
+  return true;
+}
+function clearPlaybackCheckpoint(){ playbackCheckpoint = null; }
+function hasPlaybackCheckpoint(){ return !!playbackCheckpoint; }
+
+// ===== Tutorial Mode Engine =====
+// A generic, data-driven step-walker. This code knows nothing about
+// goalkeepers, shot blocking, or "First Coaching Session" specifically --
+// every concrete tutorial is just an array of step descriptors passed to
+// startTutorial(). Per the spec's Architecture Requirements, adding a
+// future tutorial should mean writing a new step array, never editing
+// anything below.
+//
+// Step shape:
+// {
+//   instruction: 'Short text',
+//   highlight: '#cssSelector' | ['#a','#b'] | HTMLElement | null,
+//   onEnter: () => {},              // optional setup when the step starts
+//   ghost: { type:'playerPosition'|'playerRotation'|'ballPosition', ... } | null,
+//   validate: { type:'...', ... },  // see evaluateTutorialValidator()
+//   successMessage: 'optional custom success line'
+// }
+let tutorialSteps = [];
+let tutorialStepIndex = -1;
+let tutorialOnComplete = null;
+let tutorialTrackHandle = null; // requestAnimationFrame handle -- drives both spotlight tracking and validation polling
+let tutorialAdvancing = false;  // guards against double-advance while the success flash/delay is showing
+let activeTutorialSequenceName = null; // set by whatever loads a sequence before calling startTutorial(), so the 'sequenceLoaded' validator can confirm the RIGHT package was opened, not just any package
+
+function startTutorial(steps, { onComplete } = {}){
+  if(!steps || !steps.length) return;
+  // Whatever menu/panel the tutorial was launched from must not be left
+  // open -- once tutorialModeActive flips on, the input guard blocks
+  // clicks on anything that isn't the current step's highlighted target,
+  // which would otherwise trap the user behind a leftover open menu with
+  // no way to dismiss it. closePresentationPanels() is the existing
+  // function for "close the Menu sidebar, header, and Timeline together";
+  // closeToolPanels()/.cmdCategory.open cover the rest (modal tool panels
+  // and the top command-bar flyouts, which are separate from the Menu).
+  closePresentationPanels();
+  document.querySelectorAll('.cmdCategory.open').forEach(c=>c.classList.remove('open'));
+  closeToolPanels();
+  // Also closed here (not just in the step that later asks to reopen it):
+  // open by default, it covers part of the field for the entire first half
+  // of the tutorial otherwise.
+  if(typeof tutorialHideQuickCommandBar==='function') tutorialHideQuickCommandBar();
+  tutorialSteps = steps;
+  tutorialOnComplete = onComplete || null;
+  tutorialModeActive = true;
+  document.body.classList.add('tutorialModeActive');
+  clearSelection();
+  goToTutorialStep(0);
+}
+function exitTutorial(){
+  if(!tutorialModeActive) return;
+  tutorialModeActive = false;
+  document.body.classList.remove('tutorialModeActive');
+  if(tutorialTrackHandle) clearTimeout(tutorialTrackHandle);
+  tutorialTrackHandle = null;
+  clearTutorialGhost();
+  clearTutorialSpotlight();
+  tutorialSteps = []; tutorialStepIndex = -1; tutorialOnComplete = null;
+}
+document.getElementById('tutorialExitBtn')?.addEventListener('click', exitTutorial);
+
+function goToTutorialStep(index){
+  tutorialAdvancing = false;
+  if(tutorialTrackHandle) clearTimeout(tutorialTrackHandle);
+  _tutorialRingLast = []; _tutorialRingCount = 0;
+  if(index >= tutorialSteps.length){ completeTutorial(); return; }
+  tutorialStepIndex = index;
+  const step = tutorialSteps[index];
+  document.getElementById('tutorialStepCount').textContent = 'Step '+(index+1)+' of '+tutorialSteps.length;
+  document.getElementById('tutorialInstruction').textContent = step.instruction || '';
+  const successLine = document.getElementById('tutorialSuccessLine');
+  successLine.classList.remove('show'); successLine.textContent = '';
+  positionTutorialBanner(step.bannerSide || 'right');
+  if(typeof step.onEnter === 'function') step.onEnter();
+  renderTutorialGhost(step.ghost);
+  tutorialTrackLoop();
+}
+function completeTutorial(){
+  document.getElementById('tutorialStepCount').textContent = 'Complete';
+  document.getElementById('tutorialInstruction').textContent = 'Congratulations! You\u2019ve completed your first coaching session.';
+  clearTutorialGhost();
+  positionTutorialSpotlight(null);
+  const cb = tutorialOnComplete;
+  exitTutorial();
+  if(cb) cb();
+}
+// The instruction banner sits beside the field rather than centered over
+// it -- the Quick Command Bar (top-center) and the Timeline's Remote
+// Control (bottom-center) both already claim the center of the screen, so
+// centering the banner too meant it was constantly covering one or the
+// other. Anchored instead to a point on the LEFT or RIGHT side of the
+// #board element itself (not the viewport), vertically centered where the
+// far goalie stands -- clear of the action, which happens on the other
+// half of the field. Clamped so it can never run off the actual viewport
+// on a narrow screen.
+function positionTutorialBanner(side){
+  const banner = document.getElementById('tutorialBanner');
+  const boardEl = document.getElementById('board');
+  if(!banner || !boardEl) return;
+  const r = boardEl.getBoundingClientRect();
+  const halfW = (banner.offsetWidth || 260) / 2;
+  const halfH = (banner.offsetHeight || 60) / 2;
+  let targetX = r.left + r.width * (side === 'left' ? 0.22 : 0.78);
+  let targetY = r.top + r.height * 0.5;
+  targetX = Math.max(halfW + 8, Math.min(window.innerWidth - halfW - 8, targetX));
+  targetY = Math.max(halfH + 8, Math.min(window.innerHeight - halfH - 8, targetY));
+  banner.style.left = targetX + 'px';
+  banner.style.top = targetY + 'px';
+}
+// Hidden entirely while a sequence is actually playing (Steps 2 and 16) --
+// the banner would otherwise sit on screen the whole 10-second scene for
+// no reason, and reappears the instant playback stops for the next step.
+function updateTutorialBannerPlayingVisibility(){
+  const banner = document.getElementById('tutorialBanner');
+  if(banner) banner.style.visibility = playing ? 'hidden' : 'visible';
+}
+
+// A single lightweight interval loop drives both concerns for the active
+// step: keeping the spotlight glued to a target that might itself be
+// moving (e.g. a player mid-drag), and polling validate(). Deliberately
+// NOT a 60fps requestAnimationFrame loop -- recalculating a full-viewport
+// radial-gradient background that often, especially against a large
+// target like #board, is real, avoidable GPU/paint load on a tablet or
+// phone for something that in the overwhelming majority of steps isn't
+// even moving. 100ms (10/sec) is still imperceptibly responsive for a
+// highlight ring and for validation feedback.
+function tutorialTrackLoop(){
+  if(!tutorialModeActive) return;
+  const step = tutorialSteps[tutorialStepIndex];
+  if(!step) return;
+  positionTutorialSpotlight(step.highlight);
+  updateTutorialBannerPlayingVisibility();
+  if(!tutorialAdvancing && step.validate && evaluateTutorialValidator(step.validate)){
+    tutorialAdvancing = true;
+    const el = document.getElementById('tutorialSuccessLine');
+    el.textContent = step.successMessage || 'Nice work!';
+    el.classList.add('show');
+    setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 700);
+  }
+  tutorialTrackHandle = setTimeout(tutorialTrackLoop, 100);
+}
+
+// ----- Highlight / dimming -----
+// `target`: a CSS selector, an array of selectors (first match wins), a
+// DOM element directly, or null (dims everything, nothing exempted --
+// used for the completion screen).
+// Resolves `target` into the actual list of elements to ring -- unlike
+// before, an array now means "highlight all of these at once" (e.g. the
+// player AND the button that acts on them), not "try these in order".
+// `target` may also be a function, called fresh each poll, for steps
+// where what's highlighted needs to change based on live state (e.g.
+// Step 2's highlight moves from the Play button to the whole board the
+// moment playback actually starts).
+function resolveTutorialHighlightTargets(target){
+  if(typeof target === 'function') target = target();
+  if(!target) return [];
+  if(target instanceof Element) return [target];
+  if(typeof target === 'string') { const el = document.querySelector(target); return el ? [el] : []; }
+  if(Array.isArray(target)){
+    const out = [];
+    target.forEach(t=>{
+      const el = t instanceof Element ? t : document.querySelector(t);
+      if(el) out.push(el);
+    });
+    return out;
+  }
+  return [];
+}
+let _tutorialRingCount = 0;
+let _tutorialRingLast = []; // last positioned rect per ring index, so a static target costs one paint rather than one per poll
+function tutorialRingEl(i){
+  let el = document.getElementById('tutorialSpotlight'+(i||''));
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'tutorialSpotlight'+(i||'');
+    el.className = 'tutorialSpotlightRing';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function positionTutorialSpotlight(target){
+  const els = resolveTutorialHighlightTargets(target);
+  const n = Math.max(els.length, _tutorialRingCount);
+  for(let i=0;i<n;i++){
+    const ringId = i===0 ? '' : i;
+    const overlay = tutorialRingEl(ringId);
+    const el = els[i];
+    if(!el){
+      overlay.classList.remove('show');
+      _tutorialRingLast[i] = null;
+      continue;
+    }
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top + r.height/2;
+    const radius = Math.max(30, Math.sqrt(r.width*r.width + r.height*r.height)/2 + 12);
+    overlay.classList.add('show');
+    // Skip the style write entirely when nothing has actually moved by a
+    // meaningful amount -- the common case (a static UI control) then
+    // costs one paint per step rather than one per poll.
+    const last = _tutorialRingLast[i];
+    if(last && Math.abs(cx-last.cx)<1 && Math.abs(cy-last.cy)<1 && Math.abs(radius-last.r)<1) continue;
+    _tutorialRingLast[i] = { cx, cy, r:radius };
+    overlay.style.left = (cx-radius)+'px';
+    overlay.style.top = (cy-radius)+'px';
+    overlay.style.width = (radius*2)+'px';
+    overlay.style.height = (radius*2)+'px';
+  }
+  _tutorialRingCount = els.length;
+}
+function clearTutorialSpotlight(){
+  document.querySelectorAll('.tutorialSpotlightRing, #tutorialSpotlight').forEach(el=>el.classList.remove('show'));
+  _tutorialRingLast = [];
+  _tutorialRingCount = 0;
+}
+
+// ----- Ghost targets -----
+// Shows a translucent target overlay for where a player/ball needs to end
+// up. Deliberately independent of the existing ghostMode/ghostLayer system
+// (which shows the PREVIOUS frame and is a user-facing toggle) -- sharing
+// state with that would mean a coach who already has Ghost Mode on sees two
+// unrelated sets of translucent players layered on top of each other.
+function clearTutorialGhost(){ const l=document.getElementById('tutorialGhostLayer'); if(l) l.innerHTML=''; }
+function renderTutorialGhost(ghostCfg){
+  clearTutorialGhost();
+  if(!ghostCfg) return;
+  const layer = document.getElementById('tutorialGhostLayer');
+  if(!layer) return;
+  if(ghostCfg.type==='playerPosition' || ghostCfg.type==='playerRotation'){
+    const p = ghostCfg.targetPlayer; // {team,pose,rot,x,y,label} -- resolved by the caller from a tutorial frame
+    if(!p) return;
+    // Start the ghost at the player's actual CURRENT position (not the
+    // target) -- the very first thing a coach sees is then the ghost
+    // visibly gliding from "where it is" to "where it needs to go",
+    // tracing the move rather than just appearing at the destination.
+    const live = document.querySelector('.player[data-label="'+p.label+'"]');
+    const fromX = live ? +live.dataset.x : p.x, fromY = live ? +live.dataset.y : p.y;
+    const g=document.createElement('div'); g.className='tutorialGhostTarget'; g.dataset.team=p.team; g.dataset.pose=p.pose;
+    const fromScr=MIZE.Field.toScreenPercent(boardToFieldX(fromX), boardToFieldY(fromY));
+    g.style.left=fromScr.left; g.style.top=fromScr.top; g.style.setProperty('--rot',(p.rot||0)+'deg');
+    const body=document.createElement('div'); body.className='playerBody';
+    const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label);
+    body.appendChild(img); g.appendChild(body); layer.appendChild(g);
+    if(p.pose==='h'){ img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; }
+    else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label)])+'px'; }
+    // Force the browser to paint the FROM position before changing to the
+    // target, so the CSS transition actually has something to animate
+    // between (setting both in the same tick would just skip straight to
+    // the end state).
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        const targetScr=MIZE.Field.toScreenPercent(boardToFieldX(p.x), boardToFieldY(p.y));
+        g.style.left=targetScr.left; g.style.top=targetScr.top;
+        g.classList.add('pulsing');
+      });
+    });
+  } else if(ghostCfg.type==='ballPosition'){
+    const g=document.createElement('div'); g.className='tutorialGhostTarget pulsing';
+    g.style.width='18px'; g.style.height='18px'; g.style.borderRadius='50%'; g.style.background='#ffd400';
+    const scr=MIZE.Field.toScreenPercent(boardToFieldX(ghostCfg.x), boardToFieldY(ghostCfg.y));
+    g.style.left=scr.left; g.style.top=scr.top;
+    layer.appendChild(g);
+  }
+}
+
+// ----- Validators -----
+// The fixed, small vocabulary every tutorial's steps are built from --
+// deliberately not tutorial-specific, just readers of the same state
+// getters the rest of the app already uses (see the Design Audit's
+// Section 2 for where each of these comes from).
+function evaluateTutorialValidator(cfg){
+  switch(cfg.type){
+    case 'sequenceLoaded':
+      return frames.length>0 && (!cfg.name || activeTutorialSequenceName===cfg.name);
+    case 'frameReached':
+      return currentFrame===cfg.frameIndex;
+    case 'singleSelection': {
+      const sel=singleSelection();
+      return !!sel && (!cfg.label || sel.dataset.label===cfg.label);
+    }
+    case 'playerPosition': {
+      const el=[...document.querySelectorAll('.player')].find(p=>p.dataset.label===cfg.label);
+      if(!el) return false;
+      const dx=(+el.dataset.x)-cfg.x, dy=(+el.dataset.y)-cfg.y;
+      return Math.sqrt(dx*dx+dy*dy) <= (cfg.tolerance ?? 0.6);
+    }
+    case 'playerRotation': {
+      const el=[...document.querySelectorAll('.player')].find(p=>p.dataset.label===cfg.label);
+      if(!el) return false;
+      let diff=Math.abs(((+el.dataset.rot||0) - cfg.rot) % 360);
+      if(diff>180) diff=360-diff;
+      return diff <= (cfg.tolerance ?? 15);
+    }
+    case 'playerPose': {
+      const el=[...document.querySelectorAll('.player')].find(p=>p.dataset.label===cfg.label);
+      return !!el && el.dataset.pose===cfg.pose;
+    }
+    case 'ballOwner':
+      return !!ballCarrier && ballCarrier.dataset.label===cfg.label;
+    case 'boolState': {
+      const readers = {
+        quickCommandBarOpen: ()=> document.getElementById('quickCommandBar')?.style.display !== 'none',
+        shotBlockActive: ()=> shotBlockActive,
+        shootingAngleActive: ()=> shootingAngleActive,
+        ghostMode: ()=> ghostMode,
+      };
+      const read = readers[cfg.key];
+      return read ? (!!read() === !!cfg.value) : false;
+    }
+    case 'drawingCount': {
+      const n = document.querySelectorAll('#arrowsGroup .drawing').length;
+      return cfg.min!=null ? n>=cfg.min : n===(cfg.equals ?? 0);
+    }
+    case 'stateMatchesCheckpoint': {
+      // Loose structural compare (positions within tolerance), used for
+      // the "Reset restores the checkpoint" step -- not a byte-for-byte diff.
+      if(!playbackCheckpoint) return false;
+      const now=getState(), want=playbackCheckpoint.state;
+      if(now.players.length!==want.players.length) return false;
+      return now.players.every(p=>{
+        const w=want.players.find(x=>x.label===p.label); if(!w) return false;
+        const dx=p.x-w.x, dy=p.y-w.y;
+        return Math.sqrt(dx*dx+dy*dy) <= 0.6;
+      });
+    }
+    case 'custom':
+      return typeof cfg.fn==='function' ? !!cfg.fn() : false;
+    default:
+      return false;
+  }
+}
+
+// ----- Input guard -----
+// NOTE: an earlier version of this function actively blocked
+// clicks/keydowns outside the highlighted control via a capturing-phase
+// document listener with stopPropagation()/preventDefault(). That
+// approach caused two reported total-lockup incidents on real devices
+// (nothing clickable at all) that I was unable to reproduce or root-cause
+// in a sandboxed test environment lacking real touch input and rendering.
+// Given the risk of a hard app lockup clearly outweighs the risk of a
+// tutorial being slightly less strict, active blocking is disabled here:
+// Tutorial Mode is now enforced visually only (dimming + highlight +
+// instruction), not functionally. tutorialAllowedTarget() is kept, unused,
+// as the basis for a more surgical reintroduction later -- e.g. guarding
+// only specific destructive actions (Reset, New) directly inside those
+// functions, rather than a blanket global interceptor.
+function tutorialAllowedTarget(target){
+  if(!tutorialModeActive) return true;
+  const step = tutorialSteps[tutorialStepIndex];
+  const exitBtn = document.getElementById('tutorialExitBtn');
+  const banner = document.getElementById('tutorialBanner');
+  if(exitBtn?.contains(target) || banner?.contains(target)) return true;
+  if(!step?.highlight) return false;
+  const selectors = Array.isArray(step.highlight) ? step.highlight : [step.highlight];
+  return selectors.some(sel=>{
+    const el = typeof sel === 'string' ? document.querySelector(sel) : sel;
+    return el && (el===target || el.contains(target));
+  });
+}
+
+// ----- Developer Mode demo: exercises every part of the engine (select,
+// move, rotate -- selection/position/rotation validators, both ghost
+// types, dimming, banner, completion) without depending on the real
+// "First Coaching Session" sequence data. Deliberately NOT the real
+// tutorial content -- whichever player the person selects becomes the
+// target, computed live, so this works regardless of what's currently on
+// the board. This whole function goes away once the real 16-step config
+// is wired up; it exists purely so the engine itself can be seen and
+// tested on a real device before that.
+function buildDemoTutorialSteps(){
+  let label=null, team=null, pose=null, startX=0, startY=0, startRot=0;
+  return [
+    {
+      instruction: 'Demo only \u2014 not the real tutorial. Select any player to begin.',
+      highlight: '#board',
+      validate: { type:'singleSelection' }
+    },
+    {
+      instruction: 'Move it about a meter in any direction.',
+      onEnter(){
+        const sel=singleSelection();
+        if(!sel || !sel.classList || !sel.classList.contains('player')) return;
+        label=sel.dataset.label; team=sel.dataset.team; pose=sel.dataset.pose; startX=+sel.dataset.x; startY=+sel.dataset.y; startRot=+sel.dataset.rot||0;
+        const step=tutorialSteps[tutorialStepIndex];
+        step.highlight=`.player[data-label="${label}"]`;
+        step.ghost={ type:'playerPosition', targetPlayer:{ team, pose, rot:startRot, x:startX+1, y:startY, label } };
+        step.validate={ type:'playerPosition', label, x:startX+1, y:startY, tolerance:0.5 };
+      }
+    },
+    {
+      instruction: 'Now rotate it about 90 degrees.',
+      onEnter(){
+        const step=tutorialSteps[tutorialStepIndex];
+        step.highlight=`.player[data-label="${label}"]`;
+        step.ghost={ type:'playerRotation', targetPlayer:{ team, pose, rot:(startRot+90)%360, x:startX+1, y:startY, label } };
+        step.validate={ type:'playerRotation', label, rot:(startRot+90)%360, tolerance:20 };
+      }
+    }
+  ];
+}
+document.getElementById('devPreviewTutorialBtn')?.addEventListener('click', ()=>{
+  if(!document.querySelector('.player')){
+    MizeDialog.alert('The demo needs at least one player on the field first (its first step is "select any player") \u2014 add one via the + menu, then try the demo again.');
+    return;
+  }
+  closeToolPanels();
+  startTutorial(buildDemoTutorialSteps(), {
+    onComplete: ()=> MizeDialog.alert('Demo complete \u2014 this is what step transitions, ghosts, and validation feel like. The real "First Coaching Session" tutorial will use this exact engine once its sequence data is available.')
+  });
+});
+
+// ===== The real "First Coaching Session" tutorial =====
+// Everything below reads from the actual saved formations/sequences by
+// name at the moment the tutorial starts -- never hardcoded numbers frozen
+// at build time. If MIZE ever re-saves T03 with a slightly different
+// target position, this picks up the new one automatically, honoring the
+// "saved tutorial frames are the single source of truth" instruction.
+function tutorialFormationState(shortName){
+  const store = soGetStore('formation');
+  const rec = store['XquiX '+shortName];
+  return rec ? formationRecordState(rec) : null;
+}
+function tutorialFormationPlayer(shortName, label){
+  const st = tutorialFormationState(shortName);
+  if(!st) return null;
+  return st.players.find(p=>p.label===label) || null;
+}
+function tutorialSequenceFrames(shortName){
+  const store = soGetStore('sequence');
+  const rec = store['XquiX '+shortName];
+  if(!rec) return null;
+  const pkg = MIZE.Storage.readRecord(rec);
+  return pkg.frames || (pkg.current ? [pkg.current] : null);
+}
+// Opens the sidebar Menu (if not already open) and expands exactly one
+// command category within it -- several tutorial steps' target controls
+// live inside a collapsed category, which a highlight ring can't do
+// anything useful with if the control isn't actually visible.
+function tutorialOpenCategory(dataCat){
+  document.getElementById('controlsPanel')?.classList.add('open');
+  document.querySelectorAll('.cmdCategory').forEach(cat=>{
+    cat.classList.toggle('open', cat.dataset.cat===dataCat);
+  });
+  if(typeof syncPresentationPanelBackdrop==='function') syncPresentationPanelBackdrop();
+}
+// Reveals the Timeline's floating Remote Control bar (Play/Pause/etc) --
+// hidden by default until the "Show Remote" checkbox is checked, so
+// "Press Play" would otherwise have no visible button to press.
+function tutorialShowTimelineRemote(){
+  const cb = document.getElementById('timelineRemoteToggle');
+  if(cb && !cb.checked){ cb.checked = true; if(typeof updateTimelineRemoteVisibility==='function') updateTimelineRemoteVisibility(); }
+}
+// Closes the Quick Command Bar -- open by default, which would otherwise
+// let the "open it" step complete instantly without the coach doing
+// anything, since the validator would already be satisfied.
+function tutorialHideQuickCommandBar(){
+  const bar = document.getElementById('quickCommandBar');
+  const tab = document.getElementById('showQuickCommandBarTab');
+  if(bar) bar.style.display = 'none';
+  tab?.classList.remove('active');
+}
+function buildFirstCoachingSessionSteps(){
+  const INTRO_NAME = 'Tutorial - First Coaching Session';
+  const OUTRO_NAME = 'Tutorial - First Coaching Session - Continuation';
+  const introFrames = tutorialSequenceFrames(INTRO_NAME);
+  const w1_T03 = tutorialFormationPlayer('T03 - Attacker Moved', 'W1');
+  const w1_T04 = tutorialFormationPlayer('T04 - Attacker Rotated Clockwise', 'W1');
+  const b6_T08 = tutorialFormationPlayer('T08 - Defender Moved into Shooting Angle', 'B6');
+  // Highlight follows what's actually relevant right now: the Play button
+  // before playback starts, then the whole field while the scene is
+  // actually running -- there's nothing dimmed now (ring-only highlight),
+  // so a ring around the entire board is simply a big ring, not a problem.
+  const playThenBoard = () => playing ? '#board' : '#tcPlayPauseBtn';
+  // Steps 8/13/14 target the Quick Command Bar's copy of these same
+  // buttons (opened back in Step 7 and left open the rest of the way)
+  // rather than the sidebar Menu's originals. Two reasons: it's already
+  // visible right where the coach is working instead of a detour back
+  // into the Menu, and the sidebar sliding open on its own CSS transition
+  // was exactly what made the ring look "disoriented" after opening it --
+  // this sidesteps that entirely. These buttons are rebuilt from scratch
+  // on every render (no stable id of their own), so a title-attribute
+  // selector re-queried fresh each poll is what actually stays correct,
+  // rather than holding a reference to a node that may already be gone.
+  const QCB_SHOOTING_ANGLE = '#quickCommandBarInner button[title^="Shooting Angle"]';
+  const QCB_FREE_DRAW = '#quickCommandBarInner button[title^="Free Draw"]';
+  const QCB_CLEAR = '#quickCommandBarInner button[title^="Clear Arrows"]';
+
+  return [
+    { // Step 1 (ref: intro sequence loaded)
+      instruction: 'Tap the Save/Open button (top-right corner, the \u{1F4BE} icon). In the menu, choose "Open Sequence". In the list that appears, find and tap "XquiX Tutorial - First Coaching Session" to load it.\n\nThroughout this tutorial, always look for the pulsing yellow circle -- it marks exactly what to tap or work with next.',
+      bannerSide: 'left',
+      highlight: '#saveOpenBtn',
+      validate: { type:'custom', fn: ()=>{
+        const want = introFrames ? introFrames.length : null;
+        return want!=null && frames.length===want && currentFrame===0;
+      }}
+    },
+    { // Step 2 (ref: T01 -- the intro's own last frame, no separate save needed)
+      instruction: 'A small floating Play/Pause remote will now appear (if it wasn\u2019t already showing) near the bottom of the screen. Tap \u25B6 Play to start the intro scene. Once it\u2019s running, just watch -- it plays on its own for about 10 seconds and stops automatically.',
+      onEnter(){ tutorialShowTimelineRemote(); },
+      highlight: playThenBoard,
+      validate: { type:'custom', fn: ()=> introFrames && currentFrame===introFrames.length-1 && !playing }
+    },
+    { // Step 3 (ref: T02)
+      instruction: 'The scene has paused. Tap the highlighted player to select the player -- this is the attacker who will run the drill.',
+      onEnter(){ if(!hasPlaybackCheckpoint()) capturePlaybackCheckpoint(); }, // "Automatically pause at 10 seconds... Create Playback Checkpoint" -- captured the instant this step (right after Play finishes) begins
+      highlight: '.player[data-label="W1"]',
+      validate: { type:'singleSelection', label:'W1' }
+    },
+    { // Step 4 (ref: T03)
+      instruction: 'A yellow oval outline around a player means the player is successfully selected -- that\u2019s the attacker now. A gold ghost marker also shows where the attacker needs to go, tracing the move from the attacker\u2019s current spot. Drag the highlighted attacker to that ghost position.',
+      highlight: '.player[data-label="W1"]',
+      ghost: w1_T03 ? { type:'playerPosition', targetPlayer:{ team:w1_T03.team, pose:w1_T03.pose, rot:w1_T03.rot, x:w1_T03.x, y:w1_T03.y, label:'W1' } } : null,
+      validate: w1_T03 ? { type:'playerPosition', label:'W1', x:w1_T03.x, y:w1_T03.y, tolerance:0.5 } : { type:'custom', fn:()=>false }
+    },
+    { // Step 5 (ref: T04) -- only the clockwise button highlighted; two
+      // rings on adjacent small buttons read as cluttered/confusing here.
+      instruction: 'With the attacker still selected, tap the highlighted clockwise rotate button in the Player Action Bar (top-left corner) to spin the attacker until the attacker matches the gold ghost\u2019s facing direction. If you\u2019re using a mouse, you can also hover over the player and drag the small white circle handle that appears above the player to rotate freely.',
+      highlight: ['.player[data-label="W1"]', '#paSpinCwBtn'],
+      ghost: w1_T04 ? { type:'playerRotation', targetPlayer:{ team:w1_T04.team, pose:w1_T04.pose, rot:w1_T04.rot, x:w1_T04.x, y:w1_T04.y, label:'W1' } } : null,
+      validate: w1_T04 ? { type:'playerRotation', label:'W1', rot:w1_T04.rot, tolerance:20 } : { type:'custom', fn:()=>false }
+    },
+    { // Step 6 (ref: T05)
+      instruction: 'With the attacker still selected, tap the highlighted ball icon in the Player Action Bar (top-left) to give the attacker the ball.',
+      highlight: ['.player[data-label="W1"]', '#paClaimBallBtn'],
+      validate: { type:'ballOwner', label:'W1' }
+    },
+    { // Step 7 (ref: T06)
+      instruction: 'The Quick Command Bar is currently closed. Tap the highlighted "Quicks" tab (usually on the screen edge) to reopen it.',
+      onEnter(){ tutorialHideQuickCommandBar(); },
+      highlight: '#showQuickCommandBarTab',
+      validate: { type:'boolState', key:'quickCommandBarOpen', value:true }
+    },
+    { // Step 8 (ref: T07)
+      instruction: 'In the Quick Command Bar that just opened, tap the highlighted "Shooting Angle" icon to turn it on.',
+      highlight: QCB_SHOOTING_ANGLE,
+      validate: { type:'boolState', key:'shootingAngleActive', value:true }
+    },
+    { // Step 9 (ref: T08)
+      instruction: 'Tap the highlighted defender to select (mark) the player, then drag the defender to the gold ghost position, stepping into the attacker\u2019s shooting angle. Keep the defender selected afterward -- the next step uses the Player Action Bar, which only shows up for a selected player.',
+      highlight: '.player[data-label="B6"]',
+      ghost: b6_T08 ? { type:'playerPosition', targetPlayer:{ team:b6_T08.team, pose:b6_T08.pose, rot:b6_T08.rot, x:b6_T08.x, y:b6_T08.y, label:'B6' } } : null,
+      validate: b6_T08 ? { type:'playerPosition', label:'B6', x:b6_T08.x, y:b6_T08.y, tolerance:0.5 } : { type:'custom', fn:()=>false }
+    },
+    { // Step 10 (ref: T09) -- select the defender, then assign a blocking
+      // arm; setArmSide() now auto-activates Shot Block Corridors the
+      // instant an arm is set, so there's no separate toggle to hunt for.
+      instruction: 'With the defender selected (marked) from the previous step, tap Left Arm or Right Arm in the Player Action Bar (top-left) to assign the defender\u2019s blocking arm. This automatically turns on the Shot Block Corridor -- no separate switch needed.',
+      highlight: ['.player[data-label="B6"]', '#paLeftArmBtn', '#paRightArmBtn'],
+      validate: { type:'boolState', key:'shotBlockActive', value:true }
+    },
+    { // Step 11 (ref: T10)
+      instruction: 'Tap the highlighted defender once (a single tap, not a drag) to switch the defender to a horizontal (swimming) position.',
+      successMessage: 'The corridor is only available while the defender is vertical, so it drops away here -- that\u2019s expected.',
+      highlight: '.player[data-label="B6"]',
+      validate: { type:'playerPose', label:'B6', pose:'h' }
+    },
+    { // Step 12 (ref: T11)
+      instruction: 'Tap the highlighted defender once more (a single tap) to switch the defender back to a vertical position.',
+      highlight: '.player[data-label="B6"]',
+      validate: { type:'playerPose', label:'B6', pose:'v' }
+    },
+    { // Step 13 (ref: T12)
+      instruction: 'In the Quick Command Bar, tap the highlighted "Free Draw" icon. Then draw directly on the field with your finger or mouse -- any mark counts.',
+      highlight: QCB_FREE_DRAW,
+      validate: { type:'drawingCount', min:1 }
+    },
+    { // Step 14 (ref: T13)
+      instruction: 'In the Quick Command Bar, tap the highlighted trash-can icon to remove your drawing(s).',
+      highlight: QCB_CLEAR,
+      validate: { type:'drawingCount', equals:0 }
+    },
+    { // Step 15 (ref: T14 -- validated via the Playback Checkpoint itself, not a separate save)
+      instruction: 'Open the Menu, then tap the highlighted "Reset" button inside Formations & Packages. This restores the board to exactly how it looked when the intro scene paused, and closes the Menu for you.',
+      onEnter(){ tutorialOpenCategory('formations'); },
+      highlight: '#resetBtn',
+      validate: { type:'stateMatchesCheckpoint' }
+    },
+    { // Step 16 (ref: T15 -- the Continuation sequence, loaded fresh as this step begins)
+      instruction: 'The board just jumped forward to where your practiced drill leaves off. A small floating Play/Pause remote will appear near the bottom of the screen -- tap \u25B6 Play once more to watch the play continue to its finish.',
+      onEnter(){
+        tutorialShowTimelineRemote();
+        const outro = tutorialSequenceFrames(OUTRO_NAME);
+        if(outro){ frames=outro; currentFrame=0; loadFrame(0); }
+      },
+      highlight: playThenBoard,
+      validate: { type:'custom', fn: ()=>{
+        const outro = tutorialSequenceFrames(OUTRO_NAME);
+        return !!outro && currentFrame===outro.length-1 && !playing;
+      }}
+    }
+  ];
+}
+document.getElementById('devPreviewRealTutorialBtn')?.addEventListener('click', ()=>{
+  const missing = [];
+  if(!tutorialSequenceFrames('Tutorial - First Coaching Session')) missing.push('the intro sequence');
+  if(!tutorialSequenceFrames('Tutorial - First Coaching Session - Continuation')) missing.push('the continuation sequence');
+  ['T03 - Attacker Moved','T04 - Attacker Rotated Clockwise','T08 - Defender Moved into Shooting Angle'].forEach(n=>{ if(!tutorialFormationState(n)) missing.push(n); });
+  if(missing.length){ MizeDialog.alert('Missing from your saved library: '+missing.join(', ')+'. Import these first (Tactical Packages / Saved Formations \u2192 Import), then try again.'); return; }
+  closeToolPanels();
+  startTutorial(buildFirstCoachingSessionSteps(), {
+    onComplete: ()=> MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.')
+  });
+});
 document.getElementById('shotClockToggleBtn')?.addEventListener('click', ()=>{
   const panel=document.getElementById('shotClockPanel');
   if(panel.classList.contains('open')){ closeToolPanels(); return; }
@@ -4662,6 +5495,7 @@ function updatePlayerActionBar(){
   }
   updateMultiDeleteButton();
   updateEmptyFieldAddButton();
+  updateSaveOpenButton();
   updateDirectionPad();
 }
 // Stands in the same top-left spot as the Player Action Bar/empty-field
@@ -4890,6 +5724,12 @@ function setArmSide(el, side){
     recordHistory('Set Block Arm: '+displayName(el));
     el.dataset.blockArm = side;
     el.dataset.blockArmSaved = side;
+    // Assigning a blocking arm is what a coach actually wants to SEE the
+    // corridor for -- previously this needed a second, separate action
+    // (toggling "Shot Block Corridors" on via the Quick Command Bar) that
+    // wasn't obviously necessary. This never turns the toggle OFF, so
+    // manually switching it off later still works exactly as before.
+    if(!shotBlockActive){ shotBlockActive = true; if(typeof _shotBlockUI!=='undefined') _shotBlockUI.render(); }
     renderShotBlockCorridors();
     renderGoalieVision();
   }
@@ -5884,7 +6724,7 @@ function renderFormationLibraryBox(){
     const rec = lib[name];
     const row = document.createElement('div'); row.className='efaLibRow';
     const b = document.createElement('button'); b.type='button'; b.textContent=name;
-    b.addEventListener('click', ()=>{ recordHistory('Add Formation: '+name); loadState(formationRecordState(rec)); closeAllEmptyFieldBoxes(); });
+    b.addEventListener('click', ()=>{ recordHistory('Add Formation: '+name); loadState(formationRecordState(rec)); resetTimelineForFormationLoad(); closeAllEmptyFieldBoxes(); });
     row.appendChild(b);
     if(devModeActive){
       const del = document.createElement('button'); del.type='button'; del.className='efaDelBtn'; del.textContent='\u2715'; del.title='Remove from this organization\u2019s defaults';
@@ -6336,6 +7176,20 @@ function updateBallOwnerStatus(){
 updateBallOwnerStatus();
 
 // ===== Export / Import library (formations + packages) as JSON file =====
+// exportSingleRecord() downloads exactly one formation/package/session --
+// the record already carries its own `type` and `name` (stamped by
+// MIZE.Storage.makeMetadata when it was saved), so importLibraryFromFile()
+// below can recognize and place a single-item file automatically, without
+// needing a separate "import one" button/flow from the bulk one.
+function exportSingleRecord(kind, name, record){
+  const blob=new Blob([JSON.stringify(record,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const safeName=name.replace(/[^a-z0-9]+/gi,'-').toLowerCase().replace(/^-+|-+$/g,'')||'untitled';
+  a.href=url; a.download='tpg-'+kind+'-'+safeName+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
 function exportLibrary(){
   const data={
     ...MIZE.Storage.stampRecord({ exportedAt: new Date().toISOString() }),
@@ -6358,14 +7212,25 @@ function importLibraryFromFile(file){
       const existingFormations=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
       const existingPackages=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
       const existingSessions=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}');
-      if(data.formations) Object.assign(existingFormations, data.formations);
-      if(data.packages) Object.assign(existingPackages, data.packages);
-      if(data.sessions) Object.assign(existingSessions, data.sessions);
+      // Two accepted shapes: the bulk "Export Library (All)" shape
+      // ({formations,packages,sessions}), or a single record from one of
+      // the per-item Export buttons -- recognized by the `type`/`name`
+      // MIZE.Storage.makeMetadata already stamps on every saved record, so
+      // one Import button/flow handles both without the person needing to
+      // know or care which kind of file they're picking.
+      const singleTypeToTarget = { formation: existingFormations, tacticalPackage: existingPackages, practiceSession: existingSessions };
+      if(data.type && singleTypeToTarget[data.type] && data.name){
+        singleTypeToTarget[data.type][data.name] = data;
+      } else {
+        if(data.formations) Object.assign(existingFormations, data.formations);
+        if(data.packages) Object.assign(existingPackages, data.packages);
+        if(data.sessions) Object.assign(existingSessions, data.sessions);
+      }
       localStorage.setItem('wpStrategyFormationsV5', JSON.stringify(existingFormations));
       localStorage.setItem('tpgTacticalPackagesV8', JSON.stringify(existingPackages));
       localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(existingSessions));
       renderCustomSystems(); renderPackages(); if(typeof renderSavedSessions==='function') renderSavedSessions();
-      MizeDialog.alert('Import complete. Formations, packages, and practice sessions merged into your library.');
+      MizeDialog.alert(data.type ? ('Imported "'+data.name+'".') : 'Import complete. Formations, packages, and practice sessions merged into your library.');
     } catch(err) {
       MizeDialog.alert('Could not import that file: '+err.message);
     }
@@ -6378,6 +7243,146 @@ document.getElementById('importLibraryFile').addEventListener('change', e=>{
   if(e.target.files && e.target.files[0]) importLibraryFromFile(e.target.files[0]);
   e.target.value='';
 });
+
+// ===== Save/Open consolidated menu (top-right) =====
+// One place to Open or Save either a Formation (single board state -- see
+// saveFormation() above, which already only captures getState(), never the
+// frames array) or a Sequence (the whole Timeline). Every item is stored
+// as "<user name> <item name>" (see getActiveUserName() above), so this
+// panel only ever shows/offers the current user's own items.
+function soStoreKey(kind){ return kind==='formation' ? 'wpStrategyFormationsV5' : 'tpgTacticalPackagesV8'; }
+function soGetStore(kind){ try { return JSON.parse(localStorage.getItem(soStoreKey(kind))||'{}'); } catch(err){ return {}; } }
+function soSetStore(kind, store){ localStorage.setItem(soStoreKey(kind), JSON.stringify(store)); }
+function soUserItemNames(kind){
+  const prefix=getActiveUserName()+' ';
+  return Object.keys(soGetStore(kind)).filter(k=>k.startsWith(prefix)).sort((a,b)=>a.localeCompare(b));
+}
+let soActiveKind='formation'; // shared between the Open and Save boxes for whichever one is currently open
+
+function openSaveOpenMenu(){ document.getElementById('saveOpenMenuBox')?.classList.add('open'); }
+function closeSaveOpenMenu(){ document.getElementById('saveOpenMenuBox')?.classList.remove('open'); }
+function closeOpenItemBox(){ document.getElementById('openItemBox')?.classList.remove('open'); }
+function closeSaveItemBox(){ document.getElementById('saveItemBox')?.classList.remove('open'); }
+function closeAllSaveOpenBoxes(){ closeSaveOpenMenu(); closeOpenItemBox(); closeSaveItemBox(); }
+function anySaveOpenBoxOpen(){
+  return !!(document.getElementById('saveOpenMenuBox')?.classList.contains('open')
+    || document.getElementById('openItemBox')?.classList.contains('open')
+    || document.getElementById('saveItemBox')?.classList.contains('open'));
+}
+
+function renderOpenItemList(){
+  const kind=soActiveKind;
+  const search=(document.getElementById('openItemSearch')?.value||'').trim().toLowerCase();
+  const names=soUserItemNames(kind).filter(n=>!search || n.toLowerCase().includes(search));
+  const list=document.getElementById('openItemList'); if(!list) return; list.innerHTML='';
+  if(!names.length){ list.innerHTML='<div class="efaEmpty">No '+(kind==='formation'?'formations':'sequences')+' found.</div>'; return; }
+  names.forEach(name=>{
+    const btn=document.createElement('button'); btn.type='button'; btn.textContent=name;
+    btn.onclick=()=>{
+      const store=soGetStore(kind);
+      if(kind==='formation'){
+        recordHistory('Load Formation: '+name);
+        loadState(formationRecordState(store[name]));
+        resetTimelineForFormationLoad();
+      } else {
+        recordHistory('Load Sequence: '+name);
+        if(frames.length) frames[currentFrame]=makeFrameState();
+        const pkg=MIZE.Storage.readRecord(store[name]);
+        frames=pkg.frames||[pkg.current]; currentFrame=0; loadFrame(0);
+      }
+      closeAllSaveOpenBoxes();
+    };
+    list.appendChild(btn);
+  });
+}
+function openOpenItemBox(kind){
+  soActiveKind=kind;
+  document.getElementById('openItemTitle').textContent='Open '+(kind==='formation'?'Formation':'Sequence');
+  document.getElementById('openItemSearch').value='';
+  renderOpenItemList();
+  closeSaveOpenMenu();
+  document.getElementById('openItemBox')?.classList.add('open');
+}
+document.getElementById('openItemSearch')?.addEventListener('input', renderOpenItemList);
+document.getElementById('openItemBackBtn')?.addEventListener('click', ()=>{ closeOpenItemBox(); openSaveOpenMenu(); });
+
+function openSaveItemBox(kind){
+  soActiveKind=kind;
+  document.getElementById('saveItemTitle').textContent='Save '+(kind==='formation'?'Formation':'Sequence');
+  const select=document.getElementById('saveItemExisting');
+  select.innerHTML='<option value="">-- New --</option>';
+  soUserItemNames(kind).forEach(name=>{ const opt=document.createElement('option'); opt.value=name; opt.textContent=name; select.appendChild(opt); });
+  select.value='';
+  document.getElementById('saveItemName').value='';
+  closeSaveOpenMenu();
+  document.getElementById('saveItemBox')?.classList.add('open');
+}
+document.getElementById('saveItemExisting')?.addEventListener('change', ()=>{
+  const sel=document.getElementById('saveItemExisting').value;
+  if(sel) document.getElementById('saveItemName').value=sel;
+});
+document.getElementById('saveItemBackBtn')?.addEventListener('click', ()=>{ closeSaveItemBox(); openSaveOpenMenu(); });
+document.getElementById('saveItemConfirmBtn')?.addEventListener('click', async ()=>{
+  const kind=soActiveKind;
+  const prefix=getActiveUserName()+' ';
+  const typed=(document.getElementById('saveItemName').value||'').trim();
+  if(!typed){ await MizeDialog.alert('Please enter a name.'); return; }
+  // The user-name prefix isn't optional/left to the person to remember --
+  // it's the whole point of the naming scheme (so two people's identically
+  // named saves never collide once real accounts exist), so it's applied
+  // here regardless of whether they typed it themselves.
+  const fullName = typed.startsWith(prefix) ? typed : prefix+typed;
+  const store=soGetStore(kind);
+  const exists=!!store[fullName];
+  if(exists){
+    const ok=await MizeDialog.confirm('"'+fullName+'" already exists. Overwrite it?', 'Confirm Overwrite');
+    if(!ok) return;
+  }
+  try {
+    const existingTags = exists ? (store[fullName].coachingDNA||[]) : [];
+    if(kind==='formation'){
+      // Deliberately getState() only -- a Formation is a single snapshot,
+      // never the whole Timeline. See saveFormation() above for the same
+      // scoping; this mirrors it exactly.
+      store[fullName] = { ...MIZE.Storage.makeMetadata('formation', fullName, existingTags), state:getState(), engineObjects:getSceneObjects() };
+    } else {
+      if(frames.length) frames[currentFrame]=makeFrameState();
+      store[fullName] = { ...MIZE.Storage.makeMetadata('tacticalPackage', fullName, existingTags), frames:frames.length?frames:[makeFrameState()], current:getState() };
+    }
+    soSetStore(kind, store);
+    if(kind==='formation') renderCustomSystems(); else renderPackages();
+    closeAllSaveOpenBoxes();
+  } catch(err) {
+    await MizeDialog.alert('Could not save "'+fullName+'": '+err.message+'. This usually means local storage is full -- check About & Diagnostics for how much is in use.', 'Save Failed');
+  }
+});
+
+document.getElementById('saveOpenBtn')?.addEventListener('click', ()=>{
+  if(anySaveOpenBoxOpen()) closeAllSaveOpenBoxes(); else openSaveOpenMenu();
+});
+document.getElementById('soMenuOpenFormation')?.addEventListener('click', ()=>openOpenItemBox('formation'));
+document.getElementById('soMenuOpenSequence')?.addEventListener('click', ()=>openOpenItemBox('sequence'));
+document.getElementById('soMenuSaveFormation')?.addEventListener('click', ()=>openSaveItemBox('formation'));
+document.getElementById('soMenuSaveSequence')?.addEventListener('click', ()=>openSaveItemBox('sequence'));
+document.addEventListener('pointerdown', e=>{
+  const btn=document.getElementById('saveOpenBtn');
+  if(!anySaveOpenBoxOpen() || e.target===btn) return;
+  const menu=document.getElementById('saveOpenMenuBox'), openBox=document.getElementById('openItemBox'), saveBox=document.getElementById('saveItemBox');
+  if(menu?.contains(e.target) || openBox?.contains(e.target) || saveBox?.contains(e.target)) return;
+  closeAllSaveOpenBoxes();
+});
+// Redirect the existing sidebar Save Formation/Save Package buttons into
+// this same richer flow (overwrite detection, confirmation, user-name
+// namespacing) instead of their old blind-prompt behavior, so there's one
+// consistent save path rather than two that behave differently.
+document.getElementById('saveFormationBtn')?.addEventListener('click', ()=>openSaveItemBox('formation'));
+document.getElementById('savePackageBtn')?.addEventListener('click', ()=>openSaveItemBox('sequence'));
+function updateSaveOpenButton(){
+  const noSelection = selected.size===0;
+  document.getElementById('saveOpenBtn')?.classList.toggle('visible', noSelection);
+  if(!noSelection) closeAllSaveOpenBoxes();
+}
+updateSaveOpenButton();
 
 // ===== Object Engine (canonical schema translation layer) =====
 // This does not change how players/ball/drawings are rendered, dragged, or
