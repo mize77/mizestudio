@@ -406,8 +406,8 @@
   #contextMenu button { display:block; width:100%; text-align:left; border:0; border-radius:7px; padding:8px 9px; background:#fff; font-weight:700; }
   #contextMenu button:hover { background:#eef7f8; }
   #contextMenu .sep { height:1px; background:#e1e6e6; margin:5px 0; }
-  #playerActionBar { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; display:grid; grid-template-columns:repeat(2, auto); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
-  #playerActionBar.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
+  #playerActionBar { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; display:grid; grid-template-columns:repeat(2, auto); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px) scale(.67); transform-origin:top left; opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
+  #playerActionBar.visible { transform:translateX(0) scale(.67); opacity:1; pointer-events:auto; }
   /* Grid-spans both columns to sit as its own row below the button grid.
      Colors deliberately match .capNumber exactly (same file, see the
      player-cap styling) rather than inventing a new palette, so this
@@ -4949,9 +4949,11 @@ function goToTutorialStep(index){
   // lighter ring + arrow for the rest of the step, once the person has
   // actually located the area and is about to act (dimming THROUGHOUT was
   // the earlier problem: it hid the very effect of the action itself).
-  tutorialSpotlightPhase = 'dim';
+  tutorialSpotlightPhase = step.skipDimPhase ? 'ring' : 'dim';
   tutorialHideAllHighlights();
-  tutorialPhaseTimer = setTimeout(()=>{ tutorialSpotlightPhase = 'ring'; document.getElementById('tutorialDimOverlay')?.classList.remove('show'); }, 3000);
+  if(!step.skipDimPhase){
+    tutorialPhaseTimer = setTimeout(()=>{ tutorialSpotlightPhase = 'ring'; document.getElementById('tutorialDimOverlay')?.classList.remove('show'); }, 3000);
+  }
   tutorialTrackLoop();
 }
 document.getElementById('tutorialAcknowledgeBtn')?.addEventListener('click', ()=>{ tutorialManualAck = true; });
@@ -5170,22 +5172,31 @@ function positionTutorialArrows(target){
   const br = banner.getBoundingClientRect();
   const bx = br.left+br.width/2, by = br.top+br.height/2;
   const shortLen = Math.max(40, ((typeof meterPxX==='function'?meterPxX(3):90) + (typeof meterPxY==='function'?meterPxY(3):90))/2);
+  const pad = 12;
   for(let i=0;i<n;i++){
     const longArrow = tutorialArrowEl('Long', i);
     const shortArrow = tutorialArrowEl('Short', i);
     const el = els[i];
     if(!el){ longArrow.classList.remove('show'); shortArrow.classList.remove('show'); continue; }
+    const elRect = el.getBoundingClientRect();
+    // Actual bounding-box containment, not a fixed-radius distance from the
+    // banner's center -- a tall banner (e.g. wrapped multi-line text)
+    // pushes anything near its own bottom edge (like the "Got it" button)
+    // far from that center, where a distance check alone would wrongly
+    // treat it as "far away" and draw an arrow computed from an otherwise
+    // tiny, numerically unstable displacement.
+    const insideBanner = elRect.left >= br.left-pad && elRect.right <= br.right+pad && elRect.top >= br.top-pad && elRect.bottom <= br.bottom+pad;
+    if(insideBanner){
+      longArrow.classList.remove('show');
+      shortArrow.classList.remove('show');
+      continue;
+    }
     const c = tutorialTargetCircle(el);
     const dx = c.cx-bx, dy = c.cy-by;
     const dist = Math.sqrt(dx*dx+dy*dy);
     const angleRad = Math.atan2(dy,dx), angleDeg = angleRad*180/Math.PI;
     const ux = Math.cos(angleRad), uy = Math.sin(angleRad);
     if(dist < 40){
-      // Target is essentially inside the banner itself (e.g. the "Got it"
-      // button on the welcome step) -- neither arrow adds anything here,
-      // and the angle from such a tiny displacement is numerically
-      // unstable, which is exactly what produced a stray arrow pointing
-      // in an arbitrary direction.
       longArrow.classList.remove('show');
       shortArrow.classList.remove('show');
       continue;
@@ -5510,6 +5521,14 @@ function tutorialShowTimelineRemote(){
   const cb = document.getElementById('timelineRemoteToggle');
   if(cb && !cb.checked){ cb.checked = true; if(typeof updateTimelineRemoteVisibility==='function') updateTimelineRemoteVisibility(); }
 }
+// On a phone screen, the Remote Control can cover a meaningful chunk of
+// the field -- shown only for the two steps that actually need it
+// (starting the intro, playing the outro), hidden the rest of the way so
+// player-positioning steps get a clearer view.
+function tutorialHideTimelineRemote(){
+  const cb = document.getElementById('timelineRemoteToggle');
+  if(cb && cb.checked){ cb.checked = false; if(typeof updateTimelineRemoteVisibility==='function') updateTimelineRemoteVisibility(); }
+}
 // Closes the Quick Command Bar -- open by default, which would otherwise
 // let the "open it" step complete instantly without the coach doing
 // anything, since the validator would already be satisfied.
@@ -5672,7 +5691,7 @@ function buildFirstCoachingSessionSteps(){
       }}
     },
     { // Step 4 (ref: T01 -- the intro's own last frame, no separate save needed)
-      instruction: 'A small floating Play/Pause remote will now appear near the bottom of the screen. Tap the highlighted \u25B6 Play to start the intro scene. Once it\u2019s running, just watch -- it plays on its own for about 10 seconds and stops automatically.',
+      instruction: 'A Play/Pause remote appears near the bottom. Tap the highlighted \u25B6 Play to start the intro -- it plays on its own for about 10 seconds.',
       bannerSide: 'left',
       onEnter(){ tutorialShowTimelineRemote(); },
       highlight: playThenBoard,
@@ -5686,12 +5705,14 @@ function buildFirstCoachingSessionSteps(){
       validate: { type:'custom', fn: ()=> document.getElementById('viewPanel')?.classList.contains('open') }
     },
     { // Step 6 -- Front Court (Zoomed) view, part 2: choose the option
-      instruction: 'Tap the highlighted "Front Court (Zoomed)" option for a closer view of the action -- this is the same view a coach would use courtside to focus on exactly what\u2019s happening in front of one goal.',
+      instruction: 'Tap the highlighted "Front Court (Zoomed)" option for a closer view of the action.',
+      bannerSide: 'left', // was covering the option itself on a narrow phone screen
+      onEnter(){ tutorialHideTimelineRemote(); }, // not needed again until the outro plays at the very end -- keeps the view clear until then
       highlight: '#viewOptionFrontCourtZoomed',
       validate: { type:'custom', fn: ()=> typeof frontCourtActive!=='undefined' && frontCourtActive && typeof frontCourtZoomed!=='undefined' && frontCourtZoomed }
     },
     { // Step 7 (ref: T02)
-      instruction: 'Tap the highlighted player to select the player -- this is the attacker who will run the drill.',
+      instruction: 'Tap the highlighted player to select -- this is the attacker who will run the drill.',
       onEnter(){
         if(!hasPlaybackCheckpoint()) capturePlaybackCheckpoint(); // "Automatically pause at 10 seconds... Create Playback Checkpoint" -- captured the instant this step (right after Play finishes) begins
         // The app's own default Front Court Zoom depth (8m from the goal
@@ -5704,20 +5725,20 @@ function buildFirstCoachingSessionSteps(){
       validate: { type:'singleSelection', label:'W1' }
     },
     { // Step 6 (ref: T03)
-      instruction: 'A yellow oval outline around a player means the player is successfully selected -- that\u2019s the attacker now. A grey shade also shows where the attacker needs to go. Use the highlighted Direction Pad (bottom-right corner) to nudge the attacker there with the arrow buttons -- easier than dragging on a small screen, since your finger doesn\u2019t cover the player while you\u2019re placing them. Dragging the attacker directly also works, if you prefer.',
+      instruction: 'Yellow oval = selected. Grey shade = target spot. Use the highlighted Direction Pad to move the attacker there. Dragging also works.',
       highlight: ['.player[data-label="W1"]', '#directionPad'],
       ghost: w1_T03 ? { type:'playerPosition', targetPlayer:{ team:w1_T03.team, pose:w1_T03.pose, rot:w1_T03.rot, x:w1_T03.x, y:w1_T03.y, label:'W1' } } : null,
       validate: w1_T03 ? { type:'playerPosition', label:'W1', x:w1_T03.x, y:w1_T03.y, tolerance:0.5 } : { type:'custom', fn:()=>false }
     },
     { // Step 7 (ref: T04) -- only the clockwise button highlighted; two
       // rings on adjacent small buttons read as cluttered/confusing here.
-      instruction: 'With the attacker still selected, tap the highlighted clockwise rotate button in the Player Action Bar (top-left corner) to spin the attacker until the attacker matches the grey shade\u2019s facing direction. If you\u2019re using a mouse, you can also hover over the player and drag the small white circle handle that appears above the player to rotate freely.',
+      instruction: 'Tap the highlighted clockwise button in the Player Action Bar to spin the attacker to match the grey shade\u2019s direction.',
       highlight: ['.player[data-label="W1"]', '#paSpinCwBtn'],
       ghost: w1_T04 ? { type:'playerRotation', targetPlayer:{ team:w1_T04.team, pose:w1_T04.pose, rot:w1_T04.rot, x:w1_T04.x, y:w1_T04.y, label:'W1' } } : null,
       validate: w1_T04 ? { type:'playerRotation', label:'W1', rot:w1_T04.rot, tolerance:20 } : { type:'custom', fn:()=>false }
     },
     { // Step 8 (ref: T05)
-      instruction: 'With the attacker still selected, tap the highlighted ball icon in the Player Action Bar (top-left) to give the attacker the ball.',
+      instruction: 'With the attacker selected, tap the highlighted ball icon in the Player Action Bar to give the attacker the ball.',
       highlight: ['.player[data-label="W1"]', '#paClaimBallBtn'],
       validate: { type:'ballOwner', label:'W1' }
     },
@@ -5735,7 +5756,7 @@ function buildFirstCoachingSessionSteps(){
     { // Step 11 -- Smart Positioning: move the attacker a little and see the
       // effect. Ghost is computed fresh right as this step begins (see
       // computeSmartPosGhostTarget), not a fixed saved value.
-      instruction: 'Use the highlighted Direction Pad (bottom-right corner) to nudge the attacker toward the nearby grey shade -- this is a small move, so a couple of taps should do it. You will see that the attacker automatically adjusts its position facing towards the goal. Dragging directly also works, if you prefer.',
+      instruction: 'Use the highlighted Direction Pad to nudge the attacker toward the grey shade -- watch it auto-face the goal.',
       onEnter(){ smartPosGhostTarget = computeSmartPosGhostTarget(); this.ghost = smartPosGhostTarget ? { type:'playerPosition', targetPlayer:smartPosGhostTarget } : null; tutorialHideQuickCommandBar(); },
       highlight: ['.player[data-label="W1"]', '#directionPad'],
       validate: { type:'custom', fn: ()=> smartPosGhostTarget ? evaluateTutorialValidator({ type:'playerPosition', label:'W1', x:smartPosGhostTarget.x, y:smartPosGhostTarget.y, tolerance:0.3 }) : false }
@@ -5753,7 +5774,7 @@ function buildFirstCoachingSessionSteps(){
       validate: withPositionGuards({ type:'singleSelection', label:'B6' }, w1GuardAfterStable)
     },
     { // Step 14 (ref: T08, Y adjusted -- see computeDefenderGhostTarget above) -- drag the already-selected defender into place
-      instruction: 'A grey shade shows where the defender needs to go, stepping into the attacker\u2019s shooting angle. Use the highlighted Direction Pad (bottom-right corner) to nudge the defender there with the arrow buttons -- easier than dragging on a small screen, since your finger doesn\u2019t cover the player while you\u2019re placing them. Dragging directly also works, if you prefer. Keep the defender selected afterward -- the next step uses the Player Action Bar, which only shows up for a selected player.',
+      instruction: 'Grey shade = target, inside the attacker\u2019s shooting angle. Use the highlighted Direction Pad to move the defender there. Keep it selected after.',
       onEnter(){ defenderGhostTarget = b6_T08 ? computeDefenderGhostTarget(b6_T08.x, b6_T08.rot, b6_T08.team, b6_T08.pose, 'left') : null; this.ghost = defenderGhostTarget ? { type:'playerPosition', targetPlayer:defenderGhostTarget } : null; },
       highlight: ['.player[data-label="B6"]', '#directionPad'],
       validate: { type:'custom', fn: ()=>{
@@ -5778,7 +5799,7 @@ function buildFirstCoachingSessionSteps(){
     { // Step 15 -- assign the blocking arm; setArmSide() auto-activates
       // Shot Block Corridors the instant an arm is set, so there's no
       // separate toggle to hunt for.
-      instruction: 'With the defender selected (marked) from the previous step, tap Left Arm in the Player Action Bar (top-left) to assign it as the defender\u2019s blocking arm. This automatically turns on the Shot Block Corridor -- no separate switch needed.',
+      instruction: 'With the defender selected, tap Left Arm in the Player Action Bar to assign the blocking arm -- this also turns on the Shot Block Corridor.',
       highlight: ['.player[data-label="B6"]', '#paLeftArmBtn'],
       validate: { type:'custom', fn: ()=>{
         const b6 = document.querySelector('.player[data-label="B6"]');
@@ -5792,7 +5813,7 @@ function buildFirstCoachingSessionSteps(){
       }}
     },
     { // Step 16 (ref: T09)
-      instruction: 'Tap the highlighted defender once (a single tap, not a drag) to switch the defender to a horizontal (swimming) position.',
+      instruction: 'Tap the highlighted defender once (not a drag) to switch to a horizontal (swimming) position.',
       successMessage: 'The corridor is only available while the defender is vertical, so it drops away here -- that\u2019s expected.',
       highlight: '.player[data-label="B6"]',
       validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'h' }, w1GuardAfterStable)
@@ -5822,9 +5843,11 @@ function buildFirstCoachingSessionSteps(){
       // not a separate save) -- Reset can sit low enough in its category's
       // list to need scrolling, which is also what was throwing the ring
       // off (measuring a button that wasn't actually in view yet).
-      instruction: 'Open the Menu, then tap the highlighted "Reset" button inside Formations & Packages. This restores the board to exactly how it looked when the intro scene paused, and closes the Menu for you.',
+      instruction: 'Open the Menu, then tap the highlighted "Reset" button under Formations & Packages to restore the board.',
+      skipDimPhase: true, // the dim overlay was darkening the rest of the open sidebar's own content (other menu items, category labels), not just drawing attention to Reset -- the ring alone is enough once the panel is already open and visually prominent
       onEnter(){
         if(typeof setMode==='function') setMode('select'); // Free Draw was turned on two steps ago -- back to Move/Toggle so the board is immediately usable again
+        tutorialHideQuickCommandBar(); // not needed again for the rest of the tutorial
         tutorialOpenCategory('formations');
         const btn = document.getElementById('resetBtn');
         if(btn && typeof btn.scrollIntoView==='function') btn.scrollIntoView({block:'nearest'});
@@ -6046,6 +6069,7 @@ function nudgePlayerActionBarTarget(dx, dy){
   if(!el) return;
   el.dataset.x = (+el.dataset.x||0) + dx;
   el.dataset.y = (+el.dataset.y||0) + dy;
+  maybeAutoFace(el); // drag-move and keyboard-arrow nudging both already call this -- the D-pad was the one path that didn't, so Smart Positioning's auto-face silently never fired for D-pad moves
   place(el);
   if(ballCarrier===el) moveBallTo(el, ballHand);
 }
