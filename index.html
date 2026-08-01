@@ -146,17 +146,40 @@
      chase that with a second, independent transition of its own is what
      produced the "disoriented"/lagging ring reported after opening a menu
      -- it's much more reliable to just snap to the latest measurement. */
-  #tutorialSpotlight, .tutorialSpotlightRing { display:none; position:fixed; box-sizing:border-box; border-radius:50%; border:4px solid #ffca28; box-shadow:0 0 0 2px rgba(0,0,0,.4), 0 0 22px 6px rgba(255,202,40,.85); pointer-events:none; z-index:1560; animation:tutorialRingPulse 1.3s ease-in-out infinite; }
+  #tutorialSpotlight, .tutorialSpotlightRing { display:none; position:fixed; box-sizing:border-box; border-radius:50%; border:4px solid #e8362a; box-shadow:0 0 0 2px rgba(0,0,0,.4), 0 0 22px 6px rgba(232,54,42,.85); pointer-events:none; z-index:1560; animation:tutorialRingPulse 1.3s ease-in-out infinite; }
   body.tutorialModeActive #tutorialSpotlight.show, body.tutorialModeActive .tutorialSpotlightRing.show { display:block; }
   @keyframes tutorialRingPulse { 0%,100% { opacity:.7; } 50% { opacity:1; } }
+  /* Brief (3s) dimmed orientation flash shown at the START of each step,
+     before the ring -- draws the eye to the general area fast, the way
+     the original all-the-time dimming did, but only for a moment before
+     any interaction begins rather than for the whole step (which was
+     exactly the problem with dimming throughout: it hid the very effect
+     the person was trying to see while actually doing something). SVG
+     mask rather than a single CSS radial-gradient cutout -- a step with
+     two highlighted things (e.g. a player and a button) gets two small,
+     independent holes, not one big region spanning both of them. */
+  #tutorialDimOverlay { display:none; position:fixed; inset:0; width:100%; height:100%; z-index:1558; pointer-events:none; }
+  body.tutorialModeActive #tutorialDimOverlay.show { display:block; }
+  /* Points from the instruction panel toward whatever the ring is
+     currently on. One pair (long + short) per highlighted target -- see
+     positionTutorialArrows(); built and reused as a pool the same way the
+     rings are, rather than a single fixed element, so a two-target step
+     gets two full arrow pairs, not one arrow picking an arbitrary target.
+     Hidden together with the banner during playback (see
+     positionTutorialArrows) rather than left pointing at a stale or
+     meaningless (e.g. whole-board) position while the instruction that
+     explains it isn't even showing. */
+  .tutorialArrowEl { display:none; position:fixed; z-index:1565; pointer-events:none; transform-origin:0 50%; }
+  body.tutorialModeActive .tutorialArrowEl.show { display:block; }
   /* Ghost TARGETS (where something needs to go) are visually distinct from
-     the existing grayscale "previous frame" ghosts: a warm gold tint with a
-     soft pulse, so a coach never confuses "where it was" with "where it
-     needs to go." left/top ARE transitioned here (unlike the ring above) --
-     a ghost's from/to positions are both set by this code itself in a
-     controlled two-frame sequence (see renderTutorialGhost), not chasing a
-     second independent transition, so there's no compounding-lag risk. */
-  .tutorialGhostTarget { position:absolute; transform:translate(-50%,-50%); opacity:.5; pointer-events:none; z-index:1555; filter:sepia(.5) saturate(3) hue-rotate(-10deg); transition:left 1.1s ease-in-out, top 1.1s ease-in-out; }
+     the existing grayscale "previous frame" ghosts: pulsing to draw the
+     eye, and a distinct brightness bump so it doesn't blend into a dark
+     background, without introducing a whole new color language. left/top
+     ARE transitioned here (unlike the ring above) -- a ghost's from/to
+     positions are both set by this code itself in a controlled two-frame
+     sequence (see renderTutorialGhost), not chasing a second independent
+     transition, so there's no compounding-lag risk. */
+  .tutorialGhostTarget { position:absolute; transform:translate(-50%,-50%); opacity:.5; pointer-events:none; z-index:1555; filter:grayscale(1) brightness(1.2); transition:left 1.1s ease-in-out, top 1.1s ease-in-out; }
   .tutorialGhostTarget.pulsing { animation:tutorialGhostPulse 1.6s ease-in-out infinite; }
   .tutorialGhostTarget img { display:block; }
   @keyframes tutorialGhostPulse { 0%,100% { opacity:.35; } 50% { opacity:.65; } }
@@ -174,11 +197,13 @@
   #tutorialBanner .tutorialInstruction { font-size:14.5px; font-weight:600; line-height:1.4; text-align:left; }
   #tutorialBanner .tutorialSuccessLine { font-size:13px; color:#9fe6c8; font-weight:700; margin-top:6px; display:none; }
   #tutorialBanner .tutorialSuccessLine.show { display:block; }
+  #tutorialAcknowledgeBtn { margin-top:10px; background:#1a6363; color:#fff; border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; }
+  #tutorialAcknowledgeBtn:hover { background:#218080; }
   /* Directly below the Save/Open button (also top-right, 44px + 10px gap)
      rather than on top of it -- the two were rendering in the exact same
      spot, and Exit Tutorial (always visible during the tutorial) was
      covering the button Step 1 asks the coach to tap. */
-  #tutorialExitBtn { position:fixed; top:64px; right:10px; z-index:1570; display:none; background:rgba(20,30,30,.85); color:#fff; border:none; border-radius:20px; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  #tutorialExitBtn { position:fixed; bottom:10px; left:10px; z-index:1570; display:none; background:rgba(20,30,30,.85); color:#fff; border:none; border-radius:20px; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.3); }
   body.tutorialModeActive #tutorialExitBtn { display:block; }
   .ghost img { display:block; }
   #measureText { font-size:.45px; font-weight:800; fill:#263238; paint-order:stroke; stroke:white; stroke-width:.12; pointer-events:none; }
@@ -382,6 +407,14 @@
   #contextMenu .sep { height:1px; background:#e1e6e6; margin:5px 0; }
   #playerActionBar { position:fixed; top:10px; left:10px; z-index:1540; display:grid; grid-template-columns:repeat(2, auto); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #playerActionBar.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
+  /* Grid-spans both columns to sit as its own row below the button grid.
+     Colors deliberately match .capNumber exactly (same file, see the
+     player-cap styling) rather than inventing a new palette, so this
+     reads as "the same team color", not a different visual language. */
+  #paMarkedIndicator { grid-column:1/-1; display:flex; align-items:center; justify-content:center; margin-top:2px; }
+  .paMarkedChip { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:900; line-height:1; color:#111; background:rgba(255,255,255,.86); border:1px solid rgba(255,255,255,.4); }
+  .paMarkedChip[data-team="blue"] { color:#fff; background:rgba(0,55,210,.86); }
+  .paMarkedChip[data-team="goalie"] { color:#fff; background:rgba(220,0,0,.86); }
   /* General-purpose Add menu (player/formation/sequence) -- shares the
      Player Action Bar's top-left spot and shows whenever nothing is
      currently marked, whether or not the field has players on it. Hides
@@ -404,10 +437,6 @@
   #emptyFieldAddBox .efaLibRow .efaDelBtn, #emptyFieldSequenceBox .efaLibRow .efaDelBtn { flex:0 0 auto; padding:8px 10px; background:rgba(229,57,53,.35); }
   #emptyFieldAddBox .efaLibRow .efaDelBtn:hover, #emptyFieldSequenceBox .efaLibRow .efaDelBtn:hover { background:rgba(229,57,53,.55); }
   #emptyFieldAddBox .efaBackBtn, #emptyFieldSequenceBox .efaBackBtn { border-top:1px solid rgba(255,255,255,.2); margin-top:2px; padding-top:8px; background:none; }
-  @media (max-width:500px), (max-height:500px) {
-    #emptyFieldAddBtn { top:auto; bottom:10px; }
-    #emptyFieldMenuBox, #emptyFieldAddBox, #emptyFieldSequenceBox { top:auto; bottom:62px; }
-  }
   /* ===== Save/Open (top-right mirror of the top-left Add menu) ===== */
   #saveOpenBtn { position:fixed; top:10px; right:10px; z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:rgba(18,77,77,.92); color:#fff; font-size:20px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
   #saveOpenBtn.visible { display:flex; }
@@ -422,10 +451,6 @@
   #openItemBox .efaBackBtn, #saveItemBox .efaBackBtn { border-top:1px solid rgba(255,255,255,.2); margin-top:2px; padding-top:8px; background:none; }
   #saveItemBox .soSaveBtn { background:#1a6363; font-weight:700; text-align:center; }
   #saveItemBox .soSaveBtn:hover { background:#218080; }
-  @media (max-width:500px), (max-height:500px) {
-    #saveOpenBtn { top:auto; bottom:10px; }
-    #saveOpenMenuBox, #openItemBox, #saveItemBox { top:auto; bottom:62px; }
-  }
   /* Same top-left spot the Player Action Bar and the empty-field "+" use --
      the three are mutually exclusive (0 players / exactly 1 marked / more
      than 1 marked), so there's never a clash. Delete is destructive, so
@@ -436,9 +461,6 @@
   #multiDeleteBtn { position:fixed; top:10px; left:10px; z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:#e53935; color:#fff; font-size:28px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
   #multiDeleteBtn.visible { display:flex; }
   #multiDeleteBtn:hover { background:#c62828; }
-  @media (max-width:500px), (max-height:500px) {
-    #multiDeleteBtn { top:auto; bottom:10px; }
-  }
   #directionPad { position:fixed; right:10px; bottom:10px; z-index:1540; width:170px; height:170px; border-radius:50%; background:radial-gradient(circle, rgba(10,40,40,.92) 60%, rgba(10,40,40,.75) 100%); box-shadow:0 4px 16px rgba(0,0,0,.35); display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:4px; padding:10px; transform:translateX(160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #directionPad.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
   .dpadBtn { background:rgba(18,77,77,.92); color:#fff; border:none; font-size:22px; display:flex; align-items:center; justify-content:center; touch-action:none; }
@@ -456,10 +478,6 @@
   #dpadPassRightBtn { grid-column:3; grid-row:1; }
   #dpadDriveLeftBtn { grid-column:1; grid-row:3; }
   #dpadDriveRightBtn { grid-column:3; grid-row:3; }
-  @media (max-width:500px), (max-height:500px) {
-    #playerActionBar { top:auto; bottom:10px; left:10px; transform:translateX(-160px); }
-    #playerActionBar.visible { transform:translateX(0); }
-  }
   .playerActionBtn { width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:#1a6363; color:#fff; border:none; border-radius:8px; cursor:pointer; padding:0; }
   .playerActionBtn:hover { background:#20807f; }
   .playerActionBtn:active { background:#0d3838; }
@@ -573,11 +591,13 @@
 <button id="studioNavLeft" title="Turn camera left">&#8249;</button>
 <button id="studioNavRight" title="Turn camera right">&#8250;</button>
 <div id="spotlightOverlay"></div>
+<svg id="tutorialDimOverlay"><defs><mask id="tutorialDimMask"><rect x="0" y="0" width="100%" height="100%" fill="white"/></mask></defs><rect x="0" y="0" width="100%" height="100%" fill="rgba(8,20,20,.72)" mask="url(#tutorialDimMask)"/></svg>
 <div id="tutorialSpotlight"></div>
 <div id="tutorialBanner">
   <div class="tutorialStepCount" id="tutorialStepCount"></div>
   <div class="tutorialInstruction" id="tutorialInstruction"></div>
   <div class="tutorialSuccessLine" id="tutorialSuccessLine"></div>
+  <button id="tutorialAcknowledgeBtn" style="display:none;">Got it</button>
 </div>
 <button id="tutorialExitBtn" title="Leave the guided tutorial at any time">Exit Tutorial</button>
 <div id="spotlightHitArea"></div>
@@ -928,6 +948,7 @@
   <button id="paDriveLeftBtn" class="playerActionBtn touchHiddenActionBtn" title="Drive to the left post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L18 6M18 6H10M18 6V14"/></svg></button>
   <button id="paDriveRightBtn" class="playerActionBtn touchHiddenActionBtn" title="Drive to the right post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20L6 6M6 6H14M6 6V14"/></svg></button>
   <button id="paAddPlayerBtn" class="playerActionBtn" title="Add a new player to this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg></button>
+  <div id="paMarkedIndicator"><div id="paMarkedChip" class="paMarkedChip"></div></div>
 </div>
 <button id="emptyFieldAddBtn" title="Add players, a formation, or a sequence/drill">+</button>
 <button id="multiDeleteBtn" title="Delete all marked players">&#8722;</button>
@@ -2452,7 +2473,7 @@ function renderAboutDiagnostics(){
   for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); totalBytes += (k.length + (localStorage.getItem(k)||'').length); }
   box.innerHTML = `
     <div><strong>${MIZE.config.product}</strong> \u2014 ${MIZE.config.module}</div>
-    <div>Version: ${MIZE.config.version} &nbsp;|&nbsp; Schema: v${MIZE.Storage.SCHEMA_VERSION}</div>
+    <div id="aboutVersionTapTarget" style="cursor:pointer;">Version: ${MIZE.config.version} &nbsp;|&nbsp; Schema: v${MIZE.Storage.SCHEMA_VERSION}</div>
     <div>${MIZE.config.copyright}</div>
     <hr style="margin:10px 0;border:none;border-top:1px solid #dbe4e4;">
     <div>Saved Formations: ${countKeys('wpStrategyFormationsV5')}</div>
@@ -2465,6 +2486,21 @@ function renderAboutDiagnostics(){
     <div>Browser: ${navigator.userAgent}</div>
   `;
 }
+// Developer Mode's only entry point elsewhere is the hidden
+// Ctrl/Cmd+Shift+Alt+D shortcut, which doesn't exist on iPhone/iPad --
+// this is the touch-friendly equivalent, reachable on any device without
+// Developer Mode already being on since About & Diagnostics is a regular,
+// always-visible panel. Delegated to the stable outer container rather
+// than the version line itself, since renderAboutDiagnostics() replaces
+// that inner content every time the panel is reopened.
+let _devModeTapCount = 0, _devModeTapTimer = null;
+document.getElementById('aboutDiagnosticsContent')?.addEventListener('click', e=>{
+  if(!e.target.closest('#aboutVersionTapTarget')) return;
+  _devModeTapCount++;
+  clearTimeout(_devModeTapTimer);
+  _devModeTapTimer = setTimeout(()=>{ _devModeTapCount=0; }, 3000);
+  if(_devModeTapCount>=7){ _devModeTapCount=0; clearTimeout(_devModeTapTimer); toggleDeveloperMode(); }
+});
 document.querySelector('.toolListBtn[data-panel="aboutDiagnosticsPanel"]')?.addEventListener('click', renderAboutDiagnostics);
 MIZE.State.settings = {};
 [
@@ -2893,7 +2929,11 @@ function makeExtraBall(x, y){
   attachLongPress(el, ()=>el);
   return el;
 }
-function capText(label) { return label==='BG'||label==='WG' ? 'G' : (String(label).match(/\d+/)?.[0] || label); }
+function capText(label) {
+  if(label==='BG'||label==='WG') return '1'; // goalkeeper is cap 1 in real water polo convention
+  const m = String(label).match(/\d+/);
+  return m ? String(+m[0]+1) : label; // field players shift up one (internal W1..W6 -> displayed 2..7), leaving 1 free for the goalkeeper
+}
 function attachLongPress(el, getTarget) {
   let timer=null, sx=0, sy=0;
   el.addEventListener('touchstart', e=>{
@@ -4812,6 +4852,35 @@ function startTutorial(steps, { onComplete } = {}){
   // open by default, it covers part of the field for the entire first half
   // of the tutorial otherwise.
   if(typeof tutorialHideQuickCommandBar==='function') tutorialHideQuickCommandBar();
+  // A second run (without a full page reload) must not inherit whatever
+  // was left on from a previous one -- Shooting Angle, Shot Block, Free
+  // Draw mode, or stray drawings all carry over otherwise, since none of
+  // them reset themselves just because the tutorial ended. Several steps
+  // specifically need to start from "off" (their whole point is turning
+  // something on and watching the effect), so this puts everything back
+  // to a known clean state every time, not just the first time.
+  if(typeof setMode==='function') setMode('select');
+  if(typeof clearArrows==='function') clearArrows(true);
+  // The field should read as a blank slate the moment the tutorial opens,
+  // not whatever formation was left over from the coach's last real
+  // session -- Step 1 has the person load the tutorial's own intro
+  // sequence right away, which brings its own players with it.
+  document.querySelectorAll('.player').forEach(el=>el.remove());
+  document.querySelectorAll('.extraBall').forEach(el=>el.remove());
+  ballCarrier = null; ballHand = 'right';
+  if(typeof ball!=='undefined' && ball){ ball.dataset.x=14.5; ball.dataset.y=12; if(typeof placeBall==='function') placeBall(); }
+  if(typeof shootingAngleActive!=='undefined'){ shootingAngleActive=false; if(typeof _shootingAngleUI!=='undefined') _shootingAngleUI.render(); }
+  if(typeof shotBlockActive!=='undefined'){ shotBlockActive=false; if(typeof _shotBlockUI!=='undefined') _shotBlockUI.render(); }
+  if(typeof smartPositioningActive!=='undefined'){ smartPositioningActive=false; if(typeof _smartPositioningUI!=='undefined') _smartPositioningUI.render(); }
+  if(typeof ghostMode!=='undefined' && typeof clearGhosts==='function'){ ghostMode=false; clearGhosts(); }
+  if(typeof renderShotBlockCorridors==='function') renderShotBlockCorridors();
+  // The Quick Command Bar's buttons are clones rebuilt from the real
+  // buttons' current text/class at whatever moment it was last rendered --
+  // if that happened before this reset (or reflects the app's own default,
+  // e.g. Smart Positioning starting "On"), the clone would otherwise keep
+  // showing stale active/"On" styling even though the underlying state
+  // above is now correctly off.
+  if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
   tutorialSteps = steps;
   tutorialOnComplete = onComplete || null;
   tutorialModeActive = true;
@@ -4825,33 +4894,59 @@ function exitTutorial(){
   document.body.classList.remove('tutorialModeActive');
   if(tutorialTrackHandle) clearTimeout(tutorialTrackHandle);
   tutorialTrackHandle = null;
+  if(tutorialPhaseTimer) clearTimeout(tutorialPhaseTimer);
+  tutorialPhaseTimer = null;
   clearTutorialGhost();
   clearTutorialSpotlight();
+  document.getElementById('tutorialDimOverlay')?.classList.remove('show');
+  document.querySelectorAll('.tutorialArrowEl').forEach(el=>el.classList.remove('show'));
   tutorialSteps = []; tutorialStepIndex = -1; tutorialOnComplete = null;
 }
 document.getElementById('tutorialExitBtn')?.addEventListener('click', exitTutorial);
 
+let tutorialSpotlightPhase = 'dim'; // 'dim' (brief orientation flash) then 'ring' (the rest of the step)
+let tutorialPhaseTimer = null;
+let tutorialManualAck = false;
 function goToTutorialStep(index){
   tutorialAdvancing = false;
+  tutorialManualAck = false;
   if(tutorialTrackHandle) clearTimeout(tutorialTrackHandle);
-  _tutorialRingLast = []; _tutorialRingCount = 0;
+  if(tutorialPhaseTimer) clearTimeout(tutorialPhaseTimer);
+  _tutorialRingLast = [];
   if(index >= tutorialSteps.length){ completeTutorial(); return; }
   tutorialStepIndex = index;
   const step = tutorialSteps[index];
-  document.getElementById('tutorialStepCount').textContent = 'Step '+(index+1)+' of '+tutorialSteps.length;
+  // The very first item is a one-time "before you begin" acknowledgment,
+  // not really a task in the same sense as the rest -- kept out of the
+  // main 1-22 numbering (shows "Welcome" instead) so it doesn't read as
+  // an extra real step, and gets its own confirm button rather than an
+  // app action to validate against.
+  document.getElementById('tutorialStepCount').textContent = step.isPreStep ? 'Welcome' : ('Step '+index+' of '+(tutorialSteps.length-1));
   document.getElementById('tutorialInstruction').textContent = step.instruction || '';
   const successLine = document.getElementById('tutorialSuccessLine');
   successLine.classList.remove('show'); successLine.textContent = '';
+  const ackBtn = document.getElementById('tutorialAcknowledgeBtn');
+  if(ackBtn) ackBtn.style.display = step.requiresAcknowledge ? 'inline-block' : 'none';
   positionTutorialBanner(step.bannerSide || 'right');
   if(typeof step.onEnter === 'function') step.onEnter();
   renderTutorialGhost(step.ghost);
+  // Every step opens with a brief (3s) full dim + cutout -- draws the eye
+  // fast, the way constant dimming used to -- then settles into the
+  // lighter ring + arrow for the rest of the step, once the person has
+  // actually located the area and is about to act (dimming THROUGHOUT was
+  // the earlier problem: it hid the very effect of the action itself).
+  tutorialSpotlightPhase = 'dim';
+  tutorialHideAllHighlights();
+  tutorialPhaseTimer = setTimeout(()=>{ tutorialSpotlightPhase = 'ring'; document.getElementById('tutorialDimOverlay')?.classList.remove('show'); }, 3000);
   tutorialTrackLoop();
 }
+document.getElementById('tutorialAcknowledgeBtn')?.addEventListener('click', ()=>{ tutorialManualAck = true; });
 function completeTutorial(){
   document.getElementById('tutorialStepCount').textContent = 'Complete';
   document.getElementById('tutorialInstruction').textContent = 'Congratulations! You\u2019ve completed your first coaching session.';
   clearTutorialGhost();
-  positionTutorialSpotlight(null);
+  tutorialHideAllHighlights();
+  if(tutorialPhaseTimer) clearTimeout(tutorialPhaseTimer);
   const cb = tutorialOnComplete;
   exitTutorial();
   if(cb) cb();
@@ -4896,18 +4991,46 @@ function updateTutorialBannerPlayingVisibility(){
 // phone for something that in the overwhelming majority of steps isn't
 // even moving. 100ms (10/sec) is still imperceptibly responsive for a
 // highlight ring and for validation feedback.
+function tutorialHideAllHighlights(){
+  document.querySelectorAll('.tutorialSpotlightRing, #tutorialSpotlight').forEach(el=>el.classList.remove('show'));
+  document.getElementById('tutorialDimOverlay')?.classList.remove('show');
+  document.querySelectorAll('.tutorialArrowEl').forEach(el=>el.classList.remove('show'));
+}
 function tutorialTrackLoop(){
   if(!tutorialModeActive) return;
   const step = tutorialSteps[tutorialStepIndex];
   if(!step) return;
-  positionTutorialSpotlight(step.highlight);
-  updateTutorialBannerPlayingVisibility();
-  if(!tutorialAdvancing && step.validate && evaluateTutorialValidator(step.validate)){
-    tutorialAdvancing = true;
-    const el = document.getElementById('tutorialSuccessLine');
-    el.textContent = step.successMessage || 'Nice work!';
-    el.classList.add('show');
-    setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 700);
+  // Wrapped defensively: an exception in ring/arrow positioning (or a
+  // validator) must never be able to kill this recurring loop -- that
+  // would silently freeze the whole tutorial on whatever step it happened
+  // to be on, with no way to tell the difference between "not done yet"
+  // and "actually broken".
+  try{
+    if(tutorialAdvancing){
+      // Step already succeeded and the "Nice work!" confirmation is
+      // showing -- the action that just satisfied validation frequently
+      // hides or relocates its own highlighted element (clicking a menu
+      // option that then closes that menu, etc.), so nothing is
+      // repositioned during this window; it's simply kept hidden until
+      // the next step actually begins and has its own real target.
+      tutorialHideAllHighlights();
+    } else if(tutorialSpotlightPhase === 'dim'){
+      positionTutorialDimOverlay(step.highlight);
+    } else {
+      positionTutorialSpotlight(step.highlight);
+      positionTutorialArrows(step.highlight);
+    }
+    updateTutorialBannerPlayingVisibility();
+    if(!tutorialAdvancing && step.validate && evaluateTutorialValidator(step.validate)){
+      tutorialAdvancing = true;
+      tutorialHideAllHighlights();
+      const el = document.getElementById('tutorialSuccessLine');
+      el.textContent = step.successMessage || 'Nice work!';
+      el.classList.add('show');
+      setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 2000);
+    }
+  } catch(err) {
+    console.error('Tutorial track loop error (step '+tutorialStepIndex+'):', err);
   }
   tutorialTrackHandle = setTimeout(tutorialTrackLoop, 100);
 }
@@ -4937,6 +5060,109 @@ function resolveTutorialHighlightTargets(target){
     return out;
   }
   return [];
+}
+// Per-target circle (same math the ring uses) -- both the dim overlay's
+// holes and the arrows are computed per-target now, not as one combined
+// region, so a two-target step gets two small spotlights and two arrow
+// pairs rather than one big area picking an arbitrary shared center.
+function tutorialTargetCircle(el){
+  const r = el.getBoundingClientRect();
+  const cx = r.left + r.width/2, cy = r.top + r.height/2;
+  const radius = Math.max(36, Math.sqrt(r.width*r.width + r.height*r.height)/2 + 14);
+  return { cx, cy, r:radius };
+}
+let _tutorialDimHoleCount = 0;
+function tutorialDimHoleEl(i){
+  const id = 'tutorialDimHole'+i;
+  let el = document.getElementById(id);
+  if(!el){
+    el = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    el.id = id; el.setAttribute('fill','black'); el.setAttribute('r','0');
+    document.getElementById('tutorialDimMask')?.appendChild(el);
+  }
+  return el;
+}
+function positionTutorialDimOverlay(target){
+  const svg = document.getElementById('tutorialDimOverlay');
+  if(!svg) return;
+  const els = resolveTutorialHighlightTargets(target);
+  if(!els.length){ svg.classList.remove('show'); return; }
+  svg.setAttribute('viewBox', '0 0 '+window.innerWidth+' '+window.innerHeight);
+  svg.classList.add('show');
+  const n = Math.max(els.length, _tutorialDimHoleCount);
+  for(let i=0;i<n;i++){
+    const hole = tutorialDimHoleEl(i);
+    const el = els[i];
+    if(!el){ hole.setAttribute('r','0'); continue; }
+    const c = tutorialTargetCircle(el);
+    hole.setAttribute('cx', c.cx); hole.setAttribute('cy', c.cy); hole.setAttribute('r', c.r);
+  }
+  _tutorialDimHoleCount = els.length;
+}
+const TUTORIAL_ARROW_INNER = '<line x1="0" y1="15" x2="80" y2="15" stroke="#e8362a" stroke-width="6" stroke-linecap="round"/><path d="M78 3 L100 15 L78 27 Z" fill="#e8362a"/>';
+function tutorialArrowEl(kind, i){
+  const id = 'tutorialArrow'+kind+i;
+  let el = document.getElementById(id);
+  if(!el){
+    el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    el.id = id;
+    el.setAttribute('viewBox','0 0 100 30');
+    el.setAttribute('class','tutorialArrowEl');
+    el.innerHTML = TUTORIAL_ARROW_INNER;
+    document.body.appendChild(el);
+  }
+  return el;
+}
+let _tutorialArrowCount = 0;
+// One long arrow (from the instruction panel toward the target) plus one
+// short "final approach" arrow (~3m at field scale, tip just outside the
+// ring) per highlighted target -- the long arrow gives the general
+// direction from across the screen, the short one confirms the exact spot
+// once you're looking at the right area. Both hidden together with the
+// banner during playback -- otherwise an arrow is left pointing at
+// whatever the highlight resolves to mid-scene (often the whole board),
+// while the instruction it belongs to isn't even on screen.
+function positionTutorialArrows(target){
+  const banner = document.getElementById('tutorialBanner');
+  if(!banner || banner.style.visibility === 'hidden'){
+    document.querySelectorAll('.tutorialArrowEl').forEach(a=>a.classList.remove('show'));
+    return;
+  }
+  const els = resolveTutorialHighlightTargets(target);
+  const n = Math.max(els.length, _tutorialArrowCount);
+  const br = banner.getBoundingClientRect();
+  const bx = br.left+br.width/2, by = br.top+br.height/2;
+  const shortLen = Math.max(40, ((typeof meterPxX==='function'?meterPxX(3):90) + (typeof meterPxY==='function'?meterPxY(3):90))/2);
+  for(let i=0;i<n;i++){
+    const longArrow = tutorialArrowEl('Long', i);
+    const shortArrow = tutorialArrowEl('Short', i);
+    const el = els[i];
+    if(!el){ longArrow.classList.remove('show'); shortArrow.classList.remove('show'); continue; }
+    const c = tutorialTargetCircle(el);
+    const dx = c.cx-bx, dy = c.cy-by;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    const angleRad = Math.atan2(dy,dx), angleDeg = angleRad*180/Math.PI;
+    const ux = Math.cos(angleRad), uy = Math.sin(angleRad);
+    if(dist < 40){
+      longArrow.classList.remove('show'); // target basically right next to the banner -- a long arrow adds nothing here
+    } else {
+      const edgeOffset = Math.min(br.width, br.height)/2 + 14;
+      longArrow.classList.add('show');
+      longArrow.style.width='100px'; longArrow.style.height='30px';
+      longArrow.style.left = (bx+ux*edgeOffset)+'px';
+      longArrow.style.top = (by+uy*edgeOffset)+'px';
+      longArrow.style.transform = 'translateY(-50%) rotate('+angleDeg+'deg)';
+    }
+    // Short arrow's tip sits just outside the ring, tail further out along
+    // the same line -- independent of the long arrow's own length/anchor.
+    const tipX = c.cx - ux*(c.r+6), tipY = c.cy - uy*(c.r+6);
+    const tailX = tipX - ux*shortLen, tailY = tipY - uy*shortLen;
+    shortArrow.classList.add('show');
+    shortArrow.style.width = shortLen+'px'; shortArrow.style.height = (shortLen*0.3)+'px';
+    shortArrow.style.left = tailX+'px'; shortArrow.style.top = tailY+'px';
+    shortArrow.style.transform = 'translateY(-50%) rotate('+angleDeg+'deg)';
+  }
+  _tutorialArrowCount = els.length;
 }
 let _tutorialRingCount = 0;
 let _tutorialRingLast = []; // last positioned rect per ring index, so a static target costs one paint rather than one per poll
@@ -5027,7 +5253,7 @@ function renderTutorialGhost(ghostCfg){
     });
   } else if(ghostCfg.type==='ballPosition'){
     const g=document.createElement('div'); g.className='tutorialGhostTarget pulsing';
-    g.style.width='18px'; g.style.height='18px'; g.style.borderRadius='50%'; g.style.background='#ffd400';
+    g.style.width='18px'; g.style.height='18px'; g.style.borderRadius='50%'; g.style.background='#9a9a9a';
     const scr=MIZE.Field.toScreenPercent(boardToFieldX(ghostCfg.x), boardToFieldY(ghostCfg.y));
     g.style.left=scr.left; g.style.top=scr.top;
     layer.appendChild(g);
@@ -5073,6 +5299,7 @@ function evaluateTutorialValidator(cfg){
         quickCommandBarOpen: ()=> document.getElementById('quickCommandBar')?.style.display !== 'none',
         shotBlockActive: ()=> shotBlockActive,
         shootingAngleActive: ()=> shootingAngleActive,
+        smartPositioningActive: ()=> smartPositioningActive,
         ghostMode: ()=> ghostMode,
       };
       const read = readers[cfg.key];
@@ -5236,123 +5463,300 @@ function buildFirstCoachingSessionSteps(){
   const introFrames = tutorialSequenceFrames(INTRO_NAME);
   const w1_T03 = tutorialFormationPlayer('T03 - Attacker Moved', 'W1');
   const w1_T04 = tutorialFormationPlayer('T04 - Attacker Rotated Clockwise', 'W1');
+  const w1_T06 = tutorialFormationPlayer('T06 - Quick Command Bar Open', 'W1'); // W1's position is stable from here through T13 -- used as the "hasn't drifted" reference for later steps
   const b6_T08 = tutorialFormationPlayer('T08 - Defender Moved into Shooting Angle', 'B6');
-  // Highlight follows what's actually relevant right now: the Play button
-  // before playback starts, then the whole field while the scene is
-  // actually running -- there's nothing dimmed now (ring-only highlight),
-  // so a ring around the entire board is simply a big ring, not a problem.
   const playThenBoard = () => playing ? '#board' : '#tcPlayPauseBtn';
-  // Steps 8/13/14 target the Quick Command Bar's copy of these same
-  // buttons (opened back in Step 7 and left open the rest of the way)
-  // rather than the sidebar Menu's originals. Two reasons: it's already
-  // visible right where the coach is working instead of a detour back
-  // into the Menu, and the sidebar sliding open on its own CSS transition
-  // was exactly what made the ring look "disoriented" after opening it --
-  // this sidesteps that entirely. These buttons are rebuilt from scratch
-  // on every render (no stable id of their own), so a title-attribute
-  // selector re-queried fresh each poll is what actually stays correct,
-  // rather than holding a reference to a node that may already be gone.
   const QCB_SHOOTING_ANGLE = '#quickCommandBarInner button[title^="Shooting Angle"]';
   const QCB_FREE_DRAW = '#quickCommandBarInner button[title^="Free Draw"]';
   const QCB_CLEAR = '#quickCommandBarInner button[title^="Clear Arrows"]';
+  const QCB_SMART_POSITIONING = '#quickCommandBarInner button[title^="Smart Positioning"]';
+
+  // Computed fresh each time Step 10 begins (not a fixed saved value) --
+  // 0.5m from wherever the attacker actually is right now, in the
+  // direction of the goal it's attacking. Keeping this small and
+  // goal-relative (rather than a hardcoded absolute point) is what keeps
+  // the later Shooting Angle / defender-blocking geometry consistent: the
+  // defender's blocking arm needs to end up genuinely inside the
+  // attacker's real shooting angle, not just near some fixed spot.
+  let smartPosGhostTarget = null;
+  function computeSmartPosGhostTarget(){
+    const w1 = document.querySelector('.player[data-label="W1"]');
+    if(!w1 || typeof FIELD_ZONE_GOAL==='undefined') return null;
+    const x0 = +w1.dataset.x, y0 = +w1.dataset.y;
+    const dx = FIELD_ZONE_GOAL.x - x0, dy = FIELD_ZONE_GOAL.y - y0;
+    const dist = Math.sqrt(dx*dx+dy*dy) || 1;
+    return { team:w1.dataset.team, pose:w1.dataset.pose, rot:+w1.dataset.rot||0, x:x0+(dx/dist)*0.5, y:y0+(dy/dist)*0.5, label:'W1' };
+  }
+  // Keeps the defender's ghost target's Y adjusted so that, once Left Arm
+  // is assigned two steps later, the resulting Shot Block Corridor lands
+  // fully inside the Shooting Angle's two dotted lines rather than partly
+  // outside them -- this replicates the exact same geometry
+  // computeShotBlockCorridor()/renderShootingAngle() use (ball position,
+  // goal mouth, and the blocking arm's own rotated offset from the
+  // player's center), rather than guessing at a fixed correction. X and
+  // rotation still come from the saved T08 reference; only Y is solved so
+  // the arm lands centered in the shooting angle's width at that depth.
+  function computeDefenderGhostTarget(refX, refRot, refTeam, refPose, arm){
+    const w1 = document.querySelector('.player[data-label="W1"]');
+    if(!w1 || typeof ball==='undefined' || !ball) return null;
+    const ballX = +ball.dataset.x, ballY = +ball.dataset.y;
+    const goal = (typeof FIELD_ZONE_GOAL!=='undefined') ? FIELD_ZONE_GOAL : {x:2,y:12};
+    const post1Y = goal.y-1.5, post2Y = goal.y+1.5;
+    const denom = (goal.x-ballX) || 1;
+    const tAlong = (refX-ballX)/denom;
+    const localLo = ballY + tAlong*(post1Y-ballY), localHi = ballY + tAlong*(post2Y-ballY);
+    const targetCenterY = (localLo+localHi)/2;
+    const side = arm==='right' ? 1 : -1;
+    const rad = refRot*Math.PI/180;
+    const armOffsetY = 0.42*side*Math.sin(rad) + (-0.28)*Math.cos(rad);
+    return { team:refTeam, pose:refPose, rot:refRot, x:refX, y:targetCenterY-armOffsetY, label:'B6' };
+  }
+  let defenderGhostTarget = null;
+  // Direct geometric check (mirrors computeShotBlockCorridor() and
+  // renderShootingAngle() exactly) for "would this exact defender
+  // position/rotation produce a corridor fully inside the shooting
+  // angle" -- used as the real correctness gate for Step 14, since the
+  // corridor's geometry is far more sensitive to drift toward/away from
+  // the ball than up/down, and a simple circular distance-to-target
+  // tolerance can't reliably capture that asymmetry.
+  function tutorialCorridorContained(defX, defY, defRot, arm){
+    if(typeof ball==='undefined' || !ball) return false;
+    const ballX=+ball.dataset.x, ballY=+ball.dataset.y;
+    const goal = (typeof FIELD_ZONE_GOAL!=='undefined') ? FIELD_ZONE_GOAL : {x:2,y:12};
+    const post1Y=goal.y-1.5, post2Y=goal.y+1.5;
+    const side = arm==='right'?1:-1;
+    const rad = defRot*Math.PI/180;
+    const odx=0.42*side, ody=-0.28;
+    const apexX = defX + (odx*Math.cos(rad)-ody*Math.sin(rad));
+    const apexY = defY + (odx*Math.sin(rad)+ody*Math.cos(rad));
+    const rawDx=apexX-ballX, rawDy=apexY-ballY;
+    const d=Math.sqrt(rawDx*rawDx+rawDy*rawDy);
+    if(d<0.01) return false;
+    const axis={x:rawDx/d,y:rawDy/d};
+    const goalLineX=goal.x;
+    const tCenter=(goalLineX-ballX)/axis.x;
+    if(!(tCenter>d)) return false;
+    const D=tCenter;
+    const maxAngle=15;
+    const fullAngleDeg=Math.max(3, Math.min(maxAngle, maxAngle-(maxAngle-3)*(d/D)));
+    const halfAngleDeg=fullAngleDeg/2;
+    const rot2=(vx,vy,deg)=>{ const a=deg*Math.PI/180; return {x:vx*Math.cos(a)-vy*Math.sin(a), y:vx*Math.sin(a)+vy*Math.cos(a)}; };
+    const edge1=rot2(axis.x,axis.y,halfAngleDeg), edge2=rot2(axis.x,axis.y,-halfAngleDeg);
+    const t1=(goalLineX-apexX)/edge1.x, t2=(goalLineX-apexX)/edge2.x;
+    const y1=apexY+t1*edge1.y, y2=apexY+t2*edge2.y;
+    const lo=Math.min(y1,y2), hi=Math.max(y1,y2);
+    return lo>=post1Y && hi<=post2Y;
+  }
+  // Composes a step's real validator with extra "has this other player
+  // drifted" checks -- catches the case a person moves the WRONG player
+  // (or bumps one they're not currently working with) while a step is
+  // only watching one specific thing.
+  function withPositionGuards(mainValidate, guards){
+    return { type:'custom', fn: ()=>{
+      if(!evaluateTutorialValidator(mainValidate)) return false;
+      for(const g of guards){
+        const el = document.querySelector('.player[data-label="'+g.label+'"]');
+        if(!el) return false;
+        const dx=+el.dataset.x-g.x, dy=+el.dataset.y-g.y;
+        if(Math.sqrt(dx*dx+dy*dy) > g.tolerance) return false;
+      }
+      return true;
+    }};
+  }
+  const w1GuardAfterStable = w1_T06 ? [{ label:'W1', x:w1_T06.x, y:w1_T06.y, tolerance:0.8 }] : [];
 
   return [
-    { // Step 1 (ref: intro sequence loaded)
-      instruction: 'Tap the Save/Open button (top-right corner, the \u{1F4BE} icon). In the menu, choose "Open Sequence". In the list that appears, find and tap "XquiX Tutorial - First Coaching Session" to load it.\n\nThroughout this tutorial, always look for the pulsing yellow circle -- it marks exactly what to tap or work with next.',
+    { // Pre-step -- a one-time acknowledgment, not a real app-interaction
+      // task, so it's excluded from the main numbering (see isPreStep
+      // handling in goToTutorialStep) and validated by a dedicated confirm
+      // button rather than anything happening in the app itself.
+      isPreStep: true,
+      requiresAcknowledge: true,
+      instruction: 'Welcome! Throughout this tutorial, always look for the pulsing red circle -- it marks exactly what to tap or work with next.\n\nTap "Got it" below to begin.',
+      bannerSide: 'left',
+      highlight: '#tutorialAcknowledgeBtn',
+      validate: { type:'custom', fn: ()=> tutorialManualAck }
+    },
+    { // Step 1 -- tap the button that opens the Save/Open menu
+      instruction: 'Tap the highlighted Save/Open button (top-right corner, the \u{1F4BE} icon).',
       bannerSide: 'left',
       highlight: '#saveOpenBtn',
+      validate: { type:'custom', fn: ()=> document.getElementById('saveOpenMenuBox')?.classList.contains('open') }
+    },
+    { // Step 2 -- tap "Open Sequence" in that menu
+      instruction: 'In the menu that just opened, tap the highlighted "Open Sequence".',
+      bannerSide: 'left',
+      highlight: '#soMenuOpenSequence',
+      validate: { type:'custom', fn: ()=> document.getElementById('openItemBox')?.classList.contains('open') && soActiveKind==='sequence' }
+    },
+    { // Step 3 -- tap the specific sequence in the resulting list
+      instruction: 'In the list, tap the highlighted "XquiX Tutorial - First Coaching Session" to load it.',
+      bannerSide: 'left',
+      highlight: ()=> [...document.querySelectorAll('#openItemList button')].find(b=>b.textContent==='XquiX Tutorial - First Coaching Session'),
       validate: { type:'custom', fn: ()=>{
         const want = introFrames ? introFrames.length : null;
         return want!=null && frames.length===want && currentFrame===0;
       }}
     },
-    { // Step 2 (ref: T01 -- the intro's own last frame, no separate save needed)
-      instruction: 'A small floating Play/Pause remote will now appear (if it wasn\u2019t already showing) near the bottom of the screen. Tap \u25B6 Play to start the intro scene. Once it\u2019s running, just watch -- it plays on its own for about 10 seconds and stops automatically.',
+    { // Step 4 (ref: T01 -- the intro's own last frame, no separate save needed)
+      instruction: 'A small floating Play/Pause remote will now appear near the bottom of the screen. Tap the highlighted \u25B6 Play to start the intro scene. Once it\u2019s running, just watch -- it plays on its own for about 10 seconds and stops automatically.',
+      bannerSide: 'left',
       onEnter(){ tutorialShowTimelineRemote(); },
       highlight: playThenBoard,
       validate: { type:'custom', fn: ()=> introFrames && currentFrame===introFrames.length-1 && !playing }
     },
-    { // Step 3 (ref: T02)
+    { // Step 5 (ref: T02)
       instruction: 'The scene has paused. Tap the highlighted player to select the player -- this is the attacker who will run the drill.',
       onEnter(){ if(!hasPlaybackCheckpoint()) capturePlaybackCheckpoint(); }, // "Automatically pause at 10 seconds... Create Playback Checkpoint" -- captured the instant this step (right after Play finishes) begins
       highlight: '.player[data-label="W1"]',
       validate: { type:'singleSelection', label:'W1' }
     },
-    { // Step 4 (ref: T03)
-      instruction: 'A yellow oval outline around a player means the player is successfully selected -- that\u2019s the attacker now. A gold ghost marker also shows where the attacker needs to go, tracing the move from the attacker\u2019s current spot. Drag the highlighted attacker to that ghost position.',
+    { // Step 6 (ref: T03)
+      instruction: 'A yellow oval outline around a player means the player is successfully selected -- that\u2019s the attacker now. A grey shade also shows where the attacker needs to go, tracing the move from the attacker\u2019s current spot. Drag the highlighted attacker to that grey shade.',
       highlight: '.player[data-label="W1"]',
       ghost: w1_T03 ? { type:'playerPosition', targetPlayer:{ team:w1_T03.team, pose:w1_T03.pose, rot:w1_T03.rot, x:w1_T03.x, y:w1_T03.y, label:'W1' } } : null,
       validate: w1_T03 ? { type:'playerPosition', label:'W1', x:w1_T03.x, y:w1_T03.y, tolerance:0.5 } : { type:'custom', fn:()=>false }
     },
-    { // Step 5 (ref: T04) -- only the clockwise button highlighted; two
+    { // Step 7 (ref: T04) -- only the clockwise button highlighted; two
       // rings on adjacent small buttons read as cluttered/confusing here.
-      instruction: 'With the attacker still selected, tap the highlighted clockwise rotate button in the Player Action Bar (top-left corner) to spin the attacker until the attacker matches the gold ghost\u2019s facing direction. If you\u2019re using a mouse, you can also hover over the player and drag the small white circle handle that appears above the player to rotate freely.',
+      instruction: 'With the attacker still selected, tap the highlighted clockwise rotate button in the Player Action Bar (top-left corner) to spin the attacker until the attacker matches the grey shade\u2019s facing direction. If you\u2019re using a mouse, you can also hover over the player and drag the small white circle handle that appears above the player to rotate freely.',
       highlight: ['.player[data-label="W1"]', '#paSpinCwBtn'],
       ghost: w1_T04 ? { type:'playerRotation', targetPlayer:{ team:w1_T04.team, pose:w1_T04.pose, rot:w1_T04.rot, x:w1_T04.x, y:w1_T04.y, label:'W1' } } : null,
       validate: w1_T04 ? { type:'playerRotation', label:'W1', rot:w1_T04.rot, tolerance:20 } : { type:'custom', fn:()=>false }
     },
-    { // Step 6 (ref: T05)
+    { // Step 8 (ref: T05)
       instruction: 'With the attacker still selected, tap the highlighted ball icon in the Player Action Bar (top-left) to give the attacker the ball.',
       highlight: ['.player[data-label="W1"]', '#paClaimBallBtn'],
       validate: { type:'ballOwner', label:'W1' }
     },
-    { // Step 7 (ref: T06)
-      instruction: 'The Quick Command Bar is currently closed. Tap the highlighted "Quicks" tab (usually on the screen edge) to reopen it.',
+    { // Step 9 (ref: T06)
+      instruction: 'Tap the highlighted "Quicks" tab (usually on the screen edge) to open the Quick Command Bar.',
       onEnter(){ tutorialHideQuickCommandBar(); },
       highlight: '#showQuickCommandBarTab',
       validate: { type:'boolState', key:'quickCommandBarOpen', value:true }
     },
-    { // Step 8 (ref: T07)
-      instruction: 'In the Quick Command Bar that just opened, tap the highlighted "Shooting Angle" icon to turn it on.',
+    { // Step 10 -- Smart Positioning: turn it on
+      instruction: 'In the Quick Command Bar, tap the highlighted "Smart Positioning" icon to turn it on.',
+      highlight: QCB_SMART_POSITIONING,
+      validate: { type:'boolState', key:'smartPositioningActive', value:true }
+    },
+    { // Step 11 -- Smart Positioning: move the attacker a little and see the
+      // effect. Ghost is computed fresh right as this step begins (see
+      // computeSmartPosGhostTarget), not a fixed saved value.
+      instruction: 'Drag the highlighted attacker to the nearby grey shade, and you will see that the attacker automatically adjusts its position facing towards the goal.',
+      onEnter(){ smartPosGhostTarget = computeSmartPosGhostTarget(); this.ghost = smartPosGhostTarget ? { type:'playerPosition', targetPlayer:smartPosGhostTarget } : null; },
+      highlight: '.player[data-label="W1"]',
+      validate: { type:'custom', fn: ()=> smartPosGhostTarget ? evaluateTutorialValidator({ type:'playerPosition', label:'W1', x:smartPosGhostTarget.x, y:smartPosGhostTarget.y, tolerance:0.3 }) : false }
+    },
+    { // Step 12 (ref: T07)
+      instruction: 'In the Quick Command Bar, tap the highlighted "Shooting Angle" icon to turn it on.',
       highlight: QCB_SHOOTING_ANGLE,
-      validate: { type:'boolState', key:'shootingAngleActive', value:true }
+      validate: withPositionGuards({ type:'boolState', key:'shootingAngleActive', value:true }, w1GuardAfterStable)
     },
-    { // Step 9 (ref: T08)
-      instruction: 'Tap the highlighted defender to select (mark) the player, then drag the defender to the gold ghost position, stepping into the attacker\u2019s shooting angle. Keep the defender selected afterward -- the next step uses the Player Action Bar, which only shows up for a selected player.',
+    { // Step 13 -- select (mark) the defender
+      instruction: 'Tap the highlighted defender to select (mark) the player.',
       highlight: '.player[data-label="B6"]',
-      ghost: b6_T08 ? { type:'playerPosition', targetPlayer:{ team:b6_T08.team, pose:b6_T08.pose, rot:b6_T08.rot, x:b6_T08.x, y:b6_T08.y, label:'B6' } } : null,
-      validate: b6_T08 ? { type:'playerPosition', label:'B6', x:b6_T08.x, y:b6_T08.y, tolerance:0.5 } : { type:'custom', fn:()=>false }
+      validate: withPositionGuards({ type:'singleSelection', label:'B6' }, w1GuardAfterStable)
     },
-    { // Step 10 (ref: T09) -- select the defender, then assign a blocking
-      // arm; setArmSide() now auto-activates Shot Block Corridors the
-      // instant an arm is set, so there's no separate toggle to hunt for.
-      instruction: 'With the defender selected (marked) from the previous step, tap Left Arm or Right Arm in the Player Action Bar (top-left) to assign the defender\u2019s blocking arm. This automatically turns on the Shot Block Corridor -- no separate switch needed.',
-      highlight: ['.player[data-label="B6"]', '#paLeftArmBtn', '#paRightArmBtn'],
-      validate: { type:'boolState', key:'shotBlockActive', value:true }
+    { // Step 14 (ref: T08, Y adjusted -- see computeDefenderGhostTarget above) -- drag the already-selected defender into place
+      instruction: 'Drag the highlighted defender to the grey shade, stepping into the attacker\u2019s shooting angle. Keep the defender selected afterward -- the next step uses the Player Action Bar, which only shows up for a selected player.',
+      onEnter(){ defenderGhostTarget = b6_T08 ? computeDefenderGhostTarget(b6_T08.x, b6_T08.rot, b6_T08.team, b6_T08.pose, 'left') : null; this.ghost = defenderGhostTarget ? { type:'playerPosition', targetPlayer:defenderGhostTarget } : null; },
+      highlight: '.player[data-label="B6"]',
+      validate: { type:'custom', fn: ()=>{
+        const b6 = document.querySelector('.player[data-label="B6"]');
+        if(!b6 || !defenderGhostTarget) return false;
+        // Generous sanity check (right general area) -- the real gate is
+        // the direct corridor-containment check just below, which the
+        // proximity check alone can't reliably guarantee (see
+        // tutorialCorridorContained's comment).
+        const near = Math.hypot(+b6.dataset.x-defenderGhostTarget.x, +b6.dataset.y-defenderGhostTarget.y) <= 0.9;
+        if(!near) return false;
+        if(!tutorialCorridorContained(+b6.dataset.x, +b6.dataset.y, +b6.dataset.rot||0, 'left')) return false;
+        return evaluateTutorialValidator({ type:'custom', fn:()=>{
+          if(!w1GuardAfterStable.length) return true;
+          const g=w1GuardAfterStable[0], w1=document.querySelector('.player[data-label="W1"]');
+          if(!w1) return false;
+          const dx=+w1.dataset.x-g.x, dy=+w1.dataset.y-g.y;
+          return Math.sqrt(dx*dx+dy*dy)<=g.tolerance;
+        }});
+      }}
     },
-    { // Step 11 (ref: T10)
+    { // Step 15 -- assign the blocking arm; setArmSide() auto-activates
+      // Shot Block Corridors the instant an arm is set, so there's no
+      // separate toggle to hunt for.
+      instruction: 'With the defender selected (marked) from the previous step, tap Left Arm in the Player Action Bar (top-left) to assign it as the defender\u2019s blocking arm. This automatically turns on the Shot Block Corridor -- no separate switch needed.',
+      highlight: ['.player[data-label="B6"]', '#paLeftArmBtn'],
+      validate: { type:'custom', fn: ()=>{
+        const b6 = document.querySelector('.player[data-label="B6"]');
+        if(!b6 || b6.dataset.blockArm!=='left') return false;
+        if(!tutorialCorridorContained(+b6.dataset.x, +b6.dataset.y, +b6.dataset.rot||0, 'left')) return false;
+        if(!w1GuardAfterStable.length) return true;
+        const g=w1GuardAfterStable[0], w1=document.querySelector('.player[data-label="W1"]');
+        if(!w1) return false;
+        const dx=+w1.dataset.x-g.x, dy=+w1.dataset.y-g.y;
+        return Math.sqrt(dx*dx+dy*dy)<=g.tolerance;
+      }}
+    },
+    { // Step 16 (ref: T09)
       instruction: 'Tap the highlighted defender once (a single tap, not a drag) to switch the defender to a horizontal (swimming) position.',
       successMessage: 'The corridor is only available while the defender is vertical, so it drops away here -- that\u2019s expected.',
       highlight: '.player[data-label="B6"]',
-      validate: { type:'playerPose', label:'B6', pose:'h' }
+      validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'h' }, w1GuardAfterStable)
     },
-    { // Step 12 (ref: T11)
+    { // Step 17 (ref: T10)
       instruction: 'Tap the highlighted defender once more (a single tap) to switch the defender back to a vertical position.',
       highlight: '.player[data-label="B6"]',
-      validate: { type:'playerPose', label:'B6', pose:'v' }
+      validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'v' }, w1GuardAfterStable)
     },
-    { // Step 13 (ref: T12)
-      instruction: 'In the Quick Command Bar, tap the highlighted "Free Draw" icon. Then draw directly on the field with your finger or mouse -- any mark counts.',
+    { // Step 18 -- turn on Free Draw
+      instruction: 'In the Quick Command Bar, tap the highlighted "Free Draw" icon.',
       highlight: QCB_FREE_DRAW,
-      validate: { type:'drawingCount', min:1 }
+      validate: withPositionGuards({ type:'custom', fn: ()=> mode==='freeDraw' }, w1GuardAfterStable)
     },
-    { // Step 14 (ref: T13)
+    { // Step 19 (ref: T11) -- actually draw something
+      instruction: 'Draw directly on the field with your finger or mouse -- any mark counts.',
+      highlight: '#board',
+      validate: withPositionGuards({ type:'drawingCount', min:1 }, w1GuardAfterStable)
+    },
+    { // Step 20 (ref: T12)
       instruction: 'In the Quick Command Bar, tap the highlighted trash-can icon to remove your drawing(s).',
       highlight: QCB_CLEAR,
-      validate: { type:'drawingCount', equals:0 }
+      validate: withPositionGuards({ type:'drawingCount', equals:0 }, w1GuardAfterStable)
     },
-    { // Step 15 (ref: T14 -- validated via the Playback Checkpoint itself, not a separate save)
+    { // Step 21 (ref: T13 -- validated via the Playback Checkpoint itself,
+      // not a separate save) -- Reset can sit low enough in its category's
+      // list to need scrolling, which is also what was throwing the ring
+      // off (measuring a button that wasn't actually in view yet).
       instruction: 'Open the Menu, then tap the highlighted "Reset" button inside Formations & Packages. This restores the board to exactly how it looked when the intro scene paused, and closes the Menu for you.',
-      onEnter(){ tutorialOpenCategory('formations'); },
+      onEnter(){
+        if(typeof setMode==='function') setMode('select'); // Free Draw was turned on two steps ago -- back to Move/Toggle so the board is immediately usable again
+        tutorialOpenCategory('formations');
+        const btn = document.getElementById('resetBtn');
+        if(btn && typeof btn.scrollIntoView==='function') btn.scrollIntoView({block:'nearest'});
+      },
       highlight: '#resetBtn',
       validate: { type:'stateMatchesCheckpoint' }
     },
-    { // Step 16 (ref: T15 -- the Continuation sequence, loaded fresh as this step begins)
-      instruction: 'The board just jumped forward to where your practiced drill leaves off. A small floating Play/Pause remote will appear near the bottom of the screen -- tap \u25B6 Play once more to watch the play continue to its finish.',
+    { // Step 22 (ref: T14 -- the Continuation sequence, loaded fresh as this step begins)
+      instruction: 'The board now smoothly continues to where your practiced drill leaves off. Tap the highlighted \u25B6 Play to watch the play continue to its finish.',
       onEnter(){
         tutorialShowTimelineRemote();
         const outro = tutorialSequenceFrames(OUTRO_NAME);
-        if(outro){ frames=outro; currentFrame=0; loadFrame(0); }
+        if(outro){
+          frames = outro; currentFrame = 0;
+          // Animated hand-off (was an instant snap) from the just-restored
+          // checkpoint scene into the outro's starting frame, reusing the
+          // exact same frame-to-frame interpolation playback already uses
+          // elsewhere -- animateToFrame()'s own tick loop only keeps
+          // running while `playing` is true, so that's set here and
+          // cleared again once the transition completes.
+          playing = true;
+          animateToFrame(0, 1.1, ()=>{
+            playing = false;
+            if(typeof syncPlayPauseUI==='function') syncPlayPauseUI();
+            if(typeof renderFrames==='function') renderFrames();
+          });
+        }
       },
       highlight: playThenBoard,
       validate: { type:'custom', fn: ()=>{
@@ -5493,10 +5897,24 @@ function updatePlayerActionBar(){
     playerActionBarTarget=null;
     bar.classList.remove('visible');
   }
+  updateMarkedIndicator();
   updateMultiDeleteButton();
   updateEmptyFieldAddButton();
   updateSaveOpenButton();
   updateDirectionPad();
+}
+// Shows which player is currently marked at a glance -- same team color and
+// cap number as the player itself, so it reads as a direct echo of the
+// selection rather than a separate new indicator to learn.
+function updateMarkedIndicator(){
+  const chip=document.getElementById('paMarkedChip');
+  if(!chip) return;
+  if(playerActionBarTarget){
+    chip.dataset.team=playerActionBarTarget.dataset.team;
+    chip.textContent=capText(playerActionBarTarget.dataset.label);
+  } else {
+    chip.textContent=''; chip.removeAttribute('data-team');
+  }
 }
 // Stands in the same top-left spot as the Player Action Bar/empty-field
 // "+" whenever more than one item is marked -- on iPad/iPhone there's no
@@ -6292,7 +6710,7 @@ function confirmAddPlayer(){
   if(name) el.dataset.name = name;
   updatePlayerVisual(el); // sets label text, position, and a capText()-derived cap number
   if(isGoalie){
-    el.querySelector('.capNumber').textContent = 'G'; // explicit: capText()'s exact 'BG'/'WG' match would miss a de-duplicated label like 'BG 2'
+    el.querySelector('.capNumber').textContent = '1'; // explicit: capText()'s exact 'BG'/'WG' match would miss a de-duplicated label like 'BG 2'
   } else {
     const finalCap = label.slice(prefix.length); // reflects any de-duplication bump, not just the raw typed value
     if(finalCap) el.querySelector('.capNumber').textContent = finalCap;
@@ -6582,7 +7000,7 @@ function applyQuickAddCombo(key){
   ballCarrier = null;
   const goaliePt = fieldZonePolarPt(0, 1); // 1m ahead of the goal-line, central to the goal, facing straight outward
   const bg = makePlayer(['BG','goalie', +goaliePt.x.toFixed(2), +goaliePt.y.toFixed(2), 'v', 90]);
-  updatePlayerVisual(bg); bg.querySelector('.capNumber').textContent='G';
+  updatePlayerVisual(bg); bg.querySelector('.capNumber').textContent='1';
   for(let i=0;i<def.blueField;i++){
     const [x,y] = quickAddZonePosition(i,'inner');
     const el = makePlayer(['B'+(i+1),'blue',x,y,'v',90]);
