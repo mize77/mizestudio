@@ -192,6 +192,7 @@
      that point and caps its width so it reads as a side panel rather than
      a banner spanning the screen. */
   #tutorialBanner { display:none; position:fixed; transform:translate(-50%,-50%); z-index:1570; width:min(260px,42vw); background:#124d4d; color:#fff; border-radius:14px; box-shadow:0 10px 34px rgba(0,0,0,.4); padding:14px 16px; text-align:left; }
+  @media (pointer:coarse) and (max-width:480px) { #tutorialBanner { width:min(220px,38vw); padding:11px 13px; font-size:13px; } }
   body.tutorialModeActive #tutorialBanner { display:block; }
   #tutorialBanner .tutorialStepCount { font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#9fe6c8; margin-bottom:4px; }
   #tutorialBanner .tutorialInstruction { font-size:14.5px; font-weight:600; line-height:1.4; text-align:left; }
@@ -5518,6 +5519,17 @@ function tutorialHideQuickCommandBar(){
   if(bar) bar.style.display = 'none';
   tab?.classList.remove('active');
 }
+// On a phone screen, the Quick Command Bar (fixed top-center) can sit
+// directly over the very player the coach needs to see and tap -- shown
+// only for the steps that actually need a Quick Command Bar button
+// tapped, hidden the rest of the time so player-positioning steps get a
+// clear, tappable view of the field.
+function tutorialShowQuickCommandBar(){
+  const bar = document.getElementById('quickCommandBar');
+  const tab = document.getElementById('showQuickCommandBarTab');
+  if(bar) bar.style.display = '';
+  tab?.classList.add('active');
+}
 function buildFirstCoachingSessionSteps(){
   const INTRO_NAME = 'Tutorial - First Coaching Session';
   const OUTRO_NAME = 'Tutorial - First Coaching Session - Continuation';
@@ -5680,7 +5692,14 @@ function buildFirstCoachingSessionSteps(){
     },
     { // Step 7 (ref: T02)
       instruction: 'Tap the highlighted player to select the player -- this is the attacker who will run the drill.',
-      onEnter(){ if(!hasPlaybackCheckpoint()) capturePlaybackCheckpoint(); }, // "Automatically pause at 10 seconds... Create Playback Checkpoint" -- captured the instant this step (right after Play finishes) begins
+      onEnter(){
+        if(!hasPlaybackCheckpoint()) capturePlaybackCheckpoint(); // "Automatically pause at 10 seconds... Create Playback Checkpoint" -- captured the instant this step (right after Play finishes) begins
+        // The app's own default Front Court Zoom depth (8m from the goal
+        // line) cuts off part of this drill's own action area -- widen it
+        // just enough to keep every relevant player in view for the rest
+        // of the tutorial, without losing the "zoomed in" feel entirely.
+        if(typeof frontCourtZoomed!=='undefined' && frontCourtZoomed && typeof setFrontCourtDepth==='function') setFrontCourtDepth(10);
+      },
       highlight: '.player[data-label="W1"]',
       validate: { type:'singleSelection', label:'W1' }
     },
@@ -5717,17 +5736,19 @@ function buildFirstCoachingSessionSteps(){
       // effect. Ghost is computed fresh right as this step begins (see
       // computeSmartPosGhostTarget), not a fixed saved value.
       instruction: 'Use the highlighted Direction Pad (bottom-right corner) to nudge the attacker toward the nearby grey shade -- this is a small move, so a couple of taps should do it. You will see that the attacker automatically adjusts its position facing towards the goal. Dragging directly also works, if you prefer.',
-      onEnter(){ smartPosGhostTarget = computeSmartPosGhostTarget(); this.ghost = smartPosGhostTarget ? { type:'playerPosition', targetPlayer:smartPosGhostTarget } : null; },
+      onEnter(){ smartPosGhostTarget = computeSmartPosGhostTarget(); this.ghost = smartPosGhostTarget ? { type:'playerPosition', targetPlayer:smartPosGhostTarget } : null; tutorialHideQuickCommandBar(); },
       highlight: ['.player[data-label="W1"]', '#directionPad'],
       validate: { type:'custom', fn: ()=> smartPosGhostTarget ? evaluateTutorialValidator({ type:'playerPosition', label:'W1', x:smartPosGhostTarget.x, y:smartPosGhostTarget.y, tolerance:0.3 }) : false }
     },
     { // Step 12 (ref: T07)
-      instruction: 'In the Quick Command Bar, tap the highlighted "Shooting Angle" icon to turn it on.',
+      instruction: 'The Quick Command Bar is back -- tap the highlighted "Shooting Angle" icon to turn it on.',
+      onEnter(){ tutorialShowQuickCommandBar(); },
       highlight: QCB_SHOOTING_ANGLE,
       validate: withPositionGuards({ type:'boolState', key:'shootingAngleActive', value:true }, w1GuardAfterStable)
     },
     { // Step 13 -- select (mark) the defender
       instruction: 'Tap the highlighted defender to select (mark) the player.',
+      onEnter(){ tutorialHideQuickCommandBar(); }, // stays hidden through defender positioning below -- neither step needs it, and it can otherwise block the tap itself
       highlight: '.player[data-label="B6"]',
       validate: withPositionGuards({ type:'singleSelection', label:'B6' }, w1GuardAfterStable)
     },
@@ -5782,7 +5803,8 @@ function buildFirstCoachingSessionSteps(){
       validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'v' }, w1GuardAfterStable)
     },
     { // Step 18 -- turn on Free Draw
-      instruction: 'In the Quick Command Bar, tap the highlighted "Free Draw" icon.',
+      instruction: 'The Quick Command Bar is back -- tap the highlighted "Free Draw" icon.',
+      onEnter(){ tutorialShowQuickCommandBar(); },
       highlight: QCB_FREE_DRAW,
       validate: withPositionGuards({ type:'custom', fn: ()=> mode==='freeDraw' }, w1GuardAfterStable)
     },
