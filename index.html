@@ -5019,6 +5019,7 @@ window.addEventListener('resize', ()=>{
 // Hidden entirely while a sequence is actually playing (Steps 2 and 16) --
 // the banner would otherwise sit on screen the whole 10-second scene for
 // no reason, and reappears the instant playback stops for the next step.
+let tutorialSuppressRemoteAutoHide = false;
 function updateTutorialBannerPlayingVisibility(){
   const banner = document.getElementById('tutorialBanner');
   if(banner) banner.style.visibility = playing ? 'hidden' : 'visible';
@@ -5027,7 +5028,7 @@ function updateTutorialBannerPlayingVisibility(){
   // between certain steps) maximizes the visible field for exactly the
   // moment that matters most, and it's shown again automatically once
   // this step's own onEnter needs it (Step 4 / the outro step).
-  if(playing) tutorialHideTimelineRemote();
+  if(playing && !tutorialSuppressRemoteAutoHide) tutorialHideTimelineRemote();
 }
 
 // A single lightweight interval loop drives both concerns for the active
@@ -5181,21 +5182,18 @@ function positionTutorialArrows(target){
   const br = banner.getBoundingClientRect();
   const bx = br.left+br.width/2, by = br.top+br.height/2;
   const shortLen = Math.max(40, ((typeof meterPxX==='function'?meterPxX(3):90) + (typeof meterPxY==='function'?meterPxY(3):90))/2);
-  const pad = 12;
+  // On touch devices, only the short arrow (the one right next to the
+  // ring, pointing directly into it) is shown -- the long arrow spanning
+  // from the banner across the whole screen looked odd on a small display
+  // and, on multi-target steps, frequently crossed over itself or another
+  // arrow entirely.
+  const isTouchDevice = typeof window!=='undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
   for(let i=0;i<n;i++){
     const longArrow = tutorialArrowEl('Long', i);
     const shortArrow = tutorialArrowEl('Short', i);
     const el = els[i];
     if(!el){ longArrow.classList.remove('show'); shortArrow.classList.remove('show'); continue; }
-    const elRect = el.getBoundingClientRect();
-    // Actual bounding-box containment, not a fixed-radius distance from the
-    // banner's center -- a tall banner (e.g. wrapped multi-line text)
-    // pushes anything near its own bottom edge (like the "Got it" button)
-    // far from that center, where a distance check alone would wrongly
-    // treat it as "far away" and draw an arrow computed from an otherwise
-    // tiny, numerically unstable displacement.
-    const insideBanner = elRect.left >= br.left-pad && elRect.right <= br.right+pad && elRect.top >= br.top-pad && elRect.bottom <= br.bottom+pad;
-    if(insideBanner){
+    if(tutorialTargetInsideBanner(el)){
       longArrow.classList.remove('show');
       shortArrow.classList.remove('show');
       continue;
@@ -5210,7 +5208,9 @@ function positionTutorialArrows(target){
       shortArrow.classList.remove('show');
       continue;
     }
-    {
+    if(isTouchDevice){
+      longArrow.classList.remove('show');
+    } else {
       const edgeOffset = Math.min(br.width, br.height)/2 + 14;
       longArrow.classList.add('show');
       longArrow.style.width='100px'; longArrow.style.height='30px';
@@ -5241,6 +5241,20 @@ function tutorialRingEl(i){
   }
   return el;
 }
+// A target fully inside the banner (e.g. the "Got it" acknowledge button)
+// doesn't get a ring OR an arrow -- the ring would render at a lower
+// z-index than the banner's own opaque background and end up completely
+// hidden behind it, and an arrow computed from such a tiny displacement
+// is numerically unstable anyway. Shared by both positionTutorialSpotlight
+// and positionTutorialArrows so the two can never disagree about it.
+function tutorialTargetInsideBanner(el){
+  const banner = document.getElementById('tutorialBanner');
+  if(!banner) return false;
+  const br = banner.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  const pad = 12;
+  return r.left >= br.left-pad && r.right <= br.right+pad && r.top >= br.top-pad && r.bottom <= br.bottom+pad;
+}
 function positionTutorialSpotlight(target){
   const els = resolveTutorialHighlightTargets(target);
   const n = Math.max(els.length, _tutorialRingCount);
@@ -5248,7 +5262,7 @@ function positionTutorialSpotlight(target){
     const ringId = i===0 ? '' : i;
     const overlay = tutorialRingEl(ringId);
     const el = els[i];
-    if(!el){
+    if(!el || tutorialTargetInsideBanner(el)){
       overlay.classList.remove('show');
       _tutorialRingLast[i] = null;
       continue;
@@ -5896,10 +5910,18 @@ function buildFirstCoachingSessionSteps(){
           // exact same frame-to-frame interpolation playback already uses
           // elsewhere -- animateToFrame()'s own tick loop only keeps
           // running while `playing` is true, so that's set here and
-          // cleared again once the transition completes.
+          // cleared again once the transition completes. This is NOT the
+          // coach pressing Play -- it's this step's own internal setup --
+          // so the "hide the remote while playing" behavior (see
+          // updateTutorialBannerPlayingVisibility) is suppressed for this
+          // one transition, otherwise the remote would vanish again the
+          // instant after tutorialShowTimelineRemote() just showed it,
+          // before the coach ever got to see or tap Play.
           playing = true;
+          tutorialSuppressRemoteAutoHide = true;
           animateToFrame(0, 1.1, ()=>{
             playing = false;
+            tutorialSuppressRemoteAutoHide = false;
             if(typeof syncPlayPauseUI==='function') syncPlayPauseUI();
             if(typeof renderFrames==='function') renderFrames();
           });
