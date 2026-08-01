@@ -3800,7 +3800,9 @@ renderSavedPresentations();
 function clearGhosts() { ghostLayer.innerHTML=''; }
 function addGhostsFromState(st) {
   clearGhosts(); if(!ghostMode || !st?.players) return;
-  st.players.forEach(p=>{ const g=document.createElement('div'); g.className='ghost'; g.dataset.team=p.team; g.dataset.pose=p.pose; const scr=MIZE.Field.toScreenPercent(boardToFieldX(p.x), boardToFieldY(p.y)); g.style.left=scr.left; g.style.top=scr.top; g.style.setProperty('--rot',(p.rot||0)+'deg');
+  st.players.forEach(p=>{ const g=document.createElement('div'); g.className='ghost'; g.dataset.team=p.team; g.dataset.pose=p.pose; const scr=MIZE.Field.toScreenPercent(boardToFieldX(p.x), boardToFieldY(p.y)); g.style.left=scr.left; g.style.top=scr.top;
+    const displayRot = frontCourtActive ? ((p.rot||0)-90) : (p.rot||0); // matches place()'s own Front Court adjustment for real players
+    g.style.setProperty('--rot',displayRot+'deg');
     const body=document.createElement('div'); body.className='playerBody'; const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label); body.appendChild(img); g.appendChild(body); ghostLayer.appendChild(g);
     if(p.pose==='h') { img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; } else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label)])+'px'; }
   });
@@ -4935,7 +4937,8 @@ function goToTutorialStep(index){
   // main 1-22 numbering (shows "Welcome" instead) so it doesn't read as
   // an extra real step, and gets its own confirm button rather than an
   // app action to validate against.
-  document.getElementById('tutorialStepCount').textContent = step.isPreStep ? 'Welcome' : ('Step '+index+' of '+(tutorialSteps.length-1));
+  const preStepCount = tutorialSteps.filter(s=>s.isPreStep).length;
+  document.getElementById('tutorialStepCount').textContent = step.isPreStep ? 'Welcome' : ('Step '+(index-preStepCount+1)+' of '+(tutorialSteps.length-preStepCount));
   document.getElementById('tutorialInstruction').textContent = step.instruction || '';
   const successLine = document.getElementById('tutorialSuccessLine');
   successLine.classList.remove('show'); successLine.textContent = '';
@@ -5019,6 +5022,12 @@ window.addEventListener('resize', ()=>{
 function updateTutorialBannerPlayingVisibility(){
   const banner = document.getElementById('tutorialBanner');
   if(banner) banner.style.visibility = playing ? 'hidden' : 'visible';
+  // The Remote Control isn't needed while the sequence is actually
+  // running -- hiding it the instant playback starts (rather than only
+  // between certain steps) maximizes the visible field for exactly the
+  // moment that matters most, and it's shown again automatically once
+  // this step's own onEnter needs it (Step 4 / the outro step).
+  if(playing) tutorialHideTimelineRemote();
 }
 
 // A single lightweight interval loop drives both concerns for the active
@@ -5290,7 +5299,12 @@ function renderTutorialGhost(ghostCfg){
     const fromX = live ? +live.dataset.x : p.x, fromY = live ? +live.dataset.y : p.y;
     const g=document.createElement('div'); g.className='tutorialGhostTarget'; g.dataset.team=p.team; g.dataset.pose=p.pose;
     const fromScr=MIZE.Field.toScreenPercent(boardToFieldX(fromX), boardToFieldY(fromY));
-    g.style.left=fromScr.left; g.style.top=fromScr.top; g.style.setProperty('--rot',(p.rot||0)+'deg');
+    // Same Front Court rotation adjustment place() applies to real
+    // players (see the frontCourtActive branch there) -- without it the
+    // ghost's facing direction is off by 90 degrees whenever Front Court
+    // view is active, which the tutorial now turns on by default.
+    const displayRot = (typeof frontCourtActive!=='undefined' && frontCourtActive) ? ((p.rot||0)-90) : (p.rot||0);
+    g.style.left=fromScr.left; g.style.top=fromScr.top; g.style.setProperty('--rot',displayRot+'deg');
     const body=document.createElement('div'); body.className='playerBody';
     const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label);
     body.appendChild(img); g.appendChild(body); layer.appendChild(g);
@@ -5657,6 +5671,8 @@ function buildFirstCoachingSessionSteps(){
   }
   const w1GuardAfterStable = w1_T06 ? [{ label:'W1', x:w1_T06.x, y:w1_T06.y, tolerance:0.8 }] : [];
 
+  const isTouchDevice = typeof window!=='undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
   return [
     { // Pre-step -- a one-time acknowledgment, not a real app-interaction
       // task, so it's excluded from the main numbering (see isPreStep
@@ -5669,6 +5685,18 @@ function buildFirstCoachingSessionSteps(){
       highlight: '#tutorialAcknowledgeBtn',
       validate: { type:'custom', fn: ()=> tutorialManualAck }
     },
+    // Second pre-step, only on touch devices (phone/tablet) -- the field
+    // is wider than it is tall, so landscape gives noticeably more room
+    // than portrait; not worth mentioning on a desktop/mouse setup where
+    // the window shape isn't something the person can rotate anyway.
+    ...(isTouchDevice ? [{
+      isPreStep: true,
+      requiresAcknowledge: true,
+      instruction: 'For the best view, hold your device in landscape (sideways) -- this shows the field more clearly.\n\nTap "Got it" to continue.',
+      bannerSide: 'left',
+      highlight: '#tutorialAcknowledgeBtn',
+      validate: { type:'custom', fn: ()=> tutorialManualAck }
+    }] : []),
     { // Step 1 -- tap the button that opens the Save/Open menu
       instruction: 'Tap the highlighted Save/Open button (top-right corner, the \u{1F4BE} icon).',
       bannerSide: 'left',
@@ -5709,6 +5737,7 @@ function buildFirstCoachingSessionSteps(){
       bannerSide: 'left', // was covering the option itself on a narrow phone screen
       onEnter(){ tutorialHideTimelineRemote(); }, // not needed again until the outro plays at the very end -- keeps the view clear until then
       highlight: '#viewOptionFrontCourtZoomed',
+      successMessage: 'You\u2019re zoomed in! Tip: swipe near the left/right or top/bottom edges to scroll the view.',
       validate: { type:'custom', fn: ()=> typeof frontCourtActive!=='undefined' && frontCourtActive && typeof frontCourtZoomed!=='undefined' && frontCourtZoomed }
     },
     { // Step 7 (ref: T02)
