@@ -203,7 +203,7 @@
      rather than on top of it -- the two were rendering in the exact same
      spot, and Exit Tutorial (always visible during the tutorial) was
      covering the button Step 1 asks the coach to tap. */
-  #tutorialExitBtn { position:fixed; bottom:10px; left:10px; z-index:1570; display:none; background:rgba(20,30,30,.85); color:#fff; border:none; border-radius:20px; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  #tutorialExitBtn { position:fixed; bottom:calc(10px + env(safe-area-inset-bottom)); left:calc(10px + env(safe-area-inset-left)); z-index:1570; display:none; background:rgba(20,30,30,.85); color:#fff; border:none; border-radius:20px; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.3); }
   body.tutorialModeActive #tutorialExitBtn { display:block; }
   .ghost img { display:block; }
   #measureText { font-size:.45px; font-weight:800; fill:#263238; paint-order:stroke; stroke:white; stroke-width:.12; pointer-events:none; }
@@ -405,7 +405,7 @@
   #contextMenu button { display:block; width:100%; text-align:left; border:0; border-radius:7px; padding:8px 9px; background:#fff; font-weight:700; }
   #contextMenu button:hover { background:#eef7f8; }
   #contextMenu .sep { height:1px; background:#e1e6e6; margin:5px 0; }
-  #playerActionBar { position:fixed; top:10px; left:10px; z-index:1540; display:grid; grid-template-columns:repeat(2, auto); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
+  #playerActionBar { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; display:grid; grid-template-columns:repeat(2, auto); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #playerActionBar.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
   /* Grid-spans both columns to sit as its own row below the button grid.
      Colors deliberately match .capNumber exactly (same file, see the
@@ -420,10 +420,10 @@
      currently marked, whether or not the field has players on it. Hides
      the moment something is selected, since the Player Action Bar or the
      multi-delete button take over that same spot then. */
-  #emptyFieldAddBtn { position:fixed; top:10px; left:10px; z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:rgba(18,77,77,.92); color:#fff; font-size:26px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
+  #emptyFieldAddBtn { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:rgba(18,77,77,.92); color:#fff; font-size:26px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
   #emptyFieldAddBtn.visible { display:flex; }
   #emptyFieldAddBtn:hover { background:#1a6363; }
-  #emptyFieldMenuBox, #emptyFieldAddBox, #emptyFieldSequenceBox { position:fixed; top:62px; left:10px; z-index:1540; display:none; flex-direction:column; gap:6px; background:rgba(18,77,77,.95); padding:10px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); width:240px; max-height:80vh; overflow-y:auto; }
+  #emptyFieldMenuBox, #emptyFieldAddBox, #emptyFieldSequenceBox { position:fixed; top:calc(62px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; display:none; flex-direction:column; gap:6px; background:rgba(18,77,77,.95); padding:10px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); width:240px; max-height:80vh; overflow-y:auto; }
   #emptyFieldMenuBox.open, #emptyFieldAddBox.open, #emptyFieldSequenceBox.open { display:flex; }
   #emptyFieldMenuBox .efaTitle, #emptyFieldAddBox .efaTitle, #emptyFieldSequenceBox .efaTitle { color:#cfe6e6; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-bottom:2px; }
   #emptyFieldMenuBox button, #emptyFieldAddBox button, #emptyFieldSequenceBox button { text-align:left; font-size:12.5px; padding:8px 10px; border-radius:8px; border:none; background:rgba(255,255,255,.12); color:#fff; cursor:pointer; }
@@ -438,10 +438,10 @@
   #emptyFieldAddBox .efaLibRow .efaDelBtn:hover, #emptyFieldSequenceBox .efaLibRow .efaDelBtn:hover { background:rgba(229,57,53,.55); }
   #emptyFieldAddBox .efaBackBtn, #emptyFieldSequenceBox .efaBackBtn { border-top:1px solid rgba(255,255,255,.2); margin-top:2px; padding-top:8px; background:none; }
   /* ===== Save/Open (top-right mirror of the top-left Add menu) ===== */
-  #saveOpenBtn { position:fixed; top:10px; right:10px; z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:rgba(18,77,77,.92); color:#fff; font-size:20px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
+  #saveOpenBtn { position:fixed; top:calc(10px + env(safe-area-inset-top)); right:calc(10px + env(safe-area-inset-right)); z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:rgba(18,77,77,.92); color:#fff; font-size:20px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
   #saveOpenBtn.visible { display:flex; }
   #saveOpenBtn:hover { background:#1a6363; }
-  #saveOpenMenuBox, #openItemBox, #saveItemBox { position:fixed; top:62px; right:10px; z-index:1540; display:none; flex-direction:column; gap:6px; background:rgba(18,77,77,.95); padding:10px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); width:260px; max-height:80vh; overflow-y:auto; }
+  #saveOpenMenuBox, #openItemBox, #saveItemBox { position:fixed; top:calc(62px + env(safe-area-inset-top)); right:calc(10px + env(safe-area-inset-right)); z-index:1540; display:none; flex-direction:column; gap:6px; background:rgba(18,77,77,.95); padding:10px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); width:260px; max-height:80vh; overflow-y:auto; }
   #saveOpenMenuBox.open, #openItemBox.open, #saveItemBox.open { display:flex; }
   #saveOpenMenuBox .efaTitle, #openItemBox .efaTitle, #saveItemBox .efaTitle { color:#cfe6e6; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; margin-bottom:2px; }
   #saveOpenMenuBox button, #openItemBox button, #saveItemBox button { text-align:left; font-size:12.5px; padding:8px 10px; border-radius:8px; border:none; background:rgba(255,255,255,.12); color:#fff; cursor:pointer; }
@@ -458,7 +458,7 @@
      controls (see #spotlightRemoveBtn) rather than the teal of the other
      two -- mainly for touch devices (iPad/iPhone), where there's no
      Delete key to fall back on for a multi-selection.  */
-  #multiDeleteBtn { position:fixed; top:10px; left:10px; z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:#e53935; color:#fff; font-size:28px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
+  #multiDeleteBtn { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:#e53935; color:#fff; font-size:28px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
   #multiDeleteBtn.visible { display:flex; }
   #multiDeleteBtn:hover { background:#c62828; }
   #directionPad { position:fixed; right:10px; bottom:10px; z-index:1540; width:170px; height:170px; border-radius:50%; background:radial-gradient(circle, rgba(10,40,40,.92) 60%, rgba(10,40,40,.75) 100%); box-shadow:0 4px 16px rgba(0,0,0,.35); display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:4px; padding:10px; transform:translateX(160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
@@ -4987,6 +4987,29 @@ function positionTutorialBanner(side){
   banner.style.left = targetX + 'px';
   banner.style.top = targetY + 'px';
 }
+// The banner is otherwise only positioned once per step -- fine while the
+// viewport stays put, but rotating the phone mid-step (or resizing a
+// desktop window) left it wherever it had been computed for the old
+// orientation, since nothing was watching for the viewport itself
+// changing. Ring/arrow/dim-overlay recompute every poll tick already, but
+// their cached "skip repaint if basically unchanged" values are cleared
+// too, so the very next tick measures fresh rather than possibly matching
+// a stale cached number by coincidence.
+let _tutorialResizeTimer = null;
+window.addEventListener('resize', ()=>{
+  if(!tutorialModeActive) return;
+  clearTimeout(_tutorialResizeTimer);
+  // iOS can report stale innerWidth/innerHeight for a moment right as
+  // orientationchange/resize fires -- a short delay lets it settle first.
+  _tutorialResizeTimer = setTimeout(()=>{
+    if(!tutorialModeActive) return;
+    const step = tutorialSteps[tutorialStepIndex];
+    if(step) positionTutorialBanner(step.bannerSide || 'right');
+    _tutorialRingLast = [];
+    _tutorialDimHoleCount = 0;
+    _tutorialArrowCount = 0;
+  }, 200);
+});
 // Hidden entirely while a sequence is actually playing (Steps 2 and 16) --
 // the banner would otherwise sit on screen the whole 10-second scene for
 // no reason, and reappears the instant playback stops for the next step.
