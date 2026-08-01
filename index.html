@@ -121,6 +121,15 @@
   #shotBlockSvg { z-index:11; pointer-events:none; }
   #arrows.erase { pointer-events:auto; }
   .player { position:absolute; transform:translate(-50%,-50%); cursor:grab; z-index:6; touch-action:none; border-radius:12px; }
+  /* Brief, synchronized position transition for a pose toggle (horizontal
+     <-> vertical) specifically -- NOT applied generally to dragging, which
+     needs to track the finger/cursor instantly without any lag. Applied to
+     both the player and the ball (when that player is the ball carrier) at
+     the same time, so the ball glides to its new hand position together
+     with the player instead of both snapping there instantly, which read
+     as the ball being let go and caught again rather than staying attached
+     through the whole motion. */
+  .poseTransitioning { transition: left .18s ease, top .18s ease; }
   .player.selected { outline:2px solid #ffcc00; outline-offset:4px; }
   .drawing.selected, .drawing.selected * { stroke:#ffcc00 !important; stroke-width:3 !important; }
   .drawing { cursor:move; }
@@ -3019,9 +3028,13 @@ function makePlayer([label,team,x,y,pose,rot]) {
       clearSelection(); setSelected(el,true);
     } else {
       recordHistory();
+      const wasCarrier = ballCarrier===el;
+      el.classList.add('poseTransitioning');
+      if(wasCarrier) ball.classList.add('poseTransitioning');
       el.dataset.pose = el.dataset.pose==='h'?'v':'h';
       place(el);
-      if(ballCarrier===el) moveBallTo(el,ballHand);
+      if(wasCarrier) moveBallTo(el,ballHand);
+      setTimeout(()=>{ el.classList.remove('poseTransitioning'); if(wasCarrier) ball.classList.remove('poseTransitioning'); }, 220);
     }
   });
   handle.addEventListener('pointerdown', e=>{ if(layerState.lockPlayers || el.dataset.locked==='true') return; if(mode!=='select') return; if(e.pointerType==='touch') return; recordHistory(); rotating=el; el.classList.add('rotating'); handle.setPointerCapture(e.pointerId); e.stopPropagation(); e.preventDefault(); });
@@ -5073,10 +5086,14 @@ function tutorialTrackLoop(){
     if(!tutorialAdvancing && step.validate && evaluateTutorialValidator(step.validate)){
       tutorialAdvancing = true;
       tutorialHideAllHighlights();
-      const el = document.getElementById('tutorialSuccessLine');
-      el.textContent = step.successMessage || 'Nice work!';
-      el.classList.add('show');
-      setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 2000);
+      if(step.skipSuccessMessage){
+        setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 0);
+      } else {
+        const el = document.getElementById('tutorialSuccessLine');
+        el.textContent = step.successMessage || 'Nice work!';
+        el.classList.add('show');
+        setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 2000);
+      }
     }
   } catch(err) {
     console.error('Tutorial track loop error (step '+tutorialStepIndex+'):', err);
@@ -5694,6 +5711,7 @@ function buildFirstCoachingSessionSteps(){
       // button rather than anything happening in the app itself.
       isPreStep: true,
       requiresAcknowledge: true,
+      skipSuccessMessage: true, // nothing was actually accomplished besides reading and tapping "Got it"
       instruction: 'Welcome! Throughout this tutorial, always look for the pulsing red circle -- it marks exactly what to tap or work with next.\n\nTap "Got it" below to begin.',
       bannerSide: 'left',
       highlight: '#tutorialAcknowledgeBtn',
@@ -5706,6 +5724,7 @@ function buildFirstCoachingSessionSteps(){
     ...(isTouchDevice ? [{
       isPreStep: true,
       requiresAcknowledge: true,
+      skipSuccessMessage: true,
       instruction: 'For the best view, hold your device in landscape (sideways) -- this shows the field more clearly.\n\nTap "Got it" to continue.',
       bannerSide: 'left',
       highlight: '#tutorialAcknowledgeBtn',
@@ -5735,6 +5754,7 @@ function buildFirstCoachingSessionSteps(){
     { // Step 4 (ref: T01 -- the intro's own last frame, no separate save needed)
       instruction: 'A Play/Pause remote appears near the bottom. Tap the highlighted \u25B6 Play to start the intro -- it plays on its own for about 10 seconds.',
       bannerSide: 'left',
+      skipSuccessMessage: true, // just watched the whole scene play -- that's plenty of its own feedback, a "Nice work!" after is redundant
       onEnter(){ tutorialShowTimelineRemote(); },
       highlight: playThenBoard,
       validate: { type:'custom', fn: ()=> introFrames && currentFrame===introFrames.length-1 && !playing }
@@ -5928,6 +5948,7 @@ function buildFirstCoachingSessionSteps(){
         }
       },
       highlight: playThenBoard,
+      skipSuccessMessage: true, // just watched the drill play out to its finish -- that's the natural ending, no "Nice work!" needed on top of it
       validate: { type:'custom', fn: ()=>{
         const outro = tutorialSequenceFrames(OUTRO_NAME);
         return !!outro && currentFrame===outro.length-1 && !playing;
@@ -6039,7 +6060,21 @@ function changeTeam(el){
 }
 function rotate90(el){ if(!el || isAnyBall(el)) return; recordHistory('Rotate '+displayName(el)); el.dataset.rot=((+el.dataset.rot||0)+90)%360; place(el); if(ballCarrier===el) moveBallTo(el,ballHand); updateInspector(); }
 function rotateBy(el, deltaDeg){ if(!el || isAnyBall(el)) return; recordHistory('Rotate '+displayName(el)); el.dataset.rot=((+el.dataset.rot||0)+deltaDeg+360)%360; place(el); if(ballCarrier===el) moveBallTo(el,ballHand); updateInspector(); }
-function togglePose(el){ if(!el || isAnyBall(el)) return; recordHistory('Switch Body Position: '+displayName(el)); el.dataset.pose = el.dataset.pose==='h'?'v':'h'; place(el); if(ballCarrier===el) moveBallTo(el,ballHand); updateInspector(); }
+function togglePose(el){
+  if(!el || isAnyBall(el)) return;
+  recordHistory('Switch Body Position: '+displayName(el));
+  const wasCarrier = ballCarrier===el;
+  // See .poseTransitioning: keeps the ball visibly attached to the hand
+  // through the pose change instead of both snapping to their new spots
+  // instantly, which looked like the ball being let go and re-caught.
+  el.classList.add('poseTransitioning');
+  if(wasCarrier) ball.classList.add('poseTransitioning');
+  el.dataset.pose = el.dataset.pose==='h'?'v':'h';
+  place(el);
+  if(wasCarrier) moveBallTo(el,ballHand);
+  updateInspector();
+  setTimeout(()=>{ el.classList.remove('poseTransitioning'); if(wasCarrier) ball.classList.remove('poseTransitioning'); }, 220);
+}
 function bringForward(el){ if(!el) return; recordHistory(); el.style.zIndex=(+(el.style.zIndex|| (isAnyBall(el)?7:6))+1); }
 function sendBack(el){ if(!el) return; recordHistory(); el.style.zIndex=Math.max(2, +(el.style.zIndex|| (isAnyBall(el)?7:6))-1); }
 function lockObject(el){ if(!el) return; recordHistory((el.dataset.locked==='true'?'Unlock ':'Lock ')+displayName(el)); el.dataset.locked=el.dataset.locked==='true'?'false':'true'; updateInspector(); }
