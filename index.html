@@ -234,6 +234,26 @@
      spot, and Exit Tutorial (always visible during the tutorial) was
      covering the button Step 1 asks the coach to tap. */
   #tutorialExitBtn { position:fixed; bottom:calc(10px + env(safe-area-inset-bottom)); left:calc(10px + env(safe-area-inset-left)); z-index:1570; display:none; background:rgba(20,30,30,.85); color:#fff; border:none; border-radius:20px; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  /* Step-specific interaction lock -- deliberately CSS-declarative, not a
+     JS click/pointerdown interceptor. An earlier version of this idea
+     used a capturing-phase document listener with stopPropagation()/
+     preventDefault() to block everything outside the current target, and
+     that caused two reported total-lockup incidents on real devices: a
+     bug in the allow-check, or an exception mid-handler, meant every
+     future click on the page was silently swallowed forever, with no way
+     to recover short of reloading. This version can't fail that way --
+     pointer-events is a plain per-element CSS property with no runtime
+     logic that can throw or misbehave while handling an event. Blocks
+     everything by default, re-enables only .tutorialAllowed elements
+     (higher specificity naturally wins over the blanket rule, no
+     !important needed there), and gives Exit Tutorial and the
+     acknowledge button their own unconditional !important rules so they
+     work even if the allowlist-application logic itself has a bug. */
+  body.tutorialLockActive * { pointer-events: none; }
+  body.tutorialLockActive .tutorialAllowed,
+  body.tutorialLockActive .tutorialAllowed * { pointer-events: auto; }
+  #tutorialExitBtn { pointer-events: auto !important; }
+  #tutorialAcknowledgeBtn { pointer-events: auto !important; }
   body.tutorialModeActive #tutorialExitBtn { display:block; }
   .ghost img { display:block; }
   #measureText { font-size:.45px; font-weight:800; fill:#263238; paint-order:stroke; stroke:white; stroke-width:.12; pointer-events:none; }
@@ -4949,6 +4969,7 @@ function exitTutorial(){
   clearTutorialSpotlight();
   document.getElementById('tutorialDimOverlay')?.classList.remove('show');
   document.querySelectorAll('.tutorialArrowEl').forEach(el=>el.classList.remove('show'));
+  clearTutorialInteractionLock();
   tutorialSteps = []; tutorialStepIndex = -1; tutorialOnComplete = null;
 }
 document.getElementById('tutorialExitBtn')?.addEventListener('click', exitTutorial);
@@ -5090,6 +5111,7 @@ function tutorialTrackLoop(){
   // to be on, with no way to tell the difference between "not done yet"
   // and "actually broken".
   try{
+    applyTutorialInteractionLock(step);
     if(tutorialAdvancing){
       // Step already succeeded and the "Nice work!" confirmation is
       // showing -- the action that just satisfied validation frequently
@@ -5142,17 +5164,37 @@ function tutorialTrackLoop(){
 function resolveTutorialHighlightTargets(target){
   if(typeof target === 'function') target = target();
   if(!target) return [];
-  if(target instanceof Element) return [target];
-  if(typeof target === 'string') { const el = document.querySelector(target); return el ? [el] : []; }
+  // getClientRects() is empty specifically when an element (or an
+  // ancestor) is display:none -- unlike offsetParent, this correctly
+  // stays non-empty for a genuinely visible position:fixed element (most
+  // of this tutorial's targets), which offsetParent would incorrectly
+  // treat as "hidden" regardless of actual visibility.
+  const isVisible = (el) => !!el && el.getClientRects().length > 0;
+  if(target instanceof Element) return isVisible(target) ? [target] : [];
+  if(typeof target === 'string') { const el = document.querySelector(target); return (el && isVisible(el)) ? [el] : []; }
   if(Array.isArray(target)){
     const out = [];
     target.forEach(t=>{
       const el = t instanceof Element ? t : document.querySelector(t);
-      if(el) out.push(el);
+      if(el && isVisible(el)) out.push(el);
     });
     return out;
   }
   return [];
+}
+// Re-applied every poll tick (not just once at step start) because some
+// allowed elements are dynamically rebuilt mid-step -- the Quick Command
+// Bar's buttons are cloned from scratch on every render, so a class
+// applied once would be lost the next time it re-renders.
+function applyTutorialInteractionLock(step){
+  document.body.classList.add('tutorialLockActive');
+  document.querySelectorAll('.tutorialAllowed').forEach(el=>el.classList.remove('tutorialAllowed'));
+  const source = step && step.allowedSelectors !== undefined ? step.allowedSelectors : (step ? step.highlight : null);
+  resolveTutorialHighlightTargets(source).forEach(el=>el.classList.add('tutorialAllowed'));
+}
+function clearTutorialInteractionLock(){
+  document.body.classList.remove('tutorialLockActive');
+  document.querySelectorAll('.tutorialAllowed').forEach(el=>el.classList.remove('tutorialAllowed'));
 }
 // Per-target circle (same math the ring uses) -- both the dim overlay's
 // holes and the arrows are computed per-target now, not as one combined
@@ -5498,16 +5540,41 @@ function evaluateTutorialValidator(cfg){
       return cfg.min!=null ? n>=cfg.min : n===(cfg.equals ?? 0);
     }
     case 'stateMatchesCheckpoint': {
-      // Loose structural compare (positions within tolerance), used for
-      // the "Reset restores the checkpoint" step -- not a byte-for-byte diff.
+      // Comprehensive structural compare (values within tolerance where
+      // numeric, exact where categorical) against everything the
+      // checkpoint actually captured -- not just player coordinates. Any
+      // single mismatch below fails the whole check.
       if(!playbackCheckpoint) return false;
-      const now=getState(), want=playbackCheckpoint.state;
-      if(now.players.length!==want.players.length) return false;
-      return now.players.every(p=>{
-        const w=want.players.find(x=>x.label===p.label); if(!w) return false;
+      const now = getState(), want = playbackCheckpoint.state;
+      const angleDiff = (a,b) => { const d = Math.abs(((a-b)%360)+360)%360; return Math.min(d, 360-d); }; // wraparound-aware (e.g. 359 vs 1 is 2 apart, not 358)
+      if(now.players.length !== want.players.length) return false;
+      const playersMatch = now.players.every(p=>{
+        const w = want.players.find(x=>x.label===p.label);
+        if(!w) return false;
         const dx=p.x-w.x, dy=p.y-w.y;
-        return Math.sqrt(dx*dx+dy*dy) <= 0.6;
+        if(Math.sqrt(dx*dx+dy*dy) > 0.6) return false;
+        if(angleDiff(p.rot, w.rot) > 15) return false;
+        if(p.pose !== w.pose) return false;
+        if((p.blockArm||'none') !== (w.blockArm||'none')) return false;
+        return true;
       });
+      if(!playersMatch) return false;
+      // Ball: same carrier (or both riderless), and -- when there IS a
+      // carrier -- the ball's own position naturally follows from
+      // carrier+pose+hand, so checking the carrier already covers it; when
+      // there's no carrier, compare the ball's resting position directly.
+      const nowCarrier = now.ball.carrier || null, wantCarrier = want.ball.carrier || null;
+      if(nowCarrier !== wantCarrier) return false;
+      if(!nowCarrier){
+        const bdx = now.ball.x-want.ball.x, bdy = now.ball.y-want.ball.y;
+        if(Math.sqrt(bdx*bdx+bdy*bdy) > 0.6) return false;
+      } else if(now.ball.hand !== want.ball.hand) return false;
+      if(currentFrame !== playbackCheckpoint.frameIndex) return false;
+      if(!!shootingAngleActive !== !!playbackCheckpoint.shootingAngleActive) return false;
+      if(!!shotBlockActive !== !!playbackCheckpoint.shotBlockActive) return false;
+      if(!!ghostMode !== !!playbackCheckpoint.ghostMode) return false;
+      if(now.drawings.length !== want.drawings.length) return false;
+      return true;
     }
     case 'custom':
       return typeof cfg.fn==='function' ? !!cfg.fn() : false;
@@ -5705,6 +5772,28 @@ function buildFirstCoachingSessionSteps(){
   let smartPosGhostTarget = null;
   let scrollStartTop = 0; // captured fresh at the start of the Front Court scroll-gesture step
   let drawStepLastChangeTime = 0, drawStepLastSignature = ''; // track a "quiet period" on the drawing step -- see Step 19 below
+  // Shared by Steps 2 & 3: both have a highlighted target that lives
+  // inside a menu/list which the app itself closes the instant ANY item
+  // in it is tapped, correct or not -- leaving nothing on screen to point
+  // at if the wrong one was picked. Rather than trying to silently
+  // re-open that same container out from under the coach, this sends the
+  // whole tutorial back to Step 1 so the normal guided flow (tap
+  // Save/Open -> tap Open Sequence -> pick the right one) naturally walks
+  // them back in, with the ring/instruction always showing where to go
+  // next. Deferred one tick (not called synchronously mid-validate) to
+  // avoid re-entering goToTutorialStep from within its own poll loop, and
+  // guarded so it only fires once per landing on the affected step.
+  let menuRegressTriggered = false;
+  function regressToStep1(){
+    if(menuRegressTriggered) return;
+    menuRegressTriggered = true;
+    if(typeof closeAllSaveOpenBoxes==='function') closeAllSaveOpenBoxes(); // leaving e.g. #openItemBox open would make the Save/Open button's own toggle logic think something's already open, closing instead of opening on the coach's next tap
+    setTimeout(()=>{
+      if(!tutorialModeActive) return;
+      const step1Index = tutorialSteps.findIndex(s=>!s.isPreStep);
+      if(step1Index>=0) goToTutorialStep(step1Index);
+    }, 0);
+  }
   function computeSmartPosGhostTarget(){
     const w1 = document.querySelector('.player[data-label="W1"]');
     if(!w1 || typeof FIELD_ZONE_GOAL==='undefined') return null;
@@ -5831,6 +5920,7 @@ function buildFirstCoachingSessionSteps(){
     { // Step 1 -- tap the button that opens the Save/Open menu
       instruction: 'Tap the highlighted Save/Open button (top-right corner, the \u{1F4BE} icon).',
       bannerSide: 'left',
+      onEnter(){ menuRegressTriggered = false; }, // reset the guard whenever we land here, including after a regression from Step 2/3
       highlight: '#saveOpenBtn',
       validate: { type:'custom', fn: ()=> document.getElementById('saveOpenMenuBox')?.classList.contains('open') }
     },
@@ -5839,7 +5929,19 @@ function buildFirstCoachingSessionSteps(){
       bannerSide: 'left',
       highlight: '#soMenuOpenSequence',
       useShadeHighlight: true,
-      validate: { type:'custom', fn: ()=> document.getElementById('openItemBox')?.classList.contains('open') && soActiveKind==='sequence' }
+      validate: { type:'custom', fn: ()=>{
+        const ok = document.getElementById('openItemBox')?.classList.contains('open') && soActiveKind==='sequence';
+        if(!ok){
+          // Tapping a DIFFERENT menu option (e.g. "Open Formation") also
+          // closes the top-level Save/Open menu this step's target lives
+          // in -- send the tutorial back to Step 1 so the ring and
+          // instruction clearly show where to restart, rather than
+          // leaving the coach on a step whose target has vanished.
+          const menuBox = document.getElementById('saveOpenMenuBox');
+          if(menuBox && !menuBox.classList.contains('open')) regressToStep1();
+        }
+        return ok;
+      }}
     },
     { // Step 3 -- tap the specific sequence in the resulting list
       instruction: 'In the list, tap the highlighted "XquiX Tutorial - First Coaching Session" to load it.',
@@ -5848,7 +5950,17 @@ function buildFirstCoachingSessionSteps(){
       useShadeHighlight: true,
       validate: { type:'custom', fn: ()=>{
         const want = introFrames ? introFrames.length : null;
-        return want!=null && frames.length===want && currentFrame===0;
+        const ok = want!=null && frames.length===want && currentFrame===0;
+        if(!ok){
+          // Tapping ANY item in this list closes the whole menu, not just
+          // the wrong one -- if the coach picked something else, the menu
+          // is already gone with nothing left to highlight. Send the
+          // tutorial back to Step 1 rather than trying to silently
+          // re-open the list out from under them.
+          const box = document.getElementById('openItemBox');
+          if(box && !box.classList.contains('open')) regressToStep1();
+        }
+        return ok;
       }}
     },
     { // Step 4 (ref: T01 -- the intro's own last frame, no separate save needed)
@@ -5857,6 +5969,7 @@ function buildFirstCoachingSessionSteps(){
       skipSuccessMessage: true, // just watched the whole scene play -- that's plenty of its own feedback, a "Nice work!" after is redundant
       onEnter(){ tutorialShowTimelineRemote(); },
       highlight: playThenBoard,
+      allowedSelectors: '#tcPlayPauseBtn', // unconditional (unlike the highlight, which drops to nothing while playing) -- the coach should still be able to pause if they want, not just watch with no control at all
       validate: { type:'custom', fn: ()=> introFrames && currentFrame===introFrames.length-1 && !playing }
     },
     { // Step 5 -- Front Court (Zoomed) view, part 1: open the View panel.
@@ -6014,6 +6127,7 @@ function buildFirstCoachingSessionSteps(){
     },
     { // Step 19 (ref: T11) -- actually draw something
       instruction: 'Draw directly on the field with your finger or mouse -- any mark counts.',
+      allowedSelectors: '#board', // no highlight on this step (see the highlight-less design above), but the coach still needs to be able to draw
       onEnter(){ drawStepLastSignature = ''; drawStepLastChangeTime = Date.now(); },
       validate: { type:'custom', fn: ()=>{
         const els = [...document.querySelectorAll('#arrowsGroup .drawing')];
@@ -6091,6 +6205,7 @@ function buildFirstCoachingSessionSteps(){
         }
       },
       highlight: playThenBoard,
+      allowedSelectors: '#tcPlayPauseBtn', // unconditional, same reasoning as Step 4
       skipSuccessMessage: true, // just watched the drill play out to its finish -- that's the natural ending, no "Nice work!" needed on top of it
       validate: { type:'custom', fn: ()=>{
         const outro = tutorialSequenceFrames(OUTRO_NAME);
