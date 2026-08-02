@@ -5616,6 +5616,7 @@ function buildFirstCoachingSessionSteps(){
   // defender's blocking arm needs to end up genuinely inside the
   // attacker's real shooting angle, not just near some fixed spot.
   let smartPosGhostTarget = null;
+  let scrollStartTop = 0; // captured fresh at the start of the Front Court scroll-gesture step
   function computeSmartPosGhostTarget(){
     const w1 = document.querySelector('.player[data-label="W1"]');
     if(!w1 || typeof FIELD_ZONE_GOAL==='undefined') return null;
@@ -5771,8 +5772,23 @@ function buildFirstCoachingSessionSteps(){
       bannerSide: 'left', // was covering the option itself on a narrow phone screen
       onEnter(){ tutorialHideTimelineRemote(); }, // not needed again until the outro plays at the very end -- keeps the view clear until then
       highlight: '#viewOptionFrontCourtZoomed',
-      successMessage: 'You\u2019re zoomed in! Tip: swipe near the left/right or top/bottom edges to scroll the view.',
       validate: { type:'custom', fn: ()=> typeof frontCourtActive!=='undefined' && frontCourtActive && typeof frontCourtZoomed!=='undefined' && frontCourtZoomed }
+    },
+    { // Step 6b -- try the Front Court scroll gesture before marking any
+      // players. #fcScrollZoneLeft/Right are two narrow strips at the
+      // screen edges (see wireFrontCourtScrollZoneDrag) driven by pointer
+      // events, not a separate wheel/trackpad handler -- so the exact same
+      // gesture works for a mouse (click and drag) and touch (swipe),
+      // which is also why the instruction can describe both at once
+      // rather than needing separate mouse/touch guidance.
+      instruction: 'Try it: click-drag (or swipe) near the left/right edge of the screen to scroll up/down and see more of the field.',
+      onEnter(){ scrollStartTop = document.getElementById('stageWrap')?.scrollTop ?? 0; },
+      highlight: ['#fcScrollZoneLeft', '#fcScrollZoneRight'],
+      successMessage: 'That\u2019s the scroll gesture -- available any time Front Court view is active.',
+      validate: { type:'custom', fn: ()=>{
+        const wrap = document.getElementById('stageWrap');
+        return !!wrap && Math.abs(wrap.scrollTop - scrollStartTop) > 15;
+      }}
     },
     { // Step 7 (ref: T02)
       instruction: 'Tap the highlighted player to select -- this is the attacker who will run the drill.',
