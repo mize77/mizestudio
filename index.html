@@ -180,6 +180,16 @@
      explains it isn't even showing. */
   .tutorialArrowEl { display:none; position:fixed; z-index:1565; pointer-events:none; transform-origin:0 50%; }
   body.tutorialModeActive .tutorialArrowEl.show { display:block; }
+  /* Purpose-built for the Front Court scroll-gesture step -- the target
+     there is a tall, narrow strip at the screen edge, not a button-sized
+     control, so the usual circular ring looked oversized and mismatched.
+     Shades the strip's own actual shape in red instead, with a small
+     two-dot "fingers dragging" icon animating up and down inside it. */
+  .tutorialScrollHintZone { display:none; position:fixed; z-index:1560; pointer-events:none; background:rgba(232,54,42,.22); border-left:2px solid rgba(232,54,42,.85); border-right:2px solid rgba(232,54,42,.85); box-sizing:border-box; overflow:hidden; }
+  body.tutorialModeActive .tutorialScrollHintZone.show { display:block; }
+  .tutorialScrollHintFingers { position:absolute; left:50%; top:50%; display:flex; gap:10px; animation:tutorialScrollHintMove 1.6s ease-in-out infinite; }
+  .tutorialScrollHintFingers .fingerDot { width:15px; height:15px; border-radius:50%; background:#fff; border:2.5px solid #e8362a; box-shadow:0 2px 6px rgba(0,0,0,.35); }
+  @keyframes tutorialScrollHintMove { 0%,100% { transform:translate(-50%,-50%) translateY(-42px); } 50% { transform:translate(-50%,-50%) translateY(42px); } }
   /* Ghost TARGETS (where something needs to go) are visually distinct from
      the existing grayscale "previous frame" ghosts: pulsing to draw the
      eye, and a distinct brightness bump so it doesn't blend into a dark
@@ -4965,9 +4975,9 @@ function goToTutorialStep(index){
   // lighter ring + arrow for the rest of the step, once the person has
   // actually located the area and is about to act (dimming THROUGHOUT was
   // the earlier problem: it hid the very effect of the action itself).
-  tutorialSpotlightPhase = step.skipDimPhase ? 'ring' : 'dim';
+  tutorialSpotlightPhase = (step.skipDimPhase || step.useScrollHint) ? 'ring' : 'dim';
   tutorialHideAllHighlights();
-  if(!step.skipDimPhase){
+  if(!step.skipDimPhase && !step.useScrollHint){
     tutorialPhaseTimer = setTimeout(()=>{ tutorialSpotlightPhase = 'ring'; document.getElementById('tutorialDimOverlay')?.classList.remove('show'); }, 3000);
   }
   tutorialTrackLoop();
@@ -5057,6 +5067,7 @@ function tutorialHideAllHighlights(){
   document.querySelectorAll('.tutorialSpotlightRing, #tutorialSpotlight').forEach(el=>el.classList.remove('show'));
   document.getElementById('tutorialDimOverlay')?.classList.remove('show');
   document.querySelectorAll('.tutorialArrowEl').forEach(el=>el.classList.remove('show'));
+  tutorialHideScrollHints();
 }
 function tutorialTrackLoop(){
   if(!tutorialModeActive) return;
@@ -5076,6 +5087,8 @@ function tutorialTrackLoop(){
       // repositioned during this window; it's simply kept hidden until
       // the next step actually begins and has its own real target.
       tutorialHideAllHighlights();
+    } else if(step.useScrollHint){
+      positionTutorialScrollHint(step.highlight);
     } else if(tutorialSpotlightPhase === 'dim'){
       positionTutorialDimOverlay(step.highlight);
     } else {
@@ -5180,6 +5193,43 @@ function tutorialArrowEl(kind, i){
   return el;
 }
 let _tutorialArrowCount = 0;
+function tutorialScrollHintEl(i){
+  const id = 'tutorialScrollHint'+i;
+  let el = document.getElementById(id);
+  if(!el){
+    el = document.createElement('div');
+    el.id = id;
+    el.className = 'tutorialScrollHintZone';
+    el.innerHTML = '<div class="tutorialScrollHintFingers"><div class="fingerDot"></div><div class="fingerDot"></div></div>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+let _tutorialScrollHintCount = 0;
+// Shades each target's own actual rect in red (not a circle -- see
+// .tutorialScrollHintZone) with the animated two-dot hint centered in it.
+// Used only by the Front Court scroll-gesture step in place of the usual
+// ring; that step also skips the dim phase and arrows entirely (see
+// step.useScrollHint handling in tutorialTrackLoop/goToTutorialStep).
+function positionTutorialScrollHint(target){
+  const els = resolveTutorialHighlightTargets(target);
+  const n = Math.max(els.length, _tutorialScrollHintCount);
+  for(let i=0;i<n;i++){
+    const zone = tutorialScrollHintEl(i);
+    const el = els[i];
+    if(!el){ zone.classList.remove('show'); continue; }
+    const r = el.getBoundingClientRect();
+    zone.style.left = r.left+'px';
+    zone.style.top = r.top+'px';
+    zone.style.width = r.width+'px';
+    zone.style.height = r.height+'px';
+    zone.classList.add('show');
+  }
+  _tutorialScrollHintCount = els.length;
+}
+function tutorialHideScrollHints(){
+  document.querySelectorAll('.tutorialScrollHintZone').forEach(el=>el.classList.remove('show'));
+}
 // One long arrow (from the instruction panel toward the target) plus one
 // short "final approach" arrow (~3m at field scale, tip just outside the
 // ring) per highlighted target -- the long arrow gives the general
@@ -5784,6 +5834,7 @@ function buildFirstCoachingSessionSteps(){
       instruction: 'Try it: click-drag (or swipe) near the left/right edge of the screen to scroll up/down and see more of the field.',
       onEnter(){ scrollStartTop = document.getElementById('stageWrap')?.scrollTop ?? 0; },
       highlight: ['#fcScrollZoneLeft', '#fcScrollZoneRight'],
+      useScrollHint: true, // red-shaded strip + animated two-finger icon in place of the usual ring, which looked oversized and mismatched against this tall, narrow target
       successMessage: 'That\u2019s the scroll gesture -- available any time Front Court view is active.',
       validate: { type:'custom', fn: ()=>{
         const wrap = document.getElementById('stageWrap');
