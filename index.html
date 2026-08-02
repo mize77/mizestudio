@@ -190,6 +190,16 @@
   .tutorialScrollHintFingers { position:absolute; left:50%; top:50%; display:flex; gap:10px; animation:tutorialScrollHintMove 1.6s ease-in-out infinite; }
   .tutorialScrollHintFingers .fingerDot { width:15px; height:15px; border-radius:50%; background:#fff; border:2.5px solid #e8362a; box-shadow:0 2px 6px rgba(0,0,0,.35); }
   @keyframes tutorialScrollHintMove { 0%,100% { transform:translate(-50%,-50%) translateY(-42px); } 50% { transform:translate(-50%,-50%) translateY(42px); } }
+  /* General-purpose version of the same idea, without the scroll-specific
+     finger animation -- used for a button or list item living inside an
+     already-open box/panel/menu (the Save/Open menu, the sidebar Menu, the
+     Quick Command Bar, the View panel), where a circular ring around a
+     plainly rectangular control looked just as mismatched as it did for
+     the scroll zones. Standalone always-visible controls (edge tabs,
+     corner buttons) and player targets keep the ring -- circular there
+     already makes sense. */
+  .tutorialShadeHighlight { display:none; position:fixed; z-index:1560; pointer-events:none; box-sizing:border-box; background:rgba(232,54,42,.28); border:2.5px solid rgba(232,54,42,.9); border-radius:8px; animation:tutorialRingPulse 1.3s ease-in-out infinite; }
+  body.tutorialModeActive .tutorialShadeHighlight.show { display:block; }
   /* Ghost TARGETS (where something needs to go) are visually distinct from
      the existing grayscale "previous frame" ghosts: pulsing to draw the
      eye, and a distinct brightness bump so it doesn't blend into a dark
@@ -5068,6 +5078,7 @@ function tutorialHideAllHighlights(){
   document.getElementById('tutorialDimOverlay')?.classList.remove('show');
   document.querySelectorAll('.tutorialArrowEl').forEach(el=>el.classList.remove('show'));
   tutorialHideScrollHints();
+  tutorialHideShadeHighlights();
 }
 function tutorialTrackLoop(){
   if(!tutorialModeActive) return;
@@ -5091,6 +5102,9 @@ function tutorialTrackLoop(){
       positionTutorialScrollHint(step.highlight);
     } else if(tutorialSpotlightPhase === 'dim'){
       positionTutorialDimOverlay(step.highlight);
+    } else if(step.useShadeHighlight){
+      positionTutorialShadeHighlight(step.highlight);
+      positionTutorialArrows(step.highlight);
     } else {
       positionTutorialSpotlight(step.highlight);
       positionTutorialArrows(step.highlight);
@@ -5230,6 +5244,42 @@ function positionTutorialScrollHint(target){
 function tutorialHideScrollHints(){
   document.querySelectorAll('.tutorialScrollHintZone').forEach(el=>el.classList.remove('show'));
 }
+function tutorialShadeHighlightEl(i){
+  const id = 'tutorialShadeHighlight'+i;
+  let el = document.getElementById(id);
+  if(!el){
+    el = document.createElement('div');
+    el.id = id;
+    el.className = 'tutorialShadeHighlight';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+let _tutorialShadeHighlightCount = 0;
+// Rectangular red-shade version of positionTutorialSpotlight, for a target
+// living inside an already-open box/panel/menu rather than a standalone
+// control -- shades the target's own actual rect (with a small pad) in
+// place of drawing a circle around it.
+function positionTutorialShadeHighlight(target){
+  const els = resolveTutorialHighlightTargets(target);
+  const n = Math.max(els.length, _tutorialShadeHighlightCount);
+  for(let i=0;i<n;i++){
+    const box = tutorialShadeHighlightEl(i);
+    const el = els[i];
+    if(!el){ box.classList.remove('show'); continue; }
+    const r = el.getBoundingClientRect();
+    const pad = 4;
+    box.style.left = (r.left-pad)+'px';
+    box.style.top = (r.top-pad)+'px';
+    box.style.width = (r.width+pad*2)+'px';
+    box.style.height = (r.height+pad*2)+'px';
+    box.classList.add('show');
+  }
+  _tutorialShadeHighlightCount = els.length;
+}
+function tutorialHideShadeHighlights(){
+  document.querySelectorAll('.tutorialShadeHighlight').forEach(el=>el.classList.remove('show'));
+}
 // One long arrow (from the instruction panel toward the target) plus one
 // short "final approach" arrow (~3m at field scale, tip just outside the
 // ring) per highlighted target -- the long arrow gives the general
@@ -5249,19 +5299,17 @@ function positionTutorialArrows(target){
   const br = banner.getBoundingClientRect();
   const bx = br.left+br.width/2, by = br.top+br.height/2;
   const shortLen = Math.max(40, ((typeof meterPxX==='function'?meterPxX(3):90) + (typeof meterPxY==='function'?meterPxY(3):90))/2);
-  // On touch devices, only the short arrow (the one right next to the
-  // ring, pointing directly into it) is shown -- the long arrow spanning
-  // from the banner across the whole screen looked odd on a small display
-  // and, on multi-target steps, frequently crossed over itself or another
-  // arrow entirely.
-  const isTouchDevice = typeof window!=='undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
   for(let i=0;i<n;i++){
     const longArrow = tutorialArrowEl('Long', i);
     const shortArrow = tutorialArrowEl('Short', i);
     const el = els[i];
     if(!el){ longArrow.classList.remove('show'); shortArrow.classList.remove('show'); continue; }
+    // The long arrow (spanning from the banner across the screen) is
+    // suppressed on every device now, not just touch -- the spotlight/dim
+    // phase plus the ring already draw the eye, and on a bigger desktop
+    // screen it read as redundant clutter rather than added guidance.
+    longArrow.classList.remove('show');
     if(tutorialTargetInsideBanner(el)){
-      longArrow.classList.remove('show');
       shortArrow.classList.remove('show');
       continue;
     }
@@ -5271,22 +5319,11 @@ function positionTutorialArrows(target){
     const angleRad = Math.atan2(dy,dx), angleDeg = angleRad*180/Math.PI;
     const ux = Math.cos(angleRad), uy = Math.sin(angleRad);
     if(dist < 40){
-      longArrow.classList.remove('show');
       shortArrow.classList.remove('show');
       continue;
     }
-    if(isTouchDevice){
-      longArrow.classList.remove('show');
-    } else {
-      const edgeOffset = Math.min(br.width, br.height)/2 + 14;
-      longArrow.classList.add('show');
-      longArrow.style.width='100px'; longArrow.style.height='30px';
-      longArrow.style.left = (bx+ux*edgeOffset)+'px';
-      longArrow.style.top = (by+uy*edgeOffset)+'px';
-      longArrow.style.transform = 'translateY(-50%) rotate('+angleDeg+'deg)';
-    }
     // Short arrow's tip sits just outside the ring, tail further out along
-    // the same line -- independent of the long arrow's own length/anchor.
+    // the same line.
     const tipX = c.cx - ux*(c.r+6), tipY = c.cy - uy*(c.r+6);
     const tailX = tipX - ux*shortLen, tailY = tipY - uy*shortLen;
     shortArrow.classList.add('show');
@@ -5652,7 +5689,7 @@ function buildFirstCoachingSessionSteps(){
   const w1_T04 = tutorialFormationPlayer('T04 - Attacker Rotated Clockwise', 'W1');
   const w1_T06 = tutorialFormationPlayer('T06 - Quick Command Bar Open', 'W1'); // W1's position is stable from here through T13 -- used as the "hasn't drifted" reference for later steps
   const b6_T08 = tutorialFormationPlayer('T08 - Defender Moved into Shooting Angle', 'B6');
-  const playThenBoard = () => playing ? '#board' : '#tcPlayPauseBtn';
+  const playThenBoard = () => playing ? null : '#tcPlayPauseBtn'; // no highlight at all once playing -- a ring around the whole board looked oversized, and there's nothing to point at while the coach is just watching it play
   const QCB_SHOOTING_ANGLE = '#quickCommandBarInner button[title^="Shooting Angle"]';
   const QCB_FREE_DRAW = '#quickCommandBarInner button[title^="Free Draw"]';
   const QCB_CLEAR = '#quickCommandBarInner button[title^="Clear Arrows"]';
@@ -5667,13 +5704,23 @@ function buildFirstCoachingSessionSteps(){
   // attacker's real shooting angle, not just near some fixed spot.
   let smartPosGhostTarget = null;
   let scrollStartTop = 0; // captured fresh at the start of the Front Court scroll-gesture step
+  let drawStepLastChangeTime = 0, drawStepLastSignature = ''; // track a "quiet period" on the drawing step -- see Step 19 below
   function computeSmartPosGhostTarget(){
     const w1 = document.querySelector('.player[data-label="W1"]');
     if(!w1 || typeof FIELD_ZONE_GOAL==='undefined') return null;
     const x0 = +w1.dataset.x, y0 = +w1.dataset.y;
     const dx = FIELD_ZONE_GOAL.x - x0, dy = FIELD_ZONE_GOAL.y - y0;
     const dist = Math.sqrt(dx*dx+dy*dy) || 1;
-    return { team:w1.dataset.team, pose:w1.dataset.pose, rot:+w1.dataset.rot||0, x:x0+(dx/dist)*0.5, y:y0+(dy/dist)*0.5, label:'W1' };
+    const targetX = x0+(dx/dist)*0.5, targetY = y0+(dy/dist)*0.5;
+    // The ghost should show the rotation the attacker will actually end up
+    // facing once Smart Positioning auto-faces them at that spot -- not
+    // their current, pre-move rotation. Same formula maybeAutoFace()
+    // itself uses for its ball-carrier case (see faceRotationTo above),
+    // evaluated at the ghost's own target position rather than the
+    // player's current one, since that's the position the real auto-face
+    // will actually be computed from once the coach gets there.
+    const facedRot = (typeof faceRotationTo==='function') ? faceRotationTo(targetX, targetY, FIELD_ZONE_GOAL.x, FIELD_ZONE_GOAL.y) : null;
+    return { team:w1.dataset.team, pose:w1.dataset.pose, rot: facedRot!==null ? facedRot : (+w1.dataset.rot||0), x:targetX, y:targetY, label:'W1' };
   }
   // Keeps the defender's ghost target's Y adjusted so that, once Left Arm
   // is assigned two steps later, the resulting Shot Block Corridor lands
@@ -5791,12 +5838,14 @@ function buildFirstCoachingSessionSteps(){
       instruction: 'In the menu that just opened, tap the highlighted "Open Sequence".',
       bannerSide: 'left',
       highlight: '#soMenuOpenSequence',
+      useShadeHighlight: true,
       validate: { type:'custom', fn: ()=> document.getElementById('openItemBox')?.classList.contains('open') && soActiveKind==='sequence' }
     },
     { // Step 3 -- tap the specific sequence in the resulting list
       instruction: 'In the list, tap the highlighted "XquiX Tutorial - First Coaching Session" to load it.',
       bannerSide: 'left',
       highlight: ()=> [...document.querySelectorAll('#openItemList button')].find(b=>b.textContent==='XquiX Tutorial - First Coaching Session'),
+      useShadeHighlight: true,
       validate: { type:'custom', fn: ()=>{
         const want = introFrames ? introFrames.length : null;
         return want!=null && frames.length===want && currentFrame===0;
@@ -5822,6 +5871,7 @@ function buildFirstCoachingSessionSteps(){
       bannerSide: 'left', // was covering the option itself on a narrow phone screen
       onEnter(){ tutorialHideTimelineRemote(); }, // not needed again until the outro plays at the very end -- keeps the view clear until then
       highlight: '#viewOptionFrontCourtZoomed',
+      useShadeHighlight: true,
       validate: { type:'custom', fn: ()=> typeof frontCourtActive!=='undefined' && frontCourtActive && typeof frontCourtZoomed!=='undefined' && frontCourtZoomed }
     },
     { // Step 6b -- try the Front Court scroll gesture before marking any
@@ -5855,8 +5905,8 @@ function buildFirstCoachingSessionSteps(){
       validate: { type:'singleSelection', label:'W1' }
     },
     { // Step 6 (ref: T03)
-      instruction: 'Yellow oval = selected. Grey shade = target spot. Use the highlighted Direction Pad to move the attacker there. Dragging also works.',
-      highlight: ['.player[data-label="W1"]', '#directionPad'],
+      instruction: isTouchDevice ? 'Yellow oval = selected. Grey shade = target spot. Use the highlighted Direction Pad to move the attacker there. Dragging also works.' : 'Yellow oval = selected. Grey shade = target spot. Drag the attacker there with your mouse.',
+      highlight: isTouchDevice ? ['.player[data-label="W1"]', '#directionPad'] : '.player[data-label="W1"]',
       ghost: w1_T03 ? { type:'playerPosition', targetPlayer:{ team:w1_T03.team, pose:w1_T03.pose, rot:w1_T03.rot, x:w1_T03.x, y:w1_T03.y, label:'W1' } } : null,
       validate: w1_T03 ? { type:'playerPosition', label:'W1', x:w1_T03.x, y:w1_T03.y, tolerance:0.5 } : { type:'custom', fn:()=>false }
     },
@@ -5881,20 +5931,22 @@ function buildFirstCoachingSessionSteps(){
     { // Step 10 -- Smart Positioning: turn it on
       instruction: 'In the Quick Command Bar, tap the highlighted "Smart Positioning" icon to turn it on.',
       highlight: QCB_SMART_POSITIONING,
+      useShadeHighlight: true,
       validate: { type:'boolState', key:'smartPositioningActive', value:true }
     },
     { // Step 11 -- Smart Positioning: move the attacker a little and see the
       // effect. Ghost is computed fresh right as this step begins (see
       // computeSmartPosGhostTarget), not a fixed saved value.
-      instruction: 'Use the highlighted Direction Pad to nudge the attacker toward the grey shade -- watch it auto-face the goal.',
+      instruction: isTouchDevice ? 'Use the highlighted Direction Pad to nudge the attacker toward the grey shade -- watch it auto-face the goal.' : 'Drag the attacker toward the grey shade -- watch it auto-face the goal.',
       onEnter(){ smartPosGhostTarget = computeSmartPosGhostTarget(); this.ghost = smartPosGhostTarget ? { type:'playerPosition', targetPlayer:smartPosGhostTarget } : null; tutorialHideQuickCommandBar(); },
-      highlight: ['.player[data-label="W1"]', '#directionPad'],
+      highlight: isTouchDevice ? ['.player[data-label="W1"]', '#directionPad'] : '.player[data-label="W1"]',
       validate: { type:'custom', fn: ()=> smartPosGhostTarget ? evaluateTutorialValidator({ type:'playerPosition', label:'W1', x:smartPosGhostTarget.x, y:smartPosGhostTarget.y, tolerance:0.3 }) : false }
     },
     { // Step 12 (ref: T07)
       instruction: 'The Quick Command Bar is back -- tap the highlighted "Shooting Angle" icon to turn it on.',
       onEnter(){ tutorialShowQuickCommandBar(); },
       highlight: QCB_SHOOTING_ANGLE,
+      useShadeHighlight: true,
       validate: withPositionGuards({ type:'boolState', key:'shootingAngleActive', value:true }, w1GuardAfterStable)
     },
     { // Step 13 -- select (mark) the defender
@@ -5904,9 +5956,9 @@ function buildFirstCoachingSessionSteps(){
       validate: withPositionGuards({ type:'singleSelection', label:'B6' }, w1GuardAfterStable)
     },
     { // Step 14 (ref: T08, Y adjusted -- see computeDefenderGhostTarget above) -- drag the already-selected defender into place
-      instruction: 'Grey shade = target, inside the attacker\u2019s shooting angle. Use the highlighted Direction Pad to move the defender there. Keep it selected after.',
+      instruction: isTouchDevice ? 'Grey shade = target, inside the attacker\u2019s shooting angle. Use the highlighted Direction Pad to move the defender there. Keep it selected after.' : 'Grey shade = target, inside the attacker\u2019s shooting angle. Drag the defender there. Keep it selected after.',
       onEnter(){ defenderGhostTarget = b6_T08 ? computeDefenderGhostTarget(b6_T08.x, b6_T08.rot, b6_T08.team, b6_T08.pose, 'left') : null; this.ghost = defenderGhostTarget ? { type:'playerPosition', targetPlayer:defenderGhostTarget } : null; },
-      highlight: ['.player[data-label="B6"]', '#directionPad'],
+      highlight: isTouchDevice ? ['.player[data-label="B6"]', '#directionPad'] : '.player[data-label="B6"]',
       validate: { type:'custom', fn: ()=>{
         const b6 = document.querySelector('.player[data-label="B6"]');
         if(!b6 || !defenderGhostTarget) return false;
@@ -5957,16 +6009,39 @@ function buildFirstCoachingSessionSteps(){
       instruction: 'The Quick Command Bar is back -- tap the highlighted "Free Draw" icon.',
       onEnter(){ tutorialShowQuickCommandBar(); },
       highlight: QCB_FREE_DRAW,
+      useShadeHighlight: true,
       validate: withPositionGuards({ type:'custom', fn: ()=> mode==='freeDraw' }, w1GuardAfterStable)
     },
     { // Step 19 (ref: T11) -- actually draw something
       instruction: 'Draw directly on the field with your finger or mouse -- any mark counts.',
-      highlight: '#board',
-      validate: withPositionGuards({ type:'drawingCount', min:1 }, w1GuardAfterStable)
+      onEnter(){ drawStepLastSignature = ''; drawStepLastChangeTime = Date.now(); },
+      validate: { type:'custom', fn: ()=>{
+        const els = [...document.querySelectorAll('#arrowsGroup .drawing')];
+        if(els.length < 1) return false;
+        // A signature of every drawn path's own data -- changes not just
+        // when a new stroke is added, but also while an existing stroke is
+        // still being actively extended mid-drag (its `d` attribute keeps
+        // growing), which a simple count alone wouldn't catch. Resets the
+        // "quiet" timer on any change, so the tutorial won't advance while
+        // the coach is still mid-stroke.
+        const signature = els.map(el => el.getAttribute('d')||'').join('|');
+        if(signature !== drawStepLastSignature){
+          drawStepLastSignature = signature;
+          drawStepLastChangeTime = Date.now();
+          return false;
+        }
+        if(Date.now() - drawStepLastChangeTime < 2000) return false;
+        if(!w1GuardAfterStable.length) return true;
+        const g = w1GuardAfterStable[0], w1 = document.querySelector('.player[data-label="W1"]');
+        if(!w1) return false;
+        const dx=+w1.dataset.x-g.x, dy=+w1.dataset.y-g.y;
+        return Math.sqrt(dx*dx+dy*dy) <= g.tolerance;
+      }}
     },
     { // Step 20 (ref: T12)
       instruction: 'In the Quick Command Bar, tap the highlighted trash-can icon to remove your drawing(s).',
       highlight: QCB_CLEAR,
+      useShadeHighlight: true,
       validate: withPositionGuards({ type:'drawingCount', equals:0 }, w1GuardAfterStable)
     },
     { // Step 21 (ref: T13 -- validated via the Playback Checkpoint itself,
@@ -5974,7 +6049,8 @@ function buildFirstCoachingSessionSteps(){
       // list to need scrolling, which is also what was throwing the ring
       // off (measuring a button that wasn't actually in view yet).
       instruction: 'Open the Menu, then tap the highlighted "Reset" button under Formations & Packages to restore the board.',
-      skipDimPhase: true, // the dim overlay was darkening the rest of the open sidebar's own content (other menu items, category labels), not just drawing attention to Reset -- the ring alone is enough once the panel is already open and visually prominent
+      skipDimPhase: true, // the dim overlay was darkening the rest of the open sidebar's own content (other menu items, category labels), not just drawing attention to Reset -- the shade highlight alone is enough once the panel is already open and visually prominent
+      useShadeHighlight: true,
       onEnter(){
         if(typeof setMode==='function') setMode('select'); // Free Draw was turned on two steps ago -- back to Move/Toggle so the board is immediately usable again
         tutorialHideQuickCommandBar(); // not needed again for the rest of the tutorial
