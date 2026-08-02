@@ -225,8 +225,17 @@
   body.tutorialModeActive #tutorialBanner { display:block; }
   #tutorialBanner .tutorialStepCount { font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#9fe6c8; margin-bottom:4px; }
   #tutorialBanner .tutorialInstruction { font-size:14.5px; font-weight:600; line-height:1.4; text-align:left; }
-  #tutorialBanner .tutorialSuccessLine { font-size:13px; color:#9fe6c8; font-weight:700; margin-top:6px; display:none; }
-  #tutorialBanner .tutorialSuccessLine.show { display:block; }
+  /* Confirmation on completing a step: a centered, growing green
+     checkmark instead of swapping the instruction text for a "Nice
+     work!" line in the same box -- the text-swap approach read as
+     possibly-new instructions in the same place the coach was just
+     reading, easy to worry they'd missed something. The checkmark is
+     visually unmistakable as "that's done" rather than "here's more to
+     read", and lives independently of the banner (which is fully hidden,
+     not just showing different text) during this window. */
+  #tutorialCheckmark { display:none; position:fixed; top:50%; left:50%; width:110px; height:110px; z-index:1575; pointer-events:none; transform:translate(-50%,-50%) scale(0); opacity:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.35)); }
+  body.tutorialModeActive #tutorialCheckmark.show { display:block; animation:tutorialCheckmarkGrow 1s cubic-bezier(.34,1.56,.64,1) forwards; }
+  @keyframes tutorialCheckmarkGrow { 0% { transform:translate(-50%,-50%) scale(0); opacity:0; } 55% { transform:translate(-50%,-50%) scale(1.08); opacity:1; } 100% { transform:translate(-50%,-50%) scale(1); opacity:1; } }
   #tutorialAcknowledgeBtn { margin-top:10px; background:#1a6363; color:#fff; border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; }
   #tutorialAcknowledgeBtn:hover { background:#218080; }
   /* Directly below the Save/Open button (also top-right, 44px + 10px gap)
@@ -646,9 +655,12 @@
 <div id="tutorialBanner">
   <div class="tutorialStepCount" id="tutorialStepCount"></div>
   <div class="tutorialInstruction" id="tutorialInstruction"></div>
-  <div class="tutorialSuccessLine" id="tutorialSuccessLine"></div>
   <button id="tutorialAcknowledgeBtn" style="display:none;">Got it</button>
 </div>
+<svg id="tutorialCheckmark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="50" cy="50" r="46" fill="#1a9c6b"/>
+  <path d="M27 52 L43 67 L75 32" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
 <button id="tutorialExitBtn" title="Leave the guided tutorial at any time">Exit Tutorial</button>
 <div id="spotlightHitArea"></div>
 <div id="spotlightResizeHandle"></div>
@@ -4994,8 +5006,9 @@ function goToTutorialStep(index){
   const preStepCount = tutorialSteps.filter(s=>s.isPreStep).length;
   document.getElementById('tutorialStepCount').textContent = step.isPreStep ? 'Welcome' : ('Step '+(index-preStepCount+1)+' of '+(tutorialSteps.length-preStepCount));
   document.getElementById('tutorialInstruction').textContent = step.instruction || '';
-  const successLine = document.getElementById('tutorialSuccessLine');
-  successLine.classList.remove('show'); successLine.textContent = '';
+  document.getElementById('tutorialCheckmark')?.classList.remove('show');
+  const banner = document.getElementById('tutorialBanner');
+  if(banner) banner.style.visibility = 'visible';
   const ackBtn = document.getElementById('tutorialAcknowledgeBtn');
   if(ackBtn) ackBtn.style.display = step.requiresAcknowledge ? 'inline-block' : 'none';
   positionTutorialBanner(step.bannerSide || 'right');
@@ -5076,7 +5089,10 @@ window.addEventListener('resize', ()=>{
 let tutorialSuppressRemoteAutoHide = false;
 function updateTutorialBannerPlayingVisibility(){
   const banner = document.getElementById('tutorialBanner');
-  if(banner) banner.style.visibility = playing ? 'hidden' : 'visible';
+  // Not touched while the checkmark confirmation is showing (tutorialAdvancing)
+  // -- otherwise this runs every tick regardless of state and would flip the
+  // banner straight back to visible right after the success handler hides it.
+  if(banner && !tutorialAdvancing) banner.style.visibility = playing ? 'hidden' : 'visible';
   // The Remote Control isn't needed while the sequence is actually
   // running -- hiding it the instant playback starts (rather than only
   // between certain steps) maximizes the visible field for exactly the
@@ -5138,10 +5154,18 @@ function tutorialTrackLoop(){
       if(step.skipSuccessMessage){
         setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 0);
       } else {
-        const el = document.getElementById('tutorialSuccessLine');
-        el.textContent = step.successMessage || 'Nice work!';
-        el.classList.add('show');
-        setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 2000);
+        const banner = document.getElementById('tutorialBanner');
+        if(banner) banner.style.visibility = 'hidden';
+        const checkmark = document.getElementById('tutorialCheckmark');
+        if(checkmark){
+          checkmark.classList.remove('show');
+          void checkmark.offsetWidth; // force a reflow so the grow animation restarts cleanly on every step, not just the first time
+          checkmark.classList.add('show');
+        }
+        setTimeout(()=>{
+          checkmark?.classList.remove('show');
+          if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1);
+        }, 1000);
       }
     }
   } catch(err) {
@@ -5191,6 +5215,16 @@ function applyTutorialInteractionLock(step){
   document.querySelectorAll('.tutorialAllowed').forEach(el=>el.classList.remove('tutorialAllowed'));
   const source = step && step.allowedSelectors !== undefined ? step.allowedSelectors : (step ? step.highlight : null);
   resolveTutorialHighlightTargets(source).forEach(el=>el.classList.add('tutorialAllowed'));
+  // Standing exception, not step-specific: once Front Court view is
+  // active, the scroll zones stay usable regardless of the current
+  // step's own allowlist. Scrolling is a navigation aid, not a
+  // step-specific action -- without this, the field gets stuck wherever
+  // the earlier scroll-gesture demo step happened to leave it, with
+  // whatever scrolled out of view (e.g. the goalkeeper) staying hidden
+  // for the rest of the tutorial.
+  if(typeof frontCourtActive!=='undefined' && frontCourtActive){
+    resolveTutorialHighlightTargets(['#fcScrollZoneLeft', '#fcScrollZoneRight']).forEach(el=>el.classList.add('tutorialAllowed'));
+  }
 }
 function clearTutorialInteractionLock(){
   document.body.classList.remove('tutorialLockActive');
@@ -5928,6 +5962,7 @@ function buildFirstCoachingSessionSteps(){
       instruction: 'In the menu that just opened, tap the highlighted "Open Sequence".',
       bannerSide: 'left',
       highlight: '#soMenuOpenSequence',
+      allowedSelectors: '#saveOpenMenuBox', // the whole box, not just the one button -- needs to be scrollable in landscape on a phone, where it can be taller than the visible area; a wrong tap elsewhere in it is already handled gracefully below
       useShadeHighlight: true,
       validate: { type:'custom', fn: ()=>{
         const ok = document.getElementById('openItemBox')?.classList.contains('open') && soActiveKind==='sequence';
@@ -5947,6 +5982,7 @@ function buildFirstCoachingSessionSteps(){
       instruction: 'In the list, tap the highlighted "XquiX Tutorial - First Coaching Session" to load it.',
       bannerSide: 'left',
       highlight: ()=> [...document.querySelectorAll('#openItemList button')].find(b=>b.textContent==='XquiX Tutorial - First Coaching Session'),
+      allowedSelectors: '#openItemBox', // same reasoning as Step 2 -- the list itself needs to be scrollable to reach an item that's off-screen in landscape
       useShadeHighlight: true,
       validate: { type:'custom', fn: ()=>{
         const want = introFrames ? introFrames.length : null;
@@ -6173,6 +6209,7 @@ function buildFirstCoachingSessionSteps(){
         if(btn && typeof btn.scrollIntoView==='function') btn.scrollIntoView({block:'nearest'});
       },
       highlight: '#resetBtn',
+      allowedSelectors: '#controlsPanel', // the whole sidebar, not just the button -- may still need manual scrolling to reach it in a short landscape viewport even after the programmatic scrollIntoView above
       validate: { type:'stateMatchesCheckpoint' }
     },
     { // Step 22 (ref: T14 -- the Continuation sequence, loaded fresh as this step begins)
