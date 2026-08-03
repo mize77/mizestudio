@@ -32,13 +32,16 @@
   body.presentation #closeHeaderBtn::before { content:'\2715'; font-size:14px; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
   #edgeTabStack { position:fixed; top:50%; right:0; transform:translateY(-50%); z-index:1460; display:flex; flex-direction:column; gap:6px; max-height:94vh; max-height:94dvh; }
   .edgeTab { position:static; writing-mode:vertical-rl; text-orientation:mixed; padding:12px 7px; background:#124d4d; color:#fff; border:none; border-radius:8px 0 0 8px; cursor:pointer; font-weight:700; letter-spacing:.04em; box-shadow:-2px 2px 10px rgba(0,0,0,.2); font-size:13px; flex-shrink:1; }
-  /* Guest Experience Mode: only View, Quicks, and Menu remain visible --
-     every other edge handle (and the camera-turn buttons, which aren't
-     edgeTab elements but are equally unneeded for the tutorial) stays
-     hidden the entire time. Hidden via CSS, not removed from the DOM --
-     the normal Studio is completely unaffected when this class isn't
-     present, and a future enhancement could selectively re-show these
-     later without any structural change. */
+  /* Guest Experience Mode: only View, Quicks, and Menu are ever visible
+     or interactive, both during the guided tutorial and during free
+     play afterward. The other right-edge handles (Presentation,
+     Timeline, Shot Clock, Spotlight, Field Zones, Player Setups, Window)
+     are hidden entirely -- not just non-interactive -- matching the
+     original intent. This is a standing Layer 1 restriction, independent
+     of the tutorial's own step-by-step lock (Layer 2). The camera-turn
+     buttons (studioNavLeft/Right, which aren't edgeTab elements) and the
+     Save/Search UI are unrelated to this and stay fully hidden as
+     before. */
   body.guestExperienceActive #presentationModeHandle,
   body.guestExperienceActive #timelineToggleTab,
   body.guestExperienceActive #shotClockToggleBtn,
@@ -51,6 +54,23 @@
   body.guestExperienceActive #soMenuSaveFormation,
   body.guestExperienceActive #soMenuSaveSequence,
   body.guestExperienceActive #openItemSearch { display:none !important; }
+  /* Menu restricted to Movement & Ball, Drawing Tools, and Formations &
+     Packages (itself narrowed to just Reset -- New/Save Formation/Save
+     Package hidden). Editing and Presentation categories hidden
+     entirely. Opening the one available saved item is handled by the
+     separate Save/Open button restrictions above, not this sidebar.
+     More Tools & Panels (#moreToolsPanel) is a separate <details>
+     element outside all five cmdCategory groups -- Inspector, Layers,
+     Team Manager, Object Engine JSON debug, Version History, and more --
+     none of which is part of the three allowed categories, so the whole
+     section is hidden rather than trying to pick individual items out
+     of it. */
+  body.guestExperienceActive .cmdCategory[data-cat="editing"],
+  body.guestExperienceActive .cmdCategory[data-cat="present"],
+  body.guestExperienceActive #moreToolsPanel,
+  body.guestExperienceActive #newBtn,
+  body.guestExperienceActive #saveFormationBtn,
+  body.guestExperienceActive #savePackageBtn { display:none !important; }
   #quickCommandBar { position:fixed; top:12px; right:12px; z-index:70; background:rgba(255,255,255,.96); border:1px solid #c3d2d2; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.2); display:flex; align-items:center; gap:4px; padding:6px 8px; }
   #quickCommandBar { z-index:1520; top:12px; left:50%; right:auto; transform:translateX(-50%); }
   #quickCommandBarHandle { cursor:grab; padding:6px 8px; margin:-6px 2px -6px -8px; background:#124d4d; color:#fff; border-radius:8px 0 0 8px; touch-action:none; display:flex; align-items:center; justify-content:center; align-self:stretch; }
@@ -282,7 +302,21 @@
   body.tutorialLockActive .tutorialAllowed * { pointer-events: auto; }
   #tutorialExitBtn { pointer-events: auto !important; }
   #tutorialAcknowledgeBtn { pointer-events: auto !important; }
-  body.tutorialModeActive #tutorialExitBtn { display:block; }
+  #tutorialInstruction { pointer-events: auto !important; user-select: none; -webkit-user-select: none; }
+  #guestWelcomeScreen h1 { user-select: none; -webkit-user-select: none; }
+  /* Every guest overlay (Exit confirmation, completion, error, welcome,
+     A2HS guide) and everything inside it stays clickable no matter what
+     -- the Exit confirmation specifically is shown WHILE the tutorial's
+     interaction lock is still active (the coach taps Exit mid-step), and
+     without this exemption its own three buttons inherited the lock's
+     blanket "block everything" rule just like any other unlisted
+     element, making the dialog impossible to dismiss in a real browser
+     even though it displayed correctly. This is exactly the class of
+     escape-hatch UI that must never be blockable, so it gets the same
+     unconditional !important treatment as Exit Tutorial itself. */
+  .guestOverlay, .guestOverlay * { pointer-events: auto !important; }
+  .closeToolPanelBtn, #toolPanelBackdrop { pointer-events: auto !important; }
+  body.tutorialModeActive #tutorialExitBtn, body.guestFreePlayActive #tutorialExitBtn { display:block; }
   .ghost img { display:block; }
   #measureText { font-size:.45px; font-weight:800; fill:#263238; paint-order:stroke; stroke:white; stroke-width:.12; pointer-events:none; }
   .rotateHandle { position:absolute; left:50%; top:-8px; width:16px; height:16px; border-radius:50%; background:rgba(255,255,255,.85); border:1.5px solid #263238; box-shadow:0 1px 3px rgba(0,0,0,.35); transform:translate(-50%,-50%); cursor:grab; z-index:9; touch-action:none; opacity:0; transition:opacity .12s; }
@@ -614,6 +648,26 @@
   .guestOverlayButtons { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:20px; }
   .guestOverlayButtons button { padding:11px 22px; border-radius:10px; font-size:14px; font-weight:600; border:1.5px solid #1b7373; background:#fff; color:#1b7373; cursor:pointer; }
   .guestOverlayButtons button:first-child { background:#1b7373; color:#fff; }
+  /* Add-to-Home-Screen guide: reuses the tutorial's own ring
+     (positionTutorialSpotlight) and dim-overlay-with-hole
+     (positionTutorialDimOverlay) to point at the approximate on-screen
+     location of the native Share button (iOS) or browser menu (Android)
+     -- neither of which is part of the page's own DOM, so there's
+     nothing real to highlight; this overlay's background is transparent
+     specifically so the dim overlay/ring render against the actual page
+     underneath rather than a solid color, matching how they look during
+     the real tutorial. */
+  .guestOverlay.guestOverlayTransparentBg { background:transparent; }
+  #guestA2HSTarget { position:fixed; width:44px; height:44px; pointer-events:none; opacity:0; }
+  /* Autoplay demo hand cursor -- moves between targets via a plain CSS
+     transition on left/top (duration set per-move in JS, since some
+     moves like a full drag across the field should look slower/more
+     deliberate than a quick tap), with a brief scale-pulse on "tap".
+     Hidden by default; only shown while the autoplay loop is running. */
+  #guestAutoplayHand { position:fixed; z-index:6000; font-size:42px; line-height:1; pointer-events:none; display:none; transform:translate(-8px,-6px); transition:left .65s cubic-bezier(.4,0,.2,1), top .65s cubic-bezier(.4,0,.2,1); filter:drop-shadow(0 3px 7px rgba(0,0,0,.45)); }
+  body.guestAutoplayActive #guestAutoplayHand.show { display:block; }
+  #guestAutoplayHand.tapping { animation:guestAutoplayTap .24s ease; }
+  @keyframes guestAutoplayTap { 0%{transform:translate(-8px,-6px) scale(1);} 50%{transform:translate(-8px,-6px) scale(.8);} 100%{transform:translate(-8px,-6px) scale(1);} }
   .cmdCatHeader { width:100%; display:flex; align-items:center; justify-content:space-between; text-align:left; background:#fff; border:0; border-radius:9px; padding:8px 10px; font-size:12.5px; }
   .cmdCatHeader .chev { transition:transform .15s; color:#8a9494; font-size:11px; }
   .cmdCategory.open .cmdCatHeader .chev { transform:rotate(90deg); }
@@ -697,6 +751,18 @@
   <path d="M27 52 L43 67 L75 32" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 <button id="tutorialExitBtn" title="Leave the guided tutorial at any time">Exit Tutorial</button>
+<div id="tutorialOrientationWarning" class="guestOverlay">
+  <div class="guestOverlayBox">
+    <svg viewBox="0 0 24 24" width="48" height="48" fill="#d92b2b" style="margin-bottom:6px;"><path d="M12 2 L23 21 L1 21 Z"/><rect x="10.8" y="8" width="2.4" height="7" fill="#fff"/><rect x="10.8" y="16.5" width="2.4" height="2.4" fill="#fff"/></svg>
+    <h2>Previous Step Not Completed</h2>
+    <p>It looks like your device is still in portrait mode -- the last step asked you to rotate to landscape first.</p>
+    <p>Do you want to rotate now, or continue in portrait anyway?</p>
+    <div class="guestOverlayButtons">
+      <button type="button" id="tutorialOrientationRotateBtn">Rotate &amp; Try Again</button>
+      <button type="button" id="tutorialOrientationContinueBtn">Continue in Portrait</button>
+    </div>
+  </div>
+</div>
 <div id="spotlightHitArea"></div>
 <div id="spotlightResizeHandle"></div>
 <button id="spotlightRemoveBtn" title="Remove spotlight">&#10005;</button>
@@ -934,6 +1000,7 @@
       <button id="shotBlockToggleBtn" data-tip="Show a translucent triangular corridor behind each defender's blocking arm, showing how much of the shot they're covering. Shift+Y toggles this on/off. Select a defender, then Shift+L / Shift+R to assign their blocking arm (or right-click/long-press the defender and choose Left Arm / Right Arm / No Block).">Shot Block Corridors: Off</button>
       <button id="goalieVisionToggleBtn" data-tip="Show each goalie's field of view as a green cone, always centered on the ball. A wider, lighter secondary cone shows the peripheral area they should also stay aware of.">Goalie Vision Field: Off</button>
       <button id="shootingAngleToggleBtn" data-tip="Show two dotted lines from the ball to each goal post for the current ball carrier, marking their shooting angle -- and the point the goalie should center on. Only shows for a vertical (non-swimming) player with the ball.">Shooting Angle: Off</button>
+      <button id="smartGoaliePositioningToggleBtn" data-tip="When on, the defending goalie (opposite color from whoever has the ball) automatically moves along an arc centered on their own goal, squared to the shooter, up to a configurable maximum turning angle and lateral distance. Click to open its settings.">Smart Goalie Positioning: Off</button>
     </div>
   </div>
 
@@ -1308,6 +1375,27 @@
     </div>
   </div>
 </div>
+<div id="guestWelcomeScreen" class="guestOverlay">
+  <div class="guestOverlayBox">
+    <h1>Welcome to XquiX Studio</h1>
+    <div id="guestWelcomeMessage"></div>
+    <div class="guestOverlayButtons">
+      <button type="button" id="guestWelcomeContinueBtn">Continue</button>
+      <button type="button" id="guestWelcomeSkipBtn">Skip for Now</button>
+    </div>
+  </div>
+</div>
+<div id="guestA2HSGuideScreen" class="guestOverlay guestOverlayTransparentBg">
+  <div class="guestOverlayBox">
+    <h2>Just One More Step</h2>
+    <div id="guestA2HSGuideMessage"></div>
+    <div class="guestOverlayButtons">
+      <button type="button" id="guestA2HSContinueBtn">Continue</button>
+    </div>
+  </div>
+</div>
+<div id="guestA2HSTarget"></div>
+<div id="guestAutoplayHand" aria-hidden="true">&#x1F446;</div>
 <div id="guestCompletionScreen" class="guestOverlay">
   <div class="guestOverlayBox">
     <h1>Congratulations!</h1>
@@ -1329,7 +1417,7 @@
 </div>
 <div id="guestErrorScreen" class="guestOverlay">
   <div class="guestOverlayBox">
-    <h2>The Guest Experience could not be prepared.</h2>
+    <h2>The XquiX Studio Experience could not be prepared.</h2>
     <p>Please reload the page.</p>
     <p>If the problem continues, contact the person who shared this experience.</p>
     <div class="guestOverlayButtons">
@@ -1463,6 +1551,15 @@ const MizeDialog = (function(){
     <label style="display:block;margin-bottom:8px;"><input type="radio" name="shotClockDirection" id="shotClockDirUp"> Count up</label>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><input type="checkbox" id="shotClockSyncPackage"> Sync to package duration when playing</label>
     <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="shotClockShowOnScreen" checked> Show clocks on screen</label>
+  </div>
+</div>
+<div class="toolPanel" id="smartGoaliePositioningPanel">
+  <div class="toolPanelHeader"><h3>Smart Goalie Positioning</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input type="checkbox" id="smartGoalieEnabledCheckbox"> Enabled</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">Distance to goal-line, central position (m): <input id="smartGoalieDistanceInput" type="number" min="0.1" max="5" step="0.1" value="0.9" style="width:70px;"></label>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">Maximum turning angle (±°, from squared to the other goal): <input id="smartGoalieMaxAngleInput" type="number" min="0" max="90" step="1" value="45" style="width:70px;"></label>
+    <label style="display:flex;align-items:center;gap:8px;">Lateral reach of the arc (±m, together with Distance to Goal this shapes the arc -- circle if equal, oval if not; fully reached only at a 90° max angle): <input id="smartGoalieMaxLateralInput" type="number" min="0.1" max="5" step="0.1" value="1.2" style="width:70px;"></label>
   </div>
 </div>
 <div class="toolPanel" id="viewPanel">
@@ -1650,6 +1747,11 @@ const fieldZonesGroup = document.getElementById('fieldZonesGroup');
 let shotBlockActive=false;
 let goalieVisionActive=false;
 let shootingAngleActive=false;
+let smartGoaliePositioningActive=false;
+let smartGoalieDistanceToGoal=0.9; // meters off the goal line in the central (angle=0) position -- this is also the radius of the arc the goalie moves along
+let smartGoalieMaxTurnAngle=45; // degrees, +/- from squared-to-the-other-goal; also caps how far around that arc the goalie moves
+let smartGoalieMaxLateralDist=1.2; // meters, +/- from goal center -- independent safety cap (e.g. if distanceToGoal is increased enough that the angle cap alone would push the goalie past this)
+let _smartGoaliePositioningUpdating=false; // reentrancy guard for renderSmartGoaliePositioning() -- declared here (not next to that function, much later in the file) so it's already initialized by the time place()/placeBall() can first call it, including during initial script execution
 const MIZE = { State: {}, Field: {}, Players: {}, Ball: {}, Timeline: {}, Storage: {}, Presentation: {}, UI: {} };
 // Shot Clock state, migrated into the MIZE namespace (Stage 2, slice 2).
 // Previously six independent global bindings; field names below map 1:1
@@ -2658,6 +2760,7 @@ MIZE.State.settings = {};
   ['frontCourtActive', ()=>frontCourtActive, v=>frontCourtActive=v],
   ['shotBlockActive', ()=>shotBlockActive, v=>shotBlockActive=v],
   ['goalieVisionActive', ()=>goalieVisionActive, v=>goalieVisionActive=v],
+  ['smartGoaliePositioningActive', ()=>smartGoaliePositioningActive, v=>smartGoaliePositioningActive=v],
   ['smartPositioningActive', ()=>smartPositioningActive, v=>smartPositioningActive=v],
   ['multiSelectMode', ()=>multiSelectMode, v=>multiSelectMode=v],
   ['snapEnabled', ()=>snapEnabled, v=>snapEnabled=v],
@@ -3049,6 +3152,7 @@ function place(el) {
   renderShotBlockCorridors();
   renderGoalieVision();
   renderShootingAngle();
+  renderSmartGoaliePositioning();
 }
 // Sizes an extra ball exactly like the primary ball (see placeBall()) --
 // kept in its own function since extra balls go through the generic
@@ -3092,6 +3196,7 @@ function attachLongPress(el, getTarget) {
     const t=e.touches[0]; sx=t.clientX; sy=t.clientY;
     clearTimeout(timer);
     timer=setTimeout(()=>{
+      if(typeof tutorialModeActive!=='undefined' && tutorialModeActive) return;
       const target=getTarget();
       if(!target || target.dataset?.locked==='true') return;
       moved=true; dragging=null; rotating=null;
@@ -3168,6 +3273,10 @@ function makePlayer([label,team,x,y,pose,rot]) {
     if(!selected.has(el)){
       clearSelection(); setSelected(el,true);
     } else {
+      if(typeof tutorialModeActive!=='undefined' && tutorialModeActive){
+        const _step = typeof tutorialSteps!=='undefined' ? tutorialSteps[tutorialStepIndex] : null;
+        if(!_step || !_step.allowsPoseToggle) return;
+      }
       recordHistory();
       const wasCarrier = ballCarrier===el;
       el.classList.add('poseTransitioning');
@@ -3182,6 +3291,7 @@ function makePlayer([label,team,x,y,pose,rot]) {
   el.addEventListener('dblclick', e=>{
     if(layerState.lockPlayers || el.dataset.locked==='true') return;
     if(e.target.classList.contains('rotateHandle')) return;
+    if(typeof tutorialModeActive!=='undefined' && tutorialModeActive) return;
     clearSelection(); setSelected(el, true);
     openToolPanel('inspectorPanel');
     e.preventDefault(); e.stopPropagation();
@@ -3239,6 +3349,7 @@ function placeBall() {
   renderShotBlockCorridors();
   renderGoalieVision();
   renderShootingAngle();
+  renderSmartGoaliePositioning();
 }
 
 // Declared here (far above the rest of Tutorial Mode, which lives with the
@@ -4482,6 +4593,13 @@ function ballToHand(hand){
 }
 document.getElementById('ballLeftBtn').onclick=()=>ballToHand('left');
 document.getElementById('ballRightBtn').onclick=()=>ballToHand('right');
+(function(){
+  const leftIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><circle cx="15" cy="12" r="4.5"/><path d="M9 12H2M6 8l-4 4 4 4"/></svg>';
+  const rightIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><circle cx="9" cy="12" r="4.5"/><path d="M15 12h7M18 8l4 4-4 4"/></svg>';
+  const lBtn = document.getElementById('ballLeftBtn'), rBtn = document.getElementById('ballRightBtn');
+  if(lBtn) lBtn.innerHTML = leftIcon + lBtn.textContent;
+  if(rBtn) rBtn.innerHTML = rightIcon + rBtn.textContent;
+})();
 document.getElementById('deleteSelectedBtn').onclick=()=>deleteSelectedObject();
 document.getElementById('copySelectedBtn').onclick=()=>copySelected();
 document.getElementById('pasteSelectedBtn').onclick=()=>pasteClipboard();
@@ -5018,6 +5136,12 @@ function startTutorial(steps, { onComplete } = {}){
   // to a known clean state every time, not just the first time.
   if(typeof setMode==='function') setMode('select');
   if(typeof clearArrows==='function') clearArrows(true);
+  // Same reasoning as the state resets above -- a second run must not
+  // inherit whatever view mode the previous run left active. Front Court
+  // Zoomed is turned on mid-tutorial (Step 6) and never turned back off
+  // by the tutorial itself, so without this a replay would silently
+  // start from the zoomed view instead of the intended full-court default.
+  if(typeof toggleFrontCourt==='function'){ frontCourtZoomed=false; toggleFrontCourt(false); if(typeof updateViewOptionCards==='function') updateViewOptionCards(); }
   // The field should read as a blank slate the moment the tutorial opens,
   // not whatever formation was left over from the coach's last real
   // session -- Step 1 has the person load the tutorial's own intro
@@ -5029,6 +5153,16 @@ function startTutorial(steps, { onComplete } = {}){
   if(typeof shootingAngleActive!=='undefined'){ shootingAngleActive=false; if(typeof _shootingAngleUI!=='undefined') _shootingAngleUI.render(); }
   if(typeof shotBlockActive!=='undefined'){ shotBlockActive=false; if(typeof _shotBlockUI!=='undefined') _shotBlockUI.render(); }
   if(typeof smartPositioningActive!=='undefined'){ smartPositioningActive=false; if(typeof _smartPositioningUI!=='undefined') _smartPositioningUI.render(); }
+  // Both of these are cloned into the Quick Command Bar (see
+  // QUICKBAR_PRESETS) regardless of their own edge tab being hidden in
+  // Guest Experience Mode, so either can be turned on during free play --
+  // without resetting them here too, they'd silently carry over into the
+  // next tutorial run instead of starting from a clean slate.
+  if(typeof goalieVisionActive!=='undefined'){ goalieVisionActive=false; if(typeof _goalieVisionUI!=='undefined') _goalieVisionUI.render(); }
+  if(typeof smartGoaliePositioningActive!=='undefined'){ smartGoaliePositioningActive=false; if(typeof updateSmartGoaliePositioningButton==='function') updateSmartGoaliePositioningButton(); }
+  if(typeof tutorialContinueInPortrait!=='undefined') tutorialContinueInPortrait=false;
+  if(typeof hideTutorialOrientationWarning==='function') hideTutorialOrientationWarning();
+  if(typeof MIZE!=='undefined' && MIZE.State && MIZE.State.fieldZones && MIZE.State.fieldZones.active!=='none' && typeof selectFieldZoneSet==='function'){ selectFieldZoneSet('none'); }
   if(typeof ghostMode!=='undefined' && typeof clearGhosts==='function'){ ghostMode=false; clearGhosts(); }
   if(typeof renderShotBlockCorridors==='function') renderShotBlockCorridors();
   // The Quick Command Bar's buttons are clones rebuilt from the real
@@ -5078,6 +5212,37 @@ document.getElementById('tutorialExitBtn')?.addEventListener('click', exitTutori
 let tutorialSpotlightPhase = 'dim'; // 'dim' (brief orientation flash) then 'ring' (the rest of the step)
 let tutorialPhaseTimer = null;
 let tutorialManualAck = false;
+// Testers were rushing past the landscape pre-step without actually
+// rotating their device, then getting stuck on the scroll-gesture step
+// (or missing the point of it, since the full field's already visible in
+// portrait) with no indication of why. This is a general "did the
+// previous step's real-world instruction actually happen" pattern --
+// currently applied to orientation specifically, since that's the
+// concrete case reported, but built as its own reusable check/overlay
+// rather than landscape-specific logic buried in one step's validate.
+function tutorialIsLandscape(){
+  try {
+    if(window.matchMedia) return window.matchMedia('(orientation: landscape)').matches;
+  } catch(err){ /* fall through to the size-based check below */ }
+  return window.innerWidth > window.innerHeight;
+}
+let tutorialContinueInPortrait = false; // set once the coach explicitly confirms continuing despite the warning -- read by the scroll-gesture step to skip itself, since scrolling won't demonstrate anything useful when the full field's already visible
+function showTutorialOrientationWarning(){
+  document.getElementById('tutorialOrientationWarning')?.classList.add('open');
+}
+function hideTutorialOrientationWarning(){
+  document.getElementById('tutorialOrientationWarning')?.classList.remove('open');
+}
+document.getElementById('tutorialOrientationRotateBtn')?.addEventListener('click', ()=>{
+  hideTutorialOrientationWarning();
+  // Nothing else to do -- the coach taps "Got it" again once actually
+  // rotated, which re-runs the same check in the step's validate below.
+});
+document.getElementById('tutorialOrientationContinueBtn')?.addEventListener('click', ()=>{
+  tutorialContinueInPortrait = true;
+  tutorialManualAck = true;
+  hideTutorialOrientationWarning();
+});
 function goToTutorialStep(index){
   tutorialAdvancing = false;
   tutorialManualAck = false;
@@ -5323,8 +5488,24 @@ function clearTutorialInteractionLock(){
 // holes and the arrows are computed per-target now, not as one combined
 // region, so a two-target step gets two small spotlights and two arrow
 // pairs rather than one big area picking an arbitrary shared center.
-function tutorialTargetCircle(el){
+// If this target is a player with an active tutorial ghost showing where
+// it needs to move to, the enclosed rect grows to cover both the live
+// player and the ghost together -- otherwise the ghost (deliberately
+// placed outside the player's own footprint) ends up peeking out from
+// under the circle's edge instead of being visibly enclosed along with
+// the player it belongs to.
+function tutorialRectWithGhost(el){
   const r = el.getBoundingClientRect();
+  if(!el.classList || !el.classList.contains('player')) return r;
+  const ghostEl = document.querySelector('#tutorialGhostLayer .tutorialGhostTarget');
+  if(!ghostEl) return r;
+  const g = ghostEl.getBoundingClientRect();
+  const left = Math.min(r.left, g.left), top = Math.min(r.top, g.top);
+  const right = Math.max(r.right, g.right), bottom = Math.max(r.bottom, g.bottom);
+  return { left, top, right, bottom, width: right-left, height: bottom-top };
+}
+function tutorialTargetCircle(el){
+  const r = tutorialRectWithGhost(el);
   const cx = r.left + r.width/2, cy = r.top + r.height/2;
   const radius = Math.max(36, Math.sqrt(r.width*r.width + r.height*r.height)/2 + 14);
   return { cx, cy, r:radius };
@@ -5536,7 +5717,7 @@ function positionTutorialSpotlight(target){
       _tutorialRingLast[i] = null;
       continue;
     }
-    const r = el.getBoundingClientRect();
+    const r = tutorialRectWithGhost(el);
     const cx = r.left + r.width/2, cy = r.top + r.height/2;
     const radius = Math.max(30, Math.sqrt(r.width*r.width + r.height*r.height)/2 + 12);
     overlay.classList.add('show');
@@ -5959,6 +6140,7 @@ function buildFirstCoachingSessionSteps(){
     return { team:refTeam, pose:refPose, rot:refRot, x:refX, y:targetCenterY-armOffsetY, label:'B6' };
   }
   let defenderGhostTarget = null;
+  let defenderStartPos = null; // captured at Step 14's onEnter -- see the validate function there for why this is needed
   // Direct geometric check (mirrors computeShotBlockCorridor() and
   // renderShootingAngle() exactly) for "would this exact defender
   // position/rotation produce a corridor fully inside the shooting
@@ -6038,7 +6220,13 @@ function buildFirstCoachingSessionSteps(){
       instruction: 'For the best view, hold your device in landscape (sideways) -- this shows the field more clearly.\n\nTap "Got it" to continue.',
       bannerSide: 'left',
       highlight: '#tutorialAcknowledgeBtn',
-      validate: { type:'custom', fn: ()=> tutorialManualAck }
+      validate: { type:'custom', fn: ()=>{
+        if(!tutorialManualAck) return false;
+        if(tutorialContinueInPortrait || tutorialIsLandscape()) return true;
+        showTutorialOrientationWarning();
+        tutorialManualAck = false;
+        return false;
+      }}
     }] : []),
     { // Step 1 -- tap the button that opens the Save/Open menu
       instruction: 'Tap the highlighted Save/Open button (top-right corner, the \u{1F4BE} icon).',
@@ -6119,8 +6307,13 @@ function buildFirstCoachingSessionSteps(){
       // gesture works for a mouse (click and drag) and touch (swipe),
       // which is also why the instruction can describe both at once
       // rather than needing separate mouse/touch guidance.
-      instruction: 'Try it: click-drag (or swipe) near the left/right edge of the screen to scroll up/down and see more of the field.',
-      onEnter(){ scrollStartTop = document.getElementById('stageWrap')?.scrollTop ?? 0; },
+      instruction: 'Try it: click-drag (or swipe) near the left/right edge of the screen to scroll up/down and see more of the field. Make sure your device is in landscape mode.',
+      onEnter(){
+        scrollStartTop = document.getElementById('stageWrap')?.scrollTop ?? 0;
+        if(tutorialContinueInPortrait){
+          setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 0);
+        }
+      },
       highlight: ['#fcScrollZoneLeft', '#fcScrollZoneRight'],
       useScrollHint: true, // red-shaded strip + animated two-finger icon in place of the usual ring, which looked oversized and mismatched against this tall, narrow target
       successMessage: 'That\u2019s the scroll gesture -- available any time Front Court view is active.',
@@ -6195,11 +6388,27 @@ function buildFirstCoachingSessionSteps(){
     },
     { // Step 14 (ref: T08, Y adjusted -- see computeDefenderGhostTarget above) -- drag the already-selected defender into place
       instruction: isTouchDevice ? 'Grey shade = target, inside the attacker\u2019s shooting angle. Use the highlighted Direction Pad to move the defender there. Keep it selected after.' : 'Grey shade = target, inside the attacker\u2019s shooting angle. Drag the defender there. Keep it selected after.',
-      onEnter(){ defenderGhostTarget = b6_T08 ? computeDefenderGhostTarget(b6_T08.x, b6_T08.rot, b6_T08.team, b6_T08.pose, 'left') : null; this.ghost = defenderGhostTarget ? { type:'playerPosition', targetPlayer:defenderGhostTarget } : null; },
+      onEnter(){
+        defenderGhostTarget = b6_T08 ? computeDefenderGhostTarget(b6_T08.x, b6_T08.rot, b6_T08.team, b6_T08.pose, 'left') : null;
+        this.ghost = defenderGhostTarget ? { type:'playerPosition', targetPlayer:defenderGhostTarget } : null;
+        const b6start = document.querySelector('.player[data-label="B6"]');
+        defenderStartPos = b6start ? { x:+b6start.dataset.x, y:+b6start.dataset.y } : null;
+      },
       highlight: isTouchDevice ? ['.player[data-label="B6"]', '#directionPad'] : '.player[data-label="B6"]',
       validate: { type:'custom', fn: ()=>{
         const b6 = document.querySelector('.player[data-label="B6"]');
         if(!b6 || !defenderGhostTarget) return false;
+        // Requires actual movement during this step -- the defender's
+        // inherited starting position (wherever the intro sequence's last
+        // frame left it) can already sit close enough to the target to
+        // pass the checks below on its own, which would let the checkmark
+        // fire without the coach doing anything. 0.15m is comfortably
+        // more than positional noise but well under a single D-pad nudge
+        // or drag, so it doesn't get in the way of a real move.
+        if(defenderStartPos){
+          const moved = Math.hypot(+b6.dataset.x-defenderStartPos.x, +b6.dataset.y-defenderStartPos.y);
+          if(moved < 0.15) return false;
+        }
         // Generous sanity check (right general area) -- the real gate is
         // the direct corridor-containment check just below, which the
         // proximity check alone can't reliably guarantee (see
@@ -6236,11 +6445,13 @@ function buildFirstCoachingSessionSteps(){
       instruction: 'Tap the highlighted defender once (not a drag) to switch to a horizontal (swimming) position.',
       successMessage: 'The corridor is only available while the defender is vertical, so it drops away here -- that\u2019s expected.',
       highlight: '.player[data-label="B6"]',
+      allowsPoseToggle: true,
       validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'h' }, w1GuardAfterStable)
     },
     { // Step 17 (ref: T10)
       instruction: 'Tap the highlighted defender once more (a single tap) to switch the defender back to a vertical position.',
       highlight: '.player[data-label="B6"]',
+      allowsPoseToggle: true,
       validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'v' }, w1GuardAfterStable)
     },
     { // Step 18 -- turn on Free Draw
@@ -6382,12 +6593,12 @@ document.getElementById('devPreviewRealTutorialBtn')?.addEventListener('click', 
 function guestOverlayEl(id){ return document.getElementById(id); }
 
 function showGuestOverlay(id){
-  ['guestExitConfirmOverlay','guestCompletionScreen','guestErrorScreen'].forEach(other=>{
+  ['guestWelcomeScreen','guestA2HSGuideScreen','guestExitConfirmOverlay','guestCompletionScreen','guestErrorScreen'].forEach(other=>{
     guestOverlayEl(other)?.classList.toggle('open', other===id);
   });
 }
 function hideGuestOverlays(){
-  ['guestExitConfirmOverlay','guestCompletionScreen','guestErrorScreen'].forEach(id=>{
+  ['guestWelcomeScreen','guestA2HSGuideScreen','guestExitConfirmOverlay','guestCompletionScreen','guestErrorScreen'].forEach(id=>{
     guestOverlayEl(id)?.classList.remove('open');
   });
 }
@@ -6461,8 +6672,26 @@ function prepareGuestInterface(){
 // Ends the current guest session in a way that can never reveal the
 // full Studio -- exits whatever tutorial state exists, then shows a
 // dedicated closing screen instead of the normal Studio underneath.
-function endGuestSessionWithScreen(){
+// fromNaturalCompletion is true only when the tutorial finished on its
+// own (not an early exit via the confirmation dialog, which can happen
+// at any point and may not have the outro loaded at all).
+function endGuestSessionWithScreen(fromNaturalCompletion){
+  if(fromNaturalCompletion){
+    // "The setup before the final sequence started" -- frame 0 of the
+    // outro/continuation sequence is exactly the freshly-taught,
+    // just-Reset setup the coach was looking at right before pressing
+    // Play, before the scripted playback moved everything to wherever
+    // its last frame ends up. Rewinding here is what makes the later
+    // free-play phase start from that clean, fully-set-up board instead
+    // of the outro's finishing positions.
+    try {
+      currentFrame = 0;
+      if(typeof loadFrame==='function') loadFrame(0);
+      if(typeof renderFrames==='function') renderFrames();
+    } catch(err){ console.error('Could not rewind to the outro\u2019s starting frame:', err); }
+  }
   if(typeof exitTutorial === 'function') exitTutorial();
+  document.body.classList.remove('guestFreePlayActive');
   hideGuestOverlays();
   showGuestOverlay('guestCompletionScreen');
 }
@@ -6477,48 +6706,611 @@ function showGuestExperienceErrorScreen(){
 // Guest-Experience-specific piece is what happens on completion: instead
 // of a simple congratulatory alert (the normal Studio's behavior, see
 // the dev-preview button above), the Studio stays locked behind a
-// dedicated completion screen.
+// dedicated completion screen, which then leads into free play.
 function launchTutorial(){
+  document.body.classList.remove('guestFreePlayActive');
   startTutorial(buildFirstCoachingSessionSteps(), {
-    onComplete: endGuestSessionWithScreen
+    onComplete: ()=>endGuestSessionWithScreen(true)
   });
+}
+
+// Lets the coach use the Experience for their own exploration after
+// finishing it -- Layer 1 (edge-handle and Menu restrictions) stays
+// exactly as it was throughout the tutorial; this only removes the
+// completion overlay and keeps Exit Experience reachable so they can
+// still restart or leave from here.
+function enterGuestFreePlay(){
+  hideGuestOverlays();
+  document.body.classList.add('guestFreePlayActive');
 }
 
 async function startGuestExperience(){
   try {
     await waitForStudioInitialization();
     await waitForIntroAnimation();
-    if(!verifyTutorialAssets()) throw new Error('Guest Experience: required tutorial assets are missing.');
+    if(!verifyTutorialAssets()) throw new Error('XquiX Studio Experience: required tutorial assets are missing.');
     prepareGuestInterface();
+    await showGuestWelcomeScreenIfNeeded();
     launchTutorial();
   } catch(err) {
-    console.error('Guest Experience failed to initialize:', err);
+    console.error('XquiX Studio Experience failed to initialize:', err);
     showGuestExperienceErrorScreen();
   }
 }
+
+// ===== Welcome Screen =====
+// Purely an extra onboarding step ahead of the tutorial -- inserted
+// between the intro animation finishing and the tutorial actually
+// launching. Doesn't touch buildFirstCoachingSessionSteps, startTutorial,
+// or any validation logic at all: it's just one more await in
+// startGuestExperience's existing sequence, resolving once the coach
+// presses Continue/Skip (or immediately, without ever showing anything,
+// if they've already seen it on this browser).
+const GUEST_WELCOME_SEEN_KEY = 'xquixGuestWelcomeSeenV1';
+
+function detectGuestWelcomeDeviceKind(){
+  const ua = (navigator.userAgent || '');
+  // iPadOS 13+ reports its UA as a Mac, distinguishable only by touch
+  // support -- a real Mac has maxTouchPoints of 0.
+  const isIPadOS13Plus = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  if(/iPhone|iPad|iPod/.test(ua) || isIPadOS13Plus) return 'ios';
+  if(/Android/.test(ua)) return 'android';
+  return 'desktop';
+}
+function isGuestWelcomeTablet(){
+  const ua = navigator.userAgent || '';
+  return /iPad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+// Builds the device-specific message/button set into the existing
+// overlay markup rather than three separate overlays, since the
+// structure (title + message + buttons) is identical either way.
+// iOS/Android intentionally keep this first message brief and point to
+// the guide for the actual steps -- "Continue" here means "show me the
+// guide", not "start the tutorial", so the detailed instructions live in
+// that guide screen instead of being duplicated here.
+function populateGuestWelcomeScreen(kind){
+  const msg = document.getElementById('guestWelcomeMessage');
+  const skipBtn = document.getElementById('guestWelcomeSkipBtn');
+  const continueBtn = document.getElementById('guestWelcomeContinueBtn');
+  if(!msg) return;
+  if(kind === 'ios'){
+    msg.innerHTML = '<p>For the best experience, we recommend adding XquiX Studio to your Home Screen.</p>'
+      + '<p>Tap \u2018Show Me How\u2019 for step-by-step guidance, or \u2018Skip for Now\u2019 to continue in your browser.</p>';
+    if(continueBtn) continueBtn.textContent = 'Show Me How';
+    if(skipBtn) skipBtn.style.display = '';
+  } else if(kind === 'android'){
+    msg.innerHTML = '<p>For the best experience, add XquiX Studio to your Home Screen.</p>'
+      + '<p>Tap \u2018Show Me How\u2019 for step-by-step guidance, or \u2018Skip for Now\u2019 to continue in your browser.</p>';
+    if(continueBtn) continueBtn.textContent = 'Show Me How';
+    if(skipBtn) skipBtn.style.display = '';
+  } else {
+    msg.innerHTML = '<p>Your first coaching session takes approximately 2 minutes.</p>'
+      + '<p>Press Continue when you\u2019re ready.</p>';
+    // Desktop is completely unchanged -- Continue only, no guide, no install step to skip.
+    if(continueBtn) continueBtn.textContent = 'Continue';
+    if(skipBtn) skipBtn.style.display = 'none';
+  }
+}
+
+// ===== Add-to-Home-Screen guide =====
+// Reuses the tutorial's own ring (positionTutorialSpotlight) and
+// dim-overlay-with-hole (positionTutorialDimOverlay) rather than plain
+// text -- but honestly: the Share button (iOS) and browser menu
+// (Android) are native browser chrome, not part of this page's DOM, so
+// there's no real element to highlight. This points the exact same
+// visual system at an invisible placeholder positioned at that control's
+// approximate on-screen location instead. The arrow isn't reused here --
+// it's anchored to the tutorial's own banner, which isn't shown yet at
+// this point (the tutorial hasn't started), so its position would be
+// meaningless. The ring and dim-hole alone still deliver the core
+// "spotlight" visual language.
+function populateA2HSGuideMessage(kind){
+  const msg = document.getElementById('guestA2HSGuideMessage');
+  if(!msg) return;
+  if(kind === 'ios'){
+    const where = isGuestWelcomeTablet() ? 'near the top of your screen' : 'in your browser\u2019s toolbar';
+    msg.innerHTML = '<p>If you see a \u2018\u2022\u2022\u2022\u2019 (more) icon in your toolbar, tap it first.</p>'
+      + '<p>Then tap the highlighted Share button (\u25A1\u2191) '+where+', then choose \u2018Add to Home Screen\u2019.</p>'
+      + '<p>Once installed, tap Continue below to begin your first coaching session.</p>';
+  } else {
+    msg.innerHTML = '<p>Tap the highlighted menu icon near the top of your screen, then choose \u2018Add to Home Screen\u2019 or \u2018Install App\u2019.</p>'
+      + '<p>Once installed, tap Continue below to begin your first coaching session.</p>';
+  }
+}
+
+// Approximate on-screen position of the native control per platform --
+// necessarily a best guess (browser chrome layout varies by version and
+// device), not a precise measurement, since the page has no way to ask
+// the browser where its own UI is.
+function positionA2HSTarget(kind){
+  const target = document.getElementById('guestA2HSTarget');
+  if(!target) return;
+  target.style.top = target.style.bottom = target.style.left = target.style.right = target.style.transform = '';
+  if(kind === 'ios' && !isGuestWelcomeTablet()){
+    // iPhone Safari: bottom toolbar, Share icon roughly centered
+    Object.assign(target.style, { bottom:'10px', left:'50%', transform:'translateX(-50%)' });
+  } else {
+    // iPad Safari and Android Chrome: top toolbar/address bar area, control near the top-right
+    Object.assign(target.style, { top:'10px', right:'14px' });
+  }
+}
+
+let _guestA2HSResizeHandler = null;
+function showAddToHomeScreenGuide(kind, onFinish){
+  hideGuestOverlays();
+  populateA2HSGuideMessage(kind);
+  positionA2HSTarget(kind);
+  const target = document.getElementById('guestA2HSTarget');
+  const reposition = () => { positionTutorialDimOverlay(target); positionTutorialSpotlight(target); };
+  reposition();
+  _guestA2HSResizeHandler = () => { positionA2HSTarget(kind); reposition(); };
+  window.addEventListener('resize', _guestA2HSResizeHandler);
+  window.addEventListener('orientationchange', _guestA2HSResizeHandler);
+  showGuestOverlay('guestA2HSGuideScreen');
+  document.getElementById('guestA2HSContinueBtn')?.addEventListener('click', ()=>{
+    if(_guestA2HSResizeHandler){
+      window.removeEventListener('resize', _guestA2HSResizeHandler);
+      window.removeEventListener('orientationchange', _guestA2HSResizeHandler);
+      _guestA2HSResizeHandler = null;
+    }
+    // Cleanly resets the ring/dim-overlay (shared with the real tutorial)
+    // before it starts, so nothing from this guide lingers into its own
+    // first use of these same elements.
+    tutorialHideAllHighlights();
+    onFinish();
+  }, {once:true});
+}
+
+// True once the page is actually running as an installed app (launched
+// from a home-screen icon), not just in a regular browser tab --
+// window.navigator.standalone is the iOS Safari signal, the
+// display-mode media query is the standards-based one Android/Chrome
+// and other platforms use. Checked ahead of (and independent from) the
+// localStorage flag below: it's read directly from how the page is
+// currently running rather than relying on persisted state, so it
+// covers the flag never having been set for whatever reason too.
+function isGuestExperienceInstalled(){
+  try {
+    if(window.navigator.standalone === true) return true;
+    if(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+  } catch(err){ /* ignore, treat as not installed */ }
+  return false;
+}
+
+function showGuestWelcomeScreenIfNeeded(){
+  return new Promise(resolve=>{
+    if(isGuestExperienceInstalled()){ resolve(); return; } // already installed -- nothing left to recommend
+    let alreadySeen = false;
+    try { alreadySeen = localStorage.getItem(GUEST_WELCOME_SEEN_KEY) === '1'; } catch(err){ alreadySeen = false; }
+    if(alreadySeen){ resolve(); return; }
+    const kind = detectGuestWelcomeDeviceKind();
+    populateGuestWelcomeScreen(kind);
+    const finish = () => {
+      try { localStorage.setItem(GUEST_WELCOME_SEEN_KEY, '1'); } catch(err){ /* private browsing etc -- shows again next time, harmless */ }
+      hideGuestOverlays();
+      resolve();
+    };
+    const continueBtn = document.getElementById('guestWelcomeContinueBtn');
+    const skipBtn = document.getElementById('guestWelcomeSkipBtn');
+    if(kind === 'desktop'){
+      continueBtn?.addEventListener('click', finish, {once:true});
+    } else {
+      continueBtn?.addEventListener('click', ()=> showAddToHomeScreenGuide(kind, finish), {once:true});
+      skipBtn?.addEventListener('click', finish, {once:true});
+    }
+    showGuestOverlay('guestWelcomeScreen');
+  });
+}
+
+// ===== Autoplay Demo =====
+// Runs the entire guided tutorial on its own -- for recording a
+// screen-capture video. Deliberately does NOT drive step transitions
+// itself: it performs the same underlying action a real tap/drag would
+// (a real click dispatch, or the same dataset+place() update dragging
+// produces), then waits for the tutorial's own existing poll loop
+// (tutorialTrackLoop) to detect success and advance, exactly as it does
+// for a human. The only genuinely new surface here is the visible hand
+// cursor and the per-step script deciding what to do next -- none of
+// buildFirstCoachingSessionSteps' validation or highlight logic is
+// touched or duplicated.
+function autoplayWait(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+function autoplayHandEl(){ return document.getElementById('guestAutoplayHand'); }
+
+function autoplaySetHandPosition(x, y, durationMs){
+  const hand = autoplayHandEl();
+  if(!hand) return;
+  hand.style.transitionDuration = (durationMs||650)+'ms';
+  hand.classList.add('show');
+  hand.style.left = x+'px';
+  hand.style.top = y+'px';
+}
+
+function autoplayPointFor(el){
+  const r = el.getBoundingClientRect();
+  return { x:r.left+r.width/2, y:r.top+r.height/2 };
+}
+
+// Resolves the same way the ring/dim-overlay already do (supports a
+// selector string, an array, a function, or a direct Element) -- reused
+// rather than re-implemented so the hand always points at exactly what
+// the ring would circle.
+async function autoplayMoveHandToTarget(target, durationMs){
+  const els = resolveTutorialHighlightTargets(target);
+  const el = els[0];
+  if(!el) return null;
+  const p = autoplayPointFor(el);
+  autoplaySetHandPosition(p.x, p.y, durationMs);
+  await autoplayWait((durationMs||650)+40);
+  return el;
+}
+
+async function autoplayTapPulse(){
+  const hand = autoplayHandEl();
+  if(!hand) return;
+  hand.classList.remove('tapping');
+  void hand.offsetWidth; // force a reflow so the pulse animation restarts cleanly every time, not just the first
+  hand.classList.add('tapping');
+  await autoplayWait(260);
+}
+
+// The common case: move the hand to a target, tap it, dispatch a real
+// click. Covers the great majority of steps (menu items, QCB toggles,
+// Play, Reset) without any step-specific code.
+async function autoplayClickTarget(target, opts={}){
+  await autoplayWait(opts.pauseBefore ?? 550);
+  const el = await autoplayMoveHandToTarget(target, opts.moveMs ?? 650);
+  if(!el) return false;
+  await autoplayTapPulse();
+  el.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
+  await autoplayWait(opts.pauseAfter ?? 550);
+  return true;
+}
+
+function autoplayQCBButton(titlePrefix){
+  return [...document.querySelectorAll('#quickCommandBarInner button')].find(b=>b.title && b.title.startsWith(titlePrefix)) || null;
+}
+
+function autoplayGhostTarget(){
+  // The current step's own ghost config (set by its onEnter, exactly as
+  // the tutorial's own ghost overlay reads it) -- read dynamically rather
+  // than hardcoded, so this stays correct even if the underlying
+  // reference formations/sequences are ever revised.
+  const step = tutorialSteps[tutorialStepIndex];
+  return step && step.ghost && step.ghost.targetPlayer ? step.ghost.targetPlayer : null;
+}
+
+async function autoplaySelectPlayer(label){
+  await autoplayWait(550);
+  const el = document.querySelector('.player[data-label="'+label+'"]');
+  if(!el) return false;
+  await autoplayMoveHandToTarget(el, 650);
+  await autoplayTapPulse();
+  if(typeof clearSelection==='function') clearSelection();
+  if(typeof setSelected==='function') setSelected(el, true);
+  await autoplayWait(550);
+  return true;
+}
+
+// Drags a player to wherever this step's own ghost says it should end
+// up -- the ghost's on-screen position IS the drop point, so the hand's
+// destination and the actual target position never disagree.
+async function autoplayDragPlayerToGhost(label, opts={}){
+  await autoplayWait(500);
+  const el = document.querySelector('.player[data-label="'+label+'"]');
+  const target = autoplayGhostTarget();
+  if(!el || !target) return false;
+  await autoplayMoveHandToTarget(el, 500);
+  await autoplayWait(150);
+  const ghostEl = document.querySelector('#tutorialGhostLayer .tutorialGhostTarget');
+  if(ghostEl){
+    const p = autoplayPointFor(ghostEl);
+    autoplaySetHandPosition(p.x, p.y, opts.dragMs ?? 950);
+    await autoplayWait((opts.dragMs ?? 950)+60);
+  }
+  el.dataset.x = String(target.x);
+  el.dataset.y = String(target.y);
+  if(typeof target.rot === 'number') el.dataset.rot = String(target.rot);
+  if(typeof place==='function') place(el);
+  await autoplayWait(600);
+  return true;
+}
+
+async function autoplayRotatePlayerToGhost(label, opts={}){
+  await autoplayWait(500);
+  const el = document.querySelector('.player[data-label="'+label+'"]');
+  const target = autoplayGhostTarget();
+  if(!el || !target || typeof target.rot !== 'number') return false;
+  // A few visible taps on the rotate button (looks authentic) -- the
+  // actual rotation is set directly afterward via the same dataset+
+  // place() update a drag would produce, which is what genuinely
+  // satisfies the step's tolerance-based check reliably.
+  const btn = document.getElementById('paSpinCwBtn');
+  for(let i=0;i<3 && btn;i++){
+    await autoplayMoveHandToTarget(btn, i===0?550:250);
+    await autoplayTapPulse();
+    await autoplayWait(120);
+  }
+  el.dataset.rot = String(target.rot);
+  if(typeof place==='function') place(el);
+  await autoplayWait(600);
+  return true;
+}
+
+async function autoplayGiveBall(label){
+  await autoplayWait(500);
+  const el = document.querySelector('.player[data-label="'+label+'"]');
+  const btn = document.getElementById('paClaimBallBtn');
+  if(!el) return false;
+  await autoplayMoveHandToTarget(btn || el, 600);
+  await autoplayTapPulse();
+  if(typeof moveBallTo==='function') moveBallTo(el, 'right');
+  await autoplayWait(550);
+  return true;
+}
+
+async function autoplayAssignLeftArm(){
+  await autoplayWait(500);
+  const el = document.querySelector('.player[data-label="B6"]');
+  const btn = document.getElementById('paLeftArmBtn');
+  if(!el) return false;
+  await autoplayMoveHandToTarget(btn || el, 600);
+  await autoplayTapPulse();
+  if(typeof setArmSide==='function') setArmSide(el, 'left');
+  await autoplayWait(550);
+  return true;
+}
+
+async function autoplayTogglePose(label){
+  await autoplayWait(500);
+  const el = document.querySelector('.player[data-label="'+label+'"]');
+  if(!el) return false;
+  await autoplayMoveHandToTarget(el, 600);
+  await autoplayTapPulse();
+  el.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
+  await autoplayWait(550);
+  return true;
+}
+
+// Same corridor-containment reasoning the real fix for this step relies
+// on (see Step 14's own validate comment): moving exactly onto the
+// ghost's position can occasionally land within its own required
+// movement threshold of where the defender already was. A small nudge
+// past the ghost target, in the same direction, clears that safely
+// without drifting outside the corridor's own tolerance.
+async function autoplayMoveDefenderToGhost(){
+  const el = document.querySelector('.player[data-label="B6"]');
+  const startX = el ? +el.dataset.x : null, startY = el ? +el.dataset.y : null;
+  const ok = await autoplayDragPlayerToGhost('B6', { dragMs: 1000 });
+  if(!ok || !el || startX===null) return ok;
+  const dx = +el.dataset.x-startX, dy = +el.dataset.y-startY;
+  const moved = Math.hypot(dx, dy);
+  if(moved < 0.2){
+    const scale = moved > 0.001 ? (0.28/moved) : 1;
+    el.dataset.x = String(startX + dx*scale);
+    el.dataset.y = String(startY + dy*scale);
+    if(typeof place==='function') place(el);
+    await autoplayWait(300);
+  }
+  return true;
+}
+
+async function autoplayScrollGesture(){
+  await autoplayWait(600);
+  const zone = document.getElementById('fcScrollZoneRight') || document.getElementById('fcScrollZoneLeft');
+  const wrap = document.getElementById('stageWrap');
+  if(!zone || !wrap) return false;
+  await autoplayMoveHandToTarget(zone, 600);
+  const startTop = wrap.scrollTop;
+  const targetTop = startTop + 120;
+  const steps = 10;
+  for(let i=1;i<=steps;i++){
+    wrap.scrollTop = startTop + (targetTop-startTop)*(i/steps);
+    const p = autoplayPointFor(zone);
+    autoplaySetHandPosition(p.x, p.y - i*4, 120);
+    await autoplayWait(70);
+  }
+  await autoplayWait(500);
+  return true;
+}
+
+async function autoplayDrawSomething(){
+  await autoplayWait(600);
+  const board = document.getElementById('board');
+  const arrowsGroup = document.getElementById('arrowsGroup');
+  if(!board || !arrowsGroup) return false;
+  const r = board.getBoundingClientRect();
+  const x1 = r.left + r.width*0.4, y1 = r.top + r.height*0.55;
+  const x2 = r.left + r.width*0.6, y2 = r.top + r.height*0.4;
+  autoplaySetHandPosition(x1, y1, 550);
+  await autoplayWait(650);
+  await autoplayTapPulse();
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M '+(x1-r.left)+','+(y1-r.top)+' L '+(x2-r.left)+','+(y2-r.top));
+  path.classList.add('drawing');
+  path.dataset.kind = 'freehand';
+  path.dataset.id = 'autoplayDemo'+Date.now();
+  arrowsGroup.appendChild(path);
+  autoplaySetHandPosition(x2, y2, 500);
+  await autoplayWait(550);
+  // The real step requires a ~2s quiet period after the last change to
+  // the drawing before it validates -- waiting it out here rather than
+  // trying to shortcut it keeps this step's pacing identical to a real
+  // person's.
+  await autoplayWait(2200);
+  return true;
+}
+
+async function autoplayOpenReset(){
+  await autoplayWait(600);
+  return autoplayClickTarget('#resetBtn', { moveMs:700 });
+}
+
+async function autoplayPlayAndWait(){
+  await autoplayWait(550);
+  // When not already playing, #tcPlayPauseBtn's own content is replaced
+  // by two inner half-buttons (reverse/forward), each with its own click
+  // handler and stopPropagation() -- the outer container's own listener
+  // only does anything while playback is already running. The real tap
+  // target is the forward half specifically.
+  const forwardHalf = document.getElementById('tcPlayForwardHalf');
+  const target = forwardHalf || document.getElementById('tcPlayPauseBtn');
+  if(!target) return false;
+  await autoplayMoveHandToTarget(target, 650);
+  await autoplayTapPulse();
+  target.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true}));
+  await autoplayWait(300);
+  // Checking only "!playing" right after the click would resolve
+  // instantly (nothing has started yet, so it's already false) -- wait
+  // for playback to genuinely start first, then genuinely finish.
+  await autoplayWaitForCondition(()=> playing, 3000);
+  await autoplayWaitForCondition(()=> !playing, 20000);
+  return true;
+}
+
+function autoplayWaitForCondition(fn, timeoutMs){
+  return new Promise(resolve=>{
+    const start = Date.now();
+    const check = () => {
+      let result = false;
+      try { result = !!fn(); } catch(err){ result = false; }
+      if(result){ resolve(true); return; }
+      if(Date.now()-start > timeoutMs){ resolve(false); return; }
+      setTimeout(check, 150);
+    };
+    check();
+  });
+}
+
+// Dispatches on the current step's instruction text -- the same
+// approach used throughout this project's own test scripts, matched
+// against the exact wording already in buildFirstCoachingSessionSteps.
+// Falls through to a generic click-the-highlight for anything
+// unrecognized, so a future step added without updating this list still
+// does *something* reasonable rather than stalling outright.
+async function autoplayPerformStep(step){
+  const instr = step.instruction || '';
+  if(step.isPreStep){ await autoplayClickTarget('#tutorialAcknowledgeBtn'); return; }
+  if(instr.includes('Save/Open button')) return autoplayClickTarget('#saveOpenBtn');
+  if(instr.includes('"Open Sequence"')) return autoplayClickTarget('#soMenuOpenSequence');
+  if(instr.includes('First Coaching Session') && instr.includes('load it')) return autoplayClickTarget(step.highlight, {moveMs:700});
+  if(instr.includes('start the intro')) return autoplayPlayAndWait();
+  if(instr.includes('"View" tab')) return autoplayClickTarget('#viewToggleTab');
+  if(instr.includes('Front Court (Zoomed)')) return autoplayClickTarget('#viewOptionFrontCourtZoomed');
+  if(instr.includes('click-drag')) return autoplayScrollGesture();
+  if(instr.includes('attacker who will run')) return autoplaySelectPlayer('W1');
+  if(instr.includes('Grey shade = target spot')) return autoplayDragPlayerToGhost('W1');
+  if(instr.includes('clockwise button')) return autoplayRotatePlayerToGhost('W1');
+  if(instr.includes('ball icon')) return autoplayGiveBall('W1');
+  if(instr.includes('"Quicks" tab')) return autoplayClickTarget('#showQuickCommandBarTab');
+  if(instr.includes('"Smart Positioning" icon')) return autoplayClickTarget(autoplayQCBButton('Smart Positioning'));
+  if(instr.includes('nudge the attacker') || instr.includes('Drag the attacker toward the grey shade')) return autoplayDragPlayerToGhost('W1', {dragMs:1000});
+  if(instr.includes('"Shooting Angle" icon')) return autoplayClickTarget(autoplayQCBButton('Shooting Angle'));
+  if(instr.includes('Tap the highlighted defender to select')) return autoplaySelectPlayer('B6');
+  if(instr.includes('Grey shade = target, inside')) return autoplayMoveDefenderToGhost();
+  if(instr.includes('Left Arm')) return autoplayAssignLeftArm();
+  if(instr.includes('horizontal (swimming)')) return autoplayTogglePose('B6');
+  if(instr.includes('back to a vertical position')) return autoplayTogglePose('B6');
+  if(instr.includes('"Free Draw" icon')) return autoplayClickTarget(autoplayQCBButton('Free Draw'));
+  if(instr.includes('Draw directly on the field')) return autoplayDrawSomething();
+  if(instr.includes('trash-can icon')) return autoplayClickTarget(autoplayQCBButton('Clear Arrows'));
+  if(instr.includes('"Reset" button')) return autoplayOpenReset();
+  if(instr.includes('watch the play continue')) return autoplayPlayAndWait();
+  // Fallback: just click whatever the step is already highlighting.
+  return autoplayClickTarget(step.highlight);
+}
+
+function autoplayWaitForStepChange(fromIdx, timeoutMs){
+  return new Promise(resolve=>{
+    const start = Date.now();
+    const check = () => {
+      if(!tutorialModeActive){ resolve(true); return; } // natural completion counts as "advanced"
+      if(tutorialStepIndex !== fromIdx){ resolve(true); return; }
+      if(Date.now()-start > timeoutMs){ resolve(false); return; }
+      setTimeout(check, 150);
+    };
+    check();
+  });
+}
+
+let autoplayDemoRunning = false;
+async function runAutoplayDemo(){
+  if(autoplayDemoRunning) return;
+  autoplayDemoRunning = true;
+  document.body.classList.add('guestAutoplayActive');
+  try {
+    while(tutorialModeActive){
+      const idx = tutorialStepIndex;
+      const step = tutorialSteps[idx];
+      if(!step) break;
+      try { await autoplayPerformStep(step); }
+      catch(err){ console.error('Autoplay demo: step action failed', err); }
+      const advanced = await autoplayWaitForStepChange(idx, 30000);
+      if(!advanced) break; // safety net so a stalled step doesn't loop forever during a live recording
+    }
+  } finally {
+    autoplayHandEl()?.classList.remove('show');
+    document.body.classList.remove('guestAutoplayActive');
+    autoplayDemoRunning = false;
+  }
+}
+
+// Hidden trigger: 7 taps on the Welcome Screen's own title, same
+// convention as the app's existing developer-mode trigger (see
+// _devModeTapCount elsewhere) -- discreet since it's on text that isn't
+// normally tappable at all, and bounded by the same "reset after 3s of
+// inactivity" pattern so accidental taps don't accumulate indefinitely.
+let _autoplayTapCount = 0, _autoplayTapTimer = null;
+document.querySelector('#guestWelcomeScreen h1')?.addEventListener('click', ()=>{
+  _autoplayTapCount++;
+  clearTimeout(_autoplayTapTimer);
+  _autoplayTapTimer = setTimeout(()=>{ _autoplayTapCount=0; }, 6000);
+  if(_autoplayTapCount>=7){
+    _autoplayTapCount=0; clearTimeout(_autoplayTapTimer);
+    hideGuestOverlays();
+    launchTutorial(); // same entry point Continue/Skip already use -- no separate tutorial launch path
+    setTimeout(()=>runAutoplayDemo(), 250);
+  }
+});
+
+// Fallback trigger, same gesture, for when the Guest Welcome Screen has
+// already been seen on this browser and therefore isn't shown anymore
+// (by design -- see GUEST_WELCOME_SEEN_KEY) -- without this, there'd be
+// no way back to the hidden gesture at all on a browser that's already
+// been through it once. Lives on the tutorial's own instruction banner
+// instead, gated to only count taps while the very first (Welcome)
+// pre-step is showing, so it's still specifically "the first screen"
+// either way -- whichever of the two actually turns out to be first for
+// a given visit.
+document.getElementById('tutorialInstruction')?.addEventListener('click', ()=>{
+  if(!GUEST_EXPERIENCE_MODE) return;
+  if(document.getElementById('tutorialStepCount')?.textContent !== 'Welcome') return;
+  _autoplayTapCount++;
+  clearTimeout(_autoplayTapTimer);
+  _autoplayTapTimer = setTimeout(()=>{ _autoplayTapCount=0; }, 6000);
+  if(_autoplayTapCount>=7){
+    _autoplayTapCount=0; clearTimeout(_autoplayTapTimer);
+    runAutoplayDemo(); // already at the tutorial's first step -- no need to relaunch, just start driving from here
+  }
+});
 
 document.getElementById('guestExitContinueBtn')?.addEventListener('click', ()=>{
   hideGuestOverlays();
 });
 document.getElementById('guestExitRestartBtn')?.addEventListener('click', ()=>{
   hideGuestOverlays();
-  if(typeof exitTutorial === 'function') exitTutorial();
   launchTutorial();
 });
 document.getElementById('guestExitConfirmBtn')?.addEventListener('click', ()=>{
-  endGuestSessionWithScreen();
+  endGuestSessionWithScreen(false);
 });
 document.getElementById('guestReplayBtn')?.addEventListener('click', ()=>{
   hideGuestOverlays();
   launchTutorial();
 });
 document.getElementById('guestCloseBtn')?.addEventListener('click', ()=>{
-  // Never falls back to the normal Studio -- closing just leaves the
-  // completion screen as the final state; there is nothing behind it to
-  // reveal from here regardless of what the user does next (close the
-  // tab, navigate away, etc).
-  hideGuestOverlays();
-  showGuestOverlay('guestCompletionScreen');
+  enterGuestFreePlay();
 });
 document.getElementById('guestReloadBtn')?.addEventListener('click', ()=>{
   window.location.reload();
@@ -7107,7 +7899,7 @@ document.querySelectorAll('.cmdFlyout > button').forEach(b=>{
 });
 
 // --- Floating quick-command bar: 5 fixed presets (Photoshop-style) + 3 recently-used ---
-const QUICKBAR_PRESETS=['selectBtn','ballBtn','freeDrawBtn','shotBlockToggleBtn','goalieVisionToggleBtn','shootingAngleToggleBtn','eraseBtn','ghostBtn','noteBtn','passBtn','clearBtn','smartPositioningToggleBtn','fieldZonesToggleBtn','playerSetupsToggleBtn'];
+const QUICKBAR_PRESETS=['selectBtn','ballBtn','freeDrawBtn','shotBlockToggleBtn','goalieVisionToggleBtn','shootingAngleToggleBtn','eraseBtn','ghostBtn','noteBtn','passBtn','clearBtn','smartPositioningToggleBtn','fieldZonesToggleBtn','smartGoaliePositioningToggleBtn'];
 const QUICKBAR_ICONS={
   selectBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>',
   ballBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0M4.5 16.5c3-3 10-3 15 0"/></svg>',
@@ -7118,11 +7910,12 @@ const QUICKBAR_ICONS={
   eraseBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l7-11 7 4-7 11z"/><path d="M11 18h9"/></svg>',
   ghostBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a7 7 0 0 0-7 7v9l2.5-2 2 2 2.5-2 2.5 2 2-2 2.5 2V10a7 7 0 0 0-7-7z"/><circle cx="9.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg>',
   noteBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>',
-  passBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14M13 6l6 6-6 6"/></svg>',
+  passBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="16" r="2.6"/><circle cx="19" cy="16" r="2.6"/><path d="M7.3,14.2 Q12,4 16.7,14.2" stroke-dasharray="1.6 1.6"/><circle r="1.6" fill="currentColor" stroke="none"><animateMotion dur="1.6s" repeatCount="indefinite" keyPoints="0;1;0" keyTimes="0;0.5;1" calcMode="linear" path="M7.3,14.2 Q12,4 16.7,14.2"/></circle></svg>',
   clearBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 6"/></svg>',
   smartPositioningToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7l2.5 4.5L9.5 15 12 7z"/></svg>',
   fieldZonesToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="1"/><line x1="8.7" y1="4" x2="8.7" y2="20"/><line x1="15.3" y1="4" x2="15.3" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/><text x="5.3" y="9.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">1</text><text x="12" y="9.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">2</text><text x="18.7" y="9.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">3</text><text x="5.3" y="17.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">4</text><text x="12" y="17.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">5</text><text x="18.7" y="17.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">6</text></svg>',
   playerSetupsToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><path d="M2 20c0-4 2.7-6.5 6-6.5s6 2.5 6 6.5"/><circle cx="17.5" cy="8.5" r="2.3"/><path d="M14.7 14.2c2.6 0 5 2.1 5.5 5.8"/></svg>',
+  smartGoaliePositioningToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7,6 L3,6 L3,18 L7,18"/><path d="M8.657,6.343 A8,8 0 0,1 8.657,17.657" stroke-dasharray="1.6 1.6"/><circle r="1.7" fill="currentColor" stroke="none"><animateMotion dur="2.4s" repeatCount="indefinite" keyPoints="0;1;0" keyTimes="0;0.5;1" calcMode="linear" path="M8.657,6.343 A8,8 0 0,1 8.657,17.657"/></circle></svg>',
 };
 function renderQuickCommandBar(){
   const bar=document.getElementById('quickCommandBar');
@@ -9418,6 +10211,125 @@ const _shootingAngleUI=MIZE.UI.ToggleButton('shootingAngleToggleBtn', 'Shooting 
   ()=>shootingAngleActive, v=>{ shootingAngleActive=v; },
   ()=>{ renderShootingAngle(); });
 function toggleShootingAngle(){ _shootingAngleUI.toggle(); }
+
+// ===== Smart Goalie Positioning =====
+// Applies only to the DEFENDING goalie -- the one whose side is opposite
+// the current ball carrier's, found via the same playerSide()/team==='goalie'
+// conventions goalPointFor() and Goalie Vision already use elsewhere, not a
+// new detection mechanism. Continuously live (like Smart Positioning), not
+// a one-time snap -- recalculated on every place()/placeBall() call so it
+// tracks the ball in real time.
+function findDefendingGoalie(){
+  if(!ballCarrier) return null;
+  const carrierSide = playerSide(ballCarrier);
+  const goalies = [...document.querySelectorAll('.player')].filter(el=>el.dataset.team==='goalie' && el.dataset.hidden!=='true');
+  return goalies.find(g=>playerSide(g)!==carrierSide) || null;
+}
+// Geometry: builds a local (out, lateral) basis at the goalie's OWN goal --
+// "out" points from that goal toward the opposite goal (the "squared to the
+// other goal" reference direction, i.e. 0 degrees), "lateral" is perpendicular
+// to it. The ball's position expressed in this basis gives its angle relative
+// to straight-ahead; clamping that angle to +/-maxTurnAngle and placing the
+// goalie at (distanceToGoal, that angle) around their own goal is exactly the
+// "quarter arc at 45 degrees" behavior -- the same clamped angle also defines
+// which direction they face, so position and rotation always agree.
+function computeSmartGoaliePosition(goalieEl){
+  if(!ballCarrier || typeof ball==='undefined' || !ball) return null;
+  const carrierSide = playerSide(ballCarrier);
+  const myGoal = goalPointFor(carrierSide); // the goal the carrier attacks == the goal this goalie defends
+  const otherGoal = goalPointFor(playerSide(goalieEl)); // the goal the goalie's OWN side attacks -- the "other" goal from their perspective
+  const ballX = +ball.dataset.x, ballY = +ball.dataset.y;
+
+  const outX = otherGoal.x-myGoal.x, outY = otherGoal.y-myGoal.y;
+  const outLen = Math.hypot(outX,outY) || 1;
+  const outUX = outX/outLen, outUY = outY/outLen;
+  const latUX = -outUY, latUY = outUX; // perpendicular
+
+  const relX = ballX-myGoal.x, relY = ballY-myGoal.y;
+  const alongOut = relX*outUX + relY*outUY;
+  const alongLat = relX*latUX + relY*latUY;
+
+  const ballAngleDeg = Math.atan2(alongLat, alongOut) * 180/Math.PI;
+  const maxAngle = Math.max(0, smartGoalieMaxTurnAngle);
+  const clampedDeg = Math.max(-maxAngle, Math.min(maxAngle, ballAngleDeg));
+  const rad = clampedDeg*Math.PI/180;
+
+  // distanceToGoal and maxLateralDist are the ellipse's two semi-axes,
+  // used directly -- their combination is what shapes the arc from a
+  // circle (equal values) to an oval (different values). No separate
+  // clamp needed: since |sin(rad)|<=1, posLat can never exceed
+  // maxLateralDist on its own, reached exactly at a +/-90 degree cap.
+  const distOut = Math.max(0.05, smartGoalieDistanceToGoal);
+  const distLat = Math.max(0.05, smartGoalieMaxLateralDist);
+  const posOut = distOut*Math.cos(rad);
+  const posLat = distLat*Math.sin(rad);
+
+  const targetX = myGoal.x + posOut*outUX + posLat*latUX;
+  const targetY = myGoal.y + posOut*outUY + posLat*latUY;
+
+  // Rotation is derived from the unscaled (cos,sin) direction, not the
+  // ellipse-scaled position -- it tracks the clamped ball angle directly,
+  // independent of whatever shape the position arc takes.
+  const facingDirX = Math.cos(rad)*outUX + Math.sin(rad)*latUX;
+  const facingDirY = Math.cos(rad)*outUY + Math.sin(rad)*latUY;
+  const rot = faceRotationTo(targetX, targetY, targetX+facingDirX, targetY+facingDirY);
+
+  return { x:targetX, y:targetY, rot };
+}
+function renderSmartGoaliePositioning(){
+  if(_smartGoaliePositioningUpdating || !smartGoaliePositioningActive) return;
+  const goalie = findDefendingGoalie();
+  if(!goalie) return;
+  const pos = computeSmartGoaliePosition(goalie);
+  if(!pos) return;
+  const curX=+goalie.dataset.x, curY=+goalie.dataset.y, curRot=+goalie.dataset.rot||0;
+  const posChanged = Math.abs(curX-pos.x)>0.001 || Math.abs(curY-pos.y)>0.001;
+  const rotDiff = pos.rot===null ? 0 : Math.min(Math.abs(curRot-pos.rot), 360-Math.abs(curRot-pos.rot));
+  if(!posChanged && rotDiff<=0.05) return;
+  _smartGoaliePositioningUpdating = true;
+  try {
+    goalie.dataset.x = pos.x; goalie.dataset.y = pos.y;
+    if(pos.rot!==null) goalie.dataset.rot = pos.rot;
+    place(goalie);
+  } finally {
+    _smartGoaliePositioningUpdating = false;
+  }
+}
+function updateSmartGoaliePositioningButton(){
+  const btn = document.getElementById('smartGoaliePositioningToggleBtn');
+  if(btn){ btn.textContent = 'Smart Goalie Positioning: '+(smartGoaliePositioningActive?'On':'Off'); btn.classList.toggle('active', smartGoaliePositioningActive); }
+}
+document.getElementById('smartGoaliePositioningToggleBtn')?.addEventListener('click', ()=>{
+  const panel = document.getElementById('smartGoaliePositioningPanel');
+  if(panel.classList.contains('open')){ closeToolPanels(); return; }
+  const cb = document.getElementById('smartGoalieEnabledCheckbox'); if(cb) cb.checked = smartGoaliePositioningActive;
+  const di = document.getElementById('smartGoalieDistanceInput'); if(di) di.value = smartGoalieDistanceToGoal;
+  const ai = document.getElementById('smartGoalieMaxAngleInput'); if(ai) ai.value = smartGoalieMaxTurnAngle;
+  const li = document.getElementById('smartGoalieMaxLateralInput'); if(li) li.value = smartGoalieMaxLateralDist;
+  openToolPanel('smartGoaliePositioningPanel');
+});
+document.getElementById('smartGoalieEnabledCheckbox')?.addEventListener('change', e=>{
+  smartGoaliePositioningActive = e.target.checked;
+  updateSmartGoaliePositioningButton();
+  renderQuickCommandBar();
+  renderSmartGoaliePositioning();
+});
+document.getElementById('smartGoalieDistanceInput')?.addEventListener('change', e=>{
+  smartGoalieDistanceToGoal = Math.max(0.1, +e.target.value||0.9);
+  e.target.value = smartGoalieDistanceToGoal;
+  renderSmartGoaliePositioning();
+});
+document.getElementById('smartGoalieMaxAngleInput')?.addEventListener('change', e=>{
+  smartGoalieMaxTurnAngle = Math.max(0, Math.min(90, +e.target.value||45));
+  e.target.value = smartGoalieMaxTurnAngle;
+  renderSmartGoaliePositioning();
+});
+document.getElementById('smartGoalieMaxLateralInput')?.addEventListener('change', e=>{
+  smartGoalieMaxLateralDist = Math.max(0.1, +e.target.value||1.2);
+  e.target.value = smartGoalieMaxLateralDist;
+  renderSmartGoaliePositioning();
+});
+updateSmartGoaliePositioningButton();
 
 // ===== Smart screen-fit sizing =====
 // Goal: the actual playing surface (25x20m) plus the goal margins on x
