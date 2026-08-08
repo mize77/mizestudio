@@ -645,6 +645,7 @@
   .libAssetCardTop { display:flex; align-items:flex-start; justify-content:space-between; gap:6px; }
   .libAssetCardType { font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#1b7373; }
   .libAssetCardTitle { font-size:14px; font-weight:700; color:#182524; margin:0; }
+  .libAssetCardDayTime { font-size:11px; font-weight:600; color:#1b7373; margin-top:-2px; }
   .libAssetCardDesc { font-size:12px; color:#5a6664; margin:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .libAssetCardTags { display:flex; flex-wrap:wrap; gap:4px; margin-top:2px; }
   .libTagChip { font-size:10.5px; background:#eef3f2; color:#39514e; border-radius:10px; padding:2px 8px; }
@@ -682,6 +683,8 @@
   .libImportMeta { color:#8a9492; font-size:11.5px; }
   .libImportSkipped { font-size:12px; color:#b5842e; background:#fdf6e8; border-radius:8px; padding:8px 10px; }
   #libImportConfirmBtn { opacity:.55; }
+  .libBulkAddPickerRow { display:flex; }
+  .libBulkAddPickerRow select { flex:1; min-width:0; padding:6px 8px; border-radius:8px; border:1.5px solid #d5dede; font-size:12.5px; }
   #libImportConfirmBtn.libImportReady { opacity:1; background:#124d4d; color:#fff; border-color:#124d4d; }
   .libImportDiag { font-size:12px; color:#b53434; margin-top:8px; }
   .libPracticeItemTitle { flex:1; font-size:13px; }
@@ -10772,6 +10775,7 @@ function renderLibraryAssetGrid(assets, content){
         '<button type="button" class="libFavStar '+(asset.favorite?'active':'')+'" data-fav="'+asset.id+'">'+(asset.favorite?'\u2605':'\u2606')+'</button>' +
       '</div>' +
       '<div class="libAssetCardTitle">'+libEsc(asset.title||'Untitled')+'</div>' +
+      ((asset.day!=null||asset.time)?'<div class="libAssetCardDayTime">'+(asset.day!=null?'Day '+libEsc(asset.day):'')+(asset.day!=null&&asset.time?' \u00b7 ':'')+(asset.time?libEsc(asset.time):'')+'</div>':'') +
       (asset.description?'<div class="libAssetCardDesc">'+libEsc(asset.description)+'</div>':'') +
       '<div class="libAssetCardTags">'+tagsHtml+'</div>';
     card.addEventListener('click', (e)=>{
@@ -10981,7 +10985,7 @@ async function libSortItemsByDayTime(asset){
 const LIB_CURRICULUM_SCALAR_FIELDS = {
   'description': 'description', 'author': 'author', 'age group': 'ageGroup', 'category': 'category',
   'organization': 'organization', 'collection': 'collection', 'difficulty': 'difficulty', 'tags': 'tags',
-  'estimated duration': 'estimatedDuration', 'objectives': 'objectives',
+  'estimated duration': 'estimatedDuration', 'objectives': 'objectives', 'day': 'day', 'time': 'time', 'schedule': 'schedule',
   'background': 'ci.background', 'coaching philosophy': 'ci.coachingPhilosophy',
   "coach's mindset": 'ci.coachesMindset', 'mize insight': 'ci.mizeInsight',
 };
@@ -11109,6 +11113,21 @@ function libParseCurriculumText(rawText){
   entries.forEach(e=>{
     if(typeof e.tags === 'string') e.tags = e.tags.split(',').map(t=>t.trim()).filter(Boolean);
     e.estimatedDuration = e.estimatedDuration ? e.estimatedDuration.trim() : null;
+    if(e.schedule){
+      const schedMatch = String(e.schedule).trim().match(/^Day\s+(\d+)\s*,\s*(.+)$/i);
+      if(schedMatch){
+        if(!e.day) e.day = String(schedMatch[1]);
+        if(!e.time) e.time = schedMatch[2].trim();
+      }
+    }
+    delete e.schedule;
+    if(e.day){
+      const dayMatch = String(e.day).match(/(\d+)/);
+      e.day = dayMatch ? Number(dayMatch[1]) : null;
+    } else {
+      e.day = null;
+    }
+    e.time = e.time ? e.time.trim() : null;
     if(e.coachingIntelligence && e.coachingIntelligence.mizeInsight){
       // Closing '*' from a *** ... ** ... * wrap lands on the last line
       // when the value spans multiple lines, so it isn't caught by the
@@ -11176,6 +11195,8 @@ async function libImportCurriculumEntries(entries){
       asset.tags = entry.tags||[];
       asset.estimatedDuration = entry.estimatedDuration||null;
       asset.objectives = entry.objectives||'';
+      asset.day = entry.day!=null ? entry.day : null;
+      asset.time = entry.time || null;
       asset.coachingIntelligence = entry.coachingIntelligence;
       await LibraryStorage.saveAsset(asset);
       if(existingMatch){ updated.push(asset); } else { created.push(asset); existingEvents.push(asset); }
@@ -11219,6 +11240,14 @@ async function renderLibraryPracticeItemsList(asset){
   html += '<select id="libPracticeAddSelect" style="width:100%;padding:8px;margin-top:6px;"><option value="">+ Add an item from the Library...</option>' +
     allAssets.filter(a=>a.id!==asset.id).map(a=>'<option value="'+a.id+'">'+libEsc(a.title)+' ('+libAssetTypeLabel(a.type)+')</option>').join('') +
     '</select>';
+  html += '<div id="libBulkAddSection" style="margin-top:8px;">' +
+    '<button type="button" id="libBulkAddToggleBtn">+ Add All from a Collection&hellip;</button>' +
+    '<div id="libBulkAddPicker" style="display:none;margin-top:6px;gap:6px;flex-wrap:wrap;" class="libBulkAddPickerRow">' +
+      '<select id="libBulkAddOrgSelect"></select>' +
+      '<select id="libBulkAddColSelect"></select>' +
+      '<button type="button" id="libBulkAddConfirmBtn">Add All</button>' +
+    '</div>' +
+  '</div>';
   container.innerHTML = html;
 
   document.getElementById('libSortByDayTimeBtn')?.addEventListener('click', async ()=>{
@@ -11285,6 +11314,68 @@ async function renderLibraryPracticeItemsList(asset){
     await LibraryStorage.saveAsset(asset);
     await renderLibraryPracticeItemsList(asset);
   });
+
+  let _libBulkAddPopulated = false;
+  document.getElementById('libBulkAddToggleBtn').addEventListener('click', async ()=>{
+    const picker = document.getElementById('libBulkAddPicker');
+    const nowOpen = picker.style.display==='none';
+    picker.style.display = nowOpen ? 'flex' : 'none';
+    if(nowOpen && !_libBulkAddPopulated){
+      _libBulkAddPopulated = true;
+      const orgSelect = document.getElementById('libBulkAddOrgSelect');
+      const colSelect = document.getElementById('libBulkAddColSelect');
+      const orgs = await LibraryStorage.listOrganizations();
+      orgSelect.innerHTML = orgs.map(o=>'<option value="'+o.id+'">'+libEsc(o.name)+'</option>').join('');
+      async function refreshBulkCollections(){
+        const cols = await LibraryStorage.listCollections(orgSelect.value);
+        colSelect.innerHTML = cols.map(c=>'<option value="'+c.id+'">'+libEsc(c.name)+'</option>').join('');
+      }
+      await refreshBulkCollections();
+      orgSelect.addEventListener('change', refreshBulkCollections);
+    }
+  });
+  document.getElementById('libBulkAddConfirmBtn').addEventListener('click', async ()=>{
+    const colId = document.getElementById('libBulkAddColSelect').value;
+    if(!colId) return;
+    const colAssets = await LibraryStorage.listAssets({ collectionId: colId });
+    asset.items = asset.items || [];
+    const itemByAssetId = {}; asset.items.forEach(i=>{ itemByAssetId[i.assetId] = i; });
+    let addedCount = 0, refreshedCount = 0;
+    colAssets.forEach(a=>{
+      if(a.id===asset.id) return; // skip self
+      const existingItem = itemByAssetId[a.id];
+      if(existingItem){
+        // Already in the Timeline -- fill in day/time only where the item's own value is still empty, never overwriting a prior guess or manual edit.
+        let touched = false;
+        if((existingItem.day==null || existingItem.day==='') && a.day!=null){ existingItem.day = a.day; touched = true; }
+        if(!existingItem.time && a.time){ existingItem.time = a.time; touched = true; }
+        if(touched) refreshedCount++;
+        return;
+      }
+      const dayMatch = a.day!=null ? null : (a.title||'').match(/Day\s+(\d+)/i); // title-guess only when the asset itself has no explicit day
+      const newItem = { assetId:a.id, role:'', note:'', time: a.time||'', day: a.day!=null ? a.day : (dayMatch?Number(dayMatch[1]):null) };
+      asset.items.push(newItem);
+      itemByAssetId[a.id] = newItem;
+      addedCount++;
+    });
+    if(addedCount || refreshedCount){
+      const byId = {}; colAssets.forEach(a=>{ byId[a.id]=a; }); allAssets.forEach(a=>{ if(!byId[a.id]) byId[a.id]=a; });
+      asset.items.sort((x,y)=>{
+        const dx = x.day!=null ? x.day : Infinity, dy = y.day!=null ? y.day : Infinity;
+        if(dx!==dy) return dx-dy;
+        const tx = (byId[x.assetId]&&byId[x.assetId].title)||'', ty = (byId[y.assetId]&&byId[y.assetId].title)||'';
+        return tx.localeCompare(ty);
+      });
+      await LibraryStorage.saveAsset(asset);
+    }
+    document.getElementById('libBulkAddPicker').style.display = 'none';
+    await renderLibraryPracticeItemsList(asset);
+    if(typeof MizeDialog!=='undefined'){
+      let msg = addedCount+' new item'+(addedCount===1?'':'s')+' added.';
+      if(refreshedCount) msg += ' '+refreshedCount+' existing item'+(refreshedCount===1?'':'s')+' had day/time filled in.';
+      await MizeDialog.alert(msg);
+    }
+  });
 }
 
 async function libBuildPresentationSlides(planAsset, visited){
@@ -11298,14 +11389,18 @@ async function libBuildPresentationSlides(planAsset, visited){
     if(!ref) continue; // reference no longer exists -- skip it rather than failing the whole presentation
     if((ref.type==='formation' || ref.type==='sequence') && ref.contentRef){
       slides.push({ kind: ref.type==='formation'?'formation':'package', refName: ref.contentRef.itemKey, title: ref.title, role: item.role, note: item.note, time: item.time, day: item.day });
-    } else if(ref.type==='practice' || ref.type==='event'){
-      // Flatten a referenced plan's own items inline, so an Event containing
-      // a Practice Session presents as one continuous walk-through rather
-      // than a single opaque slide the coach would have to exit out of.
+    } else if((ref.type==='practice' || ref.type==='event') && (ref.items||[]).length){
+      // A genuine sub-plan with its own items (e.g. an Event containing a
+      // Practice Session) flattens inline, so it presents as one continuous
+      // walk-through rather than a slide the coach would have to exit out
+      // of. A practice/event with no items of its own -- standalone rich
+      // content like an imported knowledge object -- falls through to the
+      // text-slide case below instead of silently contributing nothing.
       const nested = await libBuildPresentationSlides(ref, visited);
       slides.push(...nested);
     } else {
-      let body = ref.noteBody||ref.description||'';
+      let body = ref.noteBody || ref.description || '';
+      if(ref.objectives) body = (body?body+'\n\n':'')+'Objectives: '+ref.objectives;
       if(ref.url) body = (body?body+'\n\n':'')+'Link: '+ref.url;
       slides.push({ kind:'text', title: ref.title, body, role: item.role, note: item.note, time: item.time, day: item.day });
     }
@@ -11448,6 +11543,7 @@ async function openLibraryAssetDetail(assetId){
     '<div class="libFormRow"><label>Author</label><input type="text" id="libDetailAuthor" value="'+libEsc(asset.author||'')+'"></div>' +
     '<div class="libFormRow"><label>Age Group</label><input type="text" id="libDetailAgeGroup" value="'+libEsc(asset.ageGroup||'')+'" placeholder="e.g. U16"></div>' +
     '<div class="libFormRow"><label>Category</label><input type="text" id="libDetailCategory" list="libCategoryDatalist" value="'+libEsc(asset.category||'')+'" placeholder="e.g. Offense, Defense, Transition, Goalkeeper"><datalist id="libCategoryDatalist"></datalist></div>' +
+    '<div class="libFormRow"><label>Day / Time</label><div style="display:flex;gap:8px;"><input type="number" id="libDetailDay" min="1" value="'+(asset.day!=null?libEsc(asset.day):'')+'" placeholder="Day" style="width:70px;"><input type="text" id="libDetailTime" value="'+libEsc(asset.time||'')+'" placeholder="e.g. 09:00" style="flex:1;"></div></div>' +
     '<div class="libFormRow"><label>Organization</label><select id="libDetailOrgSelect"></select></div>' +
     '<div class="libFormRow"><label>Collection</label><select id="libDetailCollectionSelect"></select></div>' +
     '<div class="libFormRow"><label>Difficulty</label><input type="text" id="libDetailDifficulty" list="libDifficultyDatalist" value="'+libEsc(asset.difficulty||'')+'" placeholder="e.g. Beginner, Intermediate, Advanced, Regular, High Performance"><datalist id="libDifficultyDatalist"></datalist></div>' +
@@ -11487,6 +11583,8 @@ async function openLibraryAssetDetail(assetId){
     asset.author = document.getElementById('libDetailAuthor').value.trim();
     asset.ageGroup = document.getElementById('libDetailAgeGroup').value.trim();
     asset.category = document.getElementById('libDetailCategory').value.trim();
+    { const dayRaw = document.getElementById('libDetailDay').value.trim(); asset.day = dayRaw ? Number(dayRaw) : null; }
+    asset.time = document.getElementById('libDetailTime').value.trim() || null;
     asset.orgId = document.getElementById('libDetailOrgSelect').value || asset.orgId;
     asset.collectionId = document.getElementById('libDetailCollectionSelect').value || asset.collectionId;
     asset.difficulty = document.getElementById('libDetailDifficulty').value.trim();
@@ -11699,6 +11797,14 @@ document.getElementById('libImportConfirmBtn')?.addEventListener('click', async 
       if(created.length) msg += created.length+' new entr'+(created.length===1?'y':'ies')+' created. ';
       if(updated.length) msg += updated.length+' existing entr'+(updated.length===1?'y':'ies')+' updated. ';
       if(!created.length && !updated.length) msg = 'Nothing was created or updated. ';
+      if(created.length && updated.length && created.length<=8){
+        // On a re-import (both created and updated are non-zero), a small
+        // number of "new" entries is worth naming -- it's either genuinely
+        // new content or a title that changed since the last import, which
+        // would otherwise leave the old-titled version behind unnoticed.
+        msg += '\n\nNewly created: '+created.map(a=>a.title).join('; ')+
+          '.\nIf any of these are renamed versions of something already in the Library, the old title is still there as a separate entry -- worth checking for and removing.';
+      }
       if(failed.length){
         const quotaFailures = failed.filter(f=>/quota/i.test(f.error));
         const otherFailures = failed.filter(f=>!/quota/i.test(f.error));
