@@ -9417,18 +9417,25 @@ function importLibraryFromFile(file){
       // one Import button/flow handles both without the person needing to
       // know or care which kind of file they're picking.
       const singleTypeToTarget = { formation: existingFormations, tacticalPackage: existingPackages, practiceSession: existingSessions };
+      let imported = false, importedLabel = '';
       if(data.type && singleTypeToTarget[data.type] && data.name){
         singleTypeToTarget[data.type][data.name] = data;
-      } else {
+        imported = true; importedLabel = 'Imported "'+data.name+'".';
+      } else if(data.formations || data.packages || data.sessions){
         if(data.formations) Object.assign(existingFormations, data.formations);
         if(data.packages) Object.assign(existingPackages, data.packages);
         if(data.sessions) Object.assign(existingSessions, data.sessions);
+        imported = true; importedLabel = 'Import complete. Formations, packages, and practice sessions merged into your library.';
       }
       localStorage.setItem('wpStrategyFormationsV5', JSON.stringify(existingFormations));
       localStorage.setItem('tpgTacticalPackagesV8', JSON.stringify(existingPackages));
       localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(existingSessions));
       renderCustomSystems(); renderPackages(); if(typeof renderSavedSessions==='function') renderSavedSessions();
-      MizeDialog.alert(data.type ? ('Imported "'+data.name+'".') : 'Import complete. Formations, packages, and practice sessions merged into your library.');
+      if(imported){
+        MizeDialog.alert(importedLabel);
+      } else {
+        MizeDialog.alert('This file wasn\u2019t recognized as a formation, package, practice session, or library export'+(data.type?(' (its type is "'+data.type+'", which XquiX Studio doesn\u2019t know how to import)'):'')+'. Nothing was imported.');
+      }
     } catch(err) {
       MizeDialog.alert('Could not import that file: '+err.message);
     }
