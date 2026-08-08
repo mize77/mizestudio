@@ -67,6 +67,7 @@
      of it. */
   body.guestExperienceActive .cmdCategory[data-cat="editing"],
   body.guestExperienceActive .cmdCategory[data-cat="present"],
+  body.guestExperienceActive .cmdCategory[data-cat="library"],
   body.guestExperienceActive #moreToolsPanel,
   body.guestExperienceActive #newBtn,
   body.guestExperienceActive #saveFormationBtn,
@@ -500,6 +501,13 @@
   #exitPresentationBtn { display:none; position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); left:calc(14px + env(safe-area-inset-left)); z-index:1500; width:34px; height:34px; border-radius:50%; background:rgba(20,20,20,.85); color:#fff; border:1.5px solid rgba(255,255,255,.5); font-size:15px; align-items:center; justify-content:center; padding:0; box-shadow:0 2px 8px rgba(0,0,0,.5); }
   body.presentation #exitPresentationBtn { display:flex; }
   #presentationPlaybackBar { display:none; position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); right:calc(14px + env(safe-area-inset-right)); z-index:1500; background:rgba(20,25,25,.85); border-radius:999px; padding:8px 10px; align-items:center; gap:14px; }
+  #presentationTextSlide { display:none; position:fixed; inset:0; z-index:400; background:#0a2f3d; color:#fff; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center; box-sizing:border-box; }
+  #presentationTextSlide.show { display:flex; }
+  .presTextSlideRole { font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#7fd8c8; margin-bottom:12px; }
+  .presTextSlideTitle { font-size:clamp(24px,4vw,42px); font-weight:700; margin-bottom:20px; max-width:900px; }
+  .presTextSlideBody { font-size:clamp(15px,2vw,20px); line-height:1.6; max-width:750px; white-space:pre-wrap; color:rgba(255,255,255,.9); max-height:60vh; overflow-y:auto; }
+  #presentationCoachNote { display:none; position:fixed; bottom:calc(70px + env(safe-area-inset-bottom)); right:calc(14px + env(safe-area-inset-right)); z-index:1499; background:rgba(20,25,25,.85); color:rgba(255,255,255,.85); font-size:12.5px; padding:8px 14px; border-radius:12px; max-width:320px; }
+  #presentationCoachNote.show { display:block; }
   #timelineCommandsBar { display:none; position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); z-index:1500; background:rgba(20,25,25,.85); border-radius:999px; padding:8px 10px; align-items:center; gap:10px; }
   #timelineCommandsHandle { cursor:grab; padding:6px 8px; margin:-6px 2px -6px -8px; background:#124d4d; color:#fff; border-radius:8px 0 0 8px; touch-action:none; display:flex; align-items:center; justify-content:center; align-self:stretch; }
   #timelineCommandsBar button { background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0; font-size:14px; }
@@ -621,6 +629,76 @@
   .closeToolPanelBtn { padding:6px 12px; }
   .toolPanelBody { padding:16px 18px 20px; }
 
+  /* ===== Coaching Library ===== */
+  .toolPanelLarge { width:min(900px,95vw); }
+  #librarySearchInput { width:100%; box-sizing:border-box; padding:10px 12px; font-size:14px; border:1.5px solid #d5dede; border-radius:10px; margin-bottom:12px; }
+  #libraryViewTabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .libViewTab { padding:7px 14px; border-radius:20px; border:1.5px solid #d5dede; background:#fff; color:#26302f; font-size:13px; font-weight:600; cursor:pointer; }
+  .libViewTab.active { background:#124d4d; border-color:#124d4d; color:#fff; }
+  #libraryBreadcrumb { font-size:12.5px; color:#5a6664; margin-bottom:10px; display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+  #libraryBreadcrumb button { background:none; border:none; color:#1b7373; font-size:12.5px; font-weight:600; cursor:pointer; padding:2px 4px; }
+  #libraryBreadcrumb .libCrumbSep { color:#aab4b2; }
+  #libraryNewButtons { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  #libraryContent { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+  .libAssetCard { border:1.5px solid #e1e6e6; border-radius:12px; padding:12px; cursor:pointer; text-align:left; background:#fff; display:flex; flex-direction:column; gap:6px; }
+  .libAssetCard:hover { border-color:#1b7373; }
+  .libAssetCardTop { display:flex; align-items:flex-start; justify-content:space-between; gap:6px; }
+  .libAssetCardType { font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#1b7373; }
+  .libAssetCardTitle { font-size:14px; font-weight:700; color:#182524; margin:0; }
+  .libAssetCardDesc { font-size:12px; color:#5a6664; margin:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .libAssetCardTags { display:flex; flex-wrap:wrap; gap:4px; margin-top:2px; }
+  .libTagChip { font-size:10.5px; background:#eef3f2; color:#39514e; border-radius:10px; padding:2px 8px; }
+  .libFavStar { background:none; border:none; font-size:16px; cursor:pointer; color:#c7cfce; padding:0; line-height:1; }
+  .libFavStar.active { color:#e0a72c; }
+  .libCollectionCard { border:1.5px solid #e1e6e6; border-radius:12px; padding:14px; cursor:pointer; background:#fbfdfd; text-align:left; }
+  .libCollectionCard h4 { margin:0 0 4px; font-size:14px; }
+  .libCollectionCard p { margin:0; font-size:12px; color:#5a6664; }
+  .libEmptyState { grid-column:1/-1; text-align:center; padding:30px 10px; color:#8a9492; font-size:13.5px; }
+  .libFormRow { margin-bottom:10px; display:flex; flex-direction:column; gap:4px; }
+  .libFormRow label { font-size:12.5px; font-weight:600; color:#39514e; }
+  .libFormRow input[type="text"], .libFormRow textarea, .libFormRow select { padding:8px 10px; border:1.5px solid #d5dede; border-radius:8px; font-size:13.5px; font-family:inherit; box-sizing:border-box; width:100%; }
+  .libFormRow textarea { min-height:70px; resize:vertical; }
+  .libDetailActions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .libPracticeItem { display:flex; align-items:center; gap:8px; border:1px solid #e1e6e6; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
+  .libPracticeItem span { flex:1; font-size:13px; }
+  .libPracticeItemFull { flex-direction:column; align-items:stretch; gap:6px; }
+  .libPracticeItemTop { display:flex; align-items:center; gap:8px; }
+  .libPracticeItemNum { font-weight:700; color:#5a6664; font-size:12px; flex-shrink:0; }
+  .libPracticeItemRole { font-size:12px; padding:4px 6px; border-radius:6px; border:1.5px solid #d5dede; flex-shrink:0; }
+  .libPracticeItemTime { font-size:12px; padding:4px 6px; border-radius:6px; border:1.5px solid #d5dede; flex-shrink:0; width:64px; }
+  .libPracticeItemDay { font-size:12px; padding:4px 6px; border-radius:6px; border:1.5px solid #d5dede; flex-shrink:0; width:44px; }
+  .libCiDot { color:#7fbdb5; font-size:8px; vertical-align:middle; }
+  .libCiSection { margin-top:16px; border:1.5px solid #e6ece9; border-radius:10px; background:#fafcfb; overflow:hidden; }
+  .libCiToggleBtn { width:100%; display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:none; border:none; cursor:pointer; font-size:13px; font-weight:700; color:#39514e; }
+  .libCiToggleIcon { color:#8a9492; font-size:11px; }
+  .libCiBody { padding:2px 14px 14px; }
+  .libCiMizeInsightInput { font-style:italic; border-left:3px solid #e0a72c !important; background:#fffdf6; }
+  .libImportHelp { font-size:12.5px; color:#5a6664; line-height:1.5; margin:0 0 12px; }
+  #libImportTextarea { width:100%; box-sizing:border-box; min-height:260px; padding:10px 12px; font-size:13px; font-family:inherit; border:1.5px solid #d5dede; border-radius:10px; resize:vertical; }
+  #libImportPreview { margin-top:12px; }
+  .libImportSummary { font-size:13px; font-weight:700; color:#124d4d; margin-bottom:6px; }
+  .libImportList { margin:0 0 10px; padding-left:18px; font-size:12.5px; color:#26302f; max-height:220px; overflow-y:auto; }
+  .libImportList li { margin-bottom:3px; }
+  .libImportMeta { color:#8a9492; font-size:11.5px; }
+  .libImportSkipped { font-size:12px; color:#b5842e; background:#fdf6e8; border-radius:8px; padding:8px 10px; }
+  #libImportConfirmBtn { opacity:.55; }
+  #libImportConfirmBtn.libImportReady { opacity:1; background:#124d4d; color:#fff; border-color:#124d4d; }
+  .libImportDiag { font-size:12px; color:#b53434; margin-top:8px; }
+  .libPracticeItemTitle { flex:1; font-size:13px; }
+  .libPracticeItemTitle em { color:#8a9492; font-style:normal; font-size:11px; }
+  .libPracticeItemActions { display:flex; align-items:center; gap:6px; }
+  .libPracticeItemNoteInput { flex:1; font-size:12.5px; padding:5px 8px; border-radius:6px; border:1.5px solid #e1e6e6; min-width:0; }
+  .libPracticeItemActions button { padding:4px 8px; border-radius:6px; border:1.5px solid #d5dede; background:#fff; font-size:12px; cursor:pointer; flex-shrink:0; }
+  .libPracticeItemActions button:disabled { opacity:.35; cursor:default; }
+  #libraryTypeFilters { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
+  .libTypeFilterPill { padding:5px 11px; border-radius:16px; border:1.5px solid #e1e6e6; background:#fbfdfd; color:#5a6664; font-size:12px; font-weight:600; cursor:pointer; }
+  .libTypeFilterPill.active { background:#e8f2f1; border-color:#1b7373; color:#124d4d; }
+  .libAddCard { border:1.5px dashed #b9c6c4 !important; background:#f7faf9 !important; color:#1b7373; }
+  .libAddCard h4 { color:#1b7373; }
+  .libCollectionCard { position:relative; }
+  .libCardDeleteBtn { position:absolute; top:8px; right:8px; background:none; border:none; color:#b53434; font-size:11px; font-weight:700; cursor:pointer; padding:2px 6px; }
+  .libCardEditBtn { position:absolute; top:8px; right:56px; background:none; border:none; color:#1b7373; font-size:11px; font-weight:700; cursor:pointer; padding:2px 6px; }
+
   /* ===== MIZE.UI.Dialog -- replaces native alert/confirm/prompt ===== */
   #mizeDialogBackdrop { display:none; position:fixed; inset:0; background:rgba(11,43,43,.55); z-index:2100; }
   #mizeDialogBackdrop.open { display:block; }
@@ -724,6 +802,12 @@
   <img id="splashLogo" alt="">
 </div>
 <button id="exitPresentationBtn" title="Exit Presentation">&#10005;</button>
+<div id="presentationTextSlide">
+  <div class="presTextSlideRole"></div>
+  <div class="presTextSlideTitle"></div>
+  <div class="presTextSlideBody"></div>
+</div>
+<div id="presentationCoachNote"></div>
 <div id="presentationPlaybackBar">
   <button id="presentationPrevBtn" title="Previous slide (Left Arrow)">&#8592;</button>
   <span id="presentationSlideCounter"></span>
@@ -1037,6 +1121,13 @@
       <button id="ghostBtn" data-tip="Show a faded outline of the previous frame's positions while you set up the next one.">Ghost Mode</button>
       <button id="eraseBtn" class="modeBtn" data-tip="Tap a drawing to erase just that one.">Erase Drawings</button>
       <button id="clearBtn" data-tip="Clear every arrow, highlight, and note from the field.">Clear Arrows</button>
+    </div>
+  </div>
+
+  <div class="cmdCategory" data-cat="library">
+    <button type="button" class="cmdCatHeader">Coaching Library <span class="chev">&#9656;</span></button>
+    <div class="cmdFlyout">
+      <button id="openCoachingLibraryBtn" data-tip="Browse, search and organize your coaching knowledge -- formations, sequences, practice sessions and notes -- across organizations and collections.">Open Coaching Library</button>
     </div>
   </div>
 
@@ -1560,6 +1651,61 @@ const MizeDialog = (function(){
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">Distance to goal-line, central position (m): <input id="smartGoalieDistanceInput" type="number" min="0.1" max="5" step="0.1" value="0.9" style="width:70px;"></label>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">Maximum turning angle (±°, from squared to the other goal): <input id="smartGoalieMaxAngleInput" type="number" min="0" max="90" step="1" value="45" style="width:70px;"></label>
     <label style="display:flex;align-items:center;gap:8px;">Lateral reach of the arc (±m, together with Distance to Goal this shapes the arc -- circle if equal, oval if not; fully reached only at a 90° max angle): <input id="smartGoalieMaxLateralInput" type="number" min="0.1" max="5" step="0.1" value="1.2" style="width:70px;"></label>
+  </div>
+</div>
+<div class="toolPanel toolPanelLarge" id="coachingLibraryPanel">
+  <div class="toolPanelHeader"><h3 id="libraryPanelTitle">Coaching Library</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+    <div id="libraryListStage">
+      <input type="search" id="librarySearchInput" placeholder="Search title, tags, description, category, author, age group...">
+      <div id="libraryTypeFilters">
+        <button type="button" class="libTypeFilterPill active" data-type="">All Types</button>
+        <button type="button" class="libTypeFilterPill" data-type="event">Events</button>
+        <button type="button" class="libTypeFilterPill" data-type="formation">Formations</button>
+        <button type="button" class="libTypeFilterPill" data-type="sequence">Sequences</button>
+        <button type="button" class="libTypeFilterPill" data-type="practice">Practice Sessions</button>
+        <button type="button" class="libTypeFilterPill" data-type="note">Coach Notes</button>
+        <button type="button" class="libTypeFilterPill" data-type="evaluation">Evaluations</button>
+        <button type="button" class="libTypeFilterPill" data-type="skill">Skill Exercises</button>
+        <button type="button" class="libTypeFilterPill" data-type="video">Videos</button>
+        <button type="button" class="libTypeFilterPill" data-type="document">Documents</button>
+        <button type="button" class="libTypeFilterPill" data-type="resource">Resources</button>
+      </div>
+      <div id="libraryViewTabs">
+        <button type="button" class="libViewTab active" data-view="all">All</button>
+        <button type="button" class="libViewTab" data-view="favorites">&#9733; Favorites</button>
+        <button type="button" class="libViewTab" data-view="recent">Recent</button>
+        <button type="button" class="libViewTab" data-view="collections">Collections</button>
+        <button type="button" class="libViewTab" data-view="tags">Tags</button>
+      </div>
+      <div id="libraryBreadcrumb"></div>
+      <div id="libraryNewButtons">
+        <button type="button" id="libraryNewEventBtn">+ Event</button>
+        <button type="button" id="libraryNewNoteBtn">+ Coach Note</button>
+        <button type="button" id="libraryNewPracticeBtn">+ Practice Session</button>
+        <button type="button" id="libraryNewEvaluationBtn">+ Evaluation</button>
+        <button type="button" id="libraryNewSkillBtn">+ Skill Exercise</button>
+        <button type="button" id="libraryNewVideoBtn">+ Video</button>
+        <button type="button" id="libraryNewDocumentBtn">+ Document</button>
+        <button type="button" id="libraryNewResourceBtn">+ Resource</button>
+        <button type="button" id="libraryImportBtn">Import Curriculum&hellip;</button>
+      </div>
+      <div id="libraryContent"></div>
+    </div>
+    <div id="libraryDetailStage" style="display:none;">
+      <button type="button" id="libraryDetailBackBtn" class="efaBackBtn">&#8592; Back to Library</button>
+      <div id="libraryDetailBody"></div>
+    </div>
+    <div id="libraryImportStage" style="display:none;">
+      <button type="button" id="libraryImportBackBtn" class="efaBackBtn">&#8592; Back to Library</button>
+      <p class="libImportHelp">Paste curriculum content structured as Title, Description, Author, Age Group, Category, Organization, Collection, Difficulty, Tags, Estimated Duration, Objectives, followed by an optional "Extended Coaching Intelligence" section (Critical Details, Background, Coaching Philosophy, Coach's Mindset, Common Mistakes, Success Indicators, Equipment / Resources, Related Events, MIZE Insight). Each entry starts with its title on its own heading line.</p>
+      <textarea id="libImportTextarea" placeholder="Paste curriculum text here..."></textarea>
+      <div id="libImportPreview"></div>
+      <div class="libDetailActions">
+        <button type="button" id="libImportConfirmBtn">Import All</button>
+      </div>
+      <div id="libImportDiag" class="libImportDiag"></div>
+    </div>
   </div>
 </div>
 <div class="toolPanel" id="viewPanel">
@@ -2721,12 +2867,39 @@ document.getElementById('brandResetAllBtn')?.addEventListener('click', async ()=
 
 // ===== About & Diagnostics (Stage 8 -- finishing the previously incomplete panel) =====
 function formatBytes(n){ return n<1024 ? n+' B' : n<1048576 ? (n/1024).toFixed(1)+' KB' : (n/1048576).toFixed(2)+' MB'; }
-function renderAboutDiagnostics(){
+function libGetStorageBreakdown(){
+  const categories = [
+    { label:'Coaching Library', keys:['mizeCoachingLibraryV1'] },
+    { label:'Saved Formations', keys:['wpStrategyFormationsV5'] },
+    { label:'Tactical Packages', keys:['tpgTacticalPackagesV8'] },
+    { label:'Practice Sessions (legacy)', keys:['tpgPracticeSessionsV1'] },
+    { label:'Saved Presentations', keys:['tpgPresentationsV1'] },
+    { label:'Org-scoped Formation/Sequence Libraries', keys:['mizeOrgFormationLibraryV1','mizeOrgSequenceLibraryV1'] },
+    { label:'Session & Version History', keys:['tpgSessionHistoryV1','tpgVersionHistoryV1'] },
+    { label:'Autosave', keys:['tpgAutosaveV1'] },
+  ];
+  const accounted = new Set();
+  const rows = categories.map(cat=>{
+    let bytes = 0;
+    cat.keys.forEach(k=>{ const v = localStorage.getItem(k); if(v!=null){ bytes += k.length + v.length; accounted.add(k); } });
+    return { label: cat.label, bytes };
+  }).filter(r=>r.bytes>0);
+  let otherBytes = 0;
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if(!accounted.has(k)) otherBytes += k.length + (localStorage.getItem(k)||'').length;
+  }
+  if(otherBytes>0) rows.push({ label:'Other app settings', bytes: otherBytes });
+  rows.sort((a,b)=>b.bytes-a.bytes);
+  const totalBytes = rows.reduce((s,r)=>s+r.bytes, 0);
+  return { rows, totalBytes };
+}
+async function renderAboutDiagnostics(){
   const box = document.getElementById('aboutDiagnosticsContent'); if(!box) return;
   const countKeys = (key) => { try { return Object.keys(JSON.parse(localStorage.getItem(key)||'{}')).length; } catch(err){ return 0; } };
   const countArray = (key) => { try { const v=JSON.parse(localStorage.getItem(key)||'[]'); return Array.isArray(v)?v.length:0; } catch(err){ return 0; } };
-  let totalBytes = 0;
-  for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); totalBytes += (k.length + (localStorage.getItem(k)||'').length); }
+  const { rows, totalBytes } = libGetStorageBreakdown();
+  const breakdownHtml = rows.map(r=>'<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0;"><span>'+r.label+'</span><span>'+formatBytes(r.bytes)+'</span></div>').join('');
   box.innerHTML = `
     <div><strong>${MIZE.config.product}</strong> \u2014 ${MIZE.config.module}</div>
     <div id="aboutVersionTapTarget" style="cursor:pointer;">Version: ${MIZE.config.version} &nbsp;|&nbsp; Schema: v${MIZE.Storage.SCHEMA_VERSION}</div>
@@ -2738,9 +2911,28 @@ function renderAboutDiagnostics(){
     <div>Version History Checkpoints: ${countArray('tpgVersionHistoryV1')}</div>
     <div>Custom Sport Templates: ${countKeys(SPORT_TEMPLATES_KEY)}</div>
     <hr style="margin:10px 0;border:none;border-top:1px solid #dbe4e4;">
-    <div>Local Storage Used: ${formatBytes(totalBytes)}</div>
+    <div><strong>Storage Used: ${formatBytes(totalBytes)}</strong></div>
+    <div id="aboutStorageQuota" style="font-size:12.5px;color:#7c8a8a;margin:2px 0 8px;">Checking available device storage&hellip;</div>
+    <div style="margin-bottom:10px;">${breakdownHtml}</div>
     <div>Browser: ${navigator.userAgent}</div>
   `;
+  const quotaEl = document.getElementById('aboutStorageQuota');
+  if(quotaEl){
+    if(navigator.storage && navigator.storage.estimate){
+      try {
+        const { usage, quota } = await navigator.storage.estimate();
+        if(quota){
+          const pct = Math.round((usage/quota)*100);
+          quotaEl.textContent = formatBytes(usage)+' of '+formatBytes(quota)+' available to this app ('+pct+'%)';
+          quotaEl.style.color = pct>=85 ? '#b53434' : pct>=60 ? '#b5842e' : '#7c8a8a';
+        } else {
+          quotaEl.textContent = 'Device storage quota unavailable in this browser.';
+        }
+      } catch(err){ quotaEl.textContent = 'Device storage quota unavailable in this browser.'; }
+    } else {
+      quotaEl.textContent = 'Device storage quota reporting isn\u2019t supported in this browser.';
+    }
+  }
 }
 // Developer Mode's only entry point elsewhere is the hidden
 // Ctrl/Cmd+Shift+Alt+D shortcut, which doesn't exist on iPhone/iPad --
@@ -4025,16 +4217,29 @@ function renderSavedPresentations(){
 function loadPresentationSlide(index){
   if(!activePresentation) return;
   const slide=activePresentation.slides[index]; if(!slide) return;
-  if(slide.kind==='formation'){
-    const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-    const rec=saved[slide.refName];
-    if(!rec){ MizeDialog.alert('Formation "'+slide.refName+'" no longer exists -- it may have been renamed or deleted.'); return; }
-    loadState(formationRecordState(rec));
-  } else if(slide.kind==='package'){
-    const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
-    const rec=packs[slide.refName];
-    if(!rec){ MizeDialog.alert('Package "'+slide.refName+'" no longer exists -- it may have been renamed or deleted.'); return; }
-    frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0);
+  const textSlideEl=document.getElementById('presentationTextSlide');
+  if(slide.kind==='text'){
+    if(textSlideEl){
+      const roleEl=textSlideEl.querySelector('.presTextSlideRole');
+      roleEl.textContent=(slide.day!=null?'Day '+slide.day+(slide.time?', ':' \u2013 '):'')+(slide.time?slide.time+' \u2013 ':'')+(slide.role||'');
+      roleEl.style.display=(slide.day!=null||slide.time||slide.role)?'':'none';
+      textSlideEl.querySelector('.presTextSlideTitle').textContent=slide.title||'';
+      textSlideEl.querySelector('.presTextSlideBody').textContent=slide.body||'';
+      textSlideEl.classList.add('show');
+    }
+  } else {
+    if(textSlideEl) textSlideEl.classList.remove('show');
+    if(slide.kind==='formation'){
+      const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
+      const rec=saved[slide.refName];
+      if(!rec){ MizeDialog.alert('Formation "'+slide.refName+'" no longer exists -- it may have been renamed or deleted.'); return; }
+      loadState(formationRecordState(rec));
+    } else if(slide.kind==='package'){
+      const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
+      const rec=packs[slide.refName];
+      if(!rec){ MizeDialog.alert('Package "'+slide.refName+'" no longer exists -- it may have been renamed or deleted.'); return; }
+      frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0);
+    }
   }
   updatePresentationPlaybackUI();
 }
@@ -4042,13 +4247,19 @@ function updatePresentationPlaybackUI(){
   const bar=document.getElementById('presentationPlaybackBar');
   const counter=document.getElementById('presentationSlideCounter');
   const prevBtn=document.getElementById('presentationPrevBtn'), nextBtn=document.getElementById('presentationNextBtn');
-  if(!activePresentation){ bar.classList.remove('active'); return; }
+  const noteEl=document.getElementById('presentationCoachNote');
+  if(!activePresentation){ bar.classList.remove('active'); if(noteEl) noteEl.classList.remove('show'); return; }
   bar.classList.add('active');
   const total=activePresentation.slides.length;
   const slide=activePresentation.slides[activeSlideIndex];
-  counter.textContent=(activeSlideIndex+1)+' / '+total+' — '+(slide?slide.refName:'');
+  const label=slide ? (slide.day!=null?'Day '+slide.day+(slide.time?', ':' \u2013 '):'')+(slide.time?slide.time+' \u2013 ':'')+(slide.role?slide.role+': ':'')+(slide.title||slide.refName||'') : '';
+  counter.textContent=(activeSlideIndex+1)+' / '+total+' — '+label;
   prevBtn.disabled=activeSlideIndex<=0;
   nextBtn.disabled=activeSlideIndex>=total-1;
+  if(noteEl){
+    if(slide && slide.note){ noteEl.textContent='Coach note: '+slide.note; noteEl.classList.add('show'); }
+    else { noteEl.classList.remove('show'); }
+  }
 }
 function presentSavedPresentation(rec){
   activePresentation=rec; activeSlideIndex=0;
@@ -4378,6 +4589,7 @@ function togglePresentation(mode){
     fitBtn.textContent='Presentation Mode';
     realBtn.textContent='Presentation Mode (Realistic Field)';
     activePresentation=null;
+    document.getElementById('presentationTextSlide')?.classList.remove('show');
     if(!frontCourtActive) setPresentationFieldGeometry(false); // Front Court owns its own field geometry -- don't clobber it
     disarmSpotlight();
     studioWindowsManuallyDark=false;
@@ -10333,6 +10545,1183 @@ document.getElementById('smartGoalieMaxLateralInput')?.addEventListener('change'
   renderSmartGoaliePositioning();
 });
 updateSmartGoaliePositioningButton();
+
+// ===== Coaching Library (Phase 2 foundation) =====
+// Storage is fully abstracted behind LibraryStorage below -- nothing
+// else in this module, or the UI it drives, ever touches localStorage
+// directly. Swapping this for a real backend later means
+// re-implementing this one object's methods against a server instead of
+// localStorage; every call site elsewhere is already written against
+// this same async interface and wouldn't need to change at all.
+const MIZE_LIBRARY_DB_KEY = 'mizeCoachingLibraryV1';
+const LibraryStorage = (function(){
+  function emptyDb(){ return { organizations:{}, collections:{}, assets:{}, favorites:{}, recentlyUsed:[] }; }
+  function load(){
+    try { const raw = localStorage.getItem(MIZE_LIBRARY_DB_KEY); return raw ? JSON.parse(raw) : emptyDb(); }
+    catch(err){ return emptyDb(); }
+  }
+  function save(db){ localStorage.setItem(MIZE_LIBRARY_DB_KEY, JSON.stringify(db)); }
+  return {
+    async listOrganizations(){ return Object.values(load().organizations).sort((a,b)=>a.name.localeCompare(b.name)); },
+    async getOrganization(id){ return load().organizations[id]||null; },
+    async saveOrganization(org){ const db=load(); db.organizations[org.id]=org; save(db); return org; },
+    async listCollections(orgId){ return Object.values(load().collections).filter(c=>!orgId||c.orgId===orgId).sort((a,b)=>a.name.localeCompare(b.name)); },
+    async getCollection(id){ return load().collections[id]||null; },
+    async saveCollection(col){ const db=load(); db.collections[col.id]=col; save(db); return col; },
+    async deleteOrganization(id){ const db=load(); delete db.organizations[id]; save(db); },
+    async deleteCollection(id){ const db=load(); delete db.collections[id]; save(db); },
+    async listAssets(filter){
+      const db = load();
+      let items = Object.values(db.assets);
+      filter = filter||{};
+      if(filter.collectionId) items = items.filter(a=>a.collectionId===filter.collectionId);
+      if(filter.orgId) items = items.filter(a=>a.orgId===filter.orgId);
+      if(filter.type) items = items.filter(a=>a.type===filter.type);
+      if(filter.tag) items = items.filter(a=>(a.tags||[]).includes(filter.tag));
+      if(filter.favoritesOnly) items = items.filter(a=>!!db.favorites[a.id]);
+      if(filter.search){
+        const q = filter.search.toLowerCase();
+        items = items.filter(a =>
+          (a.title||'').toLowerCase().includes(q) ||
+          (a.description||'').toLowerCase().includes(q) ||
+          (a.category||'').toLowerCase().includes(q) ||
+          (a.author||'').toLowerCase().includes(q) ||
+          (a.ageGroup||'').toLowerCase().includes(q) ||
+          (a.tags||[]).some(t=>t.toLowerCase().includes(q))
+        );
+      }
+      items.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+      return items.map(a=>({ ...a, favorite: !!db.favorites[a.id] }));
+    },
+    async getAsset(id){ const db=load(); const a=db.assets[id]; return a ? { ...a, favorite: !!db.favorites[id] } : null; },
+    async saveAsset(asset){
+      const db = load();
+      const now = Date.now();
+      const existing = db.assets[asset.id];
+      asset.updatedAt = now;
+      asset.createdAt = asset.createdAt || (existing && existing.createdAt) || now;
+      asset.version = existing ? (existing.version||1)+1 : 1;
+      db.assets[asset.id] = asset;
+      save(db);
+      return asset;
+    },
+    async deleteAsset(id){ const db=load(); delete db.assets[id]; delete db.favorites[id]; db.recentlyUsed=db.recentlyUsed.filter(x=>x!==id); save(db); },
+    async toggleFavorite(id){ const db=load(); if(db.favorites[id]) delete db.favorites[id]; else db.favorites[id]=true; save(db); return !!db.favorites[id]; },
+    async listFavorites(){ const db=load(); return Object.values(db.assets).filter(a=>db.favorites[a.id]).map(a=>({...a, favorite:true})).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)); },
+    async recordUsage(id){ const db=load(); db.recentlyUsed=[id, ...db.recentlyUsed.filter(x=>x!==id)].slice(0,20); save(db); },
+    async listRecentlyUsed(){ const db=load(); return db.recentlyUsed.map(id=>db.assets[id]).filter(Boolean).map(a=>({...a, favorite:!!db.favorites[a.id]})); },
+    async listAllTags(){
+      const db = load();
+      const set = new Set();
+      Object.values(db.assets).forEach(a=>(a.tags||[]).forEach(t=>set.add(t)));
+      return [...set].sort((a,b)=>a.localeCompare(b));
+    },
+    async listAllCategories(){
+      const db = load();
+      const set = new Set();
+      Object.values(db.assets).forEach(a=>{ if(a.category) set.add(a.category); });
+      return [...set].sort((a,b)=>a.localeCompare(b));
+    },
+    async listAllDifficulties(){
+      const db = load();
+      const set = new Set();
+      Object.values(db.assets).forEach(a=>{ if(a.difficulty) set.add(a.difficulty); });
+      return [...set].sort((a,b)=>a.localeCompare(b));
+    },
+  };
+})();
+
+function libGenId(prefix){ return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
+
+// Deterministic ID derived from the legacy store name -- re-running sync
+// on every Library open never creates duplicate wrapper assets for the
+// same underlying item.
+function libLegacyAssetId(kind, name){
+  let hash = 0;
+  const s = kind+'::'+name;
+  for(let i=0;i<s.length;i++){ hash = ((hash<<5)-hash+s.charCodeAt(i))|0; }
+  return 'asset_legacy_'+kind+'_'+Math.abs(hash).toString(36);
+}
+
+const LIB_DEFAULT_ORG_ID = 'org_my_library';
+const LIB_DEFAULT_COLLECTION_ID = 'col_imported';
+
+// Idempotent -- safe to call every time the Library opens. Picks up any
+// formation/sequence saved through the existing Save/Open flow that
+// doesn't have a Library wrapper yet, without touching or duplicating
+// anything already wrapped, and without ever modifying the underlying
+// legacy data itself -- the Library only ever adds metadata alongside
+// it, in its own separate store.
+async function syncLegacyLibraryItems(){
+  await LibraryStorage.saveOrganization({ id: LIB_DEFAULT_ORG_ID, name:'My Library', parentId:null, createdAt:Date.now() });
+  await LibraryStorage.saveCollection({ id: LIB_DEFAULT_COLLECTION_ID, orgId: LIB_DEFAULT_ORG_ID, name:'Imported Items', description:'Automatically kept in sync with formations and sequences saved through Save/Open.', createdAt:Date.now() });
+
+  const legacySources = [
+    { kind:'formation', storeKey:'wpStrategyFormationsV5', type:'formation', category:'Formation' },
+    { kind:'sequence', storeKey:'tpgTacticalPackagesV8', type:'sequence', category:'Sequence' },
+  ];
+  for(const src of legacySources){
+    let store = {};
+    try { store = JSON.parse(localStorage.getItem(src.storeKey)||'{}'); } catch(err){ store = {}; }
+    for(const [name, data] of Object.entries(store)){
+      const id = libLegacyAssetId(src.kind, name);
+      const existing = await LibraryStorage.getAsset(id);
+      if(existing) continue; // already wrapped -- any metadata the coach added in the Library is preserved
+      let createdAt = Date.now();
+      try { if(data && data.savedAt) createdAt = Date.parse(data.savedAt) || createdAt; } catch(err){}
+      await LibraryStorage.saveAsset({
+        id, type: src.type, title: name, description:'', author:'',
+        orgId: LIB_DEFAULT_ORG_ID, collectionId: LIB_DEFAULT_COLLECTION_ID,
+        ageGroup:'', category: src.category, difficulty:'', tags:[],
+        visibility:'private', estimatedDuration:null,
+        contentRef: { storeKey: src.storeKey, itemKey: name },
+        createdAt,
+      });
+    }
+  }
+}
+
+function libEsc(s){ const d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML; }
+function libAssetTypeLabel(type){ return { formation:'Formation', sequence:'Sequence', practice:'Practice Session', note:'Coach Note', evaluation:'Evaluation', skill:'Skill Exercise', event:'Event', video:'Video', document:'Document', resource:'Resource' }[type] || type; }
+
+let libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null };
+
+function showLibraryListStage(){
+  document.getElementById('libraryListStage').style.display = '';
+  document.getElementById('libraryDetailStage').style.display = 'none';
+  document.getElementById('libraryImportStage').style.display = 'none';
+  document.getElementById('libraryPanelTitle').textContent = 'Coaching Library';
+}
+function showLibraryDetailStage(){
+  document.getElementById('libraryListStage').style.display = 'none';
+  document.getElementById('libraryDetailStage').style.display = '';
+  document.getElementById('libraryImportStage').style.display = 'none';
+}
+function showLibraryImportStage(){
+  document.getElementById('libraryListStage').style.display = 'none';
+  document.getElementById('libraryDetailStage').style.display = 'none';
+  document.getElementById('libraryImportStage').style.display = '';
+  document.getElementById('libraryPanelTitle').textContent = 'Import Curriculum';
+}
+
+async function openCoachingLibrary(){
+  await syncLegacyLibraryItems();
+  libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null };
+  const searchInput = document.getElementById('librarySearchInput');
+  if(searchInput) searchInput.value = '';
+  document.querySelectorAll('.libViewTab').forEach(t=>t.classList.toggle('active', t.dataset.view==='all'));
+  document.querySelectorAll('.libTypeFilterPill').forEach(t=>t.classList.toggle('active', t.dataset.type===''));
+  showLibraryListStage();
+  await renderLibraryContent();
+  openToolPanel('coachingLibraryPanel');
+}
+document.getElementById('openCoachingLibraryBtn')?.addEventListener('click', openCoachingLibrary);
+
+document.querySelectorAll('.libTypeFilterPill').forEach(pill=>{
+  pill.addEventListener('click', async ()=>{
+    document.querySelectorAll('.libTypeFilterPill').forEach(p=>p.classList.remove('active'));
+    pill.classList.add('active');
+    libState.typeFilter = pill.dataset.type || null;
+    await renderLibraryContent();
+  });
+});
+
+document.querySelectorAll('.libViewTab').forEach(tab=>{
+  tab.addEventListener('click', async ()=>{
+    document.querySelectorAll('.libViewTab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    libState.view = tab.dataset.view;
+    libState.orgId = null; libState.collectionId = null; libState.tag = null;
+    await renderLibraryContent();
+  });
+});
+
+let _libSearchDebounce = null;
+document.getElementById('librarySearchInput')?.addEventListener('input', e=>{
+  clearTimeout(_libSearchDebounce);
+  const value = e.target.value;
+  _libSearchDebounce = setTimeout(async ()=>{
+    libState.search = value.trim();
+    if(libState.search && libState.view!=='all'){
+      // Searching implicitly broadens to "All" so results aren't hidden behind an unrelated tab/collection filter
+      libState.view = 'all'; libState.orgId=null; libState.collectionId=null; libState.tag=null;
+      document.querySelectorAll('.libViewTab').forEach(t=>t.classList.toggle('active', t.dataset.view==='all'));
+    }
+    await renderLibraryContent();
+  }, 200);
+});
+
+document.getElementById('libraryDetailBackBtn')?.addEventListener('click', async ()=>{
+  showLibraryListStage();
+  await renderLibraryContent();
+});
+
+function renderLibraryAssetGrid(assets, content){
+  content.style.display = 'grid';
+  content.innerHTML = '';
+  if(libState.typeFilter) assets = assets.filter(a=>a.type===libState.typeFilter);
+  if(!assets.length){ content.innerHTML = '<div class="libEmptyState">Nothing here yet.</div>'; return; }
+  assets.forEach(asset=>{
+    const card = document.createElement('button');
+    card.type='button'; card.className='libAssetCard';
+    const tagsHtml = (asset.tags||[]).slice(0,4).map(t=>'<span class="libTagChip">'+libEsc(t)+'</span>').join('');
+    const hasCi = libCiHasContent(asset.coachingIntelligence);
+    card.innerHTML =
+      '<div class="libAssetCardTop">' +
+        '<span class="libAssetCardType">'+libAssetTypeLabel(asset.type)+(hasCi?' <span class="libCiDot" title="Includes extended coaching intelligence">&#9679;</span>':'')+'</span>' +
+        '<button type="button" class="libFavStar '+(asset.favorite?'active':'')+'" data-fav="'+asset.id+'">'+(asset.favorite?'\u2605':'\u2606')+'</button>' +
+      '</div>' +
+      '<div class="libAssetCardTitle">'+libEsc(asset.title||'Untitled')+'</div>' +
+      (asset.description?'<div class="libAssetCardDesc">'+libEsc(asset.description)+'</div>':'') +
+      '<div class="libAssetCardTags">'+tagsHtml+'</div>';
+    card.addEventListener('click', (e)=>{
+      if(e.target.closest('[data-fav]')) return;
+      openLibraryAssetDetail(asset.id);
+    });
+    card.querySelector('[data-fav]').addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      await LibraryStorage.toggleFavorite(asset.id);
+      await renderLibraryContent();
+    });
+    content.appendChild(card);
+  });
+}
+
+async function renderLibraryContent(){
+  const content = document.getElementById('libraryContent');
+  const breadcrumb = document.getElementById('libraryBreadcrumb');
+  breadcrumb.innerHTML = '';
+  content.innerHTML = '';
+  content.style.display = 'grid';
+
+  if(libState.view === 'collections' && !libState.orgId){
+    const orgs = await LibraryStorage.listOrganizations();
+    const addCard = document.createElement('button');
+    addCard.type='button'; addCard.className='libCollectionCard libAddCard';
+    addCard.innerHTML = '<h4>+ New Organization</h4><p>Create a new top-level organization</p>';
+    addCard.onclick = async ()=>{
+      const name = (typeof MizeDialog!=='undefined') ? await MizeDialog.prompt('Organization name:') : null;
+      if(!name || !name.trim()) return;
+      const org = { id: libGenId('org'), name: name.trim(), parentId:null, createdAt: Date.now() };
+      await LibraryStorage.saveOrganization(org);
+      libState.orgId = org.id;
+      await renderLibraryContent();
+    };
+    content.appendChild(addCard);
+    orgs.forEach(org=>{
+      const isDefault = org.id === LIB_DEFAULT_ORG_ID;
+      const card = document.createElement('button');
+      card.type='button'; card.className='libCollectionCard';
+      card.innerHTML = '<h4>'+libEsc(org.name)+'</h4><p>Organization'+(isDefault?' (default)':'')+'</p>' +
+        '<button type="button" class="libCardEditBtn" data-edit-org="'+org.id+'">Edit</button>' +
+        (isDefault ? '' : '<button type="button" class="libCardDeleteBtn" data-del-org="'+org.id+'">Delete</button>');
+      card.onclick = async ()=>{ libState.orgId = org.id; await renderLibraryContent(); };
+      const editBtn = card.querySelector('[data-edit-org]');
+      editBtn.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const name = (typeof MizeDialog!=='undefined') ? await MizeDialog.prompt('Organization name:', org.name) : null;
+        if(!name || !name.trim()) return;
+        org.name = name.trim();
+        await LibraryStorage.saveOrganization(org);
+        await renderLibraryContent();
+      });
+      const delBtn = card.querySelector('[data-del-org]');
+      if(delBtn) delBtn.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const cols = await LibraryStorage.listCollections(org.id);
+        if(cols.length){ if(typeof MizeDialog!=='undefined') MizeDialog.alert('This organization still has '+cols.length+' collection(s) inside it. Move or delete those first.'); return; }
+        const ok = (typeof MizeDialog!=='undefined') ? await MizeDialog.confirm('Delete organization "'+org.name+'"?') : true;
+        if(!ok) return;
+        await LibraryStorage.deleteOrganization(org.id);
+        await renderLibraryContent();
+      });
+      content.appendChild(card);
+    });
+    return;
+  }
+  if(libState.view === 'collections' && libState.orgId && !libState.collectionId){
+    const org = await LibraryStorage.getOrganization(libState.orgId);
+    breadcrumb.innerHTML = '<button type="button" data-act="root">Coaching Library</button><span class="libCrumbSep">/</span><span>'+libEsc(org?org.name:'')+'</span>';
+    breadcrumb.querySelector('[data-act="root"]').onclick = async ()=>{ libState.orgId=null; await renderLibraryContent(); };
+    const cols = await LibraryStorage.listCollections(libState.orgId);
+    const addCard = document.createElement('button');
+    addCard.type='button'; addCard.className='libCollectionCard libAddCard';
+    addCard.innerHTML = '<h4>+ New Collection</h4><p>Create a new collection in '+libEsc(org?org.name:'this organization')+'</p>';
+    addCard.onclick = async ()=>{
+      const name = (typeof MizeDialog!=='undefined') ? await MizeDialog.prompt('Collection name:') : null;
+      if(!name || !name.trim()) return;
+      const description = (typeof MizeDialog!=='undefined') ? await MizeDialog.prompt('Description (optional):', '') : '';
+      const col = { id: libGenId('col'), orgId: libState.orgId, name: name.trim(), description: (description||'').trim(), createdAt: Date.now() };
+      await LibraryStorage.saveCollection(col);
+      libState.collectionId = col.id;
+      await renderLibraryContent();
+    };
+    content.appendChild(addCard);
+    cols.forEach(col=>{
+      const isDefault = col.id === LIB_DEFAULT_COLLECTION_ID;
+      const card = document.createElement('button');
+      card.type='button'; card.className='libCollectionCard';
+      card.innerHTML = '<h4>'+libEsc(col.name)+'</h4><p>'+libEsc(col.description||'')+(isDefault?' (default)':'')+'</p>' +
+        '<button type="button" class="libCardEditBtn" data-edit-col="'+col.id+'">Edit</button>' +
+        (isDefault ? '' : '<button type="button" class="libCardDeleteBtn" data-del-col="'+col.id+'">Delete</button>');
+      card.onclick = async ()=>{ libState.collectionId = col.id; await renderLibraryContent(); };
+      const editBtn = card.querySelector('[data-edit-col]');
+      editBtn.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const name = (typeof MizeDialog!=='undefined') ? await MizeDialog.prompt('Collection name:', col.name) : null;
+        if(!name || !name.trim()) return;
+        const description = (typeof MizeDialog!=='undefined') ? await MizeDialog.prompt('Description (optional):', col.description||'') : col.description;
+        col.name = name.trim();
+        col.description = (description||'').trim();
+        await LibraryStorage.saveCollection(col);
+        await renderLibraryContent();
+      });
+      const delBtn = card.querySelector('[data-del-col]');
+      if(delBtn) delBtn.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const assetsInCol = await LibraryStorage.listAssets({ collectionId: col.id });
+        if(assetsInCol.length){ if(typeof MizeDialog!=='undefined') MizeDialog.alert('This collection still has '+assetsInCol.length+' item(s) in it. Move or delete those first.'); return; }
+        const ok = (typeof MizeDialog!=='undefined') ? await MizeDialog.confirm('Delete collection "'+col.name+'"?') : true;
+        if(!ok) return;
+        await LibraryStorage.deleteCollection(col.id);
+        await renderLibraryContent();
+      });
+      content.appendChild(card);
+    });
+    return;
+  }
+  if(libState.view === 'collections' && libState.collectionId){
+    const org = await LibraryStorage.getOrganization(libState.orgId);
+    const col = await LibraryStorage.getCollection(libState.collectionId);
+    breadcrumb.innerHTML = '<button type="button" data-act="root">Coaching Library</button><span class="libCrumbSep">/</span><button type="button" data-act="org">'+libEsc(org?org.name:'')+'</button><span class="libCrumbSep">/</span><span>'+libEsc(col?col.name:'')+'</span>';
+    breadcrumb.querySelector('[data-act="root"]').onclick = async ()=>{ libState.orgId=null; libState.collectionId=null; await renderLibraryContent(); };
+    breadcrumb.querySelector('[data-act="org"]').onclick = async ()=>{ libState.collectionId=null; await renderLibraryContent(); };
+    const assets = await LibraryStorage.listAssets({ collectionId: libState.collectionId });
+    renderLibraryAssetGrid(assets, content);
+    return;
+  }
+  if(libState.view === 'tags' && !libState.tag){
+    const tags = await LibraryStorage.listAllTags();
+    content.style.display = 'block';
+    if(!tags.length){ content.innerHTML = '<div class="libEmptyState">No tags used yet. Add tags to an asset\u2019s details to see them here.</div>'; return; }
+    tags.forEach(tag=>{
+      const btn = document.createElement('button');
+      btn.type='button'; btn.className='libViewTab'; btn.textContent = tag;
+      btn.style.marginRight='6px'; btn.style.marginBottom='6px';
+      btn.onclick = async ()=>{ libState.tag = tag; await renderLibraryContent(); };
+      content.appendChild(btn);
+    });
+    return;
+  }
+  if(libState.view === 'tags' && libState.tag){
+    breadcrumb.innerHTML = '<button type="button" data-act="root">Coaching Library</button><span class="libCrumbSep">/</span><span>Tag: '+libEsc(libState.tag)+'</span>';
+    breadcrumb.querySelector('[data-act="root"]').onclick = async ()=>{ libState.tag=null; await renderLibraryContent(); };
+    const assets = await LibraryStorage.listAssets({ tag: libState.tag });
+    renderLibraryAssetGrid(assets, content);
+    return;
+  }
+
+  let assets;
+  if(libState.view === 'favorites') assets = await LibraryStorage.listFavorites();
+  else if(libState.view === 'recent') assets = await LibraryStorage.listRecentlyUsed();
+  else assets = await LibraryStorage.listAssets({ search: libState.search||undefined });
+  renderLibraryAssetGrid(assets, content);
+}
+
+const LIB_PRACTICE_ROLES = ['Arrival', 'Meeting', 'Warm-up', 'Drill', 'Tactical Concept', 'Correction', 'Variation', 'Video', 'Coach Notes', 'Session', 'Break', 'Departure', 'Other'];
+
+// Best-effort only -- "8:00 AM", "3pm", "15:00", or a bare hour like "8"
+// all parse; anything else returns null and sorts to the end of its day
+// rather than breaking the sort or guessing wrong.
+function libParseTimeToMinutes(timeStr){
+  if(!timeStr) return null;
+  const m = String(timeStr).trim().match(/^(\d{1,2}):?(\d{2})?\s*(AM|PM|am|pm)?$/);
+  if(!m) return null;
+  let hours = parseInt(m[1], 10);
+  const minutes = m[2] ? parseInt(m[2], 10) : 0;
+  const ampm = m[3] ? m[3].toUpperCase() : null;
+  if(ampm==='PM' && hours<12) hours += 12;
+  if(ampm==='AM' && hours===12) hours = 0;
+  if(hours>23 || minutes>59) return null;
+  return hours*60 + minutes;
+}
+
+// Explicit, coach-triggered action only -- never runs automatically, so
+// a manually-arranged order is never silently rewritten by a guess at
+// what a free-text time string means. Day is the reliable primary key
+// (a plain number); time is best-effort and secondary; anything missing
+// or unparseable sorts last within its group, preserving relative order
+// via the stable sort rather than scrambling ties.
+async function libSortItemsByDayTime(asset){
+  const items = asset.items || [];
+  const withIndex = items.map((item, idx)=>({item, idx}));
+  withIndex.sort((a,b)=>{
+    const dayA = (a.item.day!=null && a.item.day!=='') ? Number(a.item.day) : Infinity;
+    const dayB = (b.item.day!=null && b.item.day!=='') ? Number(b.item.day) : Infinity;
+    if(dayA !== dayB) return dayA - dayB;
+    const timeA = libParseTimeToMinutes(a.item.time);
+    const timeB = libParseTimeToMinutes(b.item.time);
+    const ta = timeA==null ? Infinity : timeA;
+    const tb = timeB==null ? Infinity : timeB;
+    if(ta !== tb) return ta - tb;
+    return a.idx - b.idx;
+  });
+  asset.items = withIndex.map(x=>x.item);
+  await LibraryStorage.saveAsset(asset);
+  await renderLibraryPracticeItemsList(asset);
+}
+
+// ===== Reusable curriculum import parser =====
+// Recognizes a generic field-label format, not any single document's
+// content: a title (a line starting with a single '#'), then a fixed set
+// of known field labels -- either "Label: value" (scalar/paragraph) or
+// "Label" alone followed by '-' bulleted lines (list fields) -- optionally
+// grouped under an "## Extended Coaching Intelligence" section. Any future
+// curriculum prepared with this same field structure parses the same way.
+const LIB_CURRICULUM_SCALAR_FIELDS = {
+  'description': 'description', 'author': 'author', 'age group': 'ageGroup', 'category': 'category',
+  'organization': 'organization', 'collection': 'collection', 'difficulty': 'difficulty', 'tags': 'tags',
+  'estimated duration': 'estimatedDuration', 'objectives': 'objectives',
+  'background': 'ci.background', 'coaching philosophy': 'ci.coachingPhilosophy',
+  "coach's mindset": 'ci.coachesMindset', 'mize insight': 'ci.mizeInsight',
+};
+const LIB_CURRICULUM_LIST_FIELDS = {
+  'critical details': 'ci.criticalDetails', 'common mistakes': 'ci.commonMistakes',
+  'success indicators': 'ci.successIndicators', 'equipment / resources': 'ci.equipmentResources',
+  'equipment/resources': 'ci.equipmentResources', 'related events': 'ci.relatedEvents',
+};
+
+function libNormalizeLabel(label){
+  return label.replace(/\\/g,'').replace(/[\u2019']/g,"'").toLowerCase().replace(/\s+/g,' ').trim();
+}
+
+function libTryMatchFieldLine(line){
+  let s = line.trim();
+  if(!s.startsWith('*')) return null;
+  let i = 0; while(s[i]==='*') i++;
+  const leadingStars = i;
+  if(leadingStars===0) return null;
+  s = s.slice(i);
+  const closeMatch = s.match(/^([^*]+?):?\*+/);
+  if(!closeMatch) return null;
+  let label = closeMatch[1].trim();
+  let rest = s.slice(closeMatch[0].length).trim();
+  if(leadingStars>=3 && rest.endsWith('*')) rest = rest.slice(0,-1).trim();
+  const norm = libNormalizeLabel(label);
+  if(norm in LIB_CURRICULUM_SCALAR_FIELDS) return { kind:'scalar', field: LIB_CURRICULUM_SCALAR_FIELDS[norm], value: rest };
+  if(norm in LIB_CURRICULUM_LIST_FIELDS) return { kind:'list', field: LIB_CURRICULUM_LIST_FIELDS[norm], value: rest };
+  return null;
+}
+
+function libSetDeep(obj, path, value){
+  if(path.startsWith('ci.')){
+    obj.coachingIntelligence = obj.coachingIntelligence || {};
+    obj.coachingIntelligence[path.slice(3)] = value;
+  } else {
+    obj[path] = value;
+  }
+}
+function libPushDeep(obj, path, value){
+  if(path.startsWith('ci.')){
+    obj.coachingIntelligence = obj.coachingIntelligence || {};
+    obj.coachingIntelligence[path.slice(3)] = obj.coachingIntelligence[path.slice(3)] || [];
+    obj.coachingIntelligence[path.slice(3)].push(value);
+  } else {
+    obj[path] = obj[path] || [];
+    obj[path].push(value);
+  }
+}
+
+function libCleanEscapes(value){
+  if(typeof value === 'string') return value.replace(/\\'/g, "'").replace(/\\"/g, '"');
+  if(Array.isArray(value)) return value.map(libCleanEscapes);
+  if(value && typeof value === 'object'){
+    const out = {};
+    Object.keys(value).forEach(k=>{ out[k] = libCleanEscapes(value[k]); });
+    return out;
+  }
+  return value;
+}
+
+function libParseCurriculumText(rawText){
+  const lines = String(rawText||'').replace(/\r\n/g,'\n').split('\n');
+  const entries = [];
+  let current = null;
+  let mode = null; // { kind:'scalar', field, buffer } | { kind:'list', field }
+
+  function finalizeScalarBuffer(){
+    if(current && mode && mode.kind==='scalar' && mode.buffer!==undefined){
+      libSetDeep(current, mode.field, mode.buffer.join(' ').trim());
+    }
+  }
+
+  for(const rawLine of lines){
+    const trimmed = rawLine.trim();
+
+    // New entry boundary: a line starting with exactly one '#' followed by a space
+    if(/^#\s+\S/.test(trimmed) && !/^##/.test(trimmed)){
+      finalizeScalarBuffer();
+      current = { title: trimmed.replace(/^#\s+/, '').trim(), description:'', author:'', ageGroup:'', category:'',
+        organization:'', collection:'', difficulty:'', tags:'', estimatedDuration:'', objectives:'', coachingIntelligence:{} };
+      entries.push(current);
+      mode = null;
+      continue;
+    }
+    if(!current) continue; // skip any preamble before the first entry
+
+    // Section header (Extended Coaching Intelligence) -- ignore, just a divider
+    if(/^##\s+/.test(trimmed)){
+      finalizeScalarBuffer();
+      mode = null;
+      continue;
+    }
+
+    const fieldMatch = libTryMatchFieldLine(trimmed);
+    if(fieldMatch){
+      finalizeScalarBuffer();
+      mode = fieldMatch.kind==='scalar'
+        ? { kind:'scalar', field: fieldMatch.field, buffer: fieldMatch.value ? [fieldMatch.value] : [] }
+        : { kind:'list', field: fieldMatch.field };
+      continue;
+    }
+
+    // Bullet line
+    const bulletMatch = trimmed.match(/^-\s+(.*)$/);
+    if(bulletMatch && mode && mode.kind==='list'){
+      libPushDeep(current, mode.field, bulletMatch[1].trim());
+      continue;
+    }
+
+    // Blank line: soft separator, doesn't end the current field
+    if(trimmed===''){ continue; }
+
+    // Continuation text
+    if(mode && mode.kind==='scalar'){
+      mode.buffer.push(trimmed);
+    } else if(mode && mode.kind==='list' && current){
+      const path = mode.field;
+      const arr = path.startsWith('ci.') ? (current.coachingIntelligence[path.slice(3)]||[]) : (current[path]||[]);
+      if(arr.length){ arr[arr.length-1] = (arr[arr.length-1] + ' ' + trimmed).trim(); }
+    }
+  }
+  finalizeScalarBuffer();
+
+  entries.forEach(e=>{
+    if(typeof e.tags === 'string') e.tags = e.tags.split(',').map(t=>t.trim()).filter(Boolean);
+    e.estimatedDuration = e.estimatedDuration ? e.estimatedDuration.trim() : null;
+    if(e.coachingIntelligence && e.coachingIntelligence.mizeInsight){
+      // Closing '*' from a *** ... ** ... * wrap lands on the last line
+      // when the value spans multiple lines, so it isn't caught by the
+      // single-line stripping in libTryMatchFieldLine.
+      e.coachingIntelligence.mizeInsight = e.coachingIntelligence.mizeInsight.replace(/\*+\s*$/, '').trim();
+    }
+    if(!Object.keys(e.coachingIntelligence||{}).length) delete e.coachingIntelligence;
+  });
+
+  return entries.map(libCleanEscapes);
+}
+
+function libValidateCurriculumEntry(entry){
+  // A real entry needs at minimum a title, description, and organization --
+  // this is what distinguishes an actual knowledge object from a stray
+  // heading (like a document's own preamble section) that happened to
+  // start with a single '#' line.
+  return !!(entry && entry.title && entry.description && entry.organization);
+}
+
+async function libImportCurriculumEntries(entries){
+  const orgCache = {}; // normalized org name -> orgId
+  (await LibraryStorage.listOrganizations()).forEach(o=>{ orgCache[o.name.trim().toLowerCase()] = o.id; });
+  const colCache = {}; // orgId + '::' + normalized collection name -> colId
+  const existingEvents = await LibraryStorage.listAssets({ type:'event' });
+
+  const created = [], updated = [], failed = [];
+  for(const entry of entries){
+    try {
+      const orgName = (entry.organization || 'Imported').trim();
+      const orgKey = orgName.toLowerCase();
+      let orgId = orgCache[orgKey];
+      if(!orgId){
+        const org = { id: libGenId('org'), name: orgName, parentId:null, createdAt: Date.now() };
+        await LibraryStorage.saveOrganization(org);
+        orgId = org.id;
+        orgCache[orgKey] = orgId;
+      }
+      const colName = (entry.collection || 'Imported Items').trim();
+      const colKey = orgId+'::'+colName.toLowerCase();
+      let colId = colCache[colKey];
+      if(!colId){
+        const existingCols = await LibraryStorage.listCollections(orgId);
+        const match = existingCols.find(c=>c.name.trim().toLowerCase()===colName.toLowerCase());
+        if(match){ colId = match.id; }
+        else {
+          const col = { id: libGenId('col'), orgId, name: colName, description:'', createdAt: Date.now() };
+          await LibraryStorage.saveCollection(col);
+          colId = col.id;
+        }
+        colCache[colKey] = colId;
+      }
+
+      const existingMatch = existingEvents.find(a=>
+        a.orgId===orgId && a.collectionId===colId && (a.title||'').trim().toLowerCase()===(entry.title||'').trim().toLowerCase());
+      const asset = existingMatch ? { ...existingMatch } : {
+        id: libGenId('asset_event'), type:'event', orgId, collectionId: colId, items:[], visibility:'private',
+      };
+      asset.title = entry.title;
+      asset.description = entry.description||'';
+      asset.author = entry.author||'';
+      asset.ageGroup = entry.ageGroup||'';
+      asset.category = entry.category||'';
+      asset.difficulty = entry.difficulty||'';
+      asset.tags = entry.tags||[];
+      asset.estimatedDuration = entry.estimatedDuration||null;
+      asset.objectives = entry.objectives||'';
+      asset.coachingIntelligence = entry.coachingIntelligence;
+      await LibraryStorage.saveAsset(asset);
+      if(existingMatch){ updated.push(asset); } else { created.push(asset); existingEvents.push(asset); }
+    } catch(err){
+      failed.push({ title: entry.title, error: (err&&err.message)?err.message:String(err) });
+    }
+  }
+  return { created, updated, failed };
+}
+
+async function renderLibraryPracticeItemsList(asset){
+  const container = document.getElementById('libPracticeItemsList');
+  if(!container) return;
+  const allAssets = await LibraryStorage.listAssets({});
+  const byId = {}; allAssets.forEach(a=>byId[a.id]=a);
+  asset.items = asset.items || [];
+  let html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+    '<label style="font-size:12.5px;font-weight:600;color:#39514e;">'+(asset.type==='event'?'Timeline':'Practice Plan')+'</label>' +
+    (asset.items.length>1 ? '<button type="button" id="libSortByDayTimeBtn" style="font-size:11px;padding:4px 10px;">Sort by Day &amp; Time</button>' : '') +
+  '</div>';
+  asset.items.forEach((item, idx)=>{
+    const ref = byId[item.assetId];
+    const roleOptions = LIB_PRACTICE_ROLES.map(r=>'<option value="'+r+'"'+(item.role===r?' selected':'')+'>'+r+'</option>').join('');
+    html +=
+      '<div class="libPracticeItem libPracticeItemFull">' +
+        '<div class="libPracticeItemTop">' +
+          '<span class="libPracticeItemNum">'+(idx+1)+'.</span>' +
+          '<input type="number" class="libPracticeItemDay" data-day-idx="'+idx+'" placeholder="Day" min="1" value="'+(item.day!=null?libEsc(item.day):'')+'">' +
+          '<input type="text" class="libPracticeItemTime" data-time-idx="'+idx+'" placeholder="time" value="'+libEsc(item.time||'')+'">' +
+          '<select class="libPracticeItemRole" data-role-idx="'+idx+'"><option value="">(role)</option>'+roleOptions+'</select>' +
+          '<span class="libPracticeItemTitle">'+libEsc(ref?ref.title:'(missing item)')+' <em>'+(ref?libAssetTypeLabel(ref.type):'')+'</em></span>' +
+        '</div>' +
+        '<div class="libPracticeItemActions">' +
+          '<input type="text" class="libPracticeItemNoteInput" data-note-idx="'+idx+'" placeholder="Note for this item (optional)" value="'+libEsc(item.note||'')+'">' +
+          '<button type="button" data-move-up="'+idx+'"'+(idx===0?' disabled':'')+'>&#8593;</button>' +
+          '<button type="button" data-move-down="'+idx+'"'+(idx===asset.items.length-1?' disabled':'')+'>&#8595;</button>' +
+          '<button type="button" data-remove-item="'+idx+'">Remove</button>' +
+        '</div>' +
+      '</div>';
+  });
+  html += '<select id="libPracticeAddSelect" style="width:100%;padding:8px;margin-top:6px;"><option value="">+ Add an item from the Library...</option>' +
+    allAssets.filter(a=>a.id!==asset.id).map(a=>'<option value="'+a.id+'">'+libEsc(a.title)+' ('+libAssetTypeLabel(a.type)+')</option>').join('') +
+    '</select>';
+  container.innerHTML = html;
+
+  document.getElementById('libSortByDayTimeBtn')?.addEventListener('click', async ()=>{
+    await libSortItemsByDayTime(asset);
+  });
+  container.querySelectorAll('[data-remove-item]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      asset.items.splice(+btn.dataset.removeItem, 1);
+      await LibraryStorage.saveAsset(asset);
+      await renderLibraryPracticeItemsList(asset);
+    });
+  });
+  container.querySelectorAll('[data-move-up]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const i = +btn.dataset.moveUp;
+      if(i<=0) return;
+      [asset.items[i-1], asset.items[i]] = [asset.items[i], asset.items[i-1]];
+      await LibraryStorage.saveAsset(asset);
+      await renderLibraryPracticeItemsList(asset);
+    });
+  });
+  container.querySelectorAll('[data-move-down]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const i = +btn.dataset.moveDown;
+      if(i>=asset.items.length-1) return;
+      [asset.items[i+1], asset.items[i]] = [asset.items[i], asset.items[i+1]];
+      await LibraryStorage.saveAsset(asset);
+      await renderLibraryPracticeItemsList(asset);
+    });
+  });
+  container.querySelectorAll('.libPracticeItemRole').forEach(sel=>{
+    sel.addEventListener('change', async ()=>{
+      const idx = +sel.dataset.roleIdx;
+      asset.items[idx].role = sel.value;
+      await LibraryStorage.saveAsset(asset);
+    });
+  });
+  container.querySelectorAll('.libPracticeItemDay').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const idx = +inp.dataset.dayIdx;
+      asset.items[idx].day = inp.value===''?null:Number(inp.value);
+      await LibraryStorage.saveAsset(asset);
+    });
+  });
+  container.querySelectorAll('.libPracticeItemTime').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const idx = +inp.dataset.timeIdx;
+      asset.items[idx].time = inp.value;
+      await LibraryStorage.saveAsset(asset);
+    });
+  });
+  container.querySelectorAll('.libPracticeItemNoteInput').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const idx = +inp.dataset.noteIdx;
+      asset.items[idx].note = inp.value;
+      await LibraryStorage.saveAsset(asset);
+    });
+  });
+
+  document.getElementById('libPracticeAddSelect').addEventListener('change', async (e)=>{
+    if(!e.target.value) return;
+    asset.items = asset.items||[];
+    asset.items.push({ assetId:e.target.value, role:'', note:'', time:'', day:null });
+    await LibraryStorage.saveAsset(asset);
+    await renderLibraryPracticeItemsList(asset);
+  });
+}
+
+async function libBuildPresentationSlides(planAsset, visited){
+  visited = visited || new Set();
+  if(visited.has(planAsset.id)) return []; // circular reference guard -- skip rather than loop forever
+  visited.add(planAsset.id);
+  const items = planAsset.items || [];
+  const slides = [];
+  for(const item of items){
+    const ref = await LibraryStorage.getAsset(item.assetId);
+    if(!ref) continue; // reference no longer exists -- skip it rather than failing the whole presentation
+    if((ref.type==='formation' || ref.type==='sequence') && ref.contentRef){
+      slides.push({ kind: ref.type==='formation'?'formation':'package', refName: ref.contentRef.itemKey, title: ref.title, role: item.role, note: item.note, time: item.time, day: item.day });
+    } else if(ref.type==='practice' || ref.type==='event'){
+      // Flatten a referenced plan's own items inline, so an Event containing
+      // a Practice Session presents as one continuous walk-through rather
+      // than a single opaque slide the coach would have to exit out of.
+      const nested = await libBuildPresentationSlides(ref, visited);
+      slides.push(...nested);
+    } else {
+      let body = ref.noteBody||ref.description||'';
+      if(ref.url) body = (body?body+'\n\n':'')+'Link: '+ref.url;
+      slides.push({ kind:'text', title: ref.title, body, role: item.role, note: item.note, time: item.time, day: item.day });
+    }
+  }
+  return slides;
+}
+
+async function libRenderRelatedEventsLinks(asset){
+  const container = document.getElementById('libCiRelatedEventsLinks');
+  if(!container) return;
+  const related = (asset.coachingIntelligence && asset.coachingIntelligence.relatedEvents) || [];
+  if(!related.length){ container.innerHTML = ''; return; }
+  const allAssets = await LibraryStorage.listAssets({});
+  const byTitle = {}; allAssets.forEach(a=>{ if(a.id!==asset.id) byTitle[(a.title||'').trim().toLowerCase()] = a; });
+  container.innerHTML = '<div style="font-size:11.5px;color:#8a9492;margin:-4px 0 10px;">' +
+    related.map(title=>{
+      const match = byTitle[title.trim().toLowerCase()];
+      return match ? '<a href="#" data-jump-asset="'+match.id+'" style="color:#1b7373;font-weight:600;">'+libEsc(title)+'</a>' : libEsc(title);
+    }).join(' &middot; ') +
+  '</div>';
+  container.querySelectorAll('[data-jump-asset]').forEach(a=>{
+    a.addEventListener('click', (e)=>{ e.preventDefault(); openLibraryAssetDetail(a.dataset.jumpAsset); });
+  });
+}
+
+async function libPresentPlan(planAsset){
+  if(!(planAsset.items||[]).length){
+    if(typeof MizeDialog!=='undefined') MizeDialog.alert('This '+(planAsset.type==='event'?'event':'practice session')+' has no items yet -- add some from its detail view first.');
+    return;
+  }
+  const slides = await libBuildPresentationSlides(planAsset);
+  if(!slides.length){
+    if(typeof MizeDialog!=='undefined') MizeDialog.alert('None of this '+(planAsset.type==='event'?'event':'practice session')+'\u2019s items could be found -- they may have been deleted from the Library.');
+    return;
+  }
+  await LibraryStorage.recordUsage(planAsset.id);
+  presentSavedPresentation({ slides });
+}
+
+async function libOpenAssetInStudio(asset){
+  if((asset.type==='formation' || asset.type==='sequence') && asset.contentRef){
+    let store = {};
+    try { store = JSON.parse(localStorage.getItem(asset.contentRef.storeKey)||'{}'); } catch(err){ store = {}; }
+    const record = store[asset.contentRef.itemKey];
+    if(!record){
+      if(typeof MizeDialog!=='undefined') MizeDialog.alert('The original saved '+(asset.type==='formation'?'formation':'sequence')+' could not be found -- it may have been deleted or renamed outside the Library.');
+      return;
+    }
+    if(asset.type==='formation'){
+      recordHistory('Load Formation: '+asset.title);
+      loadState(formationRecordState(record));
+      resetTimelineForFormationLoad();
+    } else {
+      recordHistory('Load Sequence: '+asset.title);
+      if(frames.length) frames[currentFrame]=makeFrameState();
+      const pkg = MIZE.Storage.readRecord(record);
+      frames = pkg.frames||[pkg.current]; currentFrame=0; loadFrame(0);
+    }
+    await LibraryStorage.recordUsage(asset.id);
+    closeToolPanels();
+  }
+}
+
+const LIB_DEFAULT_CATEGORIES = ['Offense', 'Defense', 'Transition / Counterattack', 'Set Plays', 'Goalkeeper', 'Conditioning', 'Team Building / Communication'];
+async function libPopulateCategoryDatalist(){
+  const datalist = document.getElementById('libCategoryDatalist');
+  if(!datalist) return;
+  const used = await LibraryStorage.listAllCategories();
+  const all = [...new Set([...LIB_DEFAULT_CATEGORIES, ...used])].sort((a,b)=>a.localeCompare(b));
+  datalist.innerHTML = all.map(c=>'<option value="'+libEsc(c)+'">').join('');
+}
+
+const LIB_DEFAULT_DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced', 'Regular', 'High Performance'];
+async function libPopulateDifficultyDatalist(){
+  const datalist = document.getElementById('libDifficultyDatalist');
+  if(!datalist) return;
+  const used = await LibraryStorage.listAllDifficulties();
+  const all = [...new Set([...LIB_DEFAULT_DIFFICULTIES, ...used])].sort((a,b)=>a.localeCompare(b));
+  datalist.innerHTML = all.map(c=>'<option value="'+libEsc(c)+'">').join('');
+}
+
+async function libPopulateOrgCollectionSelects(asset){
+  const orgSelect = document.getElementById('libDetailOrgSelect');
+  const colSelect = document.getElementById('libDetailCollectionSelect');
+  if(!orgSelect || !colSelect) return;
+  const orgs = await LibraryStorage.listOrganizations();
+  orgSelect.innerHTML = orgs.map(o=>'<option value="'+o.id+'"'+(o.id===asset.orgId?' selected':'')+'>'+libEsc(o.name)+'</option>').join('');
+  async function refreshCollections(){
+    const cols = await LibraryStorage.listCollections(orgSelect.value);
+    colSelect.innerHTML = cols.map(c=>'<option value="'+c.id+'"'+(c.id===asset.collectionId?' selected':'')+'>'+libEsc(c.name)+'</option>').join('');
+    if(!cols.some(c=>c.id===asset.collectionId) && cols.length) colSelect.value = cols[0].id;
+  }
+  await refreshCollections();
+  orgSelect.addEventListener('change', refreshCollections);
+}
+
+function libCiHasContent(ci){
+  if(!ci) return false;
+  return !!((ci.criticalDetails&&ci.criticalDetails.length) || ci.background || ci.coachingPhilosophy || ci.coachesMindset ||
+    (ci.commonMistakes&&ci.commonMistakes.length) || (ci.successIndicators&&ci.successIndicators.length) ||
+    (ci.equipmentResources&&ci.equipmentResources.length) || (ci.relatedEvents&&ci.relatedEvents.length) || ci.mizeInsight);
+}
+function libCiArrToText(arr){ return (arr||[]).join('\n'); }
+function libCiTextToArr(text){ return String(text||'').split('\n').map(s=>s.trim()).filter(Boolean); }
+
+function libRenderCiSectionHtml(asset){
+  const ci = asset.coachingIntelligence || {};
+  const expanded = libCiHasContent(ci);
+  return '<div class="libCiSection">' +
+    '<button type="button" id="libCiToggleBtn" class="libCiToggleBtn"><span>Extended Coaching Intelligence</span><span class="libCiToggleIcon">'+(expanded?'\u25be':'\u25b8')+'</span></button>' +
+    '<div id="libCiBody" class="libCiBody" style="display:'+(expanded?'block':'none')+';">' +
+      '<div class="libFormRow"><label>Critical Details (one per line)</label><textarea id="libCiCriticalDetails">'+libEsc(libCiArrToText(ci.criticalDetails))+'</textarea></div>' +
+      '<div class="libFormRow"><label>Background</label><textarea id="libCiBackground">'+libEsc(ci.background||'')+'</textarea></div>' +
+      '<div class="libFormRow"><label>Coaching Philosophy</label><textarea id="libCiCoachingPhilosophy">'+libEsc(ci.coachingPhilosophy||'')+'</textarea></div>' +
+      '<div class="libFormRow"><label>Coach\u2019s Mindset</label><textarea id="libCiCoachesMindset">'+libEsc(ci.coachesMindset||'')+'</textarea></div>' +
+      '<div class="libFormRow"><label>Common Mistakes (one per line)</label><textarea id="libCiCommonMistakes">'+libEsc(libCiArrToText(ci.commonMistakes))+'</textarea></div>' +
+      '<div class="libFormRow"><label>Success Indicators (one per line)</label><textarea id="libCiSuccessIndicators">'+libEsc(libCiArrToText(ci.successIndicators))+'</textarea></div>' +
+      '<div class="libFormRow"><label>Equipment / Resources (one per line)</label><textarea id="libCiEquipmentResources">'+libEsc(libCiArrToText(ci.equipmentResources))+'</textarea></div>' +
+      '<div class="libFormRow"><label>Related Events (one per line)</label><textarea id="libCiRelatedEvents">'+libEsc(libCiArrToText(ci.relatedEvents))+'</textarea></div>' +
+      '<div id="libCiRelatedEventsLinks"></div>' +
+      '<div class="libFormRow"><label>MIZE Insight</label><textarea id="libCiMizeInsight" class="libCiMizeInsightInput">'+libEsc(ci.mizeInsight||'')+'</textarea></div>' +
+    '</div>' +
+  '</div>';
+}
+
+async function openLibraryAssetDetail(assetId){
+  const asset = await LibraryStorage.getAsset(assetId);
+  if(!asset) return;
+  libState.detailAssetId = assetId;
+  showLibraryDetailStage();
+  document.getElementById('libraryPanelTitle').textContent = asset.title || 'Untitled';
+  const body = document.getElementById('libraryDetailBody');
+  const tagsValue = (asset.tags||[]).join(', ');
+  const isPlanType = asset.type==='practice' || asset.type==='event';
+  const isLinkType = asset.type==='video' || asset.type==='document' || asset.type==='resource';
+  const isTextType = ['note','evaluation','skill'].includes(asset.type) || isLinkType;
+  body.innerHTML =
+    '<div class="libFormRow"><label>Title</label><input type="text" id="libDetailTitle" value="'+libEsc(asset.title||'')+'"></div>' +
+    '<div class="libFormRow"><label>Description</label><textarea id="libDetailDesc">'+libEsc(asset.description||'')+'</textarea></div>' +
+    '<div class="libFormRow"><label>Author</label><input type="text" id="libDetailAuthor" value="'+libEsc(asset.author||'')+'"></div>' +
+    '<div class="libFormRow"><label>Age Group</label><input type="text" id="libDetailAgeGroup" value="'+libEsc(asset.ageGroup||'')+'" placeholder="e.g. U16"></div>' +
+    '<div class="libFormRow"><label>Category</label><input type="text" id="libDetailCategory" list="libCategoryDatalist" value="'+libEsc(asset.category||'')+'" placeholder="e.g. Offense, Defense, Transition, Goalkeeper"><datalist id="libCategoryDatalist"></datalist></div>' +
+    '<div class="libFormRow"><label>Organization</label><select id="libDetailOrgSelect"></select></div>' +
+    '<div class="libFormRow"><label>Collection</label><select id="libDetailCollectionSelect"></select></div>' +
+    '<div class="libFormRow"><label>Difficulty</label><input type="text" id="libDetailDifficulty" list="libDifficultyDatalist" value="'+libEsc(asset.difficulty||'')+'" placeholder="e.g. Beginner, Intermediate, Advanced, Regular, High Performance"><datalist id="libDifficultyDatalist"></datalist></div>' +
+    '<div class="libFormRow"><label>Tags (comma-separated)</label><input type="text" id="libDetailTags" value="'+libEsc(tagsValue)+'" placeholder="transition, counterattack, 6 on 5"></div>' +
+    '<div class="libFormRow"><label>Estimated Duration</label><input type="text" id="libDetailDuration" value="'+(asset.estimatedDuration!=null?libEsc(asset.estimatedDuration):'')+'" placeholder="e.g. 45 minutes, Full Camp, Ongoing"></div>' +
+    (isPlanType ? '<div class="libFormRow"><label>Objectives</label><textarea id="libDetailObjectives" placeholder="What should this '+(asset.type==='event'?'event':'session')+' achieve?">'+libEsc(asset.objectives||'')+'</textarea></div>' : '') +
+    (isLinkType ? '<div class="libFormRow"><label>Link (optional -- leave blank as a placeholder until the content is ready)</label><input type="text" id="libDetailUrl" value="'+libEsc(asset.url||'')+'" placeholder="https://..."></div>' : '') +
+    (isTextType ? '<div class="libFormRow"><label>'+(asset.type==='evaluation'?'Evaluation Notes':asset.type==='skill'?'Exercise Description':asset.type==='video'?'Video Notes':asset.type==='document'?'Document Notes':asset.type==='resource'?'Resource Notes':'Notes')+'</label><textarea id="libDetailNoteBody" style="min-height:140px;">'+libEsc(asset.noteBody||'')+'</textarea></div>' : '') +
+    (isPlanType ? '<div id="libPracticeItemsList"></div>' : '') +
+    libRenderCiSectionHtml(asset) +
+    '<div class="libDetailActions">' +
+      '<button type="button" id="libDetailSaveBtn">Save Changes</button>' +
+      ((asset.type==='formation'||asset.type==='sequence') ? '<button type="button" id="libDetailOpenBtn">Open in Studio</button>' : '') +
+      (isPlanType ? '<button type="button" id="libDetailPresentBtn">Present</button>' : '') +
+      '<button type="button" id="libDetailFavBtn">'+(asset.favorite?'\u2605 Remove Favorite':'\u2606 Add to Favorites')+'</button>' +
+      '<button type="button" id="libDetailDuplicateBtn">Duplicate</button>' +
+      '<button type="button" id="libDetailDeleteBtn" style="color:#b53434;border-color:#e0b8b8;">Delete</button>' +
+    '</div>';
+
+  await libPopulateOrgCollectionSelects(asset);
+  await libPopulateCategoryDatalist();
+  await libPopulateDifficultyDatalist();
+  if(isPlanType) await renderLibraryPracticeItemsList(asset);
+
+  document.getElementById('libCiToggleBtn').addEventListener('click', ()=>{
+    const bodyEl = document.getElementById('libCiBody');
+    const iconEl = document.querySelector('#libCiToggleBtn .libCiToggleIcon');
+    const nowOpen = bodyEl.style.display==='none';
+    bodyEl.style.display = nowOpen ? 'block' : 'none';
+    iconEl.textContent = nowOpen ? '\u25be' : '\u25b8';
+  });
+  await libRenderRelatedEventsLinks(asset);
+
+  document.getElementById('libDetailSaveBtn').onclick = async ()=>{
+    asset.title = document.getElementById('libDetailTitle').value.trim() || 'Untitled';
+    asset.description = document.getElementById('libDetailDesc').value.trim();
+    asset.author = document.getElementById('libDetailAuthor').value.trim();
+    asset.ageGroup = document.getElementById('libDetailAgeGroup').value.trim();
+    asset.category = document.getElementById('libDetailCategory').value.trim();
+    asset.orgId = document.getElementById('libDetailOrgSelect').value || asset.orgId;
+    asset.collectionId = document.getElementById('libDetailCollectionSelect').value || asset.collectionId;
+    asset.difficulty = document.getElementById('libDetailDifficulty').value.trim();
+    asset.tags = document.getElementById('libDetailTags').value.split(',').map(t=>t.trim()).filter(Boolean);
+    asset.estimatedDuration = document.getElementById('libDetailDuration').value.trim() || null;
+    if(['note','evaluation','skill','video','document','resource'].includes(asset.type)) asset.noteBody = document.getElementById('libDetailNoteBody').value;
+    if(asset.type==='practice' || asset.type==='event') asset.objectives = document.getElementById('libDetailObjectives').value.trim();
+    if(asset.type==='video' || asset.type==='document' || asset.type==='resource') asset.url = document.getElementById('libDetailUrl').value.trim();
+    asset.coachingIntelligence = {
+      criticalDetails: libCiTextToArr(document.getElementById('libCiCriticalDetails').value),
+      background: document.getElementById('libCiBackground').value.trim(),
+      coachingPhilosophy: document.getElementById('libCiCoachingPhilosophy').value.trim(),
+      coachesMindset: document.getElementById('libCiCoachesMindset').value.trim(),
+      commonMistakes: libCiTextToArr(document.getElementById('libCiCommonMistakes').value),
+      successIndicators: libCiTextToArr(document.getElementById('libCiSuccessIndicators').value),
+      equipmentResources: libCiTextToArr(document.getElementById('libCiEquipmentResources').value),
+      relatedEvents: libCiTextToArr(document.getElementById('libCiRelatedEvents').value),
+      mizeInsight: document.getElementById('libCiMizeInsight').value.trim(),
+    };
+    if(!libCiHasContent(asset.coachingIntelligence)) delete asset.coachingIntelligence;
+    await LibraryStorage.saveAsset(asset);
+    document.getElementById('libraryPanelTitle').textContent = asset.title;
+    await libRenderRelatedEventsLinks(asset);
+    if(typeof MizeDialog!=='undefined') MizeDialog.alert('Saved.');
+  };
+
+  const openBtn = document.getElementById('libDetailOpenBtn');
+  if(openBtn) openBtn.onclick = ()=> libOpenAssetInStudio(asset);
+
+  const presentBtn = document.getElementById('libDetailPresentBtn');
+  if(presentBtn) presentBtn.onclick = ()=> libPresentPlan(asset);
+
+  document.getElementById('libDetailDuplicateBtn').onclick = async ()=>{
+    const copy = JSON.parse(JSON.stringify(asset));
+    copy.id = libGenId('asset_'+asset.type);
+    copy.title = (asset.title||'Untitled')+' (Copy)';
+    delete copy.favorite; delete copy.createdAt; delete copy.updatedAt; delete copy.version;
+    await LibraryStorage.saveAsset(copy);
+    await openLibraryAssetDetail(copy.id);
+  };
+
+  document.getElementById('libDetailFavBtn').onclick = async ()=>{
+    const isFav = await LibraryStorage.toggleFavorite(asset.id);
+    asset.favorite = isFav;
+    document.getElementById('libDetailFavBtn').textContent = isFav ? '\u2605 Remove Favorite' : '\u2606 Add to Favorites';
+  };
+
+  document.getElementById('libDetailDeleteBtn').onclick = async ()=>{
+    const ok = (typeof MizeDialog!=='undefined') ? await MizeDialog.confirm('Delete "'+asset.title+'" from the Coaching Library? This does not delete the underlying saved formation/sequence itself, only its Library entry.') : true;
+    if(!ok) return;
+    await LibraryStorage.deleteAsset(asset.id);
+    showLibraryListStage();
+    await renderLibraryContent();
+  };
+}
+
+document.getElementById('libraryNewNoteBtn')?.addEventListener('click', async ()=>{
+  const asset = {
+    id: libGenId('asset_note'), type:'note', title:'New Coach Note', description:'', author:'',
+    orgId: LIB_DEFAULT_ORG_ID, collectionId: LIB_DEFAULT_COLLECTION_ID,
+    ageGroup:'', category:'Coach Notes', difficulty:'', tags:[], visibility:'private',
+    estimatedDuration:null, noteBody:'',
+  };
+  await LibraryStorage.saveAsset(asset);
+  await openLibraryAssetDetail(asset.id);
+});
+
+document.getElementById('libraryNewPracticeBtn')?.addEventListener('click', async ()=>{
+  const asset = {
+    id: libGenId('asset_practice'), type:'practice', title:'New Practice Session', description:'', author:'',
+    orgId: LIB_DEFAULT_ORG_ID, collectionId: LIB_DEFAULT_COLLECTION_ID,
+    ageGroup:'', category:'Practice Sessions', difficulty:'', tags:[], visibility:'private',
+    estimatedDuration:null, items:[],
+  };
+  await LibraryStorage.saveAsset(asset);
+  await openLibraryAssetDetail(asset.id);
+});
+
+document.getElementById('libraryNewEvaluationBtn')?.addEventListener('click', async ()=>{
+  const asset = {
+    id: libGenId('asset_evaluation'), type:'evaluation', title:'New Evaluation', description:'', author:'',
+    orgId: LIB_DEFAULT_ORG_ID, collectionId: LIB_DEFAULT_COLLECTION_ID,
+    ageGroup:'', category:'', difficulty:'', tags:[], visibility:'private',
+    estimatedDuration:null, noteBody:'',
+  };
+  await LibraryStorage.saveAsset(asset);
+  await openLibraryAssetDetail(asset.id);
+});
+
+document.getElementById('libraryNewSkillBtn')?.addEventListener('click', async ()=>{
+  const asset = {
+    id: libGenId('asset_skill'), type:'skill', title:'New Skill Exercise', description:'', author:'',
+    orgId: LIB_DEFAULT_ORG_ID, collectionId: LIB_DEFAULT_COLLECTION_ID,
+    ageGroup:'', category:'', difficulty:'', tags:[], visibility:'private',
+    estimatedDuration:null, noteBody:'',
+  };
+  await LibraryStorage.saveAsset(asset);
+  await openLibraryAssetDetail(asset.id);
+});
+
+document.getElementById('libraryNewEventBtn')?.addEventListener('click', async ()=>{
+  const asset = {
+    id: libGenId('asset_event'), type:'event', title:'New Event', description:'', author:'',
+    orgId: LIB_DEFAULT_ORG_ID, collectionId: LIB_DEFAULT_COLLECTION_ID,
+    ageGroup:'', category:'', difficulty:'', tags:[], visibility:'private',
+    estimatedDuration:null, objectives:'', items:[],
+  };
+  await LibraryStorage.saveAsset(asset);
+  await openLibraryAssetDetail(asset.id);
+});
+
+document.getElementById('libraryNewVideoBtn')?.addEventListener('click', async ()=>{
+  const asset = {
+    id: libGenId('asset_video'), type:'video', title:'New Video', description:'', author:'',
+    orgId: LIB_DEFAULT_ORG_ID, collectionId: LIB_DEFAULT_COLLECTION_ID,
+    ageGroup:'', category:'', difficulty:'', tags:[], visibility:'private',
+    estimatedDuration:null, noteBody:'', url:'',
+  };
+  await LibraryStorage.saveAsset(asset);
+  await openLibraryAssetDetail(asset.id);
+});
+
+document.getElementById('libraryNewDocumentBtn')?.addEventListener('click', async ()=>{
+  const asset = {
+    id: libGenId('asset_document'), type:'document', title:'New Document', description:'', author:'',
+    orgId: LIB_DEFAULT_ORG_ID, collectionId: LIB_DEFAULT_COLLECTION_ID,
+    ageGroup:'', category:'', difficulty:'', tags:[], visibility:'private',
+    estimatedDuration:null, noteBody:'', url:'',
+  };
+  await LibraryStorage.saveAsset(asset);
+  await openLibraryAssetDetail(asset.id);
+});
+
+document.getElementById('libraryNewResourceBtn')?.addEventListener('click', async ()=>{
+  const asset = {
+    id: libGenId('asset_resource'), type:'resource', title:'New Resource', description:'', author:'',
+    orgId: LIB_DEFAULT_ORG_ID, collectionId: LIB_DEFAULT_COLLECTION_ID,
+    ageGroup:'', category:'', difficulty:'', tags:[], visibility:'private',
+    estimatedDuration:null, noteBody:'', url:'',
+  };
+  await LibraryStorage.saveAsset(asset);
+  await openLibraryAssetDetail(asset.id);
+});
+
+function libRenderImportPreview(text){
+  const preview = document.getElementById('libImportPreview');
+  const confirmBtn = document.getElementById('libImportConfirmBtn');
+  const diag = document.getElementById('libImportDiag');
+  if(diag) diag.textContent = '';
+  if(!text || !text.trim()){ preview.innerHTML=''; confirmBtn.classList.remove('libImportReady'); return; }
+  const allBlocks = libParseCurriculumText(text);
+  const valid = allBlocks.filter(libValidateCurriculumEntry);
+  const invalid = allBlocks.filter(e=>!libValidateCurriculumEntry(e));
+  let html = '<div class="libImportSummary">'+valid.length+' entr'+(valid.length===1?'y':'ies')+' ready to import.</div>';
+  if(valid.length){
+    html += '<ul class="libImportList">'+valid.map(e=>'<li>'+libEsc(e.title)+' <span class="libImportMeta">'+libEsc(e.organization)+(e.collection?' / '+libEsc(e.collection):'')+'</span></li>').join('')+'</ul>';
+  }
+  if(invalid.length){
+    html += '<div class="libImportSkipped">'+invalid.length+' section(s) skipped (no Description/Organization found): '+invalid.map(e=>libEsc(e.title)).join(', ')+'</div>';
+  }
+  preview.innerHTML = html;
+  confirmBtn.classList.toggle('libImportReady', !!valid.length);
+  if(!valid.length && diag) diag.textContent = 'Pasted text found, but no complete entries were recognized in it yet -- see below for what a complete entry needs.';
+}
+
+document.getElementById('libraryImportBtn')?.addEventListener('click', ()=>{
+  document.getElementById('libImportTextarea').value = '';
+  document.getElementById('libImportPreview').innerHTML = '';
+  document.getElementById('libImportConfirmBtn').classList.remove('libImportReady');
+  document.getElementById('libImportDiag').textContent = '';
+  showLibraryImportStage();
+});
+document.getElementById('libraryImportBackBtn')?.addEventListener('click', ()=>{
+  showLibraryListStage();
+});
+let _libImportDebounce = null;
+document.getElementById('libImportTextarea')?.addEventListener('input', (e)=>{
+  clearTimeout(_libImportDebounce);
+  const value = e.target.value;
+  _libImportDebounce = setTimeout(()=>libRenderImportPreview(value), 200);
+});
+document.getElementById('libImportTextarea')?.addEventListener('paste', ()=>{
+  // The paste event fires before the pasted content is inserted, so the
+  // value has to be read on the next tick, not synchronously here.
+  // Rendering immediately (skipping the debounce) matters most for a
+  // large one-time paste, which is the primary way this field gets used.
+  setTimeout(()=>{
+    clearTimeout(_libImportDebounce);
+    libRenderImportPreview(document.getElementById('libImportTextarea').value);
+  }, 0);
+});
+document.getElementById('libImportConfirmBtn')?.addEventListener('click', async ()=>{
+  try {
+    const text = document.getElementById('libImportTextarea').value;
+    const valid = libParseCurriculumText(text).filter(libValidateCurriculumEntry);
+    if(!valid.length){
+      const msg = (text && text.trim())
+        ? 'No complete entries were found in the pasted text. Each entry needs at least a recognizable Title, Description, and Organization -- double check the full text was pasted, including the ** formatting markers around field labels.'
+        : 'Paste your curriculum text into the box above first.';
+      if(typeof MizeDialog!=='undefined') await MizeDialog.alert(msg);
+      else console.warn(msg);
+      return;
+    }
+    const { created, updated, failed } = await libImportCurriculumEntries(valid);
+    document.getElementById('libImportTextarea').value = '';
+    document.getElementById('libImportPreview').innerHTML = '';
+    document.getElementById('libImportConfirmBtn').classList.remove('libImportReady');
+    if(typeof MizeDialog!=='undefined'){
+      let msg = '';
+      if(created.length) msg += created.length+' new entr'+(created.length===1?'y':'ies')+' created. ';
+      if(updated.length) msg += updated.length+' existing entr'+(updated.length===1?'y':'ies')+' updated. ';
+      if(!created.length && !updated.length) msg = 'Nothing was created or updated. ';
+      if(failed.length){
+        const quotaFailures = failed.filter(f=>/quota/i.test(f.error));
+        const otherFailures = failed.filter(f=>!/quota/i.test(f.error));
+        if(quotaFailures.length){
+          msg += '\n\n'+quotaFailures.length+' entr'+(quotaFailures.length===1?'y':'ies')+' could not be saved because this device\u2019s storage is full. Open Menu \u2192 About & Diagnostics to see what\u2019s using space, then try importing again once some is freed up.';
+        }
+        if(otherFailures.length){
+          msg += '\n\n'+otherFailures.length+' entr'+(otherFailures.length===1?'y':'ies')+' failed for other reasons: '+otherFailures.map(f=>f.title+' ('+f.error+')').join('; ');
+        }
+      }
+      await MizeDialog.alert(msg.trim());
+    }
+    libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:'event' };
+    document.querySelectorAll('.libViewTab').forEach(t=>t.classList.toggle('active', t.dataset.view==='all'));
+    document.querySelectorAll('.libTypeFilterPill').forEach(p=>p.classList.toggle('active', p.dataset.type==='event'));
+    showLibraryListStage();
+    await renderLibraryContent();
+  } catch(err){
+    const msg = 'Something went wrong during import'+(err&&err.message?(': '+err.message):'.')+' Nothing was imported.';
+    if(typeof MizeDialog!=='undefined') await MizeDialog.alert(msg);
+    else console.error(msg, err);
+  }
+});
 
 // ===== Smart screen-fit sizing =====
 // Goal: the actual playing surface (25x20m) plus the goal margins on x
