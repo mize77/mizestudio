@@ -9426,6 +9426,17 @@ function importLibraryFromFile(file){
         if(data.packages) Object.assign(existingPackages, data.packages);
         if(data.sessions) Object.assign(existingSessions, data.sessions);
         imported = true; importedLabel = 'Import complete. Formations, packages, and practice sessions merged into your library.';
+      } else if(data.name && (data.frames || data.current) && !data.state){
+        // Legacy package/sequence export from before type/schemaVersion
+        // stamping existed -- frames/current without state is the same
+        // structural shape package-loading code elsewhere already relies
+        // on (frames=pkg.frames||[pkg.current]), so it's safe to trust here.
+        existingPackages[data.name] = data;
+        imported = true; importedLabel = 'Imported "'+data.name+'".';
+      } else if(data.name && data.state && !data.frames){
+        // Same idea for a legacy formation export.
+        existingFormations[data.name] = data;
+        imported = true; importedLabel = 'Imported "'+data.name+'".';
       }
       localStorage.setItem('wpStrategyFormationsV5', JSON.stringify(existingFormations));
       localStorage.setItem('tpgTacticalPackagesV8', JSON.stringify(existingPackages));
