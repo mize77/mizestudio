@@ -190,7 +190,8 @@
   .capNumber { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:var(--capSize, 18px); height:var(--capSize, 18px); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:calc(var(--capSize, 18px) * 0.6); font-weight:900; color:#111; background:rgba(255,255,255,.86); border:1px solid rgba(0,0,0,.35); pointer-events:none; z-index:8; line-height:1; }
   .player[data-team="blue"] .capNumber { color:#fff; background:rgba(0,55,210,.86); border-color:#fff; }
   .player[data-team="goalie"] .capNumber { color:#fff; background:rgba(220,0,0,.86); border-color:#fff; }
-  .ghost { position:absolute; transform:translate(-50%,-50%); opacity:.22; pointer-events:none; z-index:5; filter:grayscale(.15); }
+  .ghost { position:absolute; transform:translate(-50%,-50%); opacity:.5; pointer-events:none; z-index:5; filter:grayscale(.15); }
+  .ghost2 { position:absolute; transform:translate(-50%,-50%); opacity:.25; pointer-events:none; z-index:4; filter:grayscale(.15); }
   /* ===== Tutorial Mode ===== */
   /* A pulsing ring drawn AROUND the target rather than a dimmed overlay
      with a cutout -- dimming the rest of the board made it hard to
@@ -684,9 +685,14 @@
   .libFormRow input[type="text"], .libFormRow textarea, .libFormRow select { padding:8px 10px; border:1.5px solid #d5dede; border-radius:8px; font-size:13.5px; font-family:inherit; box-sizing:border-box; width:100%; }
   .libFormRow textarea { min-height:70px; resize:vertical; }
   .libDetailActions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
-  .libPracticeItem { display:flex; align-items:center; gap:8px; border:1px solid #e1e6e6; border-radius:8px; padding:8px 10px; margin-bottom:6px; }
+  .libPracticeItem { display:flex; align-items:center; gap:8px; border:1px solid #e1e6e6; border-radius:8px; padding:8px 10px; margin-bottom:6px; background:#fff; }
   .libPracticeItem span { flex:1; font-size:13px; }
-  .libPracticeItemFull { flex-direction:column; align-items:stretch; gap:6px; }
+  .libPracticeItemFull { flex-direction:column; align-items:stretch; gap:6px; position:relative; transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease; }
+  .libPracticeItemFull.dragging { opacity:.85; box-shadow:0 8px 20px rgba(0,0,0,.18); z-index:5; transition:none; cursor:grabbing; }
+  .libPracticeItemFull.dragOverBefore { box-shadow:inset 0 3px 0 #1b7373; }
+  .libPracticeItemFull.dragOverAfter { box-shadow:inset 0 -3px 0 #1b7373; }
+  .libPracticeItemDragHandle { cursor:grab; touch-action:none; padding:4px 6px; margin:-4px 0; color:#8a9494; font-size:16px; flex-shrink:0; align-self:stretch; display:flex; align-items:center; }
+  @media (pointer:coarse) { .libPracticeItemDragHandle { padding:8px 10px; margin:-8px -2px; } }
   .libPracticeItemTop { display:flex; align-items:center; gap:8px; }
   .libPracticeItemNum { font-weight:700; color:#5a6664; font-size:12px; flex-shrink:0; }
   .libPracticeItemRole { font-size:12px; padding:4px 6px; border-radius:6px; border:1.5px solid #d5dede; flex-shrink:0; }
@@ -709,6 +715,11 @@
   #libImportConfirmBtn { opacity:.55; }
   .libBulkAddPickerRow { display:flex; }
   .libBulkAddPickerRow select { flex:1; min-width:0; padding:6px 8px; border-radius:8px; border:1.5px solid #d5dede; font-size:12.5px; }
+  .libAddMenu { margin-top:6px; border:1px solid #e1e6e6; border-radius:9px; background:#fbfcfc; }
+  #libAddMenuToggleBtn { width:100%; text-align:left; background:#fff; border:0; border-radius:9px; padding:9px 12px; font-size:13px; font-weight:700; color:#1b7373; }
+  #libAddMenuBody { display:none; flex-direction:column; gap:6px; padding:8px; }
+  .libAddMenu.open #libAddMenuBody { display:flex; }
+  #libAddMenuBody button, #libAddMenuBody select { width:100%; text-align:left; }
   #libImportConfirmBtn.libImportReady { opacity:1; background:#124d4d; color:#fff; border-color:#124d4d; }
   .libImportDiag { font-size:12px; color:#b53434; margin-top:8px; }
   .libPracticeItemTitle { flex:1; font-size:13px; }
@@ -1071,6 +1082,7 @@
   <svg id="arrows" viewBox="0 0 29 24" preserveAspectRatio="none"><g id="arrowsGroup"></g></svg>
   <svg id="shotBlockSvg" viewBox="0 0 29 24" preserveAspectRatio="none"><g id="shotBlockGroup"><g id="goalieVisionLayer"></g><g id="shotBlockLayer"></g><g id="shootingAngleLayer"></g></g></svg>
   <div id="ball" data-x="14.5" data-y="12"></div>
+  <div id="ghostLayer2"></div>
   <div id="ghostLayer"></div>
   <div id="tutorialGhostLayer"></div>
   <div id="selectionRect"></div>
@@ -1129,6 +1141,7 @@
           <button id="addPlayerFromMovementBtn" data-tip="Add a player to the field -- also useful when there are no players at all to mark or select.">Add Player</button>
           <button id="multiSelectBtn" data-tip="Turn on to tap multiple players/ball to select them together, like holding ⌘/Ctrl while clicking.">Multi-Select: Off</button>
           <button id="smartPositioningToggleBtn" class="active" data-tip="When on, the ball carrier automatically faces the goal they're attacking while being moved, and a vertical defender within 2m of the ball carrier automatically stays squared to them while being moved. You can always override this afterward with the rotate handle.">Smart Positioning: On</button>
+          <button id="applySmartPositioningBtn" data-tip="Select any players (goalkeepers excluded) and tap this to instantly correct their facing: every selected player on the ball carrier's team faces their attacking goal, and every selected vertical defender squares up to whichever attacking player is actually nearest to them (not necessarily the ball carrier), if within 2m. No one's position changes, only their rotation.">Auto-Face Selected</button>
         </div>
       </div>
 
@@ -1219,7 +1232,15 @@
         <button type="button" class="subGroupHeader">Field Aids <span class="chev">&#9656;</span></button>
         <div class="subGroupFlyout">
           <button id="snapBtn" data-tip="When on, dragged players/ball snap close to key field lines.">Snap: Off</button>
-          <button id="ghostBtn" data-tip="Show a faded outline of the previous frame's positions while you set up the next one.">Ghost Mode</button>
+          <label style="font-size:11.5px;color:#5d6868;display:flex;flex-direction:column;gap:3px;">Frame Transition
+            <select id="frameTransitionSelect" data-tip="Controls how frames appear when playing back the timeline, and shows/hides the ghost outline of prior frames while editing.">
+              <option value="cut">Appear / Disappear</option>
+              <option value="ghost">Appear with Previous Frame as Ghost</option>
+              <option value="animated">Animated (by Duration)</option>
+              <option value="animatedPause">Animated, Pause Halfway</option>
+              <option value="animatedTwoGhost">Animated with Last Two Ghosts</option>
+            </select>
+          </label>
           <button id="eraseBtn" class="modeBtn" data-tip="Tap a drawing to erase just that one.">Erase Drawings</button>
           <button id="clearBtn" data-tip="Clear every arrow, highlight, and note from the field.">Clear Arrows</button>
         </div>
@@ -2052,6 +2073,15 @@ let frontCourtZoomed=false;
 let multiSelectMode=false;
 let snapEnabled=false;
 let ghostMode=false;
+// 'cut' | 'ghost' | 'animated' | 'animatedPause' | 'animatedTwoGhost' -- the
+// single source of truth for frame transition behavior. ghostMode stays a
+// derived boolean (kept in sync by syncGhostModeFromTransition below)
+// rather than being replaced outright, since it's already woven into the
+// tutorial's playback-checkpoint save/restore system -- deriving it keeps
+// every existing dependency working without needing to individually find
+// and update each one.
+let frameTransitionMode='cut';
+function syncGhostModeFromTransition(){ ghostMode = (frameTransitionMode==='ghost' || frameTransitionMode==='animatedTwoGhost'); }
 // Centralized product configuration (Development Phase 2, Section 5.3).
 // Additive only for now: introduced as the single source of truth for
 // product name/version/build/copyright, but existing hardcoded labels
@@ -3092,6 +3122,7 @@ MIZE.State.settings = {};
   ['multiSelectMode', ()=>multiSelectMode, v=>multiSelectMode=v],
   ['snapEnabled', ()=>snapEnabled, v=>snapEnabled=v],
   ['ghostMode', ()=>ghostMode, v=>ghostMode=v],
+  ['frameTransitionMode', ()=>frameTransitionMode, v=>{ frameTransitionMode=v; syncGhostModeFromTransition(); }],
 ].forEach(([name,get,set])=>Object.defineProperty(MIZE.State.settings, name, {get, set, enumerable:true}));
 const shotBlockSvg = document.getElementById('shotBlockSvg');
 const shotBlockGroup = document.getElementById('shotBlockGroup');
@@ -3110,6 +3141,7 @@ function startOrContinueNudgeHistory(){
   _nudgeTimer=setTimeout(()=>{ _nudgeActive=false; }, 600);
 }
 const ghostLayer = document.getElementById('ghostLayer');
+const ghostLayer2 = document.getElementById('ghostLayer2');
 let measureStart=null, measurePreview=null;
 let freehandPoints=null, freehandPath=null, freehandPressures=null;
 let freehandColor='#1a1a1a';
@@ -4530,6 +4562,7 @@ document.getElementById('presentationNextBtn').addEventListener('click', ()=>pre
 document.querySelector('.toolListBtn[data-panel="presentationStudioPanel"]')?.addEventListener('click', ()=>{ renderSlideOptions(); renderPresentationSlideList(); renderSavedPresentations(); });
 renderSavedPresentations();
 function clearGhosts() { ghostLayer.innerHTML=''; }
+function clearSecondGhosts() { ghostLayer2.innerHTML=''; }
 function addGhostsFromState(st) {
   clearGhosts(); if(!ghostMode || !st?.players) return;
   st.players.forEach(p=>{ const g=document.createElement('div'); g.className='ghost'; g.dataset.team=p.team; g.dataset.pose=p.pose; const scr=MIZE.Field.toScreenPercent(boardToFieldX(p.x), boardToFieldY(p.y)); g.style.left=scr.left; g.style.top=scr.top;
@@ -4539,7 +4572,38 @@ function addGhostsFromState(st) {
     if(p.pose==='h') { img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; } else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label)])+'px'; }
   });
 }
-function toggleGhostMode() { ghostMode=!ghostMode; document.getElementById('ghostBtn').classList.toggle('active',ghostMode); if(!ghostMode) clearGhosts(); else if(frames[currentFrame-1]) addGhostsFromState(frames[currentFrame-1]); }
+// Mirrors addGhostsFromState exactly, but for the second-back layer used
+// specifically by the "last two ghosts" transition mode -- kept as a
+// near-duplicate rather than a parameterized shared function, since the
+// two layers have genuinely different gating conditions (this one only
+// fires for 'animatedTwoGhost', while the first layer fires for both
+// 'ghost' and 'animatedTwoGhost') and duplicating a dozen lines is a
+// smaller risk than threading a mode-branch through the shared version.
+function addSecondGhostsFromState(st) {
+  clearSecondGhosts(); if(frameTransitionMode!=='animatedTwoGhost' || !st?.players) return;
+  st.players.forEach(p=>{ const g=document.createElement('div'); g.className='ghost2'; g.dataset.team=p.team; g.dataset.pose=p.pose; const scr=MIZE.Field.toScreenPercent(boardToFieldX(p.x), boardToFieldY(p.y)); g.style.left=scr.left; g.style.top=scr.top;
+    const displayRot = frontCourtActive ? ((p.rot||0)-90) : (p.rot||0);
+    g.style.setProperty('--rot',displayRot+'deg');
+    const body=document.createElement('div'); body.className='playerBody'; const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label); body.appendChild(img); g.appendChild(body); ghostLayer2.appendChild(g);
+    if(p.pose==='h') { img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; } else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label)])+'px'; }
+  });
+}
+function toggleGhostMode() {
+  frameTransitionMode = (frameTransitionMode==='ghost') ? 'cut' : 'ghost';
+  syncGhostModeFromTransition();
+  const sel=document.getElementById('frameTransitionSelect'); if(sel) sel.value=frameTransitionMode;
+  if(!ghostMode) clearGhosts(); else if(frames[currentFrame-1]) addGhostsFromState(frames[currentFrame-1]);
+}
+document.getElementById('frameTransitionSelect')?.addEventListener('change', e=>{
+  frameTransitionMode = e.target.value;
+  syncGhostModeFromTransition();
+  if(!ghostMode){ clearGhosts(); clearSecondGhosts(); }
+  else {
+    if(frames[currentFrame-1]) addGhostsFromState(frames[currentFrame-1]);
+    if(frameTransitionMode==='animatedTwoGhost' && frames[currentFrame-2]) addSecondGhostsFromState(frames[currentFrame-2]);
+    else clearSecondGhosts();
+  }
+});
 const PRESENT_SKIP_IDS=['fieldBgRect','goalFrameL1','goalFrameL2','goalFrameR1','goalFrameR2','fieldSideBands','brandRespect','brandFairPlay','brandHaveFun','brandPlaySmart','fieldDimLabel','fieldCenterLogo'];
 function buildPresentationFieldGroup(){
   if(document.getElementById('presentationFieldGroup')) return; // build once
@@ -5076,7 +5140,6 @@ document.querySelectorAll('#freeDrawColorRow .freeDrawColorSwatch').forEach(btn=
     renderQuickCommandBar();
   });
 });
-document.getElementById('ghostBtn').onclick=()=>toggleGhostMode();
 document.getElementById('eraseBtn').onclick=()=>setMode('erase');
 document.getElementById('clearBtn').onclick=()=>clearArrows();
 document.getElementById('undoBtn').onclick=undo;
@@ -5280,7 +5343,7 @@ function loadFrame(i) {
   const prev=frames[currentFrame]||null;
   currentFrame=i;
   resetHistoryOnFrameChange();
-  loadState(frames[i]); document.getElementById('frameNote').value=frames[i].note||''; document.getElementById('frameDuration').value=frames[i].duration||0.9; renderFrames(); addGhostsFromState(frames[i-1]||prev);
+  loadState(frames[i]); document.getElementById('frameNote').value=frames[i].note||''; document.getElementById('frameDuration').value=frames[i].duration||0.9; renderFrames(); addGhostsFromState(frames[i-1]||prev); addSecondGhostsFromState(frames[i-2]);
   if(MIZE.State.shotClock.syncPackage){
     MIZE.State.shotClock.seconds = MIZE.State.shotClock.direction==='down' ? computeRemainingPackageDuration() : computeElapsedPackageDuration();
     const secInput=document.getElementById('shotClockSecondsInput'); if(secInput) secInput.value=MIZE.State.shotClock.seconds;
@@ -5311,7 +5374,7 @@ function lerp(a,b,t){ return a+(b-a)*t; }
 function lerpAngle(a,b,t){ let diff=((b-a+540)%360)-180; return a+diff*t; }
 
 let pausedAtProgress=0, pausedTargetIndex=null;
-function animateToFrame(targetIndex, durationSec, onDone){
+function animateToFrame(targetIndex, durationSec, onDone, endProgress=1){
   const target=frames[targetIndex];
   if(!target){ onDone && onDone(); return; }
 
@@ -5324,6 +5387,7 @@ function animateToFrame(targetIndex, durationSec, onDone){
 
   // Ghost shows exactly where things started, and stays put for the whole transition.
   if(ghostMode) addGhostsFromState({ players: Object.values(startPlayers) });
+  if(frameTransitionMode==='animatedTwoGhost') addSecondGhostsFromState(frames[targetIndex-2*playDirection]);
 
   // Make sure every target player exists as a live element (matched by label);
   // drop any that don't belong in the target frame.
@@ -5359,8 +5423,9 @@ function animateToFrame(targetIndex, durationSec, onDone){
   const durationMs=Math.max(50, (durationSec||0.9)*1000);
 
   function tick(now){
-    const t=Math.min(1, (now-startTime)/durationMs);
-    pausedAtProgress=t; pausedTargetIndex=targetIndex; // kept current every frame, since cancelAnimationFrame means this tick won't run again to record it after a pause
+    const rawT=Math.min(1, (now-startTime)/durationMs);
+    const t=rawT*endProgress; // scales the interpolation range so playback can stop partway through (pause-halfway mode) without needing a separate tweening implementation
+    pausedAtProgress=rawT; pausedTargetIndex=targetIndex; // kept current every frame, since cancelAnimationFrame means this tick won't run again to record it after a pause
     if(!playing){ return; } // Stop pressed mid-transition -- freeze exactly where things are
     target.players.forEach(p=>{
       const el=labelToEl.get(p.label);
@@ -5376,11 +5441,15 @@ function animateToFrame(targetIndex, durationSec, onDone){
     ball.dataset.x=lerp(startBall.x, tb.x, t);
     ball.dataset.y=lerp(startBall.y, tb.y, t);
     placeBall();
-    if(t<1){
+    if(rawT<1){
       animFrameHandle=requestAnimationFrame(tick);
-    } else {
+    } else if(endProgress>=1){
       pausedTargetIndex=null; pausedAtProgress=0;
       historyReady=false; loadState(target); historyReady=true; // snap to the exact final state (carrier, drawings, etc.)
+      onDone && onDone();
+    } else {
+      // Deliberately mid-transition (pause-halfway mode) -- don't snap to
+      // the final frame state yet, since we haven't actually reached it.
       onDone && onDone();
     }
   }
@@ -5412,11 +5481,39 @@ function setShotClockDirectionFor(direction){
     const d=document.getElementById('shotClockDirUp'); if(d) d.checked=true;
   }
 }
+let cutPlaybackTimeout=null;
+const FRAME_PAUSE_HALFWAY_MS=400;
+function animateOrCutToFrame(targetIndex, durationSec, onDone){
+  if(frameTransitionMode==='cut' || frameTransitionMode==='ghost'){
+    const durationMs=Math.max(50,(durationSec||0.9)*1000);
+    if(frameTransitionMode==='ghost' && frames[currentFrame]) addGhostsFromState(frames[currentFrame]); else clearGhosts();
+    clearSecondGhosts();
+    cutPlaybackTimeout=setTimeout(()=>{
+      cutPlaybackTimeout=null;
+      if(!playing) return; // Stop was pressed while waiting -- don't jump
+      historyReady=false; loadState(frames[targetIndex]); historyReady=true;
+      onDone && onDone();
+    }, durationMs);
+  } else if(frameTransitionMode==='animatedPause'){
+    const halfDuration=Math.max(0.05, (durationSec||0.9)/2);
+    animateToFrame(targetIndex, halfDuration, ()=>{
+      if(!playing) return;
+      cutPlaybackTimeout=setTimeout(()=>{
+        cutPlaybackTimeout=null;
+        if(!playing) return;
+        animateToFrame(targetIndex, halfDuration, onDone, 1);
+      }, FRAME_PAUSE_HALFWAY_MS);
+    }, 0.5);
+  } else {
+    animateToFrame(targetIndex, durationSec, onDone);
+  }
+}
 function playFrames(direction=1) {
   if(!frames.length) return;
   if(playing){
     playing=false;
     if(animFrameHandle) cancelAnimationFrame(animFrameHandle);
+    if(cutPlaybackTimeout){ clearTimeout(cutPlaybackTimeout); cutPlaybackTimeout=null; }
     syncPlayPauseUI();
     if(MIZE.State.shotClock.syncPackage) stopShotClock();
     return;
@@ -5427,7 +5524,7 @@ function playFrames(direction=1) {
     if(!playing) return;
     const nextIndex=fromIndex+playDirection;
     if(nextIndex<0 || nextIndex>=frames.length){ playing=false; syncPlayPauseUI(); return; }
-    animateToFrame(nextIndex, frames[nextIndex].duration||0.9, ()=>{
+    animateOrCutToFrame(nextIndex, frames[nextIndex].duration||0.9, ()=>{
       if(!playing) return;
       currentFrame=nextIndex;
       resetHistoryOnFrameChange();
@@ -5444,7 +5541,7 @@ function playFrames(direction=1) {
     const fullDuration=frames[resumeTarget].duration||0.9;
     const remainingDuration=Math.max(0.05, fullDuration*(1-resumeProgress));
     if(MIZE.State.shotClock.syncPackage) startShotClock(); // continues from wherever it was paused, not reset
-    animateToFrame(resumeTarget, remainingDuration, ()=>{
+    animateOrCutToFrame(resumeTarget, remainingDuration, ()=>{
       if(!playing) return;
       currentFrame=resumeTarget;
       resetHistoryOnFrameChange();
@@ -5464,7 +5561,7 @@ function playFrames(direction=1) {
     if(MIZE.State.shotClock.syncPackage){ setShotClockDirectionFor(direction); startShotClock(); }
     const legDuration=frames[originalTarget]?.duration || frames[returnTarget]?.duration || 0.9;
     const returnDuration=Math.max(0.05, legDuration*progress);
-    animateToFrame(returnTarget, returnDuration, ()=>{
+    animateOrCutToFrame(returnTarget, returnDuration, ()=>{
       if(!playing) return;
       currentFrame=returnTarget;
       resetHistoryOnFrameChange();
@@ -5579,7 +5676,7 @@ function capturePlaybackCheckpoint(){
   playbackCheckpoint = {
     state: getState(),
     frameIndex: currentFrame,
-    shotBlockActive, shootingAngleActive, ghostMode
+    shotBlockActive, shootingAngleActive, ghostMode, frameTransitionMode
   };
 }
 function restorePlaybackCheckpoint(){
@@ -5588,7 +5685,9 @@ function restorePlaybackCheckpoint(){
   currentFrame = Math.min(playbackCheckpoint.frameIndex, Math.max(0, frames.length-1));
   shotBlockActive = playbackCheckpoint.shotBlockActive; _shotBlockUI.render();
   shootingAngleActive = playbackCheckpoint.shootingAngleActive; _shootingAngleUI.render();
-  ghostMode = playbackCheckpoint.ghostMode; document.getElementById('ghostBtn')?.classList.toggle('active', ghostMode);
+  frameTransitionMode = playbackCheckpoint.frameTransitionMode || (playbackCheckpoint.ghostMode ? 'ghost' : 'cut');
+  syncGhostModeFromTransition();
+  const sel=document.getElementById('frameTransitionSelect'); if(sel) sel.value=frameTransitionMode;
   renderFrames();
   return true;
 }
@@ -5672,7 +5771,7 @@ function startTutorial(steps, { onComplete } = {}){
   if(typeof tutorialContinueInPortrait!=='undefined') tutorialContinueInPortrait=false;
   if(typeof hideTutorialOrientationWarning==='function') hideTutorialOrientationWarning();
   if(typeof MIZE!=='undefined' && MIZE.State && MIZE.State.fieldZones && MIZE.State.fieldZones.active!=='none' && typeof selectFieldZoneSet==='function'){ selectFieldZoneSet('none'); }
-  if(typeof ghostMode!=='undefined' && typeof clearGhosts==='function'){ ghostMode=false; clearGhosts(); }
+  if(typeof frameTransitionMode!=='undefined' && typeof clearGhosts==='function'){ frameTransitionMode='cut'; syncGhostModeFromTransition(); clearGhosts(); if(typeof clearSecondGhosts==='function') clearSecondGhosts(); const fts=document.getElementById('frameTransitionSelect'); if(fts) fts.value='cut'; }
   if(typeof renderShotBlockCorridors==='function') renderShotBlockCorridors();
   // The Quick Command Bar's buttons are clones rebuilt from the real
   // buttons' current text/class at whatever moment it was last rendered --
@@ -8417,7 +8516,7 @@ document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)').forEach(b=>{
 });
 
 // --- Floating quick-command bar: 5 fixed presets (Photoshop-style) + 3 recently-used ---
-const QUICKBAR_PRESETS=['selectBtn','ballBtn','freeDrawBtn','shotBlockToggleBtn','goalieVisionToggleBtn','shootingAngleToggleBtn','eraseBtn','ghostBtn','clearBtn','smartPositioningToggleBtn','fieldZonesToggleBtn','smartGoaliePositioningToggleBtn'];
+const QUICKBAR_PRESETS=['selectBtn','ballBtn','freeDrawBtn','shotBlockToggleBtn','goalieVisionToggleBtn','shootingAngleToggleBtn','eraseBtn','clearBtn','smartPositioningToggleBtn','fieldZonesToggleBtn','smartGoaliePositioningToggleBtn'];
 const QCB_DRAWING_TOOLS=['passBtn','swimBtn','driveBtn','shotBtn','screenBtn','highlightBtn','noteBtn','measureBtn','freeDrawBtn'];
 const QUICKBAR_ICONS={
   swimBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14c2.5-4 5-4 7.5 0s5 4 7.5 0"/><path d="M16.2 12.7l3.3 1.3-1.3 3.3"/></svg>',
@@ -9552,6 +9651,7 @@ function renderAllPositions(){
   document.querySelectorAll('.player').forEach(place);
   placeBall();
   if(ghostMode && frames[currentFrame-1]) addGhostsFromState(frames[currentFrame-1]); else clearGhosts();
+  if(frameTransitionMode==='animatedTwoGhost' && frames[currentFrame-2]) addSecondGhostsFromState(frames[currentFrame-2]); else clearSecondGhosts();
 }
 function toggleFrontCourt(on){
   if(on){
@@ -10603,6 +10703,41 @@ MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange){
 const _smartPositioningUI=MIZE.UI.ToggleButton('smartPositioningToggleBtn', 'Smart Positioning',
   ()=>smartPositioningActive, v=>{ smartPositioningActive=v; });
 function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
+document.getElementById('applySmartPositioningBtn')?.addEventListener('click', applySmartPositioningToSelection);
+function applySmartPositioningToSelection(){
+  if(!ballCarrier){
+    if(typeof MizeDialog!=='undefined') MizeDialog.alert('No one has the ball right now, so there\u2019s no way to tell who\u2019s attacking vs. defending. Give a player the ball first.');
+    return;
+  }
+  const attackingSide=playerSide(ballCarrier);
+  const allPlayers=[...document.querySelectorAll('.player')].filter(el=>el.dataset.team!=='goalie');
+  const attackingPlayers=allPlayers.filter(el=>playerSide(el)===attackingSide);
+  const targets=[...selected].filter(el=>el.classList?.contains('player') && el.dataset.team!=='goalie');
+  if(!targets.length){
+    if(typeof MizeDialog!=='undefined') MizeDialog.alert('Select some players first -- goalkeepers are excluded, since they follow their own positioning logic.');
+    return;
+  }
+  recordHistory('Smart Positioning');
+  targets.forEach(el=>{
+    const ex=+el.dataset.x, ey=+el.dataset.y;
+    if(playerSide(el)===attackingSide){
+      const goal=goalPointFor(playerSide(el));
+      const r=faceRotationTo(ex,ey,goal.x,goal.y);
+      if(r!==null) el.dataset.rot=r;
+    } else if(el.dataset.pose==='v'){
+      let nearest=null, nearestDist=Infinity;
+      attackingPlayers.forEach(atk=>{
+        const d=Math.hypot(+atk.dataset.x-ex, +atk.dataset.y-ey);
+        if(d<nearestDist){ nearestDist=d; nearest=atk; }
+      });
+      if(nearest && nearestDist<=2){
+        const r=faceRotationTo(ex,ey,+nearest.dataset.x,+nearest.dataset.y);
+        if(r!==null) el.dataset.rot=r;
+      }
+    }
+    placeAny(el);
+  });
+}
 function goalYRangeFor(){ return { min: M.fieldY+M.fieldH/2-1.5, max: M.fieldY+M.fieldH/2+1.5 }; } // matches the drawn goal mouth (3m wide)
 function rot2(v, deg){ const r=rotateOffset(v.x, v.y, deg); return { x:r.x, y:r.y }; }
 function nearestPlayerToBall(maxDist=2.5){
@@ -11611,6 +11746,63 @@ async function libImportCurriculumEntries(entries){
   return { created, updated, failed };
 }
 
+let libDragState = null;
+function wireLibraryPracticeItemDrag(container, asset){
+  container.querySelectorAll('.libPracticeItemDragHandle').forEach(handle=>{
+    handle.addEventListener('pointerdown', e=>{
+      const row = handle.closest('.libPracticeItemFull');
+      if(!row) return;
+      const startIdx = +row.dataset.itemIdx;
+      const itemRects = [...container.querySelectorAll('.libPracticeItemFull')].map(el=>{
+        const r = el.getBoundingClientRect();
+        return { idx: +el.dataset.itemIdx, top: r.top, height: r.height, el };
+      });
+      row.classList.add('dragging');
+      libDragState = { container, asset, row, startIdx, startY: e.clientY, itemRects, currentTargetIdx: startIdx };
+      e.preventDefault();
+    });
+  });
+}
+document.addEventListener('pointermove', e=>{
+  if(!libDragState) return;
+  const { row, startY, itemRects, startIdx } = libDragState;
+  row.style.transform = 'translateY('+(e.clientY-startY)+'px)';
+  const nonDragged = itemRects.filter(item=>item.idx!==startIdx);
+  let targetIdx = 0;
+  nonDragged.forEach(item=>{ if(e.clientY > item.top+item.height/2) targetIdx++; });
+  nonDragged.forEach(item=>item.el.classList.remove('dragOverBefore'));
+  if(targetIdx < nonDragged.length) nonDragged[targetIdx].el.classList.add('dragOverBefore');
+  libDragState.currentTargetIdx = targetIdx;
+});
+document.addEventListener('pointerup', async ()=>{
+  if(!libDragState) return;
+  const { container, asset, row, startIdx, currentTargetIdx, itemRects } = libDragState;
+  row.style.transform = '';
+  row.classList.remove('dragging');
+  itemRects.forEach(item=>item.el.classList.remove('dragOverBefore'));
+  libDragState = null;
+  if(currentTargetIdx !== startIdx){
+    const [moved] = asset.items.splice(startIdx, 1);
+    asset.items.splice(currentTargetIdx, 0, moved);
+    await LibraryStorage.saveAsset(asset);
+  }
+  await renderLibraryPracticeItemsList(asset);
+});
+// Matches getState()'s shape exactly, but without reading the live board --
+// used when creating a brand new formation/sequence from within the
+// Library's Event Builder, so it never disturbs whatever the coach
+// currently has on the actual board.
+function libBlankBoardState(){
+  return { players:[], ball:{x:14.5,y:12,carrier:null,hand:'right'}, extraBalls:[], drawings:[],
+    layers:{players:true,ball:true,drawings:true,highlights:true,notes:true,ghosts:true} };
+}
+async function libCreateAndAddItem(asset, newAssetFields){
+  await LibraryStorage.saveAsset(newAssetFields);
+  asset.items = asset.items || [];
+  asset.items.push({ assetId:newAssetFields.id, role:'', note:'', time:'', day:null });
+  await LibraryStorage.saveAsset(asset);
+  await renderLibraryPracticeItemsList(asset);
+}
 async function renderLibraryPracticeItemsList(asset){
   const container = document.getElementById('libPracticeItemsList');
   if(!container) return;
@@ -11625,8 +11817,9 @@ async function renderLibraryPracticeItemsList(asset){
     const ref = byId[item.assetId];
     const roleOptions = LIB_PRACTICE_ROLES.map(r=>'<option value="'+r+'"'+(item.role===r?' selected':'')+'>'+r+'</option>').join('');
     html +=
-      '<div class="libPracticeItem libPracticeItemFull">' +
+      '<div class="libPracticeItem libPracticeItemFull" data-item-idx="'+idx+'">' +
         '<div class="libPracticeItemTop">' +
+          '<span class="libPracticeItemDragHandle" title="Drag to reorder">&#9776;</span>' +
           '<span class="libPracticeItemNum">'+(idx+1)+'.</span>' +
           '<input type="number" class="libPracticeItemDay" data-day-idx="'+idx+'" placeholder="Day" min="1" value="'+(item.day!=null?libEsc(item.day):'')+'">' +
           '<input type="text" class="libPracticeItemTime" data-time-idx="'+idx+'" placeholder="time" value="'+libEsc(item.time||'')+'">' +
@@ -11641,15 +11834,27 @@ async function renderLibraryPracticeItemsList(asset){
         '</div>' +
       '</div>';
   });
-  html += '<select id="libPracticeAddSelect" style="width:100%;padding:8px;margin-top:6px;"><option value="">+ Add an item from the Library...</option>' +
-    allAssets.filter(a=>a.id!==asset.id).map(a=>'<option value="'+a.id+'">'+libEsc(a.title)+' ('+libAssetTypeLabel(a.type)+')</option>').join('') +
-    '</select>';
-  html += '<div id="libBulkAddSection" style="margin-top:8px;">' +
-    '<button type="button" id="libBulkAddToggleBtn">+ Add All from a Collection&hellip;</button>' +
-    '<div id="libBulkAddPicker" style="display:none;margin-top:6px;gap:6px;flex-wrap:wrap;" class="libBulkAddPickerRow">' +
-      '<select id="libBulkAddOrgSelect"></select>' +
-      '<select id="libBulkAddColSelect"></select>' +
-      '<button type="button" id="libBulkAddConfirmBtn">Add All</button>' +
+  html += '<div class="libAddMenu" id="libAddMenu">' +
+    '<button type="button" id="libAddMenuToggleBtn">+ Add to Timeline</button>' +
+    '<div id="libAddMenuBody">' +
+      '<select id="libPracticeAddSelect"><option value="">From the Library&hellip;</option>' +
+      allAssets.filter(a=>a.id!==asset.id).map(a=>'<option value="'+a.id+'">'+libEsc(a.title)+' ('+libAssetTypeLabel(a.type)+')</option>').join('') +
+      '</select>' +
+      '<button type="button" id="libAddNewFormationBtn">+ New Formation</button>' +
+      '<button type="button" id="libAddNewSequenceBtn">+ New Sequence</button>' +
+      '<button type="button" id="libAddNewSubEventBtn">+ New Sub-Event</button>' +
+      '<button type="button" id="libAddNewNoteBtn">+ New Note</button>' +
+      '<button type="button" id="libAddNewVideoBtn">+ New Video</button>' +
+      '<button type="button" id="libAddNewDocumentBtn">+ New Document</button>' +
+      '<button type="button" id="libAddNewResourceBtn">+ New Resource</button>' +
+      '<div id="libBulkAddSection">' +
+        '<button type="button" id="libBulkAddToggleBtn">+ Add All from a Collection&hellip;</button>' +
+        '<div id="libBulkAddPicker" style="display:none;margin-top:6px;gap:6px;flex-wrap:wrap;" class="libBulkAddPickerRow">' +
+          '<select id="libBulkAddOrgSelect"></select>' +
+          '<select id="libBulkAddColSelect"></select>' +
+          '<button type="button" id="libBulkAddConfirmBtn">Add All</button>' +
+        '</div>' +
+      '</div>' +
     '</div>' +
   '</div>';
   container.innerHTML = html;
@@ -11682,6 +11887,7 @@ async function renderLibraryPracticeItemsList(asset){
       await renderLibraryPracticeItemsList(asset);
     });
   });
+  wireLibraryPracticeItemDrag(container, asset);
   container.querySelectorAll('.libPracticeItemRole').forEach(sel=>{
     sel.addEventListener('change', async ()=>{
       const idx = +sel.dataset.roleIdx;
@@ -11717,6 +11923,97 @@ async function renderLibraryPracticeItemsList(asset){
     asset.items.push({ assetId:e.target.value, role:'', note:'', time:'', day:null });
     await LibraryStorage.saveAsset(asset);
     await renderLibraryPracticeItemsList(asset);
+  });
+
+  document.getElementById('libAddMenuToggleBtn').addEventListener('click', ()=>{
+    document.getElementById('libAddMenu').classList.toggle('open');
+  });
+
+  document.getElementById('libAddNewFormationBtn').addEventListener('click', async ()=>{
+    const typed = await MizeDialog.prompt('Name this new formation:');
+    if(!typed || !typed.trim()) return;
+    const prefix = getActiveUserName()+' ';
+    const fullName = typed.trim().startsWith(prefix) ? typed.trim() : prefix+typed.trim();
+    const store = JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
+    if(store[fullName]){ await MizeDialog.alert('A formation named "'+fullName+'" already exists. Try a different name.'); return; }
+    store[fullName] = { ...MIZE.Storage.makeMetadata('formation', fullName, []), state: libBlankBoardState(), engineObjects: [] };
+    localStorage.setItem('wpStrategyFormationsV5', JSON.stringify(store));
+    if(typeof renderCustomSystems==='function') renderCustomSystems();
+    await libCreateAndAddItem(asset, {
+      id: libLegacyAssetId('formation', fullName), type:'formation', title: fullName, description:'', author:'',
+      orgId: asset.orgId, collectionId: asset.collectionId, ageGroup:'', category:'Formation', difficulty:'', tags:[],
+      visibility:'private', estimatedDuration:null,
+      contentRef: { storeKey:'wpStrategyFormationsV5', itemKey: fullName }, createdAt: Date.now(),
+    });
+  });
+
+  document.getElementById('libAddNewSequenceBtn').addEventListener('click', async ()=>{
+    const typed = await MizeDialog.prompt('Name this new sequence:');
+    if(!typed || !typed.trim()) return;
+    const prefix = getActiveUserName()+' ';
+    const fullName = typed.trim().startsWith(prefix) ? typed.trim() : prefix+typed.trim();
+    const store = JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
+    if(store[fullName]){ await MizeDialog.alert('A sequence named "'+fullName+'" already exists. Try a different name.'); return; }
+    const blankFrame = { ...libBlankBoardState(), note:'', duration:1 };
+    store[fullName] = { ...MIZE.Storage.makeMetadata('tacticalPackage', fullName, []), frames:[blankFrame], current: libBlankBoardState() };
+    localStorage.setItem('tpgTacticalPackagesV8', JSON.stringify(store));
+    if(typeof renderPackages==='function') renderPackages();
+    await libCreateAndAddItem(asset, {
+      id: libLegacyAssetId('sequence', fullName), type:'sequence', title: fullName, description:'', author:'',
+      orgId: asset.orgId, collectionId: asset.collectionId, ageGroup:'', category:'Sequence', difficulty:'', tags:[],
+      visibility:'private', estimatedDuration:null,
+      contentRef: { storeKey:'tpgTacticalPackagesV8', itemKey: fullName }, createdAt: Date.now(),
+    });
+  });
+
+  document.getElementById('libAddNewSubEventBtn').addEventListener('click', async ()=>{
+    const title = await MizeDialog.prompt('Name this sub-event:');
+    if(!title || !title.trim()) return;
+    await libCreateAndAddItem(asset, {
+      id: libGenId('asset'), type:'event', title: title.trim(), description:'', author:'',
+      orgId: asset.orgId, collectionId: asset.collectionId, ageGroup:'', category:'', difficulty:'', tags:[],
+      visibility:'private', estimatedDuration:null, objectives:'', items:[], createdAt: Date.now(),
+    });
+  });
+
+  document.getElementById('libAddNewNoteBtn').addEventListener('click', async ()=>{
+    const title = await MizeDialog.prompt('Title for this note:');
+    if(!title || !title.trim()) return;
+    await libCreateAndAddItem(asset, {
+      id: libGenId('asset'), type:'note', title: title.trim(), description:'', author:'',
+      orgId: asset.orgId, collectionId: asset.collectionId, ageGroup:'', category:'', difficulty:'', tags:[],
+      visibility:'private', estimatedDuration:null, noteBody:'', createdAt: Date.now(),
+    });
+  });
+
+  document.getElementById('libAddNewVideoBtn').addEventListener('click', async ()=>{
+    const title = await MizeDialog.prompt('Title for this video:');
+    if(!title || !title.trim()) return;
+    await libCreateAndAddItem(asset, {
+      id: libGenId('asset'), type:'video', title: title.trim(), description:'', author:'',
+      orgId: asset.orgId, collectionId: asset.collectionId, ageGroup:'', category:'', difficulty:'', tags:[],
+      visibility:'private', estimatedDuration:null, noteBody:'', url:'', createdAt: Date.now(),
+    });
+  });
+
+  document.getElementById('libAddNewDocumentBtn').addEventListener('click', async ()=>{
+    const title = await MizeDialog.prompt('Title for this document:');
+    if(!title || !title.trim()) return;
+    await libCreateAndAddItem(asset, {
+      id: libGenId('asset'), type:'document', title: title.trim(), description:'', author:'',
+      orgId: asset.orgId, collectionId: asset.collectionId, ageGroup:'', category:'', difficulty:'', tags:[],
+      visibility:'private', estimatedDuration:null, noteBody:'', url:'', createdAt: Date.now(),
+    });
+  });
+
+  document.getElementById('libAddNewResourceBtn').addEventListener('click', async ()=>{
+    const title = await MizeDialog.prompt('Title for this resource:');
+    if(!title || !title.trim()) return;
+    await libCreateAndAddItem(asset, {
+      id: libGenId('asset'), type:'resource', title: title.trim(), description:'', author:'',
+      orgId: asset.orgId, collectionId: asset.collectionId, ageGroup:'', category:'', difficulty:'', tags:[],
+      visibility:'private', estimatedDuration:null, noteBody:'', url:'', createdAt: Date.now(),
+    });
   });
 
   let _libBulkAddPopulated = false;
