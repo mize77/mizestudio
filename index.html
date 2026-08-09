@@ -456,12 +456,12 @@
   #studioFrameDots span { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.35); }
   #studioFrameDots span.active { background:#fff; }
   .edgeTab.active { background:#ffcf40; color:#20200a; }
-  #spotlightOverlay { display:none; position:fixed; inset:0; z-index:1250; pointer-events:none; --sx:50%; --sy:50%; --sr:150px; background:radial-gradient(circle at var(--sx) var(--sy), transparent 0, transparent var(--sr), rgba(0,0,0,.74) calc(var(--sr) + 55px), rgba(0,0,0,.74) 100%); }
+  #spotlightOverlay { display:none; position:fixed; inset:0; z-index:1250; pointer-events:none; touch-action:none; --sx:50%; --sy:50%; --sr:150px; background:radial-gradient(circle at var(--sx) var(--sy), transparent 0, transparent var(--sr), rgba(0,0,0,.74) calc(var(--sr) + 55px), rgba(0,0,0,.74) 100%); }
   #spotlightOverlay.armed { display:block; pointer-events:auto; }
-  #spotlightHitArea, #spotlightResizeHandle, #spotlightRemoveBtn { display:none; position:fixed; z-index:1260; }
-  #spotlightHitArea.shown { display:block; border-radius:50%; cursor:move; pointer-events:auto; }
-  #spotlightResizeHandle.shown { display:flex; width:26px; height:26px; margin-left:-13px; margin-top:-13px; border-radius:50%; background:#fff; border:2px solid #ffcf40; cursor:nwse-resize; pointer-events:auto; align-items:center; justify-content:center; font-size:13px; }
-  #spotlightRemoveBtn.shown { display:flex; width:26px; height:26px; margin-left:-13px; margin-top:-13px; border-radius:50%; background:#e53935; color:#fff; border:2px solid #fff; align-items:center; justify-content:center; font-size:13px; padding:0; }
+  #spotlightHitArea, #spotlightMoveHandle, #spotlightResizeHandle { display:none; position:fixed; z-index:1260; }
+  #spotlightHitArea.shown { display:block; border-radius:50%; pointer-events:none; }
+  #spotlightMoveHandle.shown { display:flex; width:26px; height:26px; margin-left:-13px; margin-top:-13px; border-radius:50%; background:transparent; border:none; cursor:move; pointer-events:auto; touch-action:none; align-items:center; justify-content:center; }
+  #spotlightResizeHandle.shown { display:flex; width:26px; height:26px; margin-left:-13px; margin-top:-13px; border-radius:50%; background:#fff; border:2px solid #ffcf40; cursor:nwse-resize; pointer-events:auto; touch-action:none; align-items:center; justify-content:center; font-size:13px; }
   #presentationWaterBackdrop { display:none; position:absolute; inset:0; background:none; }
   body.presentation #presentationWaterBackdrop { display:block; }
   body.presentation .studioFrame { position:relative; }
@@ -501,11 +501,26 @@
   #exitPresentationBtn { display:none; position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); left:calc(14px + env(safe-area-inset-left)); z-index:1500; width:34px; height:34px; border-radius:50%; background:rgba(20,20,20,.85); color:#fff; border:1.5px solid rgba(255,255,255,.5); font-size:15px; align-items:center; justify-content:center; padding:0; box-shadow:0 2px 8px rgba(0,0,0,.5); }
   body.presentation #exitPresentationBtn { display:flex; }
   #presentationPlaybackBar { display:none; position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); right:calc(14px + env(safe-area-inset-right)); z-index:1500; background:rgba(20,25,25,.85); border-radius:999px; padding:8px 10px; align-items:center; gap:14px; }
-  #presentationTextSlide { display:none; position:fixed; inset:0; z-index:400; background:#0a2f3d; color:#fff; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center; box-sizing:border-box; }
+  #presentationTextSlide { display:none; position:fixed; top:0; right:0; bottom:0; width:min(480px,42vw); min-width:320px; z-index:400; background:#0a2f3d; color:#fff; flex-direction:column; align-items:flex-start; justify-content:center; padding:40px 36px; text-align:left; box-sizing:border-box; box-shadow:-20px 0 60px rgba(0,0,0,.5); border-left:1px solid rgba(255,255,255,.08); }
   #presentationTextSlide.show { display:flex; }
-  .presTextSlideRole { font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#7fd8c8; margin-bottom:12px; }
-  .presTextSlideTitle { font-size:clamp(24px,4vw,42px); font-weight:700; margin-bottom:20px; max-width:900px; }
-  .presTextSlideBody { font-size:clamp(15px,2vw,20px); line-height:1.6; max-width:750px; white-space:pre-wrap; color:rgba(255,255,255,.9); max-height:60vh; overflow-y:auto; }
+  @media (max-width:640px) { #presentationTextSlide { width:100%; min-width:0; left:0; box-shadow:none; border-left:none; align-items:center; text-align:center; } }
+  .presTextSlideRole { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#7fd8c8; margin-bottom:10px; }
+  .presTextSlideTitle { font-size:clamp(20px,2.6vw,30px); font-weight:700; margin-bottom:16px; }
+  .presTextSlideBody { font-size:clamp(14px,1.5vw,17px); line-height:1.6; white-space:pre-wrap; color:rgba(255,255,255,.9); max-height:65vh; overflow-y:auto; }
+  #presentationVideoSlide { display:none; position:fixed; top:8%; left:8%; right:8%; bottom:14%; z-index:400; background:#000; border-radius:16px; box-shadow:0 30px 80px rgba(0,0,0,.6); overflow:hidden; flex-direction:column; }
+  #presentationVideoSlide.show { display:flex; }
+  #presentationVideoTitle { padding:12px 18px; background:rgba(10,30,40,.92); color:#fff; font-weight:700; font-size:14px; flex-shrink:0; }
+  #presentationVideoContent { flex:1; position:relative; }
+  #presentationVideoContent iframe, #presentationVideoContent video { width:100%; height:100%; border:none; display:block; }
+  .presVideoNoEmbed { color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px; font-size:15px; text-align:center; padding:20px; }
+  .presVideoNoEmbed a { color:#7fd8c8; }
+  #presentationSwitchViewBtn { display:none; position:fixed; top:50%; left:0; transform:translateY(-50%); z-index:410; background:rgba(20,25,25,.9); color:#fff; border:none; border-radius:0 999px 999px 0; padding:14px 22px 14px 14px; font-size:13px; font-weight:600; align-items:center; gap:8px; cursor:pointer; box-shadow:2px 0 12px rgba(0,0,0,.35); }
+  #presentationSwitchViewBtn.show { display:flex; }
+  #presentationBoardProxy { display:none; position:fixed; top:8%; left:8%; right:8%; bottom:14%; z-index:400; background:linear-gradient(180deg,#eaf6f5,#d3ece8); border-radius:16px; box-shadow:0 30px 80px rgba(0,0,0,.5); align-items:center; justify-content:center; }
+  #presentationBoardProxy.show { display:flex; }
+  .presentationBoardProxyLabel { font-size:15px; font-weight:700; color:#124d4d; letter-spacing:.05em; text-transform:uppercase; }
+  .presSwingFace { transition:transform .55s cubic-bezier(.4,0,.2,1), opacity .55s ease; will-change:transform,opacity; }
+  #presentationSwitchViewBtn .arrowIcon { font-size:16px; }
   #presentationCoachNote { display:none; position:fixed; bottom:calc(70px + env(safe-area-inset-bottom)); right:calc(14px + env(safe-area-inset-right)); z-index:1499; background:rgba(20,25,25,.85); color:rgba(255,255,255,.85); font-size:12.5px; padding:8px 14px; border-radius:12px; max-width:320px; }
   #presentationCoachNote.show { display:block; }
   #timelineCommandsBar { display:none; position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); z-index:1500; background:rgba(20,25,25,.85); border-radius:999px; padding:8px 10px; align-items:center; gap:10px; }
@@ -575,7 +590,7 @@
      the three are mutually exclusive (0 players / exactly 1 marked / more
      than 1 marked), so there's never a clash. Delete is destructive, so
      this gets the same red the app already uses for its other "remove"
-     controls (see #spotlightRemoveBtn) rather than the teal of the other
+     controls rather than the teal of the other
      two -- mainly for touch devices (iPad/iPhone), where there's no
      Delete key to fall back on for a multi-selection.  */
   #multiDeleteBtn { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; width:44px; height:44px; border-radius:50%; border:none; background:#e53935; color:#fff; font-size:28px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.3); padding:0; }
@@ -758,6 +773,20 @@
   .cmdFlyout { display:none; flex-direction:column; gap:6px; padding:8px; }
   .cmdCategory.open .cmdFlyout { display:flex; }
   .cmdFlyout button { width:100%; text-align:left; }
+  /* Sub-groups: for categories with too many items to show flat without
+     the category itself overflowing the sidebar's height limit. Same
+     collapse/expand pattern as .cmdCategory, one level deeper -- opening
+     the category never overflows on its own, since it's just a short list
+     of sub-group headers until one of those is opened too. */
+  .subGroup { border:1px solid #e5eaea; border-radius:9px; margin-top:6px; overflow:hidden; }
+  .subGroup:first-child { margin-top:0; }
+  .subGroupHeader { width:100%; display:flex; align-items:center; justify-content:space-between; text-align:left; background:#f6f9f9; border:0; border-radius:9px; padding:7px 10px; font-size:11.5px; color:#4a5757; }
+  .subGroupHeader .chev { transition:transform .15s; color:#8a9494; font-size:10px; }
+  .subGroup.open .subGroupHeader .chev { transform:rotate(90deg); }
+  .subGroup.open .subGroupHeader { border-bottom-left-radius:0; border-bottom-right-radius:0; }
+  .subGroupFlyout { display:none; flex-direction:column; gap:5px; padding:8px; }
+  .subGroup.open .subGroupFlyout { display:flex; }
+  .subGroupFlyout button { width:100%; text-align:left; }
   /* Flyouts open purely via click (see JS below) -- a hover-based show was
      removed since it could fight with the click-toggle depending on exact
      mouse movement, closing a flyout the user just opened. */
@@ -786,7 +815,7 @@
     #closeHeaderBtn, #closeSidebarBtn, .studioFrameClearBtn, #exitPresentationBtn { width:44px; height:44px; }
     .quickBarBtn { width:44px; height:44px; }
     #controlsPanel #freeDrawColorRow button.freeDrawColorSwatch { width:44px; height:44px; min-height:44px; }
-    #spotlightResizeHandle.shown, #spotlightRemoveBtn.shown { width:44px; height:44px; margin-left:-22px; margin-top:-22px; }
+    #spotlightMoveHandle.shown, #spotlightResizeHandle.shown { width:44px; height:44px; margin-left:-22px; margin-top:-22px; }
     #timelineCommandsBar button { width:44px; height:44px; }
     #presentationPlaybackBar button { width:44px; height:44px; }
   }
@@ -810,6 +839,12 @@
   <div class="presTextSlideTitle"></div>
   <div class="presTextSlideBody"></div>
 </div>
+<div id="presentationVideoSlide">
+  <div id="presentationVideoTitle"></div>
+  <div id="presentationVideoContent"></div>
+</div>
+<div id="presentationBoardProxy"><div class="presentationBoardProxyLabel">Tactical Board</div></div>
+<button id="presentationSwitchViewBtn" type="button"><span class="arrowIcon">&#8592;</span><span class="switchLabel"></span></button>
 <div id="presentationCoachNote"></div>
 <div id="presentationPlaybackBar">
   <button id="presentationPrevBtn" title="Previous slide (Left Arrow)">&#8592;</button>
@@ -851,8 +886,8 @@
   </div>
 </div>
 <div id="spotlightHitArea"></div>
+<div id="spotlightMoveHandle" title="Drag to move the spotlight"></div>
 <div id="spotlightResizeHandle"></div>
-<button id="spotlightRemoveBtn" title="Remove spotlight">&#10005;</button>
 <div id="studioFrameDots"><span data-frame="0"></span><span data-frame="1"></span><span data-frame="2"></span></div>
 <div id="studioWindowLayer">
   <svg id="studioWindowSvg" viewBox="800 0 1000 600" preserveAspectRatio="xMidYMid slice">
@@ -1077,53 +1112,110 @@
   <div class="cmdCategory" data-cat="movement">
     <button type="button" class="cmdCatHeader">Movement &amp; Ball <span class="chev">&#9656;</span></button>
     <div class="cmdFlyout">
-      <button id="selectBtn" class="active modeBtn" data-tip="Drag players or the ball. Tap a player (without dragging) to switch it between vertical and horizontal.">Move / Toggle</button>
-      <button id="addPlayerFromMovementBtn" data-tip="Add a player to the field -- also useful when there are no players at all to mark or select.">Add Player</button>
-      <button id="smartPositioningToggleBtn" class="active" data-tip="When on, the ball carrier automatically faces the goal they're attacking while being moved, and a vertical defender within 2m of the ball carrier automatically stays squared to them while being moved. You can always override this afterward with the rotate handle.">Smart Positioning: On</button>
-      <button id="multiSelectBtn" data-tip="Turn on to tap multiple players/ball to select them together, like holding ⌘/Ctrl while clicking.">Multi-Select: Off</button>
-      <button id="ballBtn" class="modeBtn" data-tip="Tap this, then tap a player to give them the ball in their right hand.">Ball to Player</button>
-      <button id="ballLeftBtn" data-tip="Move the ball to the current carrier's (or selected player's) left hand.">Ball &#8594; Left Hand</button>
-      <button id="ballRightBtn" data-tip="Move the ball to the current carrier's (or selected player's) right hand.">Ball &#8594; Right Hand</button>
-      <button id="shotBlockToggleBtn" data-tip="Show a translucent triangular corridor behind each defender's blocking arm, showing how much of the shot they're covering. Shift+Y toggles this on/off. Select a defender, then Shift+L / Shift+R to assign their blocking arm (or right-click/long-press the defender and choose Left Arm / Right Arm / No Block).">Shot Block Corridors: Off</button>
-      <button id="goalieVisionToggleBtn" data-tip="Show each goalie's field of view as a green cone, always centered on the ball. A wider, lighter secondary cone shows the peripheral area they should also stay aware of.">Goalie Vision Field: Off</button>
-      <button id="shootingAngleToggleBtn" data-tip="Show two dotted lines from the ball to each goal post for the current ball carrier, marking their shooting angle -- and the point the goalie should center on. Only shows for a vertical (non-swimming) player with the ball.">Shooting Angle: Off</button>
-      <button id="smartGoaliePositioningToggleBtn" data-tip="When on, the defending goalie (opposite color from whoever has the ball) automatically moves along an arc centered on their own goal, squared to the shooter, up to a configurable maximum turning angle and lateral distance. Click to open its settings.">Smart Goalie Positioning: Off</button>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Positioning &amp; Selection <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="selectBtn" class="active modeBtn" data-tip="Drag players or the ball. Tap a player (without dragging) to switch it between vertical and horizontal.">Move / Toggle</button>
+          <button id="addPlayerFromMovementBtn" data-tip="Add a player to the field -- also useful when there are no players at all to mark or select.">Add Player</button>
+          <button id="multiSelectBtn" data-tip="Turn on to tap multiple players/ball to select them together, like holding ⌘/Ctrl while clicking.">Multi-Select: Off</button>
+          <button id="smartPositioningToggleBtn" class="active" data-tip="When on, the ball carrier automatically faces the goal they're attacking while being moved, and a vertical defender within 2m of the ball carrier automatically stays squared to them while being moved. You can always override this afterward with the rotate handle.">Smart Positioning: On</button>
+        </div>
+      </div>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Ball Handling <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="ballBtn" class="modeBtn" data-tip="Tap this, then tap a player to give them the ball in their right hand.">Ball to Player</button>
+          <button id="ballLeftBtn" data-tip="Move the ball to the current carrier's (or selected player's) left hand.">Ball &#8594; Left Hand</button>
+          <button id="ballRightBtn" data-tip="Move the ball to the current carrier's (or selected player's) right hand.">Ball &#8594; Right Hand</button>
+        </div>
+      </div>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Visual Aids <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="shotBlockToggleBtn" data-tip="Show a translucent triangular corridor behind each defender's blocking arm, showing how much of the shot they're covering. Shift+Y toggles this on/off. Select a defender, then Shift+L / Shift+R to assign their blocking arm (or right-click/long-press the defender and choose Left Arm / Right Arm / No Block).">Shot Block Corridors: Off</button>
+          <button id="goalieVisionToggleBtn" data-tip="Show each goalie's field of view as a green cone, always centered on the ball. A wider, lighter secondary cone shows the peripheral area they should also stay aware of.">Goalie Vision Field: Off</button>
+          <button id="shootingAngleToggleBtn" data-tip="Show two dotted lines from the ball to each goal post for the current ball carrier, marking their shooting angle -- and the point the goalie should center on. Only shows for a vertical (non-swimming) player with the ball.">Shooting Angle: Off</button>
+          <button id="smartGoaliePositioningToggleBtn" data-tip="When on, the defending goalie (opposite color from whoever has the ball) automatically moves along an arc centered on their own goal, squared to the shooter, up to a configurable maximum turning angle and lateral distance. Click to open its settings.">Smart Goalie Positioning: Off</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <div class="cmdCategory" data-cat="drawing">
     <button type="button" class="cmdCatHeader">Drawing Tools <span class="chev">&#9656;</span></button>
     <div class="cmdFlyout">
-      <button id="passBtn" class="modeBtn" data-tip="Draw a pass arrow. If a player is holding the ball, tapping a teammate passes it to them automatically.">Pass Arrow</button>
-      <button id="swimBtn" class="modeBtn" data-tip="Draw a swimming-path arrow.">Swim Arrow</button>
-      <button id="driveBtn" class="modeBtn" data-tip="Draw a driving-lane arrow.">Drive Arrow</button>
-      <button id="shotBtn" class="modeBtn" data-tip="Draw a shot arrow toward the goal.">Shot Arrow</button>
-      <button id="screenBtn" class="modeBtn" data-tip="Draw a screen / pick arrow.">Screen Arrow</button>
-      <button id="highlightBtn" class="modeBtn" data-tip="Draw a highlighted zone on the field.">Highlight Area</button>
-      <button id="noteBtn" class="modeBtn" data-tip="Drop a text note at a spot on the field.">Field Note</button>
-      <button id="measureBtn" class="modeBtn" data-tip="Measure the distance between two points, in meters.">Measure</button>
-      <button id="freeDrawBtn" class="modeBtn" data-tip="Draw freehand -- write or sketch anything directly on the field.">Free Draw</button>
-      <div id="freeDrawColorRow" style="display:none;">
-        <button type="button" class="freeDrawColorSwatch active" data-color="#1a1a1a" style="background:#1a1a1a;" title="Black" aria-label="Black"></button>
-        <button type="button" class="freeDrawColorSwatch" data-color="#d32f2f" style="background:#d32f2f;" title="Red" aria-label="Red"></button>
-        <button type="button" class="freeDrawColorSwatch" data-color="#2e7d32" style="background:#2e7d32;" title="Green" aria-label="Green"></button>
-        <button type="button" class="freeDrawColorSwatch" data-color="#f9c74f" style="background:#f9c74f;" title="Yellow" aria-label="Yellow"></button>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Arrows <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="passBtn" class="modeBtn" data-tip="Draw a pass arrow. If a player is holding the ball, tapping a teammate passes it to them automatically.">Pass Arrow</button>
+          <button id="swimBtn" class="modeBtn" data-tip="Draw a swimming-path arrow.">Swim Arrow</button>
+          <button id="driveBtn" class="modeBtn" data-tip="Draw a driving-lane arrow.">Drive Arrow</button>
+          <button id="shotBtn" class="modeBtn" data-tip="Draw a shot arrow toward the goal.">Shot Arrow</button>
+          <button id="screenBtn" class="modeBtn" data-tip="Draw a screen / pick arrow.">Screen Arrow</button>
+        </div>
       </div>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Annotations <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="highlightBtn" class="modeBtn" data-tip="Draw a highlighted zone on the field.">Highlight Area</button>
+          <button id="noteBtn" class="modeBtn" data-tip="Drop a text note at a spot on the field.">Field Note</button>
+          <button id="measureBtn" class="modeBtn" data-tip="Measure the distance between two points, in meters.">Measure</button>
+        </div>
+      </div>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Free Draw <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="freeDrawBtn" class="modeBtn" data-tip="Draw freehand -- write or sketch anything directly on the field.">Free Draw</button>
+          <div id="freeDrawColorRow" style="display:none;">
+            <button type="button" class="freeDrawColorSwatch active" data-color="#1a1a1a" style="background:#1a1a1a;" title="Black" aria-label="Black"></button>
+            <button type="button" class="freeDrawColorSwatch" data-color="#d32f2f" style="background:#d32f2f;" title="Red" aria-label="Red"></button>
+            <button type="button" class="freeDrawColorSwatch" data-color="#2e7d32" style="background:#2e7d32;" title="Green" aria-label="Green"></button>
+            <button type="button" class="freeDrawColorSwatch" data-color="#f9c74f" style="background:#f9c74f;" title="Yellow" aria-label="Yellow"></button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <div class="cmdCategory" data-cat="editing">
     <button type="button" class="cmdCatHeader">Editing <span class="chev">&#9656;</span></button>
     <div class="cmdFlyout">
-      <button id="undoBtn" data-tip="Undo the last change.">Undo</button>
-      <button id="redoBtn" data-tip="Redo the last undone change.">Redo</button>
-      <button id="deleteSelectedBtn" data-tip="Delete everything currently selected.">Delete Selected</button>
-      <button id="copySelectedBtn" data-tip="Copy the selected player(s).">Copy</button>
-      <button id="pasteSelectedBtn" data-tip="Paste the copied player(s) nearby.">Paste</button>
-      <button id="snapBtn" data-tip="When on, dragged players/ball snap close to key field lines.">Snap: Off</button>
-      <button id="ghostBtn" data-tip="Show a faded outline of the previous frame's positions while you set up the next one.">Ghost Mode</button>
-      <button id="eraseBtn" class="modeBtn" data-tip="Tap a drawing to erase just that one.">Erase Drawings</button>
-      <button id="clearBtn" data-tip="Clear every arrow, highlight, and note from the field.">Clear Arrows</button>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">History <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="undoBtn" data-tip="Undo the last change.">Undo</button>
+          <button id="redoBtn" data-tip="Redo the last undone change.">Redo</button>
+        </div>
+      </div>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Selection <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="deleteSelectedBtn" data-tip="Delete everything currently selected.">Delete Selected</button>
+          <button id="copySelectedBtn" data-tip="Copy the selected player(s).">Copy</button>
+          <button id="pasteSelectedBtn" data-tip="Paste the copied player(s) nearby.">Paste</button>
+        </div>
+      </div>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Field Aids <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="snapBtn" data-tip="When on, dragged players/ball snap close to key field lines.">Snap: Off</button>
+          <button id="ghostBtn" data-tip="Show a faded outline of the previous frame's positions while you set up the next one.">Ghost Mode</button>
+          <button id="eraseBtn" class="modeBtn" data-tip="Tap a drawing to erase just that one.">Erase Drawings</button>
+          <button id="clearBtn" data-tip="Clear every arrow, highlight, and note from the field.">Clear Arrows</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1141,6 +1233,8 @@
       <button id="resetBtn" data-tip="Reset the board back to the starting formation.">Reset</button>
       <button id="saveFormationBtn" data-tip="Save the current player positions as a reusable formation.">Save Formation</button>
       <button id="savePackageBtn" data-tip="Save the whole timeline (all frames) as a tactical package.">Save Package</button>
+      <button class="toolListBtn" data-panel="panel_saved_formations">Saved Formations</button>
+      <button class="toolListBtn" data-panel="packagePanel">Tactical Packages</button>
     </div>
   </div>
 
@@ -1149,6 +1243,7 @@
     <div class="cmdFlyout">
       <button id="presentationBtn" data-tip="Hide all editing tools and show the board full-screen for presenting.">Presentation Mode</button>
       <button id="presentationRealBtn" data-tip="Full-screen presentation that maximizes the field at its true, undistorted proportions rather than fitting a widescreen shape.">Presentation Mode (Realistic Field)</button>
+      <button class="toolListBtn" data-panel="presentationStudioPanel">Presentation Studio</button>
       <button id="printBtn" data-tip="Print the board or save it as a PDF.">Print / Save PDF</button>
     </div>
   </div>
@@ -1157,20 +1252,35 @@
     <summary><div class="panelTitle" style="font-size:14px;">More Tools &amp; Panels</div></summary>
     <div class="moreToolsInner">
 
-      <button class="toolListBtn" data-panel="inspectorPanel">Inspector</button>
-      <button class="toolListBtn" data-panel="layerPanel">Layers</button>
-      <button class="toolListBtn" data-panel="hiddenPanel">Hidden Objects</button>
       <button class="toolListBtn" data-panel="teamManagerPanel">Team Manager</button>
-      <button class="toolListBtn" data-panel="panel_shortcuts">Shortcuts</button>
-      <button class="toolListBtn" data-panel="workflowHelpPanel">How to Use New Tools</button>
-      <button class="toolListBtn" data-panel="versionHistoryPanel">Version History</button>
-      <button class="toolListBtn" data-panel="recoveryPanel">Recovery</button>
-      <button class="toolListBtn" data-panel="packagePanel">Tactical Packages</button>
-      <button class="toolListBtn" data-panel="presentationStudioPanel">Presentation Studio</button>
-      <button class="toolListBtn" data-panel="objectEngineDebugPanel">Object Engine (Scene JSON)</button>
-      <button class="toolListBtn" data-panel="panel_saved_formations">Saved Formations</button>
-      <button class="toolListBtn" data-panel="addPlayerPanel">Add Player</button>
-      <button class="toolListBtn" data-panel="aboutDiagnosticsPanel">About &amp; Diagnostics</button>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Advanced <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button class="toolListBtn" data-panel="inspectorPanel">Inspector</button>
+          <button class="toolListBtn" data-panel="layerPanel">Layers</button>
+          <button class="toolListBtn" data-panel="hiddenPanel">Hidden Objects</button>
+          <button class="toolListBtn" data-panel="objectEngineDebugPanel">Object Engine (Scene JSON)</button>
+        </div>
+      </div>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">History <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button class="toolListBtn" data-panel="versionHistoryPanel">Version History</button>
+          <button class="toolListBtn" data-panel="recoveryPanel">Recovery</button>
+        </div>
+      </div>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Help <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button class="toolListBtn" data-panel="panel_shortcuts">Shortcuts</button>
+          <button class="toolListBtn" data-panel="workflowHelpPanel">How to Use New Tools</button>
+          <button class="toolListBtn" data-panel="aboutDiagnosticsPanel">About &amp; Diagnostics</button>
+        </div>
+      </div>
+
       <button class="toolListBtn devModeOnly" data-panel="developerModePanel" style="display:none;">Developer Mode: Sport Templates</button>
       <button class="devModeOnly" id="devPreviewTutorialBtn" style="display:none;">Preview Tutorial Engine (Demo)</button>
       <button class="devModeOnly" id="devPreviewRealTutorialBtn" style="display:none;">Preview: First Coaching Session</button>
@@ -4157,7 +4267,7 @@ document.getElementById('packageTagFilter')?.addEventListener('input', renderPac
 // showing live, with a floating Prev/Next bar during Presentation Mode.
 const PRESENTATIONS_KEY='tpgPresentationsV1';
 let currentSlides=[];
-let activePresentation=null, activeSlideIndex=0;
+let activePresentation=null, activeSlideIndex=0, activeSubView='text';
 
 function renderSlideOptions(){
   const formations=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
@@ -4217,34 +4327,154 @@ function renderSavedPresentations(){
     box.appendChild(row);
   });
 }
-function loadPresentationSlide(index){
-  if(!activePresentation) return;
-  const slide=activePresentation.slides[index]; if(!slide) return;
-  const textSlideEl=document.getElementById('presentationTextSlide');
-  if(slide.kind==='text'){
-    if(textSlideEl){
-      const roleEl=textSlideEl.querySelector('.presTextSlideRole');
-      roleEl.textContent=(slide.day!=null?'Day '+slide.day+(slide.time?', ':' \u2013 '):'')+(slide.time?slide.time+' \u2013 ':'')+(slide.role||'');
-      roleEl.style.display=(slide.day!=null||slide.time||slide.role)?'':'none';
-      textSlideEl.querySelector('.presTextSlideTitle').textContent=slide.title||'';
-      textSlideEl.querySelector('.presTextSlideBody').textContent=slide.body||'';
-      textSlideEl.classList.add('show');
-    }
+function libNormalizeLegacySlide(slide){
+  if(slide.text !== undefined || slide.board !== undefined || slide.video !== undefined) return slide; // already the unified shape
+  const step = { title: slide.title||slide.refName||'', role: slide.role, note: slide.note, time: slide.time, day: slide.day, text:null, board:null, video:null };
+  if(slide.kind==='formation' || slide.kind==='package'){
+    step.board = { kind: slide.kind, refName: slide.refName };
+  } else if(slide.kind==='text'){
+    step.text = { body: slide.body||'' };
+  }
+  return step;
+}
+function libAvailableSubViews(step){
+  return ['text','board','video'].filter(v=>step && step[v]);
+}
+function libRenderVideoSlide(step){
+  const titleEl = document.getElementById('presentationVideoTitle');
+  const contentEl = document.getElementById('presentationVideoContent');
+  if(titleEl) titleEl.textContent = step.title||'';
+  const embed = step.video.embed;
+  if(!contentEl) return;
+  if(embed && (embed.kind==='youtube' || embed.kind==='vimeo')){
+    contentEl.innerHTML = '<iframe src="'+embed.embedUrl+'" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>';
+  } else if(embed && embed.kind==='file'){
+    contentEl.innerHTML = '<video src="'+embed.embedUrl+'" controls></video>';
   } else {
-    if(textSlideEl) textSlideEl.classList.remove('show');
-    if(slide.kind==='formation'){
+    const safeUrl = (step.video.url||'').replace(/"/g,'&quot;');
+    contentEl.innerHTML = '<div class="presVideoNoEmbed">This link can\u2019t be played inline.<br><a href="'+safeUrl+'" target="_blank" rel="noopener">Open link in a new tab</a></div>';
+  }
+}
+function updatePresentationSwitchControls(){
+  const btn = document.getElementById('presentationSwitchViewBtn');
+  if(!btn) return;
+  const step = activePresentation && activePresentation.slides[activeSlideIndex];
+  const views = libAvailableSubViews(step);
+  if(!step || views.length<=1){ btn.classList.remove('show'); return; }
+  const curIdx = views.indexOf(activeSubView);
+  const nextView = views[(curIdx+1)%views.length];
+  const label = nextView==='board' ? 'View Tactical Board' : nextView==='video' ? 'Watch Video' : 'Back to Notes';
+  btn.querySelector('.switchLabel').textContent = label;
+  btn.dataset.nextView = nextView;
+  btn.classList.add('show');
+}
+function libGetSwingElement(view){
+  if(view==='text') return document.getElementById('presentationTextSlide');
+  if(view==='video') return document.getElementById('presentationVideoSlide');
+  if(view==='board') return document.getElementById('presentationBoardProxy');
+  return null;
+}
+function libRunPresentationSwing(fromView, toView){
+  if(fromView===toView) return;
+  const fromEl = libGetSwingElement(fromView);
+  const toEl = libGetSwingElement(toView);
+  if(fromEl) fromEl.classList.add('show');
+  if(toEl) toEl.classList.add('show');
+  if(fromEl){ fromEl.classList.add('presSwingFace'); fromEl.style.transform='perspective(1300px) rotateY(0deg) translateZ(0px)'; fromEl.style.opacity='1'; }
+  if(toEl){ toEl.classList.add('presSwingFace'); toEl.style.transform='perspective(1300px) rotateY(60deg) translateZ(-160px)'; toEl.style.opacity='0'; }
+  void document.body.offsetWidth; // force a reflow so the starting state registers before the transition target changes
+  requestAnimationFrame(()=>{
+    if(fromEl){ fromEl.style.transform='perspective(1300px) rotateY(-60deg) translateZ(-160px)'; fromEl.style.opacity='0'; }
+    if(toEl){ toEl.style.transform='perspective(1300px) rotateY(0deg) translateZ(0px)'; toEl.style.opacity='1'; }
+  });
+  let cleaned=false;
+  function cleanup(){
+    if(cleaned) return; cleaned=true;
+    if(fromEl){ fromEl.style.transform=''; fromEl.style.opacity=''; fromEl.classList.remove('presSwingFace'); fromEl.classList.remove('show'); }
+    if(toEl){
+      toEl.style.transform=''; toEl.style.opacity=''; toEl.classList.remove('presSwingFace');
+      if(toView==='board') toEl.classList.remove('show'); // the proxy's job is done -- the real board is what stays visible
+    }
+    updatePresentationSwitchControls();
+    updatePresentationPlaybackUI();
+  }
+  if(toEl) toEl.addEventListener('transitionend', cleanup, {once:true});
+  setTimeout(cleanup, 750); // safety net -- guarantees cleanup even if transitionend never fires
+}
+function switchPresentationSubView(){
+  const step = activePresentation && activePresentation.slides[activeSlideIndex];
+  const views = libAvailableSubViews(step);
+  if(views.length<=1) return;
+  const curIdx = views.indexOf(activeSubView);
+  const fromView = activeSubView;
+  const toView = views[(curIdx+1)%views.length];
+  activeSubView = toView;
+  // Load the destination's real content BEFORE animating, while it's
+  // still hidden behind the outgoing screen (or the board proxy) -- so
+  // whatever the swing reveals is already correct, not stale.
+  if(toView==='text'){
+    const textEl = document.getElementById('presentationTextSlide');
+    const roleEl = textEl.querySelector('.presTextSlideRole');
+    roleEl.textContent=(step.day!=null?'Day '+step.day+(step.time?', ':' \u2013 '):'')+(step.time?step.time+' \u2013 ':'')+(step.role||'');
+    roleEl.style.display=(step.day!=null||step.time||step.role)?'':'none';
+    textEl.querySelector('.presTextSlideTitle').textContent=step.title||'';
+    textEl.querySelector('.presTextSlideBody').textContent=step.text.body||'';
+  } else if(toView==='video'){
+    libRenderVideoSlide(step);
+  } else if(toView==='board'){
+    if(step.board.kind==='formation'){
       const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-      const rec=saved[slide.refName];
-      if(!rec){ MizeDialog.alert('Formation "'+slide.refName+'" no longer exists -- it may have been renamed or deleted.'); return; }
-      loadState(formationRecordState(rec));
-    } else if(slide.kind==='package'){
+      const rec=saved[step.board.refName];
+      if(!rec){ MizeDialog.alert('Formation "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
+      else loadState(formationRecordState(rec));
+    } else if(step.board.kind==='package'){
       const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
-      const rec=packs[slide.refName];
-      if(!rec){ MizeDialog.alert('Package "'+slide.refName+'" no longer exists -- it may have been renamed or deleted.'); return; }
-      frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0);
+      const rec=packs[step.board.refName];
+      if(!rec){ MizeDialog.alert('Package "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
+      else { frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0); }
     }
   }
+  libRunPresentationSwing(fromView, toView);
+}
+document.getElementById('presentationSwitchViewBtn')?.addEventListener('click', switchPresentationSubView);
+function renderPresentationSubView(){
+  const step = activePresentation.slides[activeSlideIndex];
+  const textEl = document.getElementById('presentationTextSlide');
+  const videoEl = document.getElementById('presentationVideoSlide');
+  textEl.classList.remove('show');
+  videoEl.classList.remove('show');
+  if(activeSubView==='text' && step.text){
+    const roleEl=textEl.querySelector('.presTextSlideRole');
+    roleEl.textContent=(step.day!=null?'Day '+step.day+(step.time?', ':' \u2013 '):'')+(step.time?step.time+' \u2013 ':'')+(step.role||'');
+    roleEl.style.display=(step.day!=null||step.time||step.role)?'':'none';
+    textEl.querySelector('.presTextSlideTitle').textContent=step.title||'';
+    textEl.querySelector('.presTextSlideBody').textContent=step.text.body||'';
+    textEl.classList.add('show');
+  } else if(activeSubView==='video' && step.video){
+    libRenderVideoSlide(step);
+    videoEl.classList.add('show');
+  } else if(activeSubView==='board' && step.board){
+    if(step.board.kind==='formation'){
+      const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
+      const rec=saved[step.board.refName];
+      if(!rec){ MizeDialog.alert('Formation "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
+      else loadState(formationRecordState(rec));
+    } else if(step.board.kind==='package'){
+      const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
+      const rec=packs[step.board.refName];
+      if(!rec){ MizeDialog.alert('Package "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
+      else { frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0); }
+    }
+  }
+  updatePresentationSwitchControls();
   updatePresentationPlaybackUI();
+}
+function loadPresentationSlide(index){
+  if(!activePresentation) return;
+  const step=activePresentation.slides[index]; if(!step) return;
+  const views = libAvailableSubViews(step);
+  activeSubView = views[0] || 'text';
+  renderPresentationSubView();
 }
 function updatePresentationPlaybackUI(){
   const bar=document.getElementById('presentationPlaybackBar');
@@ -4254,18 +4484,19 @@ function updatePresentationPlaybackUI(){
   if(!activePresentation){ bar.classList.remove('active'); if(noteEl) noteEl.classList.remove('show'); return; }
   bar.classList.add('active');
   const total=activePresentation.slides.length;
-  const slide=activePresentation.slides[activeSlideIndex];
-  const label=slide ? (slide.day!=null?'Day '+slide.day+(slide.time?', ':' \u2013 '):'')+(slide.time?slide.time+' \u2013 ':'')+(slide.role?slide.role+': ':'')+(slide.title||slide.refName||'') : '';
+  const step=activePresentation.slides[activeSlideIndex];
+  const label=step ? (step.day!=null?'Day '+step.day+(step.time?', ':' \u2013 '):'')+(step.time?step.time+' \u2013 ':'')+(step.role?step.role+': ':'')+(step.title||'') : '';
   counter.textContent=(activeSlideIndex+1)+' / '+total+' — '+label;
   prevBtn.disabled=activeSlideIndex<=0;
   nextBtn.disabled=activeSlideIndex>=total-1;
   if(noteEl){
-    if(slide && slide.note){ noteEl.textContent='Coach note: '+slide.note; noteEl.classList.add('show'); }
+    if(step && step.note){ noteEl.textContent='Coach note: '+step.note; noteEl.classList.add('show'); }
     else { noteEl.classList.remove('show'); }
   }
 }
 function presentSavedPresentation(rec){
-  activePresentation=rec; activeSlideIndex=0;
+  activePresentation = { ...rec, slides: (rec.slides||[]).map(libNormalizeLegacySlide) };
+  activeSlideIndex=0;
   if(!document.body.classList.contains('presentation')) togglePresentation('fit');
   loadPresentationSlide(0);
   closeToolPanels();
@@ -4593,6 +4824,9 @@ function togglePresentation(mode){
     realBtn.textContent='Presentation Mode (Realistic Field)';
     activePresentation=null;
     document.getElementById('presentationTextSlide')?.classList.remove('show');
+    document.getElementById('presentationVideoSlide')?.classList.remove('show');
+    document.getElementById('presentationBoardProxy')?.classList.remove('show');
+    document.getElementById('presentationSwitchViewBtn')?.classList.remove('show');
     if(!frontCourtActive) setPresentationFieldGeometry(false); // Front Court owns its own field geometry -- don't clobber it
     disarmSpotlight();
     studioWindowsManuallyDark=false;
@@ -4653,39 +4887,57 @@ function resetFixtureCones(){
   document.querySelectorAll('.stageLight').forEach(f=>{
     f.classList.remove('spotlightDimmed','spotlightResponsible');
     const cone=f.querySelector('.stageLightCone');
-    cone.style.width=''; cone.style.height=''; cone.style.clipPath=''; cone.style.transform='';
+    cone.style.width=''; cone.style.height=''; cone.style.clipPath=''; cone.style.transform=''; cone.style.opacity='';
   });
+}
+function aimSpotlightConeAtFixture(fixture){
+  const lens=fixture.querySelector('.stageLightLens');
+  const lensRect=lens.getBoundingClientRect();
+  const lensX=lensRect.x+lensRect.width/2, lensY=lensRect.y+lensRect.height/2;
+  const dx=MIZE.State.spotlight.x-lensX, dy=MIZE.State.spotlight.y-lensY;
+  const fullDistance=Math.max(60, Math.hypot(dx,dy));
+  const angleDeg=Math.atan2(-dx,dy)*180/Math.PI; // 0 = straight down; CSS rotate() is clockwise-positive, hence -dx
+  const cone=fixture.querySelector('.stageLightCone');
+  // Stop the cone at the spotlight's circular boundary rather than its
+  // center -- its flat bottom edge then always lands in the overlay's own
+  // darkened falloff, never inside the fully-clear circle, which is what
+  // was creating a visible straight line cutting across the lit area.
+  const coneLength=Math.max(30, fullDistance-MIZE.State.spotlight.r);
+  const bottomWidth=Math.max(20, MIZE.State.spotlight.r*1.3); // narrower per-fixture, since two cones now overlap
+  const topWidth=10;
+  const topFrac=Math.min(48, (topWidth/bottomWidth)*50);
+  cone.style.width=bottomWidth+'px';
+  cone.style.height=coneLength+'px';
+  cone.style.clipPath=`polygon(${50-topFrac}% 0%, ${50+topFrac}% 0%, 100% 100%, 0% 100%)`;
+  cone.style.transform=`translateX(-50%) rotate(${angleDeg}deg)`;
+  return fullDistance;
 }
 function updateLinkedSpotlightFixture(){
   const fixtures=[...document.querySelectorAll('.stageLight')];
   if(!MIZE.State.spotlight.placed || fixtures.length<4){ resetFixtureCones(); return; }
-  const isLeftHalf=MIZE.State.spotlight.x < window.innerWidth/2;
-  const responsibleIndex=isLeftHalf?0:3; // outer-left (15%) or outer-right (85%)
+  const leftFixture=fixtures[0], rightFixture=fixtures[3]; // outer-left (15%) and outer-right (85%)
   fixtures.forEach((f,i)=>{
-    f.classList.toggle('spotlightResponsible', i===responsibleIndex);
-    f.classList.toggle('spotlightDimmed', i!==responsibleIndex);
+    const responsible = i===0 || i===3;
+    f.classList.toggle('spotlightResponsible', responsible);
+    f.classList.toggle('spotlightDimmed', !responsible);
   });
-  const activeFixture=fixtures[responsibleIndex];
-  const lens=activeFixture.querySelector('.stageLightLens');
-  const lensRect=lens.getBoundingClientRect();
-  const lensX=lensRect.x+lensRect.width/2, lensY=lensRect.y+lensRect.height/2;
-  const dx=MIZE.State.spotlight.x-lensX, dy=MIZE.State.spotlight.y-lensY;
-  const distance=Math.max(60, Math.hypot(dx,dy));
-  const angleDeg=Math.atan2(-dx,dy)*180/Math.PI; // 0 = straight down; CSS rotate() is clockwise-positive, hence -dx
-  const cone=activeFixture.querySelector('.stageLightCone');
-  const bottomWidth=Math.max(24, MIZE.State.spotlight.r*2);
-  const topWidth=12;
-  const topFrac=Math.min(48, (topWidth/bottomWidth)*50);
-  cone.style.width=bottomWidth+'px';
-  cone.style.height=distance+'px';
-  cone.style.clipPath=`polygon(${50-topFrac}% 0%, ${50+topFrac}% 0%, 100% 100%, 0% 100%)`;
-  cone.style.transform=`translateX(-50%) rotate(${angleDeg}deg)`;
+  const leftDistance=aimSpotlightConeAtFixture(leftFixture);
+  const rightDistance=aimSpotlightConeAtFixture(rightFixture);
+  // Weight each cone's brightness by relative proximity, so the nearer
+  // fixture reads stronger but the farther one still visibly contributes
+  // -- both are always at least partially lit, so there's no hard cutover
+  // as the spotlight crosses the screen's midpoint.
+  const totalDistance=leftDistance+rightDistance;
+  const leftWeight=totalDistance>0 ? rightDistance/totalDistance : 0.5;
+  const rightWeight=totalDistance>0 ? leftDistance/totalDistance : 0.5;
+  leftFixture.querySelector('.stageLightCone').style.opacity=(0.5+leftWeight*0.5).toFixed(2);
+  rightFixture.querySelector('.stageLightCone').style.opacity=(0.5+rightWeight*0.5).toFixed(2);
 }
 function updateSpotlightVisuals(){
   const overlay=document.getElementById('spotlightOverlay');
   const hit=document.getElementById('spotlightHitArea');
+  const moveHandle=document.getElementById('spotlightMoveHandle');
   const handle=document.getElementById('spotlightResizeHandle');
-  const removeBtn=document.getElementById('spotlightRemoveBtn');
   if(!overlay) return;
   overlay.style.setProperty('--sx', MIZE.State.spotlight.x+'px');
   overlay.style.setProperty('--sy', MIZE.State.spotlight.y+'px');
@@ -4693,11 +4945,10 @@ function updateSpotlightVisuals(){
   if(!MIZE.State.spotlight.placed) return;
   hit.style.left=(MIZE.State.spotlight.x-MIZE.State.spotlight.r)+'px'; hit.style.top=(MIZE.State.spotlight.y-MIZE.State.spotlight.r)+'px';
   hit.style.width=(MIZE.State.spotlight.r*2)+'px'; hit.style.height=(MIZE.State.spotlight.r*2)+'px';
+  moveHandle.style.left=MIZE.State.spotlight.x+'px'; moveHandle.style.top=MIZE.State.spotlight.y+'px';
   const handleAngle=45*Math.PI/180;
   handle.style.left=(MIZE.State.spotlight.x+MIZE.State.spotlight.r*Math.cos(handleAngle))+'px';
   handle.style.top=(MIZE.State.spotlight.y+MIZE.State.spotlight.r*Math.sin(handleAngle))+'px';
-  removeBtn.style.left=(MIZE.State.spotlight.x-MIZE.State.spotlight.r*Math.cos(handleAngle))+'px';
-  removeBtn.style.top=(MIZE.State.spotlight.y-MIZE.State.spotlight.r*Math.sin(handleAngle))+'px';
   updateLinkedSpotlightFixture();
 }
 let studioWindowsManuallyDark=false;
@@ -4717,16 +4968,16 @@ function placeSpotlight(x,y){
   if(!MIZE.State.spotlight.placed) MIZE.State.spotlight.r=defaultSpotlightRadius();
   MIZE.State.spotlight.placed=true;
   document.getElementById('spotlightHitArea').classList.add('shown');
+  document.getElementById('spotlightMoveHandle').classList.add('shown');
   document.getElementById('spotlightResizeHandle').classList.add('shown');
-  document.getElementById('spotlightRemoveBtn').classList.add('shown');
   updateSpotlightVisuals();
   updateWindowDarkenState();
 }
 function removeSpotlight(){
   MIZE.State.spotlight.placed=false;
   document.getElementById('spotlightHitArea').classList.remove('shown');
+  document.getElementById('spotlightMoveHandle').classList.remove('shown');
   document.getElementById('spotlightResizeHandle').classList.remove('shown');
-  document.getElementById('spotlightRemoveBtn').classList.remove('shown');
   resetFixtureCones();
   updateWindowDarkenState();
 }
@@ -4734,6 +4985,7 @@ function armSpotlight(){
   MIZE.State.spotlight.armed=true;
   document.getElementById('spotlightToggleBtn').classList.add('active');
   document.getElementById('spotlightOverlay').classList.add('armed');
+  updateSpotlightOverlayScrollGap();
 }
 function disarmSpotlight(){
   MIZE.State.spotlight.armed=false;
@@ -4742,16 +4994,35 @@ function disarmSpotlight(){
   removeSpotlight();
 }
 document.getElementById('spotlightToggleBtn').addEventListener('click', ()=>{ if(MIZE.State.spotlight.armed) disarmSpotlight(); else armSpotlight(); });
-document.getElementById('spotlightRemoveBtn').addEventListener('click', e=>{ e.stopPropagation(); removeSpotlight(); });
+let spotlightAnimFrame=null;
+function animateSpotlightTo(targetX, targetY){
+  if(spotlightAnimFrame){ cancelAnimationFrame(spotlightAnimFrame); spotlightAnimFrame=null; }
+  if(!MIZE.State.spotlight.placed){ placeSpotlight(targetX, targetY); return; } // nothing to animate from yet
+  const startX=MIZE.State.spotlight.x, startY=MIZE.State.spotlight.y;
+  const startTime=performance.now(), duration=350;
+  function step(now){
+    const t=Math.min(1, (now-startTime)/duration);
+    const eased=1-Math.pow(1-t, 3); // ease-out cubic
+    MIZE.State.spotlight.x=startX+(targetX-startX)*eased;
+    MIZE.State.spotlight.y=startY+(targetY-startY)*eased;
+    updateSpotlightVisuals();
+    if(t<1) spotlightAnimFrame=requestAnimationFrame(step);
+    else spotlightAnimFrame=null;
+  }
+  spotlightAnimFrame=requestAnimationFrame(step);
+}
 document.getElementById('spotlightOverlay').addEventListener('pointerdown', e=>{
-  if(e.target.id!=='spotlightOverlay') return; // clicks on the handle/remove button are handled separately
-  placeSpotlight(e.clientX, e.clientY);
+  if(e.target.id!=='spotlightOverlay') return; // clicks on the handles are handled separately
+  animateSpotlightTo(e.clientX, e.clientY);
+  e.preventDefault();
 });
-document.getElementById('spotlightHitArea').addEventListener('pointerdown', e=>{
+document.getElementById('spotlightMoveHandle').addEventListener('pointerdown', e=>{
+  if(spotlightAnimFrame){ cancelAnimationFrame(spotlightAnimFrame); spotlightAnimFrame=null; }
   MIZE.State.spotlight.dragMode='move'; MIZE.State.spotlight.dragStart={x:e.clientX,y:e.clientY,cx:MIZE.State.spotlight.x,cy:MIZE.State.spotlight.y};
   e.stopPropagation(); e.preventDefault();
 });
 document.getElementById('spotlightResizeHandle').addEventListener('pointerdown', e=>{
+  if(spotlightAnimFrame){ cancelAnimationFrame(spotlightAnimFrame); spotlightAnimFrame=null; }
   MIZE.State.spotlight.dragMode='resize'; e.stopPropagation(); e.preventDefault();
 });
 document.addEventListener('pointermove', e=>{
@@ -4763,6 +5034,7 @@ document.addEventListener('pointermove', e=>{
     MIZE.State.spotlight.r=Math.max(40, Math.hypot(e.clientX-MIZE.State.spotlight.x, e.clientY-MIZE.State.spotlight.y));
   }
   updateSpotlightVisuals();
+  e.preventDefault();
 });
 document.addEventListener('pointerup', ()=>{ MIZE.State.spotlight.dragMode=null; MIZE.State.spotlight.dragStart=null; });
 
@@ -7656,7 +7928,6 @@ function hideObject(el){ if(!el) return; recordHistory('Hide '+displayName(el));
 function giveBallToSelected(el){ if(!el || isAnyBall(el)) return; recordHistory(); moveBallTo(el,ballHand||'right'); setMode('select'); }
 
 const contextMenu=document.getElementById('contextMenu'); let contextTarget=null;
-document.querySelector('.toolListBtn[data-panel="addPlayerPanel"]')?.addEventListener('click', ()=> openAddPlayerPanel());
 document.getElementById('addPlayerFromMovementBtn')?.addEventListener('click', ()=> openAddPlayerPanel());
 // ===== Player Action Bar =====
 // Persistent alternative to the long-press context menu for the most
@@ -8080,6 +8351,16 @@ document.querySelectorAll('.cmdCategory').forEach(cat=>{
     cat.classList.toggle('open', willOpen);
   });
 });
+document.querySelectorAll('.subGroup').forEach(sub=>{
+  const header=sub.querySelector('.subGroupHeader');
+  header.addEventListener('click', e=>{
+    e.stopPropagation();
+    const willOpen=!sub.classList.contains('open');
+    const parentCat=sub.closest('.cmdCategory');
+    if(parentCat) parentCat.querySelectorAll('.subGroup.open').forEach(s=>{ if(s!==sub) s.classList.remove('open'); });
+    sub.classList.toggle('open', willOpen);
+  });
+});
 document.addEventListener('click', e=>{
   if(!e.target.closest('.cmdCategory') && !e.target.closest('#sidebarToggleTab')) document.querySelectorAll('.cmdCategory.open').forEach(c=>c.classList.remove('open'));
 });
@@ -8092,7 +8373,7 @@ function persistUsage(){ try { localStorage.setItem(USAGE_KEY, JSON.stringify(cm
 function renderGlobalQuickRow(){
   const quick=document.getElementById('globalQuickRow');
   if(!quick) return;
-  const buttons=[...document.querySelectorAll('.cmdFlyout > button')];
+  const buttons=[...document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)')];
   const ranked=buttons.map((b,idx)=>({b,idx,count:cmdUsage[b.id]||0})).sort((a,b2)=> b2.count-a.count || a.idx-b2.idx).slice(0,3);
   quick.innerHTML='';
   ranked.forEach(r=>{
@@ -8107,7 +8388,7 @@ const RECENT_KEY='tpgRecentCmdV1';
 let recentCmdOrder=[];
 try { recentCmdOrder=JSON.parse(localStorage.getItem(RECENT_KEY))||[]; } catch(err) { recentCmdOrder=[]; }
 function persistRecent(){ try { localStorage.setItem(RECENT_KEY, JSON.stringify(recentCmdOrder)); } catch(err) {} }
-document.querySelectorAll('.cmdFlyout > button').forEach(b=>{
+document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)').forEach(b=>{
   b.addEventListener('click', ()=>{
     cmdUsage[b.id]=(cmdUsage[b.id]||0)+1; persistUsage();
     recentCmdOrder=[b.id, ...recentCmdOrder.filter(id=>id!==b.id)].slice(0,20); persistRecent();
@@ -9240,6 +9521,29 @@ function refreshFrontCourtScrollZones(){
     left.style.display='none';
     right.style.display='none';
   }
+  updateSpotlightOverlayScrollGap();
+}
+// Carves the Front Court scroll strips out of the spotlight overlay's
+// hit-test region (and, incidentally, its darkened background) whenever
+// both are active at once -- otherwise the overlay's full-viewport
+// pointer capture silently swallows the scroll-drag gesture entirely,
+// since it sits at a far higher z-index than the scroll zones. clip-path
+// removes those edges from what the overlay can see or paint without
+// moving the element's own box, so the radial-gradient's --sx/--sy
+// coordinates (set as raw viewport pixel positions) stay correctly
+// aligned with no extra offset math needed.
+function updateSpotlightOverlayScrollGap(){
+  const overlay=document.getElementById('spotlightOverlay');
+  if(!overlay) return;
+  const left=document.getElementById('fcScrollZoneLeft');
+  const right=document.getElementById('fcScrollZoneRight');
+  if(frontCourtActive && left && right && left.style.display==='block'){
+    const leftW=left.getBoundingClientRect().width;
+    const rightW=right.getBoundingClientRect().width;
+    overlay.style.clipPath=`inset(0 ${rightW}px 0 ${leftW}px)`;
+  } else {
+    overlay.style.clipPath='';
+  }
 }
 // Manually drives #stageWrap's scrollTop from pointer movement within a
 // scroll zone -- "content follows the finger" (dragging up reveals more
@@ -9436,6 +9740,10 @@ function importLibraryFromFile(file){
       } else if(data.name && data.state && !data.frames){
         // Same idea for a legacy formation export.
         existingFormations[data.name] = data;
+        imported = true; importedLabel = 'Imported "'+data.name+'".';
+      } else if(data.name && Array.isArray(data.blocks)){
+        // Same idea for a legacy practice session export.
+        existingSessions[data.name] = data;
         imported = true; importedLabel = 'Imported "'+data.name+'".';
       }
       localStorage.setItem('wpStrategyFormationsV5', JSON.stringify(existingFormations));
@@ -11396,34 +11704,86 @@ async function renderLibraryPracticeItemsList(asset){
   });
 }
 
-async function libBuildPresentationSlides(planAsset, visited){
+// Detects embeddable video URLs (YouTube, Vimeo, direct video files) and
+// returns an embed descriptor, or null for anything else (Drive links,
+// Dropbox, etc.) -- those stay as plain text links, since there's no
+// generic way to embed an arbitrary URL.
+function libDetectEmbeddableVideo(url){
+  if(!url) return null;
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{6,})/i);
+  if(yt) return { kind:'youtube', embedUrl:'https://www.youtube.com/embed/'+yt[1] };
+  const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  if(vimeo) return { kind:'vimeo', embedUrl:'https://player.vimeo.com/video/'+vimeo[1] };
+  if(/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url)) return { kind:'file', embedUrl:url };
+  return null;
+}
+
+function libBuildLeafStep(ref, item){
+  const step = { title: ref.title, role: item.role, note: item.note, time: item.time, day: item.day, text:null, board:null, video:null };
+  if((ref.type==='formation' || ref.type==='sequence') && ref.contentRef){
+    step.board = { kind: ref.type==='formation'?'formation':'package', refName: ref.contentRef.itemKey };
+    return step;
+  }
+  let body = ref.noteBody || ref.description || '';
+  if(ref.objectives) body = (body?body+'\n\n':'')+'Objectives: '+ref.objectives;
+  if(ref.type==='video' && ref.url){
+    step.video = { url: ref.url, embed: libDetectEmbeddableVideo(ref.url) };
+  } else if(ref.url){
+    body = (body?body+'\n\n':'')+'Link: '+ref.url;
+  }
+  if(body.trim()) step.text = { body };
+  return step;
+}
+
+async function libBuildPresentationSteps(planAsset, visited){
   visited = visited || new Set();
   if(visited.has(planAsset.id)) return []; // circular reference guard -- skip rather than loop forever
   visited.add(planAsset.id);
   const items = planAsset.items || [];
-  const slides = [];
+  const steps = [];
   for(const item of items){
     const ref = await LibraryStorage.getAsset(item.assetId);
     if(!ref) continue; // reference no longer exists -- skip it rather than failing the whole presentation
     if((ref.type==='formation' || ref.type==='sequence') && ref.contentRef){
-      slides.push({ kind: ref.type==='formation'?'formation':'package', refName: ref.contentRef.itemKey, title: ref.title, role: item.role, note: item.note, time: item.time, day: item.day });
+      steps.push(libBuildLeafStep(ref, item));
     } else if((ref.type==='practice' || ref.type==='event') && (ref.items||[]).length){
       // A genuine sub-plan with its own items (e.g. an Event containing a
-      // Practice Session) flattens inline, so it presents as one continuous
-      // walk-through rather than a slide the coach would have to exit out
-      // of. A practice/event with no items of its own -- standalone rich
-      // content like an imported knowledge object -- falls through to the
-      // text-slide case below instead of silently contributing nothing.
-      const nested = await libBuildPresentationSlides(ref, visited);
-      slides.push(...nested);
+      // Practice Session) flattens inline. If the container ALSO has its
+      // own explanatory content, that becomes the step's text -- and if
+      // the first nested item is purely a board/video reference with no
+      // text of its own, the two merge into one step (text first, switch
+      // button reveals the board/video), matching what a coach actually
+      // wants: the explanation, then a way to jump to what it's about.
+      // If the first nested item ALSO has its own text (e.g. a video with
+      // its own notes), that text is appended after the container's own --
+      // combining is safer than discarding it, and keeps the merge uniform
+      // for formations/sequences and videos alike rather than depending on
+      // whether the referenced item happens to carry its own notes.
+      let ownBody = ref.noteBody || ref.description || '';
+      if(ref.objectives) ownBody = (ownBody?ownBody+'\n\n':'')+'Objectives: '+ref.objectives;
+      const nested = await libBuildPresentationSteps(ref, visited);
+      if(ownBody.trim()){
+        const ownStep = { title: ref.title, role: item.role, note: item.note, time: item.time, day: item.day, text:{body:ownBody}, board:null, video:null };
+        if(nested.length && (nested[0].board || nested[0].video)){
+          ownStep.board = nested[0].board;
+          ownStep.video = nested[0].video;
+          if(nested[0].text && nested[0].text.body){
+            ownStep.text.body = ownStep.text.body + '\n\n' + nested[0].text.body;
+          }
+          steps.push(ownStep);
+          steps.push(...nested.slice(1));
+        } else {
+          steps.push(ownStep);
+          steps.push(...nested);
+        }
+      } else {
+        steps.push(...nested);
+      }
     } else {
-      let body = ref.noteBody || ref.description || '';
-      if(ref.objectives) body = (body?body+'\n\n':'')+'Objectives: '+ref.objectives;
-      if(ref.url) body = (body?body+'\n\n':'')+'Link: '+ref.url;
-      slides.push({ kind:'text', title: ref.title, body, role: item.role, note: item.note, time: item.time, day: item.day });
+      steps.push(libBuildLeafStep(ref, item));
     }
   }
-  return slides;
+  return steps;
 }
 
 async function libRenderRelatedEventsLinks(asset){
@@ -11449,13 +11809,13 @@ async function libPresentPlan(planAsset){
     if(typeof MizeDialog!=='undefined') MizeDialog.alert('This '+(planAsset.type==='event'?'event':'practice session')+' has no items yet -- add some from its detail view first.');
     return;
   }
-  const slides = await libBuildPresentationSlides(planAsset);
-  if(!slides.length){
+  const steps = await libBuildPresentationSteps(planAsset);
+  if(!steps.length){
     if(typeof MizeDialog!=='undefined') MizeDialog.alert('None of this '+(planAsset.type==='event'?'event':'practice session')+'\u2019s items could be found -- they may have been deleted from the Library.');
     return;
   }
   await LibraryStorage.recordUsage(planAsset.id);
-  presentSavedPresentation({ slides });
+  presentSavedPresentation({ slides: steps });
 }
 
 async function libOpenAssetInStudio(asset){
@@ -11526,7 +11886,14 @@ function libCiTextToArr(text){ return String(text||'').split('\n').map(s=>s.trim
 
 function libRenderCiSectionHtml(asset){
   const ci = asset.coachingIntelligence || {};
-  const expanded = libCiHasContent(ci);
+  // Always starts collapsed, even when it has content -- auto-expanding
+  // added ~9 extra form rows to the detail view for exactly the assets
+  // that use it most (e.g. every imported Boot Camp entry), which was the
+  // actual cause of this panel's worst-case height overflowing the 88vh
+  // cap. The teal dot on the card already signals "has CI content" before
+  // a coach even opens the detail view, so nothing is hidden -- it's one
+  // tap away instead of always-on.
+  const expanded = false;
   return '<div class="libCiSection">' +
     '<button type="button" id="libCiToggleBtn" class="libCiToggleBtn"><span>Extended Coaching Intelligence</span><span class="libCiToggleIcon">'+(expanded?'\u25be':'\u25b8')+'</span></button>' +
     '<div id="libCiBody" class="libCiBody" style="display:'+(expanded?'block':'none')+';">' +
