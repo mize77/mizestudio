@@ -75,6 +75,15 @@
   #quickCommandBar { position:fixed; top:12px; right:12px; z-index:70; background:rgba(255,255,255,.96); border:1px solid #c3d2d2; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.2); display:flex; align-items:center; gap:4px; padding:6px 8px; }
   #quickCommandBar { z-index:1520; top:12px; left:50%; right:auto; transform:translateX(-50%); }
   #quickCommandBarHandle { cursor:grab; padding:6px 8px; margin:-6px 2px -6px -8px; background:#124d4d; color:#fff; border-radius:8px 0 0 8px; touch-action:none; display:flex; align-items:center; justify-content:center; align-self:stretch; }
+  #qcbDrawingToolsPopup { display:none; position:fixed; z-index:1521; background:rgba(255,255,255,.98); border:1px solid #c3d2d2; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.25); padding:8px; flex-direction:column; gap:8px; width:150px; }
+  #qcbDrawingToolsPopup.show { display:flex; }
+  #qcbDrawingToolsGrid { display:grid; grid-template-columns:repeat(3, auto); gap:4px; }
+  #qcbDrawingToolsGrid .quickBarBtn.active { background:#1b7373; color:#fff; border-color:#1b7373; }
+  .qcbPopupDivider { height:1px; background:#e1e6e6; margin:0 2px; }
+  .qcbColorRow { display:flex; gap:8px; justify-content:center; }
+  #qcbDrawingToolsPopup .freeDrawColorSwatch { width:26px; height:26px; min-height:26px; border-radius:50%; border:2px solid #d9e0e0; padding:0; cursor:pointer; }
+  #qcbDrawingToolsPopup .freeDrawColorSwatch.active { border-color:#14235c; box-shadow:0 0 0 2px rgba(20,35,92,.25); }
+  @media (pointer:coarse) { #qcbDrawingToolsPopup { width:190px; } #qcbDrawingToolsPopup .freeDrawColorSwatch { width:38px; height:38px; min-height:38px; } }
   #quickCommandBarInner { display:flex; align-items:center; gap:8px; }
   .quickBarGrid { display:grid; gap:4px; }
   .quickBarStandardGrid { grid-template-columns:repeat(7, auto); grid-template-rows:repeat(2, auto); }
@@ -1376,6 +1385,16 @@
   <span id="quickCommandBarHandle" title="Drag to move this bar anywhere on screen">&#9776;</span>
   <div id="quickCommandBarInner"></div>
   <button id="hideQuickCommandBarBtn" title="Hide this bar">&#10005;</button>
+</div>
+<div id="qcbDrawingToolsPopup">
+  <div id="qcbDrawingToolsGrid" class="quickBarGrid"></div>
+  <div class="qcbPopupDivider"></div>
+  <div class="qcbColorRow">
+    <button type="button" class="freeDrawColorSwatch" data-color="#1a1a1a" style="background:#1a1a1a;" title="Black" aria-label="Black"></button>
+    <button type="button" class="freeDrawColorSwatch" data-color="#d32f2f" style="background:#d32f2f;" title="Red" aria-label="Red"></button>
+    <button type="button" class="freeDrawColorSwatch" data-color="#2e7d32" style="background:#2e7d32;" title="Green" aria-label="Green"></button>
+    <button type="button" class="freeDrawColorSwatch" data-color="#f9c74f" style="background:#f9c74f;" title="Yellow" aria-label="Yellow"></button>
+  </div>
 </div>
 <div id="contextMenu"></div>
 <div id="tooltipBox"></div>
@@ -8398,8 +8417,15 @@ document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)').forEach(b=>{
 });
 
 // --- Floating quick-command bar: 5 fixed presets (Photoshop-style) + 3 recently-used ---
-const QUICKBAR_PRESETS=['selectBtn','ballBtn','freeDrawBtn','shotBlockToggleBtn','goalieVisionToggleBtn','shootingAngleToggleBtn','eraseBtn','ghostBtn','noteBtn','passBtn','clearBtn','smartPositioningToggleBtn','fieldZonesToggleBtn','smartGoaliePositioningToggleBtn'];
+const QUICKBAR_PRESETS=['selectBtn','ballBtn','freeDrawBtn','shotBlockToggleBtn','goalieVisionToggleBtn','shootingAngleToggleBtn','eraseBtn','ghostBtn','clearBtn','smartPositioningToggleBtn','fieldZonesToggleBtn','smartGoaliePositioningToggleBtn'];
+const QCB_DRAWING_TOOLS=['passBtn','swimBtn','driveBtn','shotBtn','screenBtn','highlightBtn','noteBtn','measureBtn','freeDrawBtn'];
 const QUICKBAR_ICONS={
+  swimBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14c2.5-4 5-4 7.5 0s5 4 7.5 0"/><path d="M16.2 12.7l3.3 1.3-1.3 3.3"/></svg>',
+  driveBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 Q10 10 19 5"/><path d="M13 4.3h6v6"/></svg>',
+  shotBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21L15 8"/><path d="M9.5 8H15v5.5"/><rect x="15.5" y="2" width="6.5" height="6.5" stroke-width="1.3"/></svg>',
+  screenBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="4" x2="12" y2="12"/><line x1="7" y1="4" x2="17" y2="4"/><path d="M12 12 Q12 20 20 20"/><path d="M16.3 18.1l3.7 1.9-.9-4"/></svg>',
+  highlightBtn:'<svg viewBox="0 0 24 24" fill="currentColor" fill-opacity="0.28" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 15.5c-.4-6 3.4-10.8 9.3-10.8s7 6.9 3.6 11S4.4 21.5 4 15.5z"/></svg>',
+  measureBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="6" rx="1"/><line x1="6" y1="9" x2="6" y2="12"/><line x1="10" y1="9" x2="10" y2="12"/><line x1="14" y1="9" x2="14" y2="12"/><line x1="18" y1="9" x2="18" y2="12"/></svg>',
   selectBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>',
   ballBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0M4.5 16.5c3-3 10-3 15 0"/></svg>',
   freeDrawBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
@@ -8430,15 +8456,13 @@ function renderQuickCommandBar(){
     if(srcBtn.id==='freeDrawBtn'){
       q.style.color=freehandColor;
       q.style.boxShadow='inset 0 -3px 0 '+freehandColor;
-      q.title='Free Draw (tap again to change color)';
-      q.addEventListener('click', ()=>{
-        if(mode==='freeDraw'){
-          const idx=FREE_DRAW_COLORS.indexOf(freehandColor);
-          freehandColor=FREE_DRAW_COLORS[(idx+1)%FREE_DRAW_COLORS.length];
-          syncFreeDrawColorUI();
-        } else {
-          srcBtn.click();
-        }
+      q.title='Drawing Tools';
+      q.addEventListener('click', e=>{
+        e.stopPropagation();
+        qcbSuppressOutsideClose=true;
+        srcBtn.click();
+        qcbSuppressOutsideClose=false;
+        openQcbDrawingToolsPopup(q);
         renderQuickCommandBar();
       });
     } else {
@@ -8464,6 +8488,60 @@ function renderQuickCommandBar(){
   inner.appendChild(recentGrid);
 }
 renderQuickCommandBar();
+// Positions the popup relative to wherever the (draggable) bar's Free
+// Draw button currently is, rather than a fixed screen location --
+// consistent with getBoundingClientRect() being queried fresh each time
+// rather than tracking the bar's drag state separately.
+let qcbSuppressOutsideClose=false;
+function renderQcbDrawingToolsGrid(){
+  const grid=document.getElementById('qcbDrawingToolsGrid');
+  if(!grid) return;
+  grid.innerHTML='';
+  QCB_DRAWING_TOOLS.forEach(id=>{
+    const srcBtn=document.getElementById(id);
+    if(!srcBtn) return;
+    const b=document.createElement('button');
+    b.type='button'; b.className='quickBarBtn';
+    b.innerHTML=QUICKBAR_ICONS[id]||'';
+    b.title=srcBtn.textContent;
+    b.classList.toggle('active', srcBtn.classList.contains('active'));
+    b.addEventListener('click', e=>{
+      e.stopPropagation();
+      qcbSuppressOutsideClose=true; // srcBtn.click() below dispatches its own separate, real click event from the sidebar's DOM position, which would otherwise bubble to document and look like an outside click
+      srcBtn.click();
+      qcbSuppressOutsideClose=false;
+      renderQcbDrawingToolsGrid(); // refresh which tool now shows active, without closing the popup
+      renderQuickCommandBar(); // keep the main bar's own Free Draw icon in sync too
+    });
+    grid.appendChild(b);
+  });
+}
+function openQcbDrawingToolsPopup(anchorBtn){
+  const popup=document.getElementById('qcbDrawingToolsPopup');
+  if(!popup) return;
+  const rect=anchorBtn.getBoundingClientRect();
+  popup.style.left=rect.left+'px';
+  popup.style.top=(rect.bottom+8)+'px';
+  renderQcbDrawingToolsGrid();
+  popup.querySelectorAll('.freeDrawColorSwatch').forEach(b=>b.classList.toggle('active', b.dataset.color===freehandColor));
+  popup.classList.add('show');
+}
+function closeQcbDrawingToolsPopup(){
+  document.getElementById('qcbDrawingToolsPopup')?.classList.remove('show');
+}
+document.querySelectorAll('#qcbDrawingToolsPopup .freeDrawColorSwatch').forEach(btn=>{
+  btn.addEventListener('click', e=>{
+    e.stopPropagation();
+    freehandColor=btn.dataset.color;
+    syncFreeDrawColorUI(); // keeps the sidebar's own color row in sync too, if it happens to be visible
+    document.querySelectorAll('#qcbDrawingToolsPopup .freeDrawColorSwatch').forEach(b=>b.classList.toggle('active', b.dataset.color===freehandColor));
+    renderQuickCommandBar(); // refreshes the quick bar button's own color indicator
+  });
+});
+document.addEventListener('click', e=>{
+  if(qcbSuppressOutsideClose) return;
+  if(!e.target.closest('#qcbDrawingToolsPopup')) closeQcbDrawingToolsPopup();
+});
 document.getElementById("viewToggleTab")?.addEventListener("click", ()=>{ const panel=document.getElementById("viewPanel"); if(panel.classList.contains("open")){ closeToolPanels(); return; } openToolPanel("viewPanel"); });
 // ===== Field Zones (reference position markers around the goal) =====
 // Anchored to the right goal (x=27,y=12) -- the same "attacking" end that
