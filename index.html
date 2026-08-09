@@ -83,6 +83,14 @@
   .qcbColorRow { display:flex; gap:8px; justify-content:center; }
   #qcbDrawingToolsPopup .freeDrawColorSwatch { width:26px; height:26px; min-height:26px; border-radius:50%; border:2px solid #d9e0e0; padding:0; cursor:pointer; }
   #qcbDrawingToolsPopup .freeDrawColorSwatch.active { border-color:#14235c; box-shadow:0 0 0 2px rgba(20,35,92,.25); }
+  #textBoxToolbar { display:none; position:fixed; z-index:1522; background:rgba(255,255,255,.98); border:1px solid #c3d2d2; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.25); padding:10px; flex-direction:column; gap:8px; width:220px; top:70px; right:12px; }
+  #textBoxToolbar.show { display:flex; }
+  .textBoxToolbarRow { display:flex; gap:6px; align-items:center; }
+  .textBoxToolbarRow select, .textBoxToolbarRow input[type=range] { flex:1; min-width:0; padding:5px 6px; border-radius:6px; border:1.5px solid #d5dede; font-size:12px; }
+  .textBoxToolbarRow input[type=color] { width:32px; height:30px; padding:2px; border-radius:6px; border:1.5px solid #d5dede; flex-shrink:0; }
+  .textBoxToolbarRow button { flex:1; padding:5px 6px; font-size:13px; }
+  .textBoxToolbarRow button.active { background:#1b7373; color:#fff; border-color:#1b7373; }
+  #tbEditText { flex:1; }
   @media (pointer:coarse) { #qcbDrawingToolsPopup { width:190px; } #qcbDrawingToolsPopup .freeDrawColorSwatch { width:38px; height:38px; min-height:38px; } }
   #quickCommandBarInner { display:flex; align-items:center; gap:8px; }
   .quickBarGrid { display:grid; gap:4px; }
@@ -533,6 +541,29 @@
   #presentationSwitchViewBtn .arrowIcon { font-size:16px; }
   #presentationCoachNote { display:none; position:fixed; bottom:calc(70px + env(safe-area-inset-bottom)); right:calc(14px + env(safe-area-inset-right)); z-index:1499; background:rgba(20,25,25,.85); color:rgba(255,255,255,.85); font-size:12.5px; padding:8px 14px; border-radius:12px; max-width:320px; }
   #presentationCoachNote.show { display:block; }
+  #coachingModeRemote { display:none; flex-direction:column; gap:6px; position:fixed; top:calc(14px + env(safe-area-inset-top)); left:calc(14px + env(safe-area-inset-left)); z-index:1530; background:rgba(20,25,25,.92); color:#fff; border-radius:12px; padding:12px 14px; font-size:13px; width:240px; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+  #coachingModeRemote.show { display:flex; }
+  .coachingModeRow { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  #coachingModeEventTitle { font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #coachingModeAheadBehind { font-weight:700; }
+  .coachingModeActions { flex-wrap:wrap; gap:6px; margin-top:2px; }
+  .coachingModeActions button { flex:1 1 calc(50% - 6px); min-width:0; padding:7px 6px; font-size:12px; border-radius:8px; border:1px solid rgba(255,255,255,.3); background:rgba(255,255,255,.08); color:#fff; }
+  #coachingModeEndBtn { background:rgba(229,57,53,.25); border-color:rgba(229,57,53,.5); }
+  #coachingRunningOrderPanel { display:none; flex-direction:column; position:fixed; top:calc(14px + env(safe-area-inset-top)); left:270px; z-index:1531; background:rgba(255,255,255,.98); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.35); width:min(320px,80vw); max-height:70vh; overflow:hidden; }
+  #coachingRunningOrderPanel.show { display:flex; }
+  #coachingRunningOrderHeader { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #e1e6e6; }
+  #coachingRunningOrderHeader button { border:0; background:none; font-size:14px; padding:2px 6px; cursor:pointer; }
+  #coachingRunningOrderList { overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:4px; }
+  #coachingRunningOrderList button { width:100%; text-align:left; padding:8px 10px; border-radius:8px; border:1px solid #e1e6e6; background:#fff; font-size:12.5px; }
+  #coachingRunningOrderList button.current { background:#1b7373; color:#fff; border-color:#1b7373; }
+  #coachingSummaryOverlay { display:none; position:fixed; inset:0; z-index:1600; background:rgba(0,0,0,.55); align-items:center; justify-content:center; padding:20px; box-sizing:border-box; }
+  #coachingSummaryOverlay.show { display:flex; }
+  #coachingSummaryBox { background:#fff; border-radius:14px; padding:20px; max-width:560px; width:100%; max-height:80vh; overflow-y:auto; }
+  #coachingSummaryTitle { margin:0 0 10px; font-size:16px; }
+  #coachingSummaryContent { font-size:13px; line-height:1.6; }
+  #coachingSummaryContent table { width:100%; border-collapse:collapse; margin-bottom:14px; }
+  #coachingSummaryContent td, #coachingSummaryContent th { text-align:left; padding:5px 6px; border-bottom:1px solid #eef2f2; font-size:12.5px; }
+  #coachingSummaryCloseBtn { margin-top:12px; width:100%; }
   #timelineCommandsBar { display:none; position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); z-index:1500; background:rgba(20,25,25,.85); border-radius:999px; padding:8px 10px; align-items:center; gap:10px; }
   #timelineCommandsHandle { cursor:grab; padding:6px 8px; margin:-6px 2px -6px -8px; background:#124d4d; color:#fff; border-radius:8px 0 0 8px; touch-action:none; display:flex; align-items:center; justify-content:center; align-self:stretch; }
   #timelineCommandsBar button { background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0; font-size:14px; }
@@ -866,6 +897,39 @@
 <div id="presentationBoardProxy"><div class="presentationBoardProxyLabel">Tactical Board</div></div>
 <button id="presentationSwitchViewBtn" type="button"><span class="arrowIcon">&#8592;</span><span class="switchLabel"></span></button>
 <div id="presentationCoachNote"></div>
+<div id="coachingModeRemote">
+  <div class="coachingModeRow">
+    <strong id="coachingModeEventTitle"></strong>
+    <span id="coachingModeItemCounter"></span>
+  </div>
+  <div class="coachingModeRow">
+    <span>Item: <span id="coachingModeItemElapsed">0:00</span> / <span id="coachingModeItemPlanned">--</span></span>
+  </div>
+  <div class="coachingModeRow">
+    <span>Total: <span id="coachingModeTotalElapsed">0:00</span></span>
+    <span id="coachingModeAheadBehind"></span>
+  </div>
+  <div class="coachingModeRow coachingModeActions">
+    <button type="button" id="coachingModeFlagBtn" title="Flag this moment">&#9873; Flag</button>
+    <button type="button" id="coachingModeNoteBtn" title="Add a quick note">Note</button>
+    <button type="button" id="coachingModeRunningOrderBtn" title="Jump to any item">Running Order</button>
+    <button type="button" id="coachingModeEndBtn" title="End this live session">End Event</button>
+  </div>
+</div>
+<div id="coachingRunningOrderPanel">
+  <div id="coachingRunningOrderHeader">
+    <strong>Running Order</strong>
+    <button type="button" id="coachingRunningOrderCloseBtn">&#10005;</button>
+  </div>
+  <div id="coachingRunningOrderList"></div>
+</div>
+<div id="coachingSummaryOverlay">
+  <div id="coachingSummaryBox">
+    <h3 id="coachingSummaryTitle"></h3>
+    <div id="coachingSummaryContent"></div>
+    <button type="button" id="coachingSummaryCloseBtn">Close</button>
+  </div>
+</div>
 <div id="presentationPlaybackBar">
   <button id="presentationPrevBtn" title="Previous slide (Left Arrow)">&#8592;</button>
   <span id="presentationSlideCounter"></span>
@@ -1187,6 +1251,7 @@
         <div class="subGroupFlyout">
           <button id="highlightBtn" class="modeBtn" data-tip="Draw a highlighted zone on the field.">Highlight Area</button>
           <button id="noteBtn" class="modeBtn" data-tip="Drop a text note at a spot on the field.">Field Note</button>
+          <button id="textBoxBtn" class="modeBtn" data-tip="Place a formattable text box on the field -- font, size, alignment, color, bold/italic/underline, and horizontal or vertical orientation, all editable after placement.">Text Box</button>
           <button id="measureBtn" class="modeBtn" data-tip="Measure the distance between two points, in meters.">Measure</button>
         </div>
       </div>
@@ -1415,6 +1480,37 @@
     <button type="button" class="freeDrawColorSwatch" data-color="#d32f2f" style="background:#d32f2f;" title="Red" aria-label="Red"></button>
     <button type="button" class="freeDrawColorSwatch" data-color="#2e7d32" style="background:#2e7d32;" title="Green" aria-label="Green"></button>
     <button type="button" class="freeDrawColorSwatch" data-color="#f9c74f" style="background:#f9c74f;" title="Yellow" aria-label="Yellow"></button>
+  </div>
+</div>
+<div id="textBoxToolbar">
+  <div class="textBoxToolbarRow">
+    <select id="tbFontFamily" title="Font">
+      <option value="Arial, sans-serif">Arial</option>
+      <option value="Georgia, serif">Georgia</option>
+      <option value="'Courier New', monospace">Courier</option>
+      <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
+    </select>
+    <select id="tbOrientation" title="Orientation">
+      <option value="horizontal">Horizontal</option>
+      <option value="vertical">Vertical</option>
+    </select>
+  </div>
+  <div class="textBoxToolbarRow">
+    <input type="range" id="tbFontSize" min="0.2" max="1.5" step="0.05" title="Size">
+    <select id="tbAlign" title="Alignment">
+      <option value="left">Left</option>
+      <option value="center">Center</option>
+      <option value="right">Right</option>
+    </select>
+  </div>
+  <div class="textBoxToolbarRow">
+    <input type="color" id="tbColor" title="Color">
+    <button type="button" id="tbBold" title="Bold"><b>B</b></button>
+    <button type="button" id="tbItalic" title="Italic"><i>I</i></button>
+    <button type="button" id="tbUnderline" title="Underline"><u>U</u></button>
+  </div>
+  <div class="textBoxToolbarRow">
+    <button type="button" id="tbEditText">Edit Text&hellip;</button>
   </div>
 </div>
 <div id="contextMenu"></div>
@@ -3406,9 +3502,9 @@ function isBall(el) { return el === ball; }
 function isExtraBall(el) { return !!(el && el.classList && el.classList.contains('extraBall')); }
 function isAnyBall(el) { return isBall(el) || isExtraBall(el); }
 function placeAny(el) { if(isBall(el)) placeBall(); else place(el); }
-function setSelected(el,on=true) { if(on) selected.add(el); else selected.delete(el); el.classList.toggle('selected',on); updateInspector(); updatePlayerActionBar(); }
+function setSelected(el,on=true) { if(on) selected.add(el); else selected.delete(el); el.classList.toggle('selected',on); updateInspector(); updatePlayerActionBar(); updateTextBoxToolbar(); }
 function toggleSelected(el) { setSelected(el,!selected.has(el)); }
-function clearSelection() { selected.forEach(el=>el.classList.remove('selected')); selected.clear(); updateInspector(); updatePlayerActionBar(); }
+function clearSelection() { selected.forEach(el=>el.classList.remove('selected')); selected.clear(); updateInspector(); updatePlayerActionBar(); updateTextBoxToolbar(); }
 function selectableItems() { return [...document.querySelectorAll('.player'), ball, ...document.querySelectorAll('.extraBall')]; }
 function getDrawingTranslate(el){
   const t=el.getAttribute('transform')||'';
@@ -3764,6 +3860,176 @@ function drawHighlight(x1,y1,x2,y2,preview=false) {
   c.classList.add('highlightShape','drawing'); c.dataset.id=genObjectId(); c.dataset.kind='highlight';
   c.setAttribute('cx',(x1+x2)/2); c.setAttribute('cy',(y1+y2)/2); c.setAttribute('rx',Math.abs(x2-x1)/2); c.setAttribute('ry',Math.abs(y2-y1)/2); c.style.opacity=preview?'.55':'1'; arrowsGroup.appendChild(c); return c;
 }
+const TEXTBOX_DEFAULTS = { fontFamily:'Arial, sans-serif', fontSize:0.5, textAlign:'left', color:'#1a1a1a', bold:false, italic:false, underline:false, orientation:'horizontal', maxWidth:3 };
+// SVG has no native text wrapping -- estimates characters-per-line from an
+// average glyph-width ratio (a common approximation for sans-serif fonts)
+// rather than measuring real glyphs, which would need the element already
+// in the DOM. Good enough for a coaching diagram; not typographically exact.
+function wrapTextForBox(text, fontSizeM, maxWidthM){
+  const avgCharWidth = fontSizeM * 0.55;
+  const maxCharsPerLine = Math.max(1, Math.floor((maxWidthM||3) / avgCharWidth));
+  const words = String(text||'').split(/\s+/).filter(Boolean);
+  if(!words.length) return [''];
+  const lines = [];
+  let current = '';
+  words.forEach(word=>{
+    const candidate = current ? current+' '+word : word;
+    if(candidate.length <= maxCharsPerLine || !current){
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  });
+  if(current) lines.push(current);
+  return lines;
+}
+// Rebuilds a text box's visual content from scratch on every formatting
+// change -- simpler and safer than trying to patch individual attributes
+// across a variable number of tspans/underline lines. Underlines are
+// manually-drawn <line> elements measured against each tspan's actual
+// rendered width via getComputedTextLength (falling back to the same
+// character-width estimate used for wrapping if that returns 0, which
+// some environments do for freshly-inserted elements) -- SVG text has no
+// native underline styling.
+function renderTextBoxVisual(g, opts){
+  while(g.firstChild) g.removeChild(g.firstChild);
+  const lines = wrapTextForBox(opts.text, opts.fontSize, opts.maxWidth);
+  const lineHeight = opts.fontSize*1.3;
+  const textEl = document.createElementNS('http://www.w3.org/2000/svg','text');
+  textEl.setAttribute('font-family', opts.fontFamily);
+  textEl.setAttribute('font-size', opts.fontSize);
+  textEl.setAttribute('fill', opts.color);
+  textEl.setAttribute('font-weight', opts.bold?'700':'400');
+  textEl.setAttribute('font-style', opts.italic?'italic':'normal');
+  const anchor = opts.textAlign==='center' ? 'middle' : (opts.textAlign==='right' ? 'end' : 'start');
+  textEl.setAttribute('text-anchor', anchor);
+  if(opts.orientation==='vertical') textEl.setAttribute('transform','rotate(-90)');
+  lines.forEach((line,i)=>{
+    const tspan=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    tspan.setAttribute('x', 0);
+    tspan.setAttribute('y', i*lineHeight);
+    tspan.textContent = line;
+    textEl.appendChild(tspan);
+  });
+  g.appendChild(textEl);
+  if(opts.underline){
+    [...textEl.querySelectorAll('tspan')].forEach((tspan,i)=>{
+      let width=0;
+      try { width = tspan.getComputedTextLength(); } catch(err) {}
+      if(!width) width = (lines[i]||'').length * opts.fontSize * 0.55;
+      const y = i*lineHeight + opts.fontSize*0.14;
+      let x1,x2;
+      if(anchor==='middle'){ x1=-width/2; x2=width/2; }
+      else if(anchor==='end'){ x1=-width; x2=0; }
+      else { x1=0; x2=width; }
+      const ul=document.createElementNS('http://www.w3.org/2000/svg','line');
+      ul.setAttribute('x1',x1); ul.setAttribute('x2',x2); ul.setAttribute('y1',y); ul.setAttribute('y2',y);
+      ul.setAttribute('stroke', opts.color); ul.setAttribute('stroke-width', opts.fontSize*0.05);
+      if(opts.orientation==='vertical') ul.setAttribute('transform','rotate(-90)');
+      g.appendChild(ul);
+    });
+  }
+}
+function drawTextBox(x, y, opts){
+  const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.classList.add('drawing'); g.dataset.id=genObjectId(); g.dataset.kind='textbox';
+  g.dataset.text=opts.text; g.dataset.fontFamily=opts.fontFamily; g.dataset.fontSize=opts.fontSize;
+  g.dataset.textAlign=opts.textAlign; g.dataset.color=opts.color; g.dataset.bold=opts.bold?'true':'false';
+  g.dataset.italic=opts.italic?'true':'false'; g.dataset.underline=opts.underline?'true':'false';
+  g.dataset.orientation=opts.orientation; g.dataset.maxWidth=opts.maxWidth;
+  renderTextBoxVisual(g, opts);
+  arrowsGroup.appendChild(g);
+  setDrawingTranslate(g, x, y);
+  return g;
+}
+function textBoxOptsFromEl(g){
+  return {
+    text: g.dataset.text||'', fontFamily: g.dataset.fontFamily||TEXTBOX_DEFAULTS.fontFamily,
+    fontSize: +g.dataset.fontSize||TEXTBOX_DEFAULTS.fontSize, textAlign: g.dataset.textAlign||TEXTBOX_DEFAULTS.textAlign,
+    color: g.dataset.color||TEXTBOX_DEFAULTS.color, bold: g.dataset.bold==='true', italic: g.dataset.italic==='true',
+    underline: g.dataset.underline==='true', orientation: g.dataset.orientation||TEXTBOX_DEFAULTS.orientation,
+    maxWidth: +g.dataset.maxWidth||TEXTBOX_DEFAULTS.maxWidth,
+  };
+}
+function updateTextBoxEl(g, patch){
+  Object.keys(patch).forEach(k=>{
+    const v=patch[k];
+    g.dataset[k] = (typeof v==='boolean') ? (v?'true':'false') : v;
+  });
+  renderTextBoxVisual(g, textBoxOptsFromEl(g));
+}
+function updateTextBoxToolbar(){
+  const toolbar = document.getElementById('textBoxToolbar');
+  if(!toolbar) return;
+  const sel = [...selected].filter(el=>el.dataset && el.dataset.kind==='textbox');
+  if(sel.length !== 1){ toolbar.classList.remove('show'); toolbar._activeTextBox=null; return; }
+  const g = sel[0];
+  const opts = textBoxOptsFromEl(g);
+  document.getElementById('tbFontFamily').value = opts.fontFamily;
+  document.getElementById('tbOrientation').value = opts.orientation;
+  document.getElementById('tbFontSize').value = opts.fontSize;
+  document.getElementById('tbAlign').value = opts.textAlign;
+  document.getElementById('tbColor').value = opts.color;
+  document.getElementById('tbBold').classList.toggle('active', opts.bold);
+  document.getElementById('tbItalic').classList.toggle('active', opts.italic);
+  document.getElementById('tbUnderline').classList.toggle('active', opts.underline);
+  toolbar.classList.add('show');
+  toolbar._activeTextBox = g;
+}
+function currentTextBoxTarget(){ return document.getElementById('textBoxToolbar')?._activeTextBox || null; }
+document.getElementById('tbFontFamily')?.addEventListener('change', e=>{
+  const g=currentTextBoxTarget(); if(!g) return;
+  recordHistory('Text Box Format'); updateTextBoxEl(g, {fontFamily:e.target.value});
+});
+document.getElementById('tbOrientation')?.addEventListener('change', e=>{
+  const g=currentTextBoxTarget(); if(!g) return;
+  recordHistory('Text Box Format'); updateTextBoxEl(g, {orientation:e.target.value});
+});
+document.getElementById('tbAlign')?.addEventListener('change', e=>{
+  const g=currentTextBoxTarget(); if(!g) return;
+  recordHistory('Text Box Format'); updateTextBoxEl(g, {textAlign:e.target.value});
+});
+document.getElementById('tbBold')?.addEventListener('click', ()=>{
+  const g=currentTextBoxTarget(); if(!g) return;
+  recordHistory('Text Box Format'); updateTextBoxEl(g, {bold: !(g.dataset.bold==='true')});
+  document.getElementById('tbBold').classList.toggle('active', g.dataset.bold==='true');
+});
+document.getElementById('tbItalic')?.addEventListener('click', ()=>{
+  const g=currentTextBoxTarget(); if(!g) return;
+  recordHistory('Text Box Format'); updateTextBoxEl(g, {italic: !(g.dataset.italic==='true')});
+  document.getElementById('tbItalic').classList.toggle('active', g.dataset.italic==='true');
+});
+document.getElementById('tbUnderline')?.addEventListener('click', ()=>{
+  const g=currentTextBoxTarget(); if(!g) return;
+  recordHistory('Text Box Format'); updateTextBoxEl(g, {underline: !(g.dataset.underline==='true')});
+  document.getElementById('tbUnderline').classList.toggle('active', g.dataset.underline==='true');
+});
+// Sliders/color pickers fire many 'input' events across a single drag --
+// recording history on every tick would flood the undo stack with dozens
+// of entries for one logical adjustment. Recorded once per drag instead,
+// on the first input event since the last pointerdown.
+let tbFontSizeHistoryRecorded=false;
+document.getElementById('tbFontSize')?.addEventListener('pointerdown', ()=>{ tbFontSizeHistoryRecorded=false; });
+document.getElementById('tbFontSize')?.addEventListener('input', e=>{
+  const g=currentTextBoxTarget(); if(!g) return;
+  if(!tbFontSizeHistoryRecorded){ recordHistory('Text Box Format'); tbFontSizeHistoryRecorded=true; }
+  updateTextBoxEl(g, {fontSize:+e.target.value});
+});
+let tbColorHistoryRecorded=false;
+document.getElementById('tbColor')?.addEventListener('pointerdown', ()=>{ tbColorHistoryRecorded=false; });
+document.getElementById('tbColor')?.addEventListener('input', e=>{
+  const g=currentTextBoxTarget(); if(!g) return;
+  if(!tbColorHistoryRecorded){ recordHistory('Text Box Format'); tbColorHistoryRecorded=true; }
+  updateTextBoxEl(g, {color:e.target.value});
+});
+document.getElementById('tbEditText')?.addEventListener('click', async ()=>{
+  const g=currentTextBoxTarget(); if(!g) return;
+  const newText = await MizeDialog.prompt('Text box content:', g.dataset.text||'');
+  if(!newText) return;
+  recordHistory('Edit Text Box');
+  updateTextBoxEl(g, {text:newText});
+});
 function drawNote(x,y,text) {
   const t=document.createElementNS('http://www.w3.org/2000/svg','text'); t.classList.add('noteLabel','drawing'); t.dataset.id=genObjectId(); t.dataset.kind='note'; t.dataset.text=text;
   t.setAttribute('x',x); t.setAttribute('y',y); t.textContent=text; arrowsGroup.appendChild(t); return t;
@@ -3918,6 +4184,7 @@ board.addEventListener('pointerdown', e=>{
   if(mode==='measure') { const p=pxToM(e); measureStart={x:p.x,y:p.y}; previewLine=drawMeasure(p.x,p.y,p.x,p.y,true); board.setPointerCapture(e.pointerId); e.preventDefault(); }
   if(mode==='freeDraw') { const p=pxToM(e); freehandPoints=[{x:p.x,y:p.y}]; freehandPressures=(e.pointerType==='pen')?[e.pressure]:null; freehandPath=drawFreehand(freehandPoints,true); board.setPointerCapture(e.pointerId); e.preventDefault(); }
   if(mode==='note') { const p=pxToM(e); MizeDialog.prompt('Field note:').then(txt=>{ if(txt) { recordHistory(); drawNote(p.x,p.y,txt); } setMode('select'); }); }
+  if(mode==='textbox') { const p=pxToM(e); MizeDialog.prompt('Text box content:').then(txt=>{ if(txt) { recordHistory(); const g=drawTextBox(p.x,p.y,{...TEXTBOX_DEFAULTS, text:txt}); clearSelection(); setSelected(g,true); } setMode('select'); }); }
 });
 board.addEventListener('pointerup', e=>{ if(startArrow && previewLine) { const p=pxToM(e); previewLine.remove(); if(Math.hypot(p.x-startArrow.x,p.y-startArrow.y)>.15) { recordHistory(); if(startArrow.type==='highlight') drawHighlight(startArrow.x,startArrow.y,p.x,p.y,false); else drawLine(startArrow.x,startArrow.y,p.x,p.y,startArrow.type,false); } startArrow=null; previewLine=null; } if(measureStart && previewLine) { const p=pxToM(e); previewLine.remove(); if(Math.hypot(p.x-measureStart.x,p.y-measureStart.y)>.15) { recordHistory(); drawMeasure(measureStart.x,measureStart.y,p.x,p.y,false); } measureStart=null; previewLine=null; } if(freehandPoints && freehandPath) { freehandPath.remove(); if(freehandPoints.length>1) { recordHistory('Free Draw'); const finalWidth=(freehandPressures && freehandPressures.length) ? penPressureToStrokeWidth(freehandPressures.reduce((a,b)=>a+b,0)/freehandPressures.length) : 0.08; drawFreehand(freehandPoints,false,finalWidth); } freehandPoints=null; freehandPath=null; freehandPressures=null; } });
 arrows.addEventListener('click', e=>{
@@ -3966,6 +4233,7 @@ function getState() {
       else if(d.dataset.kind==='highlight') base={kind:'highlight',cx:+d.getAttribute('cx'),cy:+d.getAttribute('cy'),rx:+d.getAttribute('rx'),ry:+d.getAttribute('ry')};
       else if(d.dataset.kind==='measure') { const l=d.querySelector('line'); base={kind:'measure',x1:+l.getAttribute('x1'),y1:+l.getAttribute('y1'),x2:+l.getAttribute('x2'),y2:+l.getAttribute('y2')}; }
       else if(d.dataset.kind==='freehand') base={kind:'freehand',path:d.getAttribute('d'),strokeWidth:+d.dataset.strokeWidth||0.08,strokeColor:d.dataset.strokeColor||'#1a1a1a'};
+      else if(d.dataset.kind==='textbox') base={kind:'textbox', text:d.dataset.text||'', fontFamily:d.dataset.fontFamily||TEXTBOX_DEFAULTS.fontFamily, fontSize:+d.dataset.fontSize||TEXTBOX_DEFAULTS.fontSize, textAlign:d.dataset.textAlign||TEXTBOX_DEFAULTS.textAlign, color:d.dataset.color||TEXTBOX_DEFAULTS.color, bold:d.dataset.bold==='true', italic:d.dataset.italic==='true', underline:d.dataset.underline==='true', orientation:d.dataset.orientation||TEXTBOX_DEFAULTS.orientation, maxWidth:+d.dataset.maxWidth||TEXTBOX_DEFAULTS.maxWidth};
       else base={kind:'note',x:+d.getAttribute('x'),y:+d.getAttribute('y'),text:d.dataset.text||d.textContent||''};
       base.tx=t.x; base.ty=t.y;
       base.locked=d.dataset.locked==='true'; base.hidden=d.dataset.hidden==='true';
@@ -3998,6 +4266,7 @@ function loadState(st) {
     else if(d.kind==='highlight') el=drawHighlight(d.cx-d.rx,d.cy-d.ry,d.cx+d.rx,d.cy+d.ry,false);
     else if(d.kind==='measure') el=drawMeasure(d.x1,d.y1,d.x2,d.y2,false);
     else if(d.kind==='freehand') { el=document.createElementNS('http://www.w3.org/2000/svg','path'); el.classList.add('drawing'); el.dataset.id=genObjectId(); el.dataset.kind='freehand'; const _sw=d.strokeWidth||0.08; const _sc=d.strokeColor||'#1a1a1a'; el.dataset.strokeWidth=_sw; el.dataset.strokeColor=_sc; el.setAttribute('d',d.path); el.setAttribute('fill','none'); el.setAttribute('stroke',_sc); el.setAttribute('stroke-width',_sw); el.setAttribute('stroke-linecap','round'); el.setAttribute('stroke-linejoin','round'); arrowsGroup.appendChild(el); }
+    else if(d.kind==='textbox') el=drawTextBox(0,0,{text:d.text||'', fontFamily:d.fontFamily||TEXTBOX_DEFAULTS.fontFamily, fontSize:d.fontSize||TEXTBOX_DEFAULTS.fontSize, textAlign:d.textAlign||TEXTBOX_DEFAULTS.textAlign, color:d.color||TEXTBOX_DEFAULTS.color, bold:!!d.bold, italic:!!d.italic, underline:!!d.underline, orientation:d.orientation||TEXTBOX_DEFAULTS.orientation, maxWidth:d.maxWidth||TEXTBOX_DEFAULTS.maxWidth});
     else el=drawNote(d.x,d.y,d.text||'Note');
     if(!el) return;
     if(d.tx||d.ty) setDrawingTranslate(el, d.tx||0, d.ty||0);
@@ -4319,6 +4588,14 @@ document.getElementById('packageTagFilter')?.addEventListener('input', renderPac
 const PRESENTATIONS_KEY='tpgPresentationsV1';
 let currentSlides=[];
 let activePresentation=null, activeSlideIndex=0, activeSubView='text';
+// null when not running an Event live -- distinguishes an ordinary Present
+// session (no timing) from a live-timed Coaching Mode session. itemLog is
+// index-aligned with activePresentation.slides: one entry per step,
+// accumulating actual elapsed time rather than start/end timestamps, so
+// revisiting a step (via Prev then Next again) adds to its total instead
+// of needing separate "visit" records.
+let liveCoachingSession=null;
+let liveCoachingTickHandle=null;
 
 function renderSlideOptions(){
   const formations=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
@@ -4526,6 +4803,7 @@ function loadPresentationSlide(index){
   const views = libAvailableSubViews(step);
   activeSubView = views[0] || 'text';
   renderPresentationSubView();
+  if(liveCoachingSession) recordLiveCoachingStepChange(index);
 }
 function updatePresentationPlaybackUI(){
   const bar=document.getElementById('presentationPlaybackBar');
@@ -4906,6 +5184,11 @@ function togglePresentation(mode){
     fitBtn.textContent='Presentation Mode';
     realBtn.textContent='Presentation Mode (Realistic Field)';
     activePresentation=null;
+    if(liveCoachingSession){
+      if(liveCoachingTickHandle){ clearInterval(liveCoachingTickHandle); liveCoachingTickHandle=null; }
+      liveCoachingSession=null;
+      hideCoachingRemote();
+    }
     document.getElementById('presentationTextSlide')?.classList.remove('show');
     document.getElementById('presentationVideoSlide')?.classList.remove('show');
     document.getElementById('presentationBoardProxy')?.classList.remove('show');
@@ -8517,7 +8800,7 @@ document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)').forEach(b=>{
 
 // --- Floating quick-command bar: 5 fixed presets (Photoshop-style) + 3 recently-used ---
 const QUICKBAR_PRESETS=['selectBtn','ballBtn','freeDrawBtn','shotBlockToggleBtn','goalieVisionToggleBtn','shootingAngleToggleBtn','eraseBtn','clearBtn','smartPositioningToggleBtn','fieldZonesToggleBtn','smartGoaliePositioningToggleBtn'];
-const QCB_DRAWING_TOOLS=['passBtn','swimBtn','driveBtn','shotBtn','screenBtn','highlightBtn','noteBtn','measureBtn','freeDrawBtn'];
+const QCB_DRAWING_TOOLS=['passBtn','swimBtn','driveBtn','shotBtn','screenBtn','highlightBtn','noteBtn','textBoxBtn','measureBtn','freeDrawBtn'];
 const QUICKBAR_ICONS={
   swimBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14c2.5-4 5-4 7.5 0s5 4 7.5 0"/><path d="M16.2 12.7l3.3 1.3-1.3 3.3"/></svg>',
   driveBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 Q10 10 19 5"/><path d="M13 4.3h6v6"/></svg>',
@@ -8525,6 +8808,7 @@ const QUICKBAR_ICONS={
   screenBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="4" x2="12" y2="12"/><line x1="7" y1="4" x2="17" y2="4"/><path d="M12 12 Q12 20 20 20"/><path d="M16.3 18.1l3.7 1.9-.9-4"/></svg>',
   highlightBtn:'<svg viewBox="0 0 24 24" fill="currentColor" fill-opacity="0.28" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 15.5c-.4-6 3.4-10.8 9.3-10.8s7 6.9 3.6 11S4.4 21.5 4 15.5z"/></svg>',
   measureBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="6" rx="1"/><line x1="6" y1="9" x2="6" y2="12"/><line x1="10" y1="9" x2="10" y2="12"/><line x1="14" y1="9" x2="14" y2="12"/><line x1="18" y1="9" x2="18" y2="12"/></svg>',
+  textBoxBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 8h8M12 8v8" stroke-width="2"/></svg>',
   selectBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>',
   ballBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M4.5 7.5c3 3 10 3 15 0M4.5 16.5c3-3 10-3 15 0"/></svg>',
   freeDrawBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
@@ -12093,8 +12377,13 @@ function libDetectEmbeddableVideo(url){
   return null;
 }
 
+function parseMinutesFromText(text){
+  if(!text) return null;
+  const m = String(text).match(/(\d+(?:\.\d+)?)/);
+  return m ? parseFloat(m[1]) : null;
+}
 function libBuildLeafStep(ref, item){
-  const step = { title: ref.title, role: item.role, note: item.note, time: item.time, day: item.day, text:null, board:null, video:null };
+  const step = { title: ref.title, role: item.role, note: item.note, time: item.time, day: item.day, text:null, board:null, video:null, plannedMinutes: parseMinutesFromText(ref.estimatedDuration) };
   if((ref.type==='formation' || ref.type==='sequence') && ref.contentRef){
     step.board = { kind: ref.type==='formation'?'formation':'package', refName: ref.contentRef.itemKey };
     return step;
@@ -12192,6 +12481,185 @@ async function libPresentPlan(planAsset){
   await LibraryStorage.recordUsage(planAsset.id);
   presentSavedPresentation({ slides: steps });
 }
+async function libRunEventLive(planAsset){
+  if(!(planAsset.items||[]).length){
+    if(typeof MizeDialog!=='undefined') MizeDialog.alert('This '+(planAsset.type==='event'?'event':'practice session')+' has no items yet -- add some from its detail view first.');
+    return;
+  }
+  const steps = await libBuildPresentationSteps(planAsset);
+  if(!steps.length){
+    if(typeof MizeDialog!=='undefined') MizeDialog.alert('None of this '+(planAsset.type==='event'?'event':'practice session')+'\u2019s items could be found -- they may have been deleted from the Library.');
+    return;
+  }
+  await LibraryStorage.recordUsage(planAsset.id);
+  startLiveCoachingSession(planAsset, steps.length);
+  presentSavedPresentation({ slides: steps });
+  showCoachingRemote();
+}
+function startLiveCoachingSession(planAsset, stepCount){
+  liveCoachingSession = {
+    eventAssetId: planAsset.id,
+    eventTitle: planAsset.title,
+    startedAt: Date.now(),
+    currentIndex: null,
+    currentItemEnteredAt: null,
+    itemLog: new Array(stepCount).fill(null).map(()=>({ elapsedMs:0, visited:false })),
+    flags: [],
+    notes: [],
+  };
+  if(liveCoachingTickHandle) clearInterval(liveCoachingTickHandle);
+  liveCoachingTickHandle = setInterval(updateCoachingRemoteUI, 1000);
+}
+// The single hook point for all timing: called from loadPresentationSlide
+// regardless of how the step changed (initial load, Prev/Next, or a
+// Running Order jump), so every navigation path is covered by one place
+// rather than needing to be wired into each individually. Accumulates
+// elapsed time per item rather than recording start/end timestamps, so a
+// coach revisiting an earlier item (Prev, then Next again) correctly adds
+// to its running total instead of needing separate "visit" records.
+function recordLiveCoachingStepChange(newIndex){
+  if(!liveCoachingSession) return;
+  const now = Date.now();
+  if(liveCoachingSession.currentIndex!=null && liveCoachingSession.itemLog[liveCoachingSession.currentIndex]){
+    liveCoachingSession.itemLog[liveCoachingSession.currentIndex].elapsedMs += (now - liveCoachingSession.currentItemEnteredAt);
+  }
+  liveCoachingSession.currentIndex = newIndex;
+  liveCoachingSession.currentItemEnteredAt = now;
+  if(liveCoachingSession.itemLog[newIndex]) liveCoachingSession.itemLog[newIndex].visited = true;
+  updateCoachingRemoteUI();
+  renderCoachingRunningOrder(); // refreshes which item is highlighted "current", if the panel is open
+}
+function currentItemElapsedMs(){
+  if(!liveCoachingSession || liveCoachingSession.currentIndex==null) return 0;
+  const log = liveCoachingSession.itemLog[liveCoachingSession.currentIndex];
+  if(!log) return 0;
+  return log.elapsedMs + (Date.now() - liveCoachingSession.currentItemEnteredAt);
+}
+function totalElapsedMs(){ return liveCoachingSession ? (Date.now() - liveCoachingSession.startedAt) : 0; }
+function formatMs(ms){
+  const totalSec = Math.max(0, Math.round(ms/1000));
+  const m = Math.floor(totalSec/60), s = totalSec%60;
+  return m+':'+String(s).padStart(2,'0');
+}
+function plannedMinutesUpToCurrent(){
+  if(!liveCoachingSession || !activePresentation || liveCoachingSession.currentIndex==null) return null;
+  let total=0, anyPlanned=false;
+  for(let i=0;i<=liveCoachingSession.currentIndex;i++){
+    const step=activePresentation.slides[i];
+    if(step && step.plannedMinutes!=null){ total+=step.plannedMinutes; anyPlanned=true; }
+  }
+  return anyPlanned ? total : null;
+}
+function aheadBehindLabel(){
+  const plannedMin = plannedMinutesUpToCurrent();
+  if(plannedMin==null) return 'No time plan set';
+  const diffMin = (totalElapsedMs()/60000) - plannedMin;
+  if(Math.abs(diffMin) < 0.5) return 'On schedule';
+  const rounded = Math.round(Math.abs(diffMin));
+  return diffMin>0 ? (rounded+' min behind') : (rounded+' min ahead');
+}
+function showCoachingRemote(){ document.getElementById('coachingModeRemote')?.classList.add('show'); updateCoachingRemoteUI(); }
+function hideCoachingRemote(){
+  document.getElementById('coachingModeRemote')?.classList.remove('show');
+  document.getElementById('coachingRunningOrderPanel')?.classList.remove('show');
+}
+function updateCoachingRemoteUI(){
+  if(!liveCoachingSession) return;
+  const remote = document.getElementById('coachingModeRemote');
+  if(!remote || !remote.classList.contains('show')) return;
+  document.getElementById('coachingModeEventTitle').textContent = liveCoachingSession.eventTitle;
+  const total = activePresentation ? activePresentation.slides.length : 0;
+  document.getElementById('coachingModeItemCounter').textContent = (liveCoachingSession.currentIndex+1)+' / '+total;
+  document.getElementById('coachingModeItemElapsed').textContent = formatMs(currentItemElapsedMs());
+  const step = activePresentation?.slides[liveCoachingSession.currentIndex];
+  document.getElementById('coachingModeItemPlanned').textContent = (step && step.plannedMinutes!=null) ? (step.plannedMinutes+' min planned') : 'no plan';
+  document.getElementById('coachingModeTotalElapsed').textContent = formatMs(totalElapsedMs());
+  document.getElementById('coachingModeAheadBehind').textContent = aheadBehindLabel();
+}
+function flagCoachingMoment(){
+  if(!liveCoachingSession) return;
+  const step = activePresentation?.slides[liveCoachingSession.currentIndex];
+  liveCoachingSession.flags.push({ timestamp: Date.now(), itemIndex: liveCoachingSession.currentIndex, itemTitle: step?.title||'' });
+}
+async function addCoachingNote(){
+  if(!liveCoachingSession) return;
+  const text = await MizeDialog.prompt('Quick note:');
+  if(!text) return;
+  const step = activePresentation?.slides[liveCoachingSession.currentIndex];
+  liveCoachingSession.notes.push({ timestamp: Date.now(), itemIndex: liveCoachingSession.currentIndex, itemTitle: step?.title||'', text });
+}
+function renderCoachingRunningOrder(){
+  const list = document.getElementById('coachingRunningOrderList');
+  if(!list || !activePresentation || !liveCoachingSession) return;
+  list.innerHTML='';
+  activePresentation.slides.forEach((step,i)=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.classList.toggle('current', i===liveCoachingSession.currentIndex);
+    const label=(step.day!=null?'Day '+step.day+' \u2013 ':'')+(step.role?step.role+': ':'')+(step.title||'');
+    b.textContent=(i+1)+'. '+label;
+    b.addEventListener('click', ()=>{
+      activeSlideIndex=i;
+      loadPresentationSlide(i);
+      document.getElementById('coachingRunningOrderPanel').classList.remove('show');
+    });
+    list.appendChild(b);
+  });
+}
+document.getElementById('coachingModeFlagBtn')?.addEventListener('click', flagCoachingMoment);
+document.getElementById('coachingModeNoteBtn')?.addEventListener('click', addCoachingNote);
+document.getElementById('coachingModeRunningOrderBtn')?.addEventListener('click', ()=>{
+  const panel=document.getElementById('coachingRunningOrderPanel');
+  const willOpen = !panel.classList.contains('show');
+  if(willOpen){ renderCoachingRunningOrder(); panel.classList.add('show'); }
+  else panel.classList.remove('show');
+});
+document.getElementById('coachingRunningOrderCloseBtn')?.addEventListener('click', ()=>document.getElementById('coachingRunningOrderPanel').classList.remove('show'));
+function buildLiveCoachingSummary(){
+  const rows = activePresentation.slides.map((step,i)=>{
+    const log = liveCoachingSession.itemLog[i];
+    return {
+      title: step.title||'', role: step.role||'',
+      planned: step.plannedMinutes!=null ? (step.plannedMinutes+' min') : '\u2013',
+      actual: formatMs(log ? log.elapsedMs : 0), visited: log ? log.visited : false,
+    };
+  });
+  return { eventTitle: liveCoachingSession.eventTitle, totalElapsed: formatMs(totalElapsedMs()), rows, flags: liveCoachingSession.flags.slice(), notes: liveCoachingSession.notes.slice() };
+}
+function showLiveCoachingSummary(summary){
+  document.getElementById('coachingSummaryTitle').textContent = summary.eventTitle+' \u2014 Session Summary';
+  let html = '<p><strong>Total time:</strong> '+summary.totalElapsed+'</p><table><tr><th>Item</th><th>Planned</th><th>Actual</th></tr>';
+  summary.rows.forEach(r=>{
+    html += '<tr><td>'+(r.visited?'':'<em>(skipped)</em> ')+libEsc(r.title)+'</td><td>'+libEsc(r.planned)+'</td><td>'+libEsc(r.actual)+'</td></tr>';
+  });
+  html += '</table>';
+  if(summary.flags.length){
+    html += '<p><strong>Flags ('+summary.flags.length+'):</strong></p><ul>';
+    summary.flags.forEach(f=>{ html += '<li>'+libEsc(f.itemTitle)+' \u2013 '+new Date(f.timestamp).toLocaleTimeString()+'</li>'; });
+    html += '</ul>';
+  }
+  if(summary.notes.length){
+    html += '<p><strong>Notes ('+summary.notes.length+'):</strong></p><ul>';
+    summary.notes.forEach(n=>{ html += '<li>'+libEsc(n.itemTitle)+': '+libEsc(n.text)+'</li>'; });
+    html += '</ul>';
+  }
+  document.getElementById('coachingSummaryContent').innerHTML = html;
+  document.getElementById('coachingSummaryOverlay').classList.add('show');
+}
+document.getElementById('coachingSummaryCloseBtn')?.addEventListener('click', ()=>document.getElementById('coachingSummaryOverlay').classList.remove('show'));
+async function endLiveCoachingSession(){
+  if(!liveCoachingSession) return;
+  const confirmed = await MizeDialog.confirm('End this live session? This stops the timer and closes Coaching Mode.');
+  if(!confirmed) return;
+  recordLiveCoachingStepChange(liveCoachingSession.currentIndex); // finalizes the current item's elapsed time
+  if(liveCoachingTickHandle){ clearInterval(liveCoachingTickHandle); liveCoachingTickHandle=null; }
+  const summary = buildLiveCoachingSummary();
+  liveCoachingSession = null;
+  hideCoachingRemote();
+  if(document.body.classList.contains('presentation')) togglePresentation();
+  showLiveCoachingSummary(summary);
+}
+document.getElementById('coachingModeEndBtn')?.addEventListener('click', endLiveCoachingSession);
 
 async function libOpenAssetInStudio(asset){
   if((asset.type==='formation' || asset.type==='sequence') && asset.contentRef){
@@ -12318,6 +12786,7 @@ async function openLibraryAssetDetail(assetId){
       '<button type="button" id="libDetailSaveBtn">Save Changes</button>' +
       ((asset.type==='formation'||asset.type==='sequence') ? '<button type="button" id="libDetailOpenBtn">Open in Studio</button>' : '') +
       (isPlanType ? '<button type="button" id="libDetailPresentBtn">Present</button>' : '') +
+      (isPlanType ? '<button type="button" id="libDetailRunLiveBtn">Run Live</button>' : '') +
       '<button type="button" id="libDetailFavBtn">'+(asset.favorite?'\u2605 Remove Favorite':'\u2606 Add to Favorites')+'</button>' +
       '<button type="button" id="libDetailDuplicateBtn">Duplicate</button>' +
       '<button type="button" id="libDetailDeleteBtn" style="color:#b53434;border-color:#e0b8b8;">Delete</button>' +
@@ -12376,6 +12845,9 @@ async function openLibraryAssetDetail(assetId){
 
   const presentBtn = document.getElementById('libDetailPresentBtn');
   if(presentBtn) presentBtn.onclick = ()=> libPresentPlan(asset);
+
+  const runLiveBtn = document.getElementById('libDetailRunLiveBtn');
+  if(runLiveBtn) runLiveBtn.onclick = ()=> libRunEventLive(asset);
 
   document.getElementById('libDetailDuplicateBtn').onclick = async ()=>{
     const copy = JSON.parse(JSON.stringify(asset));
