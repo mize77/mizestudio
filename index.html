@@ -90,6 +90,7 @@
   .textBoxToolbarRow select, .textBoxToolbarRow input[type="range"] { background:rgba(255,255,255,.92); border:none; border-radius:6px; padding:6px; font-size:13px; }
   .textBoxToolbarRow input[type="color"] { border:none; border-radius:6px; width:36px; height:36px; padding:0; background:none; }
   .tbIconBtn, #tbBold, #tbItalic, #tbUnderline, #tbEditText { width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:#1a6363; color:#fff; border:none; border-radius:8px; cursor:pointer; padding:0; }
+  .tbIconBtn svg { width:20px; height:20px; pointer-events:none; }
   #tbEditText { width:auto; flex:1; padding:0 10px; font-size:13px; font-weight:600; }
   .tbIconBtn.active, #tbBold.active, #tbItalic.active, #tbUnderline.active { background:#ffcc00; color:#111; }
   .textBoxToolbarRow { display:flex; gap:6px; align-items:center; }
@@ -198,8 +199,8 @@
   .drawing.selected, .drawing.selected * { stroke:#ffcc00 !important; stroke-width:3 !important; }
   .drawing[data-kind="textbox"].selected text, .drawing[data-kind="textbox"].selected tspan { stroke:none !important; }
   .drawing[data-kind="textbox"].selected .textBoxBg { stroke:#ffcc00 !important; stroke-width:.06 !important; fill:rgba(255,204,0,.12) !important; }
-  .textBoxResizeHandle { fill:#fff; stroke:#ffcc00 !important; stroke-width:.05 !important; opacity:0; pointer-events:none; cursor:ew-resize; }
-  .drawing[data-kind="textbox"].selected .textBoxResizeHandle { opacity:1; pointer-events:all; }
+  .textBoxResizeHandle { fill:#fff; stroke:none; opacity:0; pointer-events:none; cursor:ew-resize; }
+  .drawing[data-kind="textbox"].selected .textBoxResizeHandle { stroke:#ffcc00 !important; stroke-width:.05 !important; opacity:1; pointer-events:all; }
   .drawing { cursor:move; }
   .player:active { cursor:grabbing; }
   .playerBody { position:relative; transform:rotate(var(--rot,0deg)); transform-origin:center center; }
@@ -713,12 +714,26 @@
   .toolPanelLarge { width:min(900px,95vw); }
   #librarySearchInput { width:100%; box-sizing:border-box; padding:10px 12px; font-size:14px; border:1.5px solid #d5dede; border-radius:10px; margin-bottom:12px; }
   #libraryViewTabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
-  .libViewTab { padding:7px 14px; border-radius:20px; border:1.5px solid #d5dede; background:#fff; color:#26302f; font-size:13px; font-weight:600; cursor:pointer; }
+  .libViewTab, #libraryNewButtons button, .libTypeFilterPill { height:26px; box-sizing:border-box; display:inline-flex; align-items:center; padding:0 11px; border-radius:16px; border:1.5px solid #d5dede; background:#fff; color:#26302f; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
   .libViewTab.active { background:#124d4d; border-color:#124d4d; color:#fff; }
   #libraryBreadcrumb { font-size:12.5px; color:#5a6664; margin-bottom:10px; display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
   #libraryBreadcrumb button { background:none; border:none; color:#1b7373; font-size:12.5px; font-weight:600; cursor:pointer; padding:2px 4px; }
   #libraryBreadcrumb .libCrumbSep { color:#aab4b2; }
   #libraryNewButtons { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  #libraryViewModeToggle { display:flex; gap:6px; margin-bottom:10px; }
+  .libViewModeBtn { height:26px; box-sizing:border-box; display:inline-flex; align-items:center; padding:0 11px; border-radius:16px; border:1.5px solid #d5dede; background:#fff; color:#26302f; font-size:12px; font-weight:600; cursor:pointer; }
+  .libViewModeBtn.active { background:#124d4d; border-color:#124d4d; color:#fff; }
+  #libraryContent.libViewList { display:flex; flex-direction:column; gap:6px; }
+  #libraryContent.libViewList .libAssetCard { flex-direction:row; align-items:center; padding:8px 14px; gap:14px; }
+  #libraryContent.libViewList .libAssetCardTop { flex-direction:row-reverse; gap:8px; flex-shrink:0; }
+  #libraryContent.libViewList .libAssetCardTitle { flex:1; }
+  #libraryContent.libViewList .libAssetCardDayTime { flex-shrink:0; margin-top:0; }
+  #libraryContent.libViewList .libAssetCardDesc { display:none; }
+  #libraryContent.libViewList .libAssetCardTags { flex-shrink:0; max-width:220px; margin-top:0; overflow:hidden; flex-wrap:nowrap; }
+  #libraryContent.libViewTiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:8px; }
+  #libraryContent.libViewTiles .libAssetCard { padding:8px; gap:3px; }
+  #libraryContent.libViewTiles .libAssetCardTitle { font-size:12.5px; }
+  #libraryContent.libViewTiles .libAssetCardDesc { display:none; }
   #libraryContent { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
   .libAssetCard { border:1.5px solid #e1e6e6; border-radius:12px; padding:12px; cursor:pointer; text-align:left; background:#fff; display:flex; flex-direction:column; gap:6px; }
   .libAssetCard:hover { border-color:#1b7373; }
@@ -736,6 +751,10 @@
   .libCollectionCard p { margin:0; font-size:12px; color:#5a6664; }
   .libEmptyState { grid-column:1/-1; text-align:center; padding:30px 10px; color:#8a9492; font-size:13.5px; }
   .libFormRow { margin-bottom:10px; display:flex; flex-direction:column; gap:4px; }
+  #libQuickActions { display:flex; gap:8px; margin-bottom:14px; padding-bottom:12px; border-bottom:1.5px solid #e1e6e6; }
+  #libQuickActions button { height:34px; padding:0 16px; border-radius:8px; border:none; font-size:13px; font-weight:700; cursor:pointer; }
+  #libQuickPresentBtn { background:#124d4d; color:#fff; }
+  #libQuickAddItemBtn { background:#e8f2f1; color:#124d4d; border:1.5px solid #1b7373 !important; }
   .libFormRow label { font-size:12.5px; font-weight:600; color:#39514e; }
   .libFormRow input[type="text"], .libFormRow textarea, .libFormRow select { padding:8px 10px; border:1.5px solid #d5dede; border-radius:8px; font-size:13.5px; font-family:inherit; box-sizing:border-box; width:100%; }
   .libFormRow textarea { min-height:70px; resize:vertical; }
@@ -784,7 +803,7 @@
   .libPracticeItemActions button { padding:4px 8px; border-radius:6px; border:1.5px solid #d5dede; background:#fff; font-size:12px; cursor:pointer; flex-shrink:0; }
   .libPracticeItemActions button:disabled { opacity:.35; cursor:default; }
   #libraryTypeFilters { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
-  .libTypeFilterPill { padding:5px 11px; border-radius:16px; border:1.5px solid #e1e6e6; background:#fbfdfd; color:#5a6664; font-size:12px; font-weight:600; cursor:pointer; }
+  .libTypeFilterPill { background:#fbfdfd; color:#5a6664; }
   .libTypeFilterPill.active { background:#e8f2f1; border-color:#1b7373; color:#124d4d; }
   .libAddCard { border:1.5px dashed #b9c6c4 !important; background:#f7faf9 !important; color:#1b7373; }
   .libAddCard h4 { color:#1b7373; }
@@ -1985,6 +2004,10 @@ const MizeDialog = (function(){
         <button type="button" class="libViewTab" data-view="recent">Recent</button>
         <button type="button" class="libViewTab" data-view="collections">Collections</button>
         <button type="button" class="libViewTab" data-view="tags">Tags</button>
+      </div>
+      <div id="libraryViewModeToggle">
+        <button type="button" class="libViewModeBtn" data-mode="list" title="List view -- one item per row">&#9776; List</button>
+        <button type="button" class="libViewModeBtn" data-mode="tiles" title="Tile view -- compact grid">&#9638; Tiles</button>
       </div>
       <div id="libraryBreadcrumb"></div>
       <div id="libraryNewButtons">
@@ -3960,21 +3983,24 @@ let textBoxDragStart = null, textBoxDragPreview = null; // drag-to-create state,
 function wrapTextForBox(text, fontSizeM, maxWidthM){
   const avgCharWidth = fontSizeM * 0.55;
   const maxCharsPerLine = Math.max(1, Math.floor((maxWidthM||3) / avgCharWidth));
-  const words = String(text||'').split(/\s+/).filter(Boolean);
-  if(!words.length) return [''];
+  const paragraphs = String(text||'').split('\n');
   const lines = [];
-  let current = '';
-  words.forEach(word=>{
-    const candidate = current ? current+' '+word : word;
-    if(candidate.length <= maxCharsPerLine || !current){
-      current = candidate;
-    } else {
-      lines.push(current);
-      current = word;
-    }
+  paragraphs.forEach(para=>{
+    const words = para.split(/\s+/).filter(Boolean);
+    if(!words.length){ lines.push(''); return; }
+    let current = '';
+    words.forEach(word=>{
+      const candidate = current ? current+' '+word : word;
+      if(candidate.length <= maxCharsPerLine || !current){
+        current = candidate;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+    });
+    if(current) lines.push(current);
   });
-  if(current) lines.push(current);
-  return lines;
+  return lines.length ? lines : [''];
 }
 // Rebuilds a text box's visual content from scratch on every formatting
 // change -- simpler and safer than trying to patch individual attributes
@@ -4091,12 +4117,45 @@ function textBoxOptsFromEl(g){
     maxWidth: +g.dataset.maxWidth||TEXTBOX_DEFAULTS.maxWidth,
   };
 }
+// Estimates the field-relative offset (from the drawing's own anchor/
+// translate point) of the text box's visual bounding-box center, using
+// the same box-sizing math renderTextBoxVisual uses for the background
+// rect -- but from opts alone, so it can be computed for both the OLD and
+// NEW property values before/after a change (see updateTextBoxEl), to
+// keep the box's visible position stable across formatting/text changes.
+function textBoxLocalCenterOffset(opts){
+  const lines = wrapTextForBox(opts.text, opts.fontSize, opts.maxWidth);
+  const lineHeight = opts.fontSize*1.3;
+  const anchor = opts.textAlign==='center' ? 'middle' : (opts.textAlign==='right' ? 'end' : 'start');
+  const maxLineWidth = Math.max(...lines.map(l => l.length * opts.fontSize * 0.55), 0);
+  const pad = opts.fontSize*0.15;
+  const rectY = -opts.fontSize*0.8 - pad;
+  const rectHeight = Math.max((lines.length-1)*lineHeight + opts.fontSize*1.1 + pad*2, opts.fontSize);
+  const rectWidth = Math.max(maxLineWidth + pad*2, opts.fontSize);
+  let rectX;
+  if(anchor==='middle') rectX = -rectWidth/2;
+  else if(anchor==='end') rectX = -rectWidth+pad;
+  else rectX = -pad;
+  const localCenter = { x: rectX+rectWidth/2, y: rectY+rectHeight/2 };
+  const rot = ((opts.rotation||0)%360+360)%360;
+  return rot ? rotatePoint(localCenter.x, localCenter.y, -rot) : localCenter;
+}
 function updateTextBoxEl(g, patch){
+  const oldOffset = textBoxLocalCenterOffset(textBoxOptsFromEl(g));
   Object.keys(patch).forEach(k=>{
     const v=patch[k];
     g.dataset[k] = (typeof v==='boolean') ? (v?'true':'false') : v;
   });
-  renderTextBoxVisual(g, textBoxOptsFromEl(g));
+  const newOpts = textBoxOptsFromEl(g);
+  const newOffset = textBoxLocalCenterOffset(newOpts);
+  // Adjust the anchor by exactly the shift in where the visual center
+  // sits relative to it, so the box's visible position on the field stays
+  // put across alignment/rotation/text/size changes -- previously the
+  // anchor never moved, so changing e.g. alignment silently reinterpreted
+  // the same anchor point as a different edge of the box, making it jump.
+  const cur = getDrawingTranslate(g);
+  setDrawingTranslate(g, cur.x + (oldOffset.x - newOffset.x), cur.y + (oldOffset.y - newOffset.y));
+  renderTextBoxVisual(g, newOpts);
 }
 function updateTextBoxToolbar(){
   const toolbar = document.getElementById('textBoxToolbar');
@@ -4164,6 +4223,12 @@ function closeTextBoxEditor(){
     clearSelection();
   }
 }
+document.addEventListener('pointerdown', e=>{
+  if(!textBoxEditOverlay) return;
+  if(e.target===textBoxEditOverlay) return; // clicking within the textarea itself
+  if(e.target.closest && e.target.closest('#textBoxToolbar')) return; // formatting control -- keep editor open
+  closeTextBoxEditor();
+}, true);
 document.getElementById('tbFontFamily')?.addEventListener('change', e=>{
   const g=currentTextBoxTarget(); if(!g) return;
   recordHistory('Text Box Format'); updateTextBoxEl(g, {fontFamily:e.target.value});
@@ -4355,7 +4420,8 @@ document.addEventListener('pointermove', e=>{
   const deltaField = { x: p.x-textBoxResizing.startField.x, y: p.y-textBoxResizing.startField.y };
   const deltaLocal = rotatePoint(deltaField.x, deltaField.y, textBoxResizing.rotation);
   const newMaxWidth = Math.max(0.5, Math.min(15, textBoxResizing.startMaxWidth + deltaLocal.x));
-  updateTextBoxEl(textBoxResizing.el, {maxWidth:newMaxWidth});
+  textBoxResizing.el.dataset.maxWidth = newMaxWidth;
+  renderTextBoxVisual(textBoxResizing.el, textBoxOptsFromEl(textBoxResizing.el));
 });
 document.addEventListener('pointerup', ()=>{ textBoxResizing=null; });
 document.addEventListener('pointerup', e=>{
@@ -12027,7 +12093,7 @@ async function syncLegacyLibraryItems(){
 function libEsc(s){ const d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML; }
 function libAssetTypeLabel(type){ return { formation:'Formation', sequence:'Sequence', practice:'Practice Session', note:'Coach Note', evaluation:'Evaluation', skill:'Skill Exercise', event:'Event', video:'Video', document:'Document', resource:'Resource' }[type] || type; }
 
-let libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null };
+let libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null, viewMode: localStorage.getItem('libViewMode')||'list' };
 
 function showLibraryListStage(){
   document.getElementById('libraryListStage').style.display = '';
@@ -12049,7 +12115,7 @@ function showLibraryImportStage(){
 
 async function openCoachingLibrary(){
   await syncLegacyLibraryItems();
-  libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null };
+  libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null, viewMode: localStorage.getItem('libViewMode')||'list' };
   const searchInput = document.getElementById('librarySearchInput');
   if(searchInput) searchInput.value = '';
   document.querySelectorAll('.libViewTab').forEach(t=>t.classList.toggle('active', t.dataset.view==='all'));
@@ -12078,6 +12144,16 @@ document.querySelectorAll('.libViewTab').forEach(tab=>{
     await renderLibraryContent();
   });
 });
+document.querySelectorAll('.libViewModeBtn').forEach(btn=>{
+  btn.classList.toggle('active', btn.dataset.mode===libState.viewMode);
+  btn.addEventListener('click', async ()=>{
+    document.querySelectorAll('.libViewModeBtn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    libState.viewMode = btn.dataset.mode;
+    localStorage.setItem('libViewMode', libState.viewMode);
+    await renderLibraryContent();
+  });
+});
 
 let _libSearchDebounce = null;
 document.getElementById('librarySearchInput')?.addEventListener('input', e=>{
@@ -12100,7 +12176,8 @@ document.getElementById('libraryDetailBackBtn')?.addEventListener('click', async
 });
 
 function renderLibraryAssetGrid(assets, content){
-  content.style.display = 'grid';
+  content.classList.remove('libViewList','libViewTiles');
+  content.classList.add(libState.viewMode==='list' ? 'libViewList' : 'libViewTiles');
   content.innerHTML = '';
   if(libState.typeFilter) assets = assets.filter(a=>a.type===libState.typeFilter);
   if(!assets.length){ content.innerHTML = '<div class="libEmptyState">Nothing here yet.</div>'; return; }
@@ -12136,7 +12213,8 @@ async function renderLibraryContent(){
   const breadcrumb = document.getElementById('libraryBreadcrumb');
   breadcrumb.innerHTML = '';
   content.innerHTML = '';
-  content.style.display = 'grid';
+  content.style.display = '';
+  content.classList.remove('libViewList','libViewTiles');
 
   if(libState.view === 'collections' && !libState.orgId){
     const orgs = await LibraryStorage.listOrganizations();
@@ -12311,7 +12389,7 @@ async function libSortItemsByDayTime(asset){
     return a.idx - b.idx;
   });
   asset.items = withIndex.map(x=>x.item);
-  await LibraryStorage.saveAsset(asset);
+  await saveLibraryAssetWithFormSync(asset);
   await renderLibraryPracticeItemsList(asset);
 }
 
@@ -12585,7 +12663,7 @@ document.addEventListener('pointerup', async ()=>{
   if(currentTargetIdx !== startIdx){
     const [moved] = asset.items.splice(startIdx, 1);
     asset.items.splice(currentTargetIdx, 0, moved);
-    await LibraryStorage.saveAsset(asset);
+    await saveLibraryAssetWithFormSync(asset);
   }
   await renderLibraryPracticeItemsList(asset);
 });
@@ -12597,11 +12675,33 @@ function libBlankBoardState(){
   return { players:[], ball:{x:14.5,y:12,carrier:null,hand:'right'}, extraBalls:[], drawings:[],
     layers:{players:true,ball:true,drawings:true,highlights:true,notes:true,ghosts:true} };
 }
+function libSyncFormFieldsToAsset(asset){
+  const titleEl = document.getElementById('libDetailTitle');
+  if(!titleEl) return;
+  asset.title = titleEl.value.trim() || 'Untitled';
+  asset.description = document.getElementById('libDetailDesc').value.trim();
+  asset.author = document.getElementById('libDetailAuthor').value.trim();
+  asset.ageGroup = document.getElementById('libDetailAgeGroup').value.trim();
+  asset.category = document.getElementById('libDetailCategory').value.trim();
+  { const dayRaw = document.getElementById('libDetailDay').value.trim(); asset.day = dayRaw ? Number(dayRaw) : null; }
+  asset.time = document.getElementById('libDetailTime').value.trim() || null;
+  asset.orgId = document.getElementById('libDetailOrgSelect').value || asset.orgId;
+  asset.collectionId = document.getElementById('libDetailCollectionSelect').value || asset.collectionId;
+  asset.difficulty = document.getElementById('libDetailDifficulty').value.trim();
+  asset.tags = document.getElementById('libDetailTags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  asset.estimatedDuration = document.getElementById('libDetailDuration').value.trim() || null;
+  if(asset.type==='practice' || asset.type==='event'){ const objEl=document.getElementById('libDetailObjectives'); if(objEl) asset.objectives = objEl.value.trim(); }
+  document.getElementById('libraryPanelTitle').textContent = asset.title;
+}
+async function saveLibraryAssetWithFormSync(asset){
+  libSyncFormFieldsToAsset(asset);
+  await LibraryStorage.saveAsset(asset);
+}
 async function libCreateAndAddItem(asset, newAssetFields){
   await LibraryStorage.saveAsset(newAssetFields);
   asset.items = asset.items || [];
   asset.items.push({ assetId:newAssetFields.id, role:'', note:'', time:'', day:null });
-  await LibraryStorage.saveAsset(asset);
+  await saveLibraryAssetWithFormSync(asset);
   await renderLibraryPracticeItemsList(asset);
 }
 async function renderLibraryPracticeItemsList(asset){
@@ -12666,7 +12766,7 @@ async function renderLibraryPracticeItemsList(asset){
   container.querySelectorAll('[data-remove-item]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       asset.items.splice(+btn.dataset.removeItem, 1);
-      await LibraryStorage.saveAsset(asset);
+      await saveLibraryAssetWithFormSync(asset);
       await renderLibraryPracticeItemsList(asset);
     });
   });
@@ -12675,7 +12775,7 @@ async function renderLibraryPracticeItemsList(asset){
       const i = +btn.dataset.moveUp;
       if(i<=0) return;
       [asset.items[i-1], asset.items[i]] = [asset.items[i], asset.items[i-1]];
-      await LibraryStorage.saveAsset(asset);
+      await saveLibraryAssetWithFormSync(asset);
       await renderLibraryPracticeItemsList(asset);
     });
   });
@@ -12684,7 +12784,7 @@ async function renderLibraryPracticeItemsList(asset){
       const i = +btn.dataset.moveDown;
       if(i>=asset.items.length-1) return;
       [asset.items[i+1], asset.items[i]] = [asset.items[i], asset.items[i+1]];
-      await LibraryStorage.saveAsset(asset);
+      await saveLibraryAssetWithFormSync(asset);
       await renderLibraryPracticeItemsList(asset);
     });
   });
@@ -12693,28 +12793,28 @@ async function renderLibraryPracticeItemsList(asset){
     sel.addEventListener('change', async ()=>{
       const idx = +sel.dataset.roleIdx;
       asset.items[idx].role = sel.value;
-      await LibraryStorage.saveAsset(asset);
+      await saveLibraryAssetWithFormSync(asset);
     });
   });
   container.querySelectorAll('.libPracticeItemDay').forEach(inp=>{
     inp.addEventListener('change', async ()=>{
       const idx = +inp.dataset.dayIdx;
       asset.items[idx].day = inp.value===''?null:Number(inp.value);
-      await LibraryStorage.saveAsset(asset);
+      await saveLibraryAssetWithFormSync(asset);
     });
   });
   container.querySelectorAll('.libPracticeItemTime').forEach(inp=>{
     inp.addEventListener('change', async ()=>{
       const idx = +inp.dataset.timeIdx;
       asset.items[idx].time = inp.value;
-      await LibraryStorage.saveAsset(asset);
+      await saveLibraryAssetWithFormSync(asset);
     });
   });
   container.querySelectorAll('.libPracticeItemNoteInput').forEach(inp=>{
     inp.addEventListener('change', async ()=>{
       const idx = +inp.dataset.noteIdx;
       asset.items[idx].note = inp.value;
-      await LibraryStorage.saveAsset(asset);
+      await saveLibraryAssetWithFormSync(asset);
     });
   });
 
@@ -12722,7 +12822,7 @@ async function renderLibraryPracticeItemsList(asset){
     if(!e.target.value) return;
     asset.items = asset.items||[];
     asset.items.push({ assetId:e.target.value, role:'', note:'', time:'', day:null });
-    await LibraryStorage.saveAsset(asset);
+    await saveLibraryAssetWithFormSync(asset);
     await renderLibraryPracticeItemsList(asset);
   });
 
@@ -12868,7 +12968,7 @@ async function renderLibraryPracticeItemsList(asset){
         const tx = (byId[x.assetId]&&byId[x.assetId].title)||'', ty = (byId[y.assetId]&&byId[y.assetId].title)||'';
         return tx.localeCompare(ty);
       });
-      await LibraryStorage.saveAsset(asset);
+      await saveLibraryAssetWithFormSync(asset);
     }
     document.getElementById('libBulkAddPicker').style.display = 'none';
     await renderLibraryPracticeItemsList(asset);
@@ -13289,6 +13389,7 @@ async function openLibraryAssetDetail(assetId){
   const isLinkType = asset.type==='video' || asset.type==='document' || asset.type==='resource';
   const isTextType = ['note','evaluation','skill'].includes(asset.type) || isLinkType;
   body.innerHTML =
+    (isPlanType ? '<div id="libQuickActions"><button type="button" id="libQuickPresentBtn">&#9654; Present</button><button type="button" id="libQuickAddItemBtn">+ Add Item</button></div>' : '') +
     '<div class="libFormRow"><label>Title</label><input type="text" id="libDetailTitle" value="'+libEsc(asset.title||'')+'"></div>' +
     '<div class="libFormRow"><label>Description</label><textarea id="libDetailDesc">'+libEsc(asset.description||'')+'</textarea></div>' +
     '<div class="libFormRow"><label>Author</label><input type="text" id="libDetailAuthor" value="'+libEsc(asset.author||'')+'"></div>' +
@@ -13371,6 +13472,12 @@ async function openLibraryAssetDetail(assetId){
 
   const runLiveBtn = document.getElementById('libDetailRunLiveBtn');
   if(runLiveBtn) runLiveBtn.onclick = ()=> libRunEventLive(asset);
+
+  document.getElementById('libQuickPresentBtn')?.addEventListener('click', ()=> libPresentPlan(asset));
+  document.getElementById('libQuickAddItemBtn')?.addEventListener('click', ()=>{
+    document.getElementById('libAddMenu')?.classList.add('open');
+    document.getElementById('libAddMenu')?.scrollIntoView({behavior:'smooth', block:'center'});
+  });
 
   document.getElementById('libDetailDuplicateBtn').onclick = async ()=>{
     const copy = JSON.parse(JSON.stringify(asset));
@@ -13572,7 +13679,7 @@ document.getElementById('libImportConfirmBtn')?.addEventListener('click', async 
       }
       await MizeDialog.alert(msg.trim());
     }
-    libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:'event' };
+    libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:'event', viewMode: localStorage.getItem('libViewMode')||'list' };
     document.querySelectorAll('.libViewTab').forEach(t=>t.classList.toggle('active', t.dataset.view==='all'));
     document.querySelectorAll('.libTypeFilterPill').forEach(p=>p.classList.toggle('active', p.dataset.type==='event'));
     showLibraryListStage();
