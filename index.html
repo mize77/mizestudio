@@ -184,7 +184,7 @@
   #arrows { z-index:4; pointer-events:none; }
   #shotBlockSvg { z-index:11; pointer-events:none; }
   #arrows.erase { pointer-events:auto; }
-  .player { position:absolute; transform:translate(-50%,-50%); cursor:grab; z-index:6; touch-action:none; border-radius:12px; }
+  .player { position:absolute; transform:translate(-50%,-50%); cursor:grab; z-index:6; touch-action:none; border-radius:12px; -webkit-user-drag:none; user-drag:none; }
   /* Brief, synchronized position transition for a pose toggle (horizontal
      <-> vertical) specifically -- NOT applied generally to dragging, which
      needs to track the finger/cursor instantly without any lag. Applied to
@@ -206,7 +206,7 @@
   .player img { display:block; pointer-events:none; user-select:none; }
   .label { position:absolute; left:50%; top:100%; transform:translateX(-50%); font-size:11px; background:rgba(255,255,255,.72); border-radius:8px; padding:1px 4px; pointer-events:none; white-space:nowrap; }
   body.hideNames .label { display:none; }
-  .capNumber { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:var(--capSize, 18px); height:var(--capSize, 18px); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:calc(var(--capSize, 18px) * 0.6); font-weight:900; color:#111; background:rgba(255,255,255,.86); border:1px solid rgba(0,0,0,.35); pointer-events:none; z-index:8; line-height:1; }
+  .capNumber { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(var(--capFlip,0deg)); width:var(--capSize, 18px); height:var(--capSize, 18px); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:calc(var(--capSize, 18px) * 0.6); font-weight:900; color:#111; background:rgba(255,255,255,.86); border:1px solid rgba(0,0,0,.35); pointer-events:none; z-index:8; line-height:1; }
   .player[data-pose="h"] .capNumber { left:50.1%; top:33.9%; }
   .player[data-team="blue"] .capNumber { color:#fff; background:rgba(0,55,210,.86); border-color:#fff; }
   .player[data-team="goalie"] .capNumber { color:#fff; background:rgba(220,0,0,.86); border-color:#fff; }
@@ -353,7 +353,7 @@
   .rotateHandle { position:absolute; left:50%; top:-8px; width:16px; height:16px; border-radius:50%; background:rgba(255,255,255,.85); border:1.5px solid #263238; box-shadow:0 1px 3px rgba(0,0,0,.35); transform:translate(-50%,-50%); cursor:grab; z-index:9; touch-action:none; opacity:0; transition:opacity .12s; }
   .player:hover .rotateHandle, .player.rotating .rotateHandle { opacity:1; }
   .rotateHandle::after { content:""; position:absolute; left:50%; top:100%; width:1.5px; height:11px; background:#263238; transform:translateX(-50%); opacity:.65; }
-  #ball { position:absolute; width:18px; height:18px; border-radius:50%; background:#ffd400; border:3px solid white; box-shadow:0 1px 5px rgba(0,0,0,.45); transform:translate(-50%,-50%); z-index:7; cursor:grab; touch-action:none; }
+  #ball { position:absolute; width:18px; height:18px; border-radius:50%; background:#ffd400; border:3px solid white; box-shadow:0 1px 5px rgba(0,0,0,.45); transform:translate(-50%,-50%); z-index:7; cursor:grab; touch-action:none; -webkit-user-drag:none; user-drag:none; }
   /* Class-based twin of #ball for additional balls (multi-ball drills) --
      #ball is a singular, unique-id element, so any 2nd/3rd ball needs a
      class selector instead. Same look, same behavior, just no hand-carry
@@ -603,6 +603,8 @@
   #contextMenu .sep { height:1px; background:#e1e6e6; margin:5px 0; }
   #playerActionBar { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; display:grid; grid-template-columns:repeat(2, auto); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px) scale(.67); transform-origin:top left; opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #playerActionBar.visible { transform:translateX(0) scale(.67); opacity:1; pointer-events:auto; }
+  #ballActionBar { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; display:flex; gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px) scale(.67); transform-origin:top left; opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
+  #ballActionBar.visible { transform:translateX(0) scale(.67); opacity:1; pointer-events:auto; }
   /* Grid-spans both columns to sit as its own row below the button grid.
      Colors deliberately match .capNumber exactly (same file, see the
      player-cap styling) rather than inventing a new palette, so this
@@ -964,6 +966,7 @@
 <div id="timelineCommandsBar">
   <div class="tcRow tcRowPrimary">
     <span id="timelineCommandsHandle" title="Drag to move this bar anywhere on screen">&#9776;</span>
+    <button id="tcRewindToStartBtn" title="Jump back to the beginning">&#9194;</button>
     <button id="tcPrevFrameBtn" title="Previous frame (Shift+Tab)">&#9198;</button>
     <button id="tcPlayPauseBtn" title="Play forward/reverse (Space plays forward)">&#9654;</button>
     <button id="tcNextFrameBtn" title="Next frame (Tab)">&#9197;</button>
@@ -1454,6 +1457,9 @@
   <button id="paDriveRightBtn" class="playerActionBtn touchHiddenActionBtn" title="Drive to the right post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20L6 6M6 6H14M6 6V14"/></svg></button>
   <button id="paAddPlayerBtn" class="playerActionBtn" title="Add a new player to this player's team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg></button>
   <div id="paMarkedIndicator"><div id="paMarkedChip" class="paMarkedChip"></div></div>
+</div>
+<div id="ballActionBar">
+  <button id="baAddBallBtn" class="playerActionBtn" title="Add another ball to the field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg></button>
 </div>
 <button id="emptyFieldAddBtn" title="Add players, a formation, or a sequence/drill">+</button>
 <button id="multiDeleteBtn" title="Delete all marked players">&#8722;</button>
@@ -3558,7 +3564,7 @@ MIZE.Field.clamp = function(x, y){
   return { x: clamp(x, 0, M.fieldW), y: clamp(y, 0, M.fieldH) };
 };
 
-function isCmd(e) { return e.metaKey || e.ctrlKey || multiSelectMode; }
+function isCmd(e) { return e.metaKey || e.ctrlKey || e.shiftKey || multiSelectMode; }
 // Checks the viewport's NARROW dimension rather than just width, so an
 // iPhone held in landscape (where innerWidth alone could exceed 600px)
 // still correctly reads as phone-class rather than being mistaken for an
@@ -3575,9 +3581,9 @@ function isBall(el) { return el === ball; }
 function isExtraBall(el) { return !!(el && el.classList && el.classList.contains('extraBall')); }
 function isAnyBall(el) { return isBall(el) || isExtraBall(el); }
 function placeAny(el) { if(isBall(el)) placeBall(); else place(el); }
-function setSelected(el,on=true) { if(on) selected.add(el); else selected.delete(el); el.classList.toggle('selected',on); updateInspector(); updatePlayerActionBar(); updateTextBoxToolbar(); }
+function setSelected(el,on=true) { if(on) selected.add(el); else selected.delete(el); el.classList.toggle('selected',on); updateInspector(); updatePlayerActionBar(); updateTextBoxToolbar(); updateBallActionBar(); }
 function toggleSelected(el) { setSelected(el,!selected.has(el)); }
-function clearSelection() { selected.forEach(el=>el.classList.remove('selected')); selected.clear(); updateInspector(); updatePlayerActionBar(); updateTextBoxToolbar(); }
+function clearSelection() { selected.forEach(el=>el.classList.remove('selected')); selected.clear(); updateInspector(); updatePlayerActionBar(); updateTextBoxToolbar(); updateBallActionBar(); }
 function selectableItems() { return [...document.querySelectorAll('.player'), ball, ...document.querySelectorAll('.extraBall')]; }
 function getDrawingTranslate(el){
   const t=el.getAttribute('transform')||'';
@@ -3682,6 +3688,11 @@ function place(el) {
     const baseRot=+el.dataset.rot||0;
     const displayRot = frontCourtActive ? (baseRot-90) : baseRot;
     el.style.setProperty('--rot', displayRot+'deg'); sizePlayer(el);
+    // Cap number stays legible regardless of which way the player faces:
+    // flip it 180 degrees whenever the body's own rotation would otherwise
+    // leave the number upside-down to the viewer.
+    const normRot = ((displayRot%360)+360)%360;
+    el.style.setProperty('--capFlip', (normRot>90 && normRot<270) ? '180deg' : '0deg');
   }
   renderShotBlockCorridors();
   renderGoalieVision();
@@ -4363,6 +4374,8 @@ document.addEventListener('pointerup', e=>{
   dragging=null; rotating=null; updateInspector();
 });
 ball.addEventListener('pointerdown', e=>{ if(layerState.lockBall || ball.dataset.locked==='true') return; if(mode!=='select' && mode!=='ball') return; if(isCmd(e)) { toggleSelected(ball); moved=false; e.preventDefault(); return; } startGroupDrag(ball,e); ball.setPointerCapture(e.pointerId); e.preventDefault(); });
+ball.addEventListener('dragstart', e=>e.preventDefault());
+document.addEventListener('dragstart', e=>{ if(e.target.closest && (e.target===ball || e.target.closest('.player'))) e.preventDefault(); });
 attachLongPress(ball, ()=>ball);
 board.addEventListener('pointerdown', e=>{
   if(frontCourtActive && e.target.closest && e.target.closest('.fcScrollZone')) return; // let the browser handle scrolling natively here; never start a drawing gesture or call preventDefault
@@ -5021,15 +5034,24 @@ function updateStudioFrameDots(){
 }
 function navigateToBestAvailableStudioFrame(step){
   const order = ['video','board','stats'];
-  if(presentationFrameHasContent.stats && (step.board || step.video)){
+  const stepHasBoard = !!step.board; // distinct from presentationFrameHasContent.board (always true, since the live board is always interactable/navigable) -- this tracks whether THIS step actually provided its own formation/sequence
+  // A step pairing text with a genuine board/video always opens on text
+  // first -- the narration for what's about to be shown.
+  if(presentationFrameHasContent.stats && (stepHasBoard || step.video)){
     goToStudioFrame(order.indexOf('stats'));
     return;
   }
-  if(presentationFrameHasContent[order[studioFrameIndex]]) return; // current frame still has content for the new step -- stay put
-  const preferredOrder = ['board','video','stats']; // board first: it's always interactable, so it's the best default landing spot
-  for(const type of preferredOrder){
-    if(presentationFrameHasContent[type]){ goToStudioFrame(order.indexOf(type)); return; }
-  }
+  const currentType = order[studioFrameIndex];
+  const currentStillHasStepContent = currentType==='board' ? stepHasBoard : presentationFrameHasContent[currentType];
+  if(currentStillHasStepContent) return; // current screen still has genuine content for the new step -- stay put
+  // Nothing to stay on -- land on whichever screen actually has content
+  // for this step, preferring text since it's the step's own narration.
+  if(presentationFrameHasContent.stats){ goToStudioFrame(order.indexOf('stats')); return; }
+  if(stepHasBoard){ goToStudioFrame(order.indexOf('board')); return; }
+  if(presentationFrameHasContent.video){ goToStudioFrame(order.indexOf('video')); return; }
+  // Genuinely nothing for this step (rare edge case) -- fall back to the
+  // board rather than leaving the coach on unrelated leftover content.
+  goToStudioFrame(order.indexOf('board'));
 }
 function renderPresentationSubView(){
   const step = activePresentation.slides[activeSlideIndex];
@@ -5929,6 +5951,11 @@ function loadFrame(i) {
     syncPlayPauseUI();
     if(MIZE.State.shotClock.syncPackage) stopShotClock();
   }
+  // Any explicit jump -- including while already paused, which is the
+  // reported scenario (play, pause, then skip elsewhere) -- must clear
+  // whatever mid-transition pause point was remembered. Otherwise the next
+  // Play press resumes from that stale point instead of from here.
+  pausedTargetIndex=null; pausedAtProgress=0;
   const prev=frames[currentFrame]||null;
   currentFrame=i;
   resetHistoryOnFrameChange();
@@ -6259,6 +6286,7 @@ document.getElementById('moveFrameRightBtn').onclick=()=>moveFrame(1);
 document.getElementById('playFramesBtn').onclick=()=>playFrames();
 document.getElementById('tcPlayPauseBtn')?.addEventListener('click', ()=>playFrames());
 syncPlayPauseUI();
+document.getElementById('tcRewindToStartBtn')?.addEventListener('click', ()=>loadFrame(0));
 document.getElementById('tcPrevFrameBtn')?.addEventListener('click', ()=>loadFrame(currentFrame-1));
 document.getElementById('tcNextFrameBtn')?.addEventListener('click', ()=>loadFrame(currentFrame+1));
 document.getElementById('tcAddFrameBtn')?.addEventListener('click', addFrame);
@@ -8767,6 +8795,19 @@ function updatePlayerActionBar(){
   updateSaveOpenButton();
   updateDirectionPad();
 }
+function updateBallActionBar(){
+  const bar=document.getElementById('ballActionBar');
+  if(!bar) return;
+  const only=singleSelection();
+  bar.classList.toggle('visible', !!(only && isAnyBall(only)));
+}
+document.getElementById('baAddBallBtn')?.addEventListener('click', ()=>{
+  const only=singleSelection();
+  if(!only || !isAnyBall(only)) return;
+  recordHistory('Add Ball');
+  const nb=makeExtraBall((+only.dataset.x)+0.6, (+only.dataset.y)+0.6);
+  clearSelection(); setSelected(nb,true);
+});
 // Shows which player is currently marked at a glance -- same team color and
 // cap number as the player itself, so it reads as a direct echo of the
 // selection rather than a separate new indicator to learn.
@@ -9063,7 +9104,7 @@ function clearBlockArm(el){
 }
 function showContextMenu(x,y,el){ contextTarget=el; const isP=el && !isAnyBall(el); contextMenu.innerHTML='';
   const add=(label,fn,enabled=true,title=null)=>{ const b=document.createElement('button'); b.textContent=label; b.disabled=!enabled; if(title) b.title=title; b.onclick=(ev)=>{ ev.stopPropagation(); const target=contextTarget; contextMenu.style.display='none'; fn(target); contextTarget=null; }; contextMenu.appendChild(b); };
-  add('Duplicate',()=>duplicateObject(contextTarget),isP);
+  add('Duplicate',()=>duplicateObject(contextTarget),isP || isAnyBall(el));
   add('Delete',()=>deleteObject(contextTarget),!!el);
   add('Rotate 90°',()=>rotate90(contextTarget),isP);
   contextMenu.appendChild(Object.assign(document.createElement('div'),{className:'sep'}));
@@ -9098,11 +9139,21 @@ function hideContextMenu(){ contextMenu.style.display='none'; contextTarget=null
 board.addEventListener('contextmenu', e=>{ const el=e.target.closest?.('.player') || (e.target===ball?ball:e.target.closest?.('.extraBall')) || null; if(!el) return; e.preventDefault(); if(isAnyBall(el)){ clearSelection(); setSelected(el,true); showContextMenu(e.clientX,e.clientY,el); } });
 document.addEventListener('click', e=>{ if(!e.target.closest('#contextMenu')) hideContextMenu(); });
 
-function duplicateObject(el){ if(!el || isAnyBall(el)) return; if(isDrawingEl(el)){ recordHistory('Duplicate Drawing'); const clone=el.cloneNode(true); clone.dataset.id=genObjectId(); const t=getDrawingTranslate(el); setDrawingTranslate(clone, t.x+0.6, t.y+0.6); arrowsGroup.appendChild(clone); clearSelection(); setSelected(clone,true); return; } recordHistory('Duplicate '+displayName(el)); const label=nextCopyLabel(el.dataset.label); const n=makePlayer([label,el.dataset.team,(+el.dataset.x)+0.6,(+el.dataset.y)+0.6,el.dataset.pose,+el.dataset.rot||0]); n.dataset.name=(el.dataset.name||el.dataset.label)+' copy'; n.dataset.role=el.dataset.role||''; updatePlayerVisual(n); clearSelection(); setSelected(n,true); renderTeamManager(); }
+function duplicateObject(el){
+  if(!el) return;
+  if(isAnyBall(el)){
+    recordHistory('Duplicate Ball');
+    const nb=makeExtraBall((+el.dataset.x)+0.6, (+el.dataset.y)+0.6);
+    clearSelection(); setSelected(nb,true);
+    return;
+  }
+  if(isDrawingEl(el)){ recordHistory('Duplicate Drawing'); const clone=el.cloneNode(true); clone.dataset.id=genObjectId(); const t=getDrawingTranslate(el); setDrawingTranslate(clone, t.x+0.6, t.y+0.6); arrowsGroup.appendChild(clone); clearSelection(); setSelected(clone,true); return; }
+  recordHistory('Duplicate '+displayName(el)); const label=nextCopyLabel(el.dataset.label); const n=makePlayer([label,el.dataset.team,(+el.dataset.x)+0.6,(+el.dataset.y)+0.6,el.dataset.pose,+el.dataset.rot||0]); n.dataset.name=(el.dataset.name||el.dataset.label)+' copy'; n.dataset.role=el.dataset.role||''; updatePlayerVisual(n); clearSelection(); setSelected(n,true); renderTeamManager();
+}
 function nextCopyLabel(base){ let b=(base||'P').replace(/ copy.*$/,''); let i=2; let label=b+' copy'; const labels=new Set([...document.querySelectorAll('.player')].map(p=>p.dataset.label)); while(labels.has(label)){ label=b+' copy '+i++; } return label; }
 function deleteObject(el){ if(!el) return; recordHistory('Delete '+displayName(el)); if(isBall(el)){ ballCarrier=null; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); clearSelection(); return; } if(ballCarrier===el) ballCarrier=null; el.remove(); clearSelection(); renderTeamManager(); }
 // override old single-object functions to support current context/multi-selection better
-function duplicateSelected(){ const el=singleSelection(); if(el && !isAnyBall(el)) duplicateObject(el); }
+function duplicateSelected(){ const el=singleSelection(); if(el) duplicateObject(el); }
 function deleteSelectedObject(){ const items=[...selected]; if(!items.length) return; recordHistory('Delete Selected ('+items.length+')'); items.forEach(el=>{ if(isBall(el)){ ballCarrier=null; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); } else { if(ballCarrier===el) ballCarrier=null; el.remove(); } }); clearSelection(); renderTeamManager(); }
 // Batch versions of lockObject/hideObject/bringForward/sendBack (below) for
 // the current multi-selection, mirroring deleteSelectedObject's pattern:
