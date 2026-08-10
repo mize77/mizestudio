@@ -566,11 +566,15 @@
   #coachingSummaryContent table { width:100%; border-collapse:collapse; margin-bottom:14px; }
   #coachingSummaryContent td, #coachingSummaryContent th { text-align:left; padding:5px 6px; border-bottom:1px solid #eef2f2; font-size:12.5px; }
   #coachingSummaryCloseBtn { margin-top:12px; width:100%; }
-  #timelineCommandsBar { display:none; position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); z-index:1500; background:rgba(20,25,25,.85); border-radius:999px; padding:8px 10px; align-items:center; gap:10px; }
+  #timelineCommandsBar { display:none; flex-direction:column; gap:6px; position:fixed; bottom:calc(14px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); z-index:1500; background:rgba(20,25,25,.85); border-radius:20px; padding:8px 10px; }
+  .tcRow { display:flex; align-items:center; gap:10px; justify-content:center; }
   #timelineCommandsHandle { cursor:grab; padding:6px 8px; margin:-6px 2px -6px -8px; background:#124d4d; color:#fff; border-radius:8px 0 0 8px; touch-action:none; display:flex; align-items:center; justify-content:center; align-self:stretch; }
-  #timelineCommandsBar button { background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0; font-size:14px; }
+  #timelineCommandsBar button { background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0; font-size:14px; flex-shrink:0; }
   #timelineCommandsBar button.active { background:#ffcf40; color:#20200a; border-color:#ffcf40; }
   #timelineCommandsBar #tcPlayPauseBtn { width:60px; border-radius:16px; padding:0; overflow:hidden; }
+  #tcFrameCounter { color:#fff; font-size:12.5px; font-variant-numeric:tabular-nums; min-width:44px; text-align:center; }
+  #tcTransitionSelect { background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; border-radius:10px; font-size:11.5px; padding:5px 4px; max-width:110px; }
+  #tcTransitionSelect option { color:#111; }
   #tcPlayPauseBtn .tcPlayHalf { flex:1; height:100%; display:flex; align-items:center; justify-content:center; }
   #tcPlayPauseBtn .tcPlayHalf:first-child { border-right:1px solid rgba(255,255,255,.3); }
   #tcPlayPauseBtn .tcPlayPauseIcon { flex:1; height:100%; display:flex; align-items:center; justify-content:center; }
@@ -938,11 +942,25 @@
   <button id="presentationNextBtn" title="Next slide (Right Arrow)">&#8594;</button>
 </div>
 <div id="timelineCommandsBar">
-  <span id="timelineCommandsHandle" title="Drag to move this bar anywhere on screen">&#9776;</span>
-  <button id="tcPrevFrameBtn" title="Previous frame (Shift+Tab)">&#9198;</button>
-  <button id="tcPlayPauseBtn" title="Play forward/reverse (Space plays forward)">&#9654;</button>
-  <button id="tcNextFrameBtn" title="Next frame (Tab)">&#9197;</button>
-  <button id="tcCloseRemoteBtn" title="Close remote (or right-click the bar)">&#10005;</button>
+  <div class="tcRow tcRowPrimary">
+    <span id="timelineCommandsHandle" title="Drag to move this bar anywhere on screen">&#9776;</span>
+    <button id="tcPrevFrameBtn" title="Previous frame (Shift+Tab)">&#9198;</button>
+    <button id="tcPlayPauseBtn" title="Play forward/reverse (Space plays forward)">&#9654;</button>
+    <button id="tcNextFrameBtn" title="Next frame (Tab)">&#9197;</button>
+    <button id="tcCloseRemoteBtn" title="Close remote (or right-click the bar)">&#10005;</button>
+  </div>
+  <div class="tcRow tcRowSecondary">
+    <button id="tcDeleteFrameBtn" title="Delete the current frame">&#8722;</button>
+    <span id="tcFrameCounter" title="Current frame / total frames">1 / 1</span>
+    <button id="tcAddFrameBtn" title="Add a new frame after the current one">+</button>
+    <select id="tcTransitionSelect" title="Frame transition mode">
+      <option value="cut">Cut</option>
+      <option value="ghost">Ghost</option>
+      <option value="animated">Animated</option>
+      <option value="animatedPause">Anim. Pause</option>
+      <option value="animatedTwoGhost">Anim. 2-Ghost</option>
+    </select>
+  </div>
 </div>
 <button id="studioNavLeft" title="Turn camera left">&#8249;</button>
 <button id="studioNavRight" title="Turn camera right">&#8250;</button>
@@ -4875,16 +4893,19 @@ function toggleGhostMode() {
   const sel=document.getElementById('frameTransitionSelect'); if(sel) sel.value=frameTransitionMode;
   if(!ghostMode) clearGhosts(); else if(frames[currentFrame-1]) addGhostsFromState(frames[currentFrame-1]);
 }
-document.getElementById('frameTransitionSelect')?.addEventListener('change', e=>{
-  frameTransitionMode = e.target.value;
+function setFrameTransitionMode(newMode){
+  frameTransitionMode = newMode;
   syncGhostModeFromTransition();
+  const sidebarSel=document.getElementById('frameTransitionSelect'); if(sidebarSel) sidebarSel.value=frameTransitionMode;
+  const remoteSel=document.getElementById('tcTransitionSelect'); if(remoteSel) remoteSel.value=frameTransitionMode;
   if(!ghostMode){ clearGhosts(); clearSecondGhosts(); }
   else {
     if(frames[currentFrame-1]) addGhostsFromState(frames[currentFrame-1]);
     if(frameTransitionMode==='animatedTwoGhost' && frames[currentFrame-2]) addSecondGhostsFromState(frames[currentFrame-2]);
     else clearSecondGhosts();
   }
-});
+}
+document.getElementById('frameTransitionSelect')?.addEventListener('change', e=>setFrameTransitionMode(e.target.value));
 const PRESENT_SKIP_IDS=['fieldBgRect','goalFrameL1','goalFrameL2','goalFrameR1','goalFrameR2','fieldSideBands','brandRespect','brandFairPlay','brandHaveFun','brandPlaySmart','fieldDimLabel','fieldCenterLogo'];
 function buildPresentationFieldGroup(){
   if(document.getElementById('presentationFieldGroup')) return; // build once
@@ -5640,12 +5661,16 @@ function loadFrame(i) {
 function updateFrame() { if(!frames.length) { frames=[makeFrameState()]; currentFrame=0; resetHistoryOnFrameChange(); } else frames[currentFrame]=makeFrameState(); renderFrames(); }
 function addFrame() { if(frames.length) frames[currentFrame]=makeFrameState(); frames.splice(currentFrame+1,0,makeFrameState()); currentFrame++; resetHistoryOnFrameChange(); renderFrames(); }
 function deleteFrame() { if(frames.length<=1) { frames=[makeFrameState()]; currentFrame=0; resetHistoryOnFrameChange(); } else { frames.splice(currentFrame,1); currentFrame=Math.max(0,currentFrame-1); loadFrame(currentFrame); } renderFrames(); }
-function renderFrames() { const strip=document.getElementById('frameStrip'); strip.innerHTML=''; frames.forEach((f,i)=>{ const b=document.createElement('button'); b.className='frameBtn'+(i===currentFrame?' active':''); b.textContent='Frame '+(i+1); b.onclick=()=>{ if(frames.length) frames[currentFrame]=makeFrameState(); loadFrame(i); }; strip.appendChild(b); }); updateTimelineRemoteVisibility(); const moveLeftBtn=document.getElementById('moveFrameLeftBtn'), moveRightBtn=document.getElementById('moveFrameRightBtn'); if(moveLeftBtn) moveLeftBtn.disabled=(currentFrame<=0); if(moveRightBtn) moveRightBtn.disabled=(currentFrame>=frames.length-1); }
+function renderFrames() { const strip=document.getElementById('frameStrip'); strip.innerHTML=''; frames.forEach((f,i)=>{ const b=document.createElement('button'); b.className='frameBtn'+(i===currentFrame?' active':''); b.textContent='Frame '+(i+1); b.onclick=()=>{ if(frames.length) frames[currentFrame]=makeFrameState(); loadFrame(i); }; strip.appendChild(b); }); updateTimelineRemoteVisibility(); const moveLeftBtn=document.getElementById('moveFrameLeftBtn'), moveRightBtn=document.getElementById('moveFrameRightBtn'); if(moveLeftBtn) moveLeftBtn.disabled=(currentFrame<=0); if(moveRightBtn) moveRightBtn.disabled=(currentFrame>=frames.length-1); const tcCounter=document.getElementById('tcFrameCounter'); if(tcCounter) tcCounter.textContent=frames.length ? ((currentFrame+1)+' / '+frames.length) : '0 / 0'; const tcDel=document.getElementById('tcDeleteFrameBtn'); if(tcDel) tcDel.disabled=(frames.length<=1); }
 function updateTimelineRemoteVisibility(){
   const bar=document.getElementById('timelineCommandsBar');
   const cb=document.getElementById('timelineRemoteToggle');
   if(!bar || !cb) return;
-  bar.style.display = (cb.checked && frames.length>1) ? 'flex' : 'none';
+  const show = cb.checked && frames.length>1;
+  bar.style.display = show ? 'flex' : 'none';
+  if(show){
+    const remoteSel=document.getElementById('tcTransitionSelect'); if(remoteSel) remoteSel.value=frameTransitionMode;
+  }
 }
 document.getElementById('timelineRemoteToggle')?.addEventListener('change', updateTimelineRemoteVisibility);
 function closeTimelineRemote(){
@@ -5889,10 +5914,13 @@ function moveFrame(direction){
 document.getElementById('moveFrameLeftBtn').onclick=()=>moveFrame(-1);
 document.getElementById('moveFrameRightBtn').onclick=()=>moveFrame(1);
 document.getElementById('playFramesBtn').onclick=()=>playFrames();
-document.getElementById('tcPlayPauseBtn')?.addEventListener('click', ()=>{ if(playing) playFrames(); });
+document.getElementById('tcPlayPauseBtn')?.addEventListener('click', ()=>playFrames());
 syncPlayPauseUI();
 document.getElementById('tcPrevFrameBtn')?.addEventListener('click', ()=>loadFrame(currentFrame-1));
 document.getElementById('tcNextFrameBtn')?.addEventListener('click', ()=>loadFrame(currentFrame+1));
+document.getElementById('tcAddFrameBtn')?.addEventListener('click', addFrame);
+document.getElementById('tcDeleteFrameBtn')?.addEventListener('click', deleteFrame);
+document.getElementById('tcTransitionSelect')?.addEventListener('change', e=>setFrameTransitionMode(e.target.value));
 
 // ===== Shot Clock =====
 function formatShotClockValue(v){ return Math.max(0, Math.ceil(v)).toString(); }
