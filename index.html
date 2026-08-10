@@ -3736,10 +3736,10 @@ function sizeExtraBall(el){
 // one ball on the field at once. Offsetting each new one diagonally away
 // from field center avoids it landing exactly on top of the primary ball
 // or a previously added extra one.
-function makeExtraBall(x, y){
+function makeExtraBall(x, y, id){
   const el=document.createElement('div');
   el.className='extraBall';
-  el.dataset.id=genObjectId();
+  el.dataset.id=id||genObjectId();
   el.dataset.x=x; el.dataset.y=y;
   board.appendChild(el);
   place(el);
@@ -3748,6 +3748,11 @@ function makeExtraBall(x, y){
     if(mode!=='select' && mode!=='ball') return;
     if(isCmd(e)) { toggleSelected(el); moved=false; e.preventDefault(); return; }
     startGroupDrag(el,e); el.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  el.addEventListener('click', e=>{
+    if(layerState.lockBall || el.dataset.locked==='true') return;
+    if(moved || mode!=='select' || isCmd(e)) return;
+    if(!selected.has(el)){ clearSelection(); setSelected(el,true); }
   });
   attachLongPress(el, ()=>el);
   return el;
@@ -4440,6 +4445,11 @@ document.addEventListener('pointerup', e=>{
   dragging=null; rotating=null; updateInspector();
 });
 ball.addEventListener('pointerdown', e=>{ if(layerState.lockBall || ball.dataset.locked==='true') return; if(mode!=='select' && mode!=='ball') return; if(isCmd(e)) { toggleSelected(ball); moved=false; e.preventDefault(); return; } startGroupDrag(ball,e); ball.setPointerCapture(e.pointerId); e.preventDefault(); });
+ball.addEventListener('click', e=>{
+  if(layerState.lockBall || ball.dataset.locked==='true') return;
+  if(moved || mode!=='select' || isCmd(e)) return;
+  if(!selected.has(ball)){ clearSelection(); setSelected(ball,true); }
+});
 ball.addEventListener('dragstart', e=>e.preventDefault());
 document.addEventListener('dragstart', e=>{ if(e.target.closest && (e.target===ball || e.target.closest('.player'))) e.preventDefault(); });
 attachLongPress(ball, ()=>ball);
@@ -4504,7 +4514,7 @@ function getState() {
   return {
     players:[...document.querySelectorAll('.player')].map(el=>({label:el.dataset.label,team:el.dataset.team,name:el.dataset.name||el.dataset.label,role:el.dataset.role||'',x:+el.dataset.x,y:+el.dataset.y,pose:el.dataset.pose,rot:+el.dataset.rot||0,locked:el.dataset.locked==='true',hidden:el.dataset.hidden==='true',blockArm:el.dataset.blockArm||'none',blockArmSaved:el.dataset.blockArmSaved||'right',blockMaxAngle:+el.dataset.blockMaxAngle||15,category:el.dataset.category||'',sizePercent:+el.dataset.sizePercent||100,visionDistance:+el.dataset.visionDistance||5,secondaryVisionAngle:+el.dataset.secondaryVisionAngle||0,showPrimaryVision:el.dataset.showPrimaryVision==='true',showSecondaryVision:el.dataset.showSecondaryVision==='true'})),
     ball:{x:+ball.dataset.x,y:+ball.dataset.y,carrier:ballCarrier?.dataset.label||null,hand:ballHand},
-    extraBalls:[...document.querySelectorAll('.extraBall')].map(el=>({x:+el.dataset.x,y:+el.dataset.y,locked:el.dataset.locked==='true',hidden:el.dataset.hidden==='true'})),
+    extraBalls:[...document.querySelectorAll('.extraBall')].map(el=>({id:el.dataset.id,x:+el.dataset.x,y:+el.dataset.y,locked:el.dataset.locked==='true',hidden:el.dataset.hidden==='true'})),
     drawings:[...arrows.querySelectorAll('.drawing')].map(d=>{
       const t=getDrawingTranslate(d);
       let base;
@@ -4535,7 +4545,7 @@ function getState() {
 function loadState(st) {
   clearSelection(); document.querySelectorAll('.player').forEach(e=>e.remove()); document.querySelectorAll('.extraBall').forEach(e=>e.remove()); clearArrows(true); ballCarrier=null;
   st.players.forEach(p=>{ const el=makePlayer([p.label,p.team,p.x,p.y,p.pose,p.rot]); el.dataset.name=p.name||p.label; el.dataset.role=p.role||(p.team==='goalie'?'Goalkeeper':'Driver'); el.querySelector('.label').textContent=el.dataset.name||p.label; el.dataset.locked=p.locked?'true':'false'; el.dataset.hidden=p.hidden?'true':'false'; el.style.display=p.hidden?'none':''; el.dataset.blockArm=p.blockArm||'none'; el.dataset.blockArmSaved=p.blockArmSaved||'right'; el.dataset.blockMaxAngle=p.blockMaxAngle||15; el.dataset.category=p.category||''; el.dataset.sizePercent=p.sizePercent||100; el.dataset.visionDistance=p.visionDistance||5; el.dataset.secondaryVisionAngle=p.secondaryVisionAngle||0; el.dataset.showPrimaryVision=(p.showPrimaryVision!==false)?'true':'false'; el.dataset.showSecondaryVision=p.showSecondaryVision?'true':'false'; });
-  (st.extraBalls||[]).forEach(b=>{ const el=makeExtraBall(b.x,b.y); el.dataset.locked=b.locked?'true':'false'; el.dataset.hidden=b.hidden?'true':'false'; el.style.display=b.hidden?'none':''; });
+  (st.extraBalls||[]).forEach(b=>{ const el=makeExtraBall(b.x,b.y,b.id); el.dataset.locked=b.locked?'true':'false'; el.dataset.hidden=b.hidden?'true':'false'; el.style.display=b.hidden?'none':''; });
   ball.dataset.x=st.ball?.x ?? 14.5; ball.dataset.y=st.ball?.y ?? 12; ballHand=st.ball?.hand||'right';
   const carrierLabel=st.ball?.carrier; if(carrierLabel) ballCarrier=[...document.querySelectorAll('.player')].find(p=>p.dataset.label===carrierLabel)||null;
   if(ballCarrier) moveBallTo(ballCarrier,ballHand); else placeBall();
@@ -6132,6 +6142,10 @@ function animateToFrame(targetIndex, durationSec, onDone, endProgress=1){
     startPlayers[el.dataset.label]={ x:+el.dataset.x, y:+el.dataset.y, rot:+el.dataset.rot||0, team:el.dataset.team, pose:el.dataset.pose };
   });
   const startBall={ x:+ball.dataset.x, y:+ball.dataset.y };
+  const startExtraBalls={};
+  document.querySelectorAll('.extraBall').forEach(el=>{
+    startExtraBalls[el.dataset.id]={ x:+el.dataset.x, y:+el.dataset.y };
+  });
 
   // Ghost shows exactly where things started, and stays put for the whole transition.
   if(ghostMode) addGhostsFromState({ players: Object.values(startPlayers) });
@@ -6161,11 +6175,27 @@ function animateToFrame(targetIndex, durationSec, onDone, endProgress=1){
     el.dataset.showSecondaryVision=p.showSecondaryVision?'true':'false';
   });
 
+  // Same matched-by-stable-id treatment for extra balls -- a ball not
+  // present in the target frame is simply dropped (matching how a removed
+  // player is handled: no fade-out, it's just gone), rather than left
+  // orphaned at its last position.
+  const targetExtraBallIds=new Set((target.extraBalls||[]).map(b=>b.id));
+  [...document.querySelectorAll('.extraBall')].forEach(el=>{ if(!targetExtraBallIds.has(el.dataset.id)) el.remove(); });
+  (target.extraBalls||[]).forEach(b=>{
+    let el=[...document.querySelectorAll('.extraBall')].find(e=>e.dataset.id===b.id);
+    const s=startExtraBalls[b.id];
+    if(!el){ el=makeExtraBall(s?s.x:b.x, s?s.y:b.y, b.id); }
+    el.dataset.locked=b.locked?'true':'false';
+    el.dataset.hidden=b.hidden?'true':'false';
+    el.style.display=b.hidden?'none':'';
+  });
+
   // Precomputed once (not re-queried every animation frame -- see tick()
   // below) so long timelines with many players stay responsive during
   // playback rather than rebuilding the full player list from the DOM
   // ~60 times/sec for every animated player.
   const labelToEl = new Map([...document.querySelectorAll('.player')].map(el=>[el.dataset.label, el]));
+  const extraBallIdToEl = new Map([...document.querySelectorAll('.extraBall')].map(el=>[el.dataset.id, el]));
 
   const startTime=performance.now();
   const durationMs=Math.max(50, (durationSec||0.9)*1000);
@@ -6189,6 +6219,14 @@ function animateToFrame(targetIndex, durationSec, onDone, endProgress=1){
     ball.dataset.x=lerp(startBall.x, tb.x, t);
     ball.dataset.y=lerp(startBall.y, tb.y, t);
     placeBall();
+    (target.extraBalls||[]).forEach(b=>{
+      const el=extraBallIdToEl.get(b.id);
+      if(!el) return;
+      const s=startExtraBalls[b.id] || { x:b.x, y:b.y };
+      el.dataset.x=lerp(s.x, b.x, t);
+      el.dataset.y=lerp(s.y, b.y, t);
+      place(el);
+    });
     if(rawT<1){
       animFrameHandle=requestAnimationFrame(tick);
     } else if(endProgress>=1){
