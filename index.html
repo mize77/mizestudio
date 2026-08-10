@@ -10578,6 +10578,7 @@ function setFieldRotation(on){
 function renderAllPositions(){
   document.querySelectorAll('.player').forEach(place);
   placeBall();
+  document.querySelectorAll('.extraBall').forEach(place);
   if(ghostMode && frames[currentFrame-1]) addGhostsFromState(frames[currentFrame-1]); else clearGhosts();
   if(frameTransitionMode==='animatedTwoGhost' && frames[currentFrame-2]) addSecondGhostsFromState(frames[currentFrame-2]); else clearSecondGhosts();
 }
@@ -13879,6 +13880,7 @@ function fitBoardToScreen(){
     // by two narrow overlay strips (see fcScrollZoneLeft/Right below),
     // confined to a 2m margin along each sideline.
     document.querySelectorAll('.player').forEach(place);
+    document.querySelectorAll('.extraBall').forEach(place);
     placeBall();
     // Scroll to exactly where the old, non-scrollable crop used to show by
     // default -- nothing changes unless the coach actually scrolls further.
@@ -13906,6 +13908,7 @@ function fitBoardToScreen(){
     });
     document.querySelectorAll('.player').forEach(place);
     placeBall();
+    document.querySelectorAll('.extraBall').forEach(place);
     refreshFrontCourtScrollZones();
     return;
   }
@@ -13930,6 +13933,7 @@ function fitBoardToScreen(){
   board.style.height=boardH+'px';
   document.querySelectorAll('.player').forEach(place);
   placeBall();
+  document.querySelectorAll('.extraBall').forEach(place);
   // If the board ended up taller than the viewport, scroll so the pool itself
   // (not a colored band) is what's centered in view by default.
   requestAnimationFrame(()=>{
