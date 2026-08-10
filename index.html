@@ -828,6 +828,10 @@
   body.guestAutoplayActive #guestAutoplayHand.show { display:block; }
   #guestAutoplayHand.tapping { animation:guestAutoplayTap .24s ease; }
   @keyframes guestAutoplayTap { 0%{transform:translate(-8px,-6px) scale(1);} 50%{transform:translate(-8px,-6px) scale(.8);} 100%{transform:translate(-8px,-6px) scale(1);} }
+  @keyframes presTextEnter { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+  .presTextSwingRow { display:flex; gap:14px; margin-top:30px; flex-wrap:wrap; justify-content:center; }
+  .presTextSwingBtn { padding:12px 22px; border-radius:999px; background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
+  .presTextSwingBtn:hover { background:rgba(255,255,255,.24); }
   .cmdCatHeader { width:100%; display:flex; align-items:center; justify-content:space-between; text-align:left; background:#fff; border:0; border-radius:9px; padding:8px 10px; font-size:12.5px; }
   .cmdCatHeader .chev { transition:transform .15s; color:#8a9494; font-size:11px; }
   .cmdCategory.open .cmdCatHeader .chev { transform:rotate(90deg); }
@@ -1101,8 +1105,10 @@
     <div class="studioFramePlaceholderLabel">Video &amp; Game Footage</div>
     <div class="studioFrameLoadRow">
       <button id="videoLoadUrlBtn">Load from URL</button>
+      <button id="videoOpenWindowBtn" title="Opens in a real, separate browser window, sized and kept in sync with this screen. Address bar stays visible.">Open in Window</button>
       <button id="videoLoadFileBtn">Choose File</button>
     </div>
+    <div style="font-size:11px;color:#8a9898;margin-top:4px;text-align:center;">Many sites block embedding entirely -- if a loaded page appears blank, use "Open in Window" instead.</div>
     <input type="file" id="videoFileInput" accept="video/*" style="display:none;">
   </div>
   <div id="videoContent" class="studioFrameContent"></div>
@@ -4849,15 +4855,29 @@ function libRenderVideoIntoStudioFrame(step){
 }
 function libRenderTextIntoStudioFrame(step){
   const div = document.createElement('div');
-  div.style.cssText = 'display:flex;flex-direction:column;width:100%;height:100%;background:#0a2f3d;color:#fff;padding:40px 36px;box-sizing:border-box;overflow-y:auto;text-align:left;';
+  div.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;background:#0a2f3d;color:#fff;padding:40px 48px;box-sizing:border-box;overflow-y:auto;text-align:center;animation:presTextEnter .55s cubic-bezier(.22,.61,.36,1);';
   const roleParts = [];
   if(step.day!=null) roleParts.push('Day '+step.day);
   if(step.time) roleParts.push(step.time);
   if(step.role) roleParts.push(step.role);
   const roleLine = roleParts.length ? '<div style="font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:10px;">'+libEsc(roleParts.join(' \u2013 '))+'</div>' : '';
+  let swingButtonsHtml = '';
+  if(step.video || step.board){
+    const btns = [];
+    if(step.video) btns.push('<button type="button" class="presTextSwingBtn" data-swing-target="video">\u2039 Watch Video</button>');
+    if(step.board) btns.push('<button type="button" class="presTextSwingBtn" data-swing-target="board">View on Board \u203a</button>');
+    swingButtonsHtml = '<div class="presTextSwingRow">'+btns.join('')+'</div>';
+  }
   div.innerHTML = roleLine +
-    '<div style="font-size:clamp(20px,2.6vw,30px);font-weight:700;margin-bottom:16px;">'+libEsc(step.title||'')+'</div>' +
-    '<div style="font-size:clamp(14px,1.5vw,17px);line-height:1.6;white-space:pre-wrap;color:rgba(255,255,255,.9);">'+libEsc(step.text.body||'')+'</div>';
+    '<div style="font-size:clamp(22px,3vw,34px);font-weight:700;margin-bottom:18px;">'+libEsc(step.title||'')+'</div>' +
+    '<div style="font-size:clamp(15px,1.6vw,18px);line-height:1.65;white-space:pre-wrap;color:rgba(255,255,255,.9);max-width:640px;">'+libEsc(step.text.body||'')+'</div>' +
+    swingButtonsHtml;
+  div.querySelectorAll('.presTextSwingBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const order = ['video','board','stats'];
+      goToStudioFrame(order.indexOf(btn.dataset.swingTarget));
+    });
+  });
   showStudioFrameContent('stats', div);
 }
 function updateStudioFrameDots(){
@@ -4866,8 +4886,12 @@ function updateStudioFrameDots(){
     dot.classList.toggle('empty', !presentationFrameHasContent[order[i]]);
   });
 }
-function navigateToBestAvailableStudioFrame(){
+function navigateToBestAvailableStudioFrame(step){
   const order = ['video','board','stats'];
+  if(presentationFrameHasContent.stats && (step.board || step.video)){
+    goToStudioFrame(order.indexOf('stats'));
+    return;
+  }
   if(presentationFrameHasContent[order[studioFrameIndex]]) return; // current frame still has content for the new step -- stay put
   const preferredOrder = ['board','video','stats']; // board first: it's always interactable, so it's the best default landing spot
   for(const type of preferredOrder){
@@ -4895,7 +4919,7 @@ function renderPresentationSubView(){
   }
   presentationFrameHasContent.board = true; // always available -- the live board can always be interacted with, regardless of whether this specific step pre-loaded a formation for it
   updateStudioFrameDots();
-  navigateToBestAvailableStudioFrame();
+  navigateToBestAvailableStudioFrame(step);
   updatePresentationPlaybackUI();
 }
 function loadPresentationSlide(index){
@@ -5155,7 +5179,8 @@ attachStudioSwipe(document.getElementById('statsFrame'));
 function parseVideoUrl(rawUrl){
   let url=rawUrl.trim();
   if(!/^https?:\/\//i.test(url)) url='https://'+url;
-  let m=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{6,})/);
+  let m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed|shorts|live|v)\/)([a-zA-Z0-9_-]{6,})/);
+  if(!m && /youtube\.com\/watch/i.test(url)) m=url.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
   if(m) return {type:'iframe', src:'https://www.youtube.com/embed/'+m[1]+'?autoplay=0'};
   if(/youtube\.com|youtu\.be/i.test(url)) return {type:'unrecognized', reason:'That looks like a YouTube link, but not a specific video -- paste the full link to a video (the one from the address bar while watching it, or the Share link).'};
   m=url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
@@ -5166,6 +5191,7 @@ function parseVideoUrl(rawUrl){
 }
 function showStudioFrameContent(prefix, node){
   if(prefix==='stats' && node.tagName!=='DIV') closeStatsExternalWindow(); // loading new embedded content replaces an active external-window link
+  if(prefix==='video' && node.tagName!=='DIV') closeVideoExternalWindow();
   document.getElementById(prefix+'FramePlaceholder').style.display='none';
   const content=document.getElementById(prefix+'Content');
   const existingMedia=content.querySelector(':scope > video, :scope > iframe, :scope > img, :scope > div');
@@ -5268,6 +5294,37 @@ document.getElementById('statsOpenWindowBtn').addEventListener('click', async ()
   status.style.cssText='display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#0d1b1b;color:#fff;font-size:16px;text-align:center;padding:20px;box-sizing:border-box;';
   status.textContent='Website open in a separate window, kept in sync with this screen.';
   showStudioFrameContent('stats', status);
+});
+let videoExternalWindow=null, videoExternalSyncInterval=null;
+function closeVideoExternalWindow(){
+  if(videoExternalSyncInterval){ clearInterval(videoExternalSyncInterval); videoExternalSyncInterval=null; }
+  if(videoExternalWindow && !videoExternalWindow.closed) videoExternalWindow.close();
+  videoExternalWindow=null;
+}
+document.getElementById('videoOpenWindowBtn').addEventListener('click', async ()=>{
+  const url=await MizeDialog.prompt('Website or video page URL to open in a synced window (opens in your default browser, address bar stays visible):');
+  if(!url) return;
+  let fullUrl=url.trim();
+  if(!/^https?:\/\//i.test(fullUrl)) fullUrl='https://'+fullUrl;
+  const content=document.getElementById('videoContent');
+  const r=content.getBoundingClientRect();
+  const screenLeft=Math.round(window.screenX + r.left), screenTop=Math.round(window.screenY + r.top);
+  const features=`width=${Math.round(r.width)},height=${Math.round(r.height)},left=${screenLeft},top=${screenTop}`;
+  closeVideoExternalWindow();
+  videoExternalWindow=window.open(fullUrl, 'videoExternalWindow', features);
+  if(!videoExternalWindow){ MizeDialog.alert('The browser blocked this popup. Please allow popups for this page, then try again.'); return; }
+  videoExternalSyncInterval=setInterval(()=>{
+    if(!videoExternalWindow || videoExternalWindow.closed){ clearInterval(videoExternalSyncInterval); videoExternalSyncInterval=null; return; }
+    const rr=document.getElementById('videoContent').getBoundingClientRect();
+    try{
+      videoExternalWindow.resizeTo(Math.round(rr.width), Math.round(rr.height));
+      videoExternalWindow.moveTo(Math.round(window.screenX+rr.left), Math.round(window.screenY+rr.top));
+    }catch(err){}
+  }, 800);
+  const vStatus=document.createElement('div');
+  vStatus.style.cssText='display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#0d1b1b;color:#fff;font-size:16px;text-align:center;padding:20px;box-sizing:border-box;';
+  vStatus.textContent='Website open in a separate window, kept in sync with this screen.';
+  showStudioFrameContent('video', vStatus);
 });
 document.getElementById('statsLoadFileBtn').addEventListener('click', ()=>document.getElementById('statsFileInput').click());
 document.getElementById('statsFileInput').addEventListener('change', e=>{
@@ -12603,7 +12660,10 @@ async function renderLibraryPracticeItemsList(asset){
 // generic way to embed an arbitrary URL.
 function libDetectEmbeddableVideo(url){
   if(!url) return null;
-  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{6,})/i);
+  let yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed|shorts|live|v)\/)([a-zA-Z0-9_-]{6,})/i);
+  if(!yt && /youtube\.com\/watch/i.test(url)){
+    yt = url.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
+  }
   if(yt) return { kind:'youtube', embedUrl:'https://www.youtube.com/embed/'+yt[1] };
   const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
   if(vimeo) return { kind:'vimeo', embedUrl:'https://player.vimeo.com/video/'+vimeo[1] };
@@ -12618,12 +12678,15 @@ function parseMinutesFromText(text){
 }
 function libBuildLeafStep(ref, item){
   const step = { title: ref.title, role: item.role, note: item.note, time: item.time, day: item.day, text:null, board:null, video:null, plannedMinutes: parseMinutesFromText(ref.estimatedDuration) };
+  const itemNote = (item.note && item.note.trim()) ? item.note.trim() : '';
   if((ref.type==='formation' || ref.type==='sequence') && ref.contentRef){
     step.board = { kind: ref.type==='formation'?'formation':'package', refName: ref.contentRef.itemKey };
+    if(itemNote) step.text = { body: itemNote };
     return step;
   }
-  let body = ref.noteBody || ref.description || '';
-  if(ref.objectives) body = (body?body+'\n\n':'')+'Objectives: '+ref.objectives;
+  let assetBody = ref.noteBody || ref.description || '';
+  if(ref.objectives) assetBody = (assetBody?assetBody+'\n\n':'')+'Objectives: '+ref.objectives;
+  let body = itemNote ? (assetBody ? itemNote+'\n\n'+assetBody : itemNote) : assetBody;
   if(ref.type==='video' && ref.url){
     step.video = { url: ref.url, embed: libDetectEmbeddableVideo(ref.url) };
   } else if(ref.url){
