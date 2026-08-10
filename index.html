@@ -96,7 +96,7 @@
   @media (pointer:coarse) { #qcbDrawingToolsPopup { width:190px; } #qcbDrawingToolsPopup .freeDrawColorSwatch { width:38px; height:38px; min-height:38px; } }
   #quickCommandBarInner { display:flex; align-items:center; gap:8px; }
   .quickBarGrid { display:grid; gap:4px; }
-  .quickBarStandardGrid { grid-template-columns:repeat(7, auto); grid-template-rows:repeat(2, auto); }
+  .quickBarStandardGrid { grid-template-columns:repeat(5, auto); grid-template-rows:repeat(2, auto); }
   .quickBarRecentGrid { grid-template-columns:repeat(2, auto); grid-template-rows:repeat(2, auto); }
   .quickBarBtn { width:34px; height:34px; padding:0; font-size:11px; font-weight:800; border-radius:8px; background:#eef4f4; border:1px solid #c3d2d2; display:flex; align-items:center; justify-content:center; color:#1b4f4f; }
   .quickBarBtn svg { width:19px; height:19px; }
@@ -374,7 +374,10 @@
   #timelinePanel.vertical #frameStrip { flex-direction:column; overflow-x:visible; overflow-y:auto; max-height:40vh; }
   #timelineControls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   #frameStrip { display:flex; gap:8px; overflow-x:auto; padding-top:8px; }
-  .frameBtn { min-width:78px; text-align:center; border:1px solid #b7c4c4; border-radius:8px; background:#fff; padding:7px 8px; cursor:pointer; font-weight:700; }
+  .frameBtn { min-width:78px; text-align:center; border:1px solid #b7c4c4; border-radius:8px; background:#fff; padding:7px 8px; cursor:grab; font-weight:700; touch-action:none; transition:box-shadow .15s ease, opacity .15s ease; }
+  .frameBtn.dragging { opacity:.85; box-shadow:0 8px 20px rgba(0,0,0,.2); z-index:5; cursor:grabbing; transition:none; }
+  .frameBtn.dragOverBefore { box-shadow:inset 3px 0 0 #1b7373; }
+  #timelinePanel.vertical .frameBtn.dragOverBefore { box-shadow:inset 0 3px 0 #1b7373; }
   .frameBtn.active { background:var(--teal); color:#fff; border-color:var(--teal); }
   #frameNote { width:100%; margin-top:8px; min-height:54px; border:1px solid #ccd6d6; border-radius:8px; padding:8px; font-family:Arial, Helvetica, sans-serif; resize:vertical; }
   .noteLabel { paint-order:stroke; stroke:white; stroke-width:.14; font-weight:700; font-size:.45px; fill:#263238; cursor:pointer; pointer-events:all; }
@@ -1860,6 +1863,7 @@ const MizeDialog = (function(){
     <div id="inspectorFields" style="display:none;">
       <div class="smallRow full"><label>Name<input id="inspName" type="text" placeholder="Player name"></label></div>
       <div class="smallRow"><label>Team<select id="inspTeam"><option value="blue">Blue</option><option value="white">White</option><option value="goalie">Goalkeeper</option></select></label><label>Role<select id="inspRole"><option value="Driver">Driver</option><option value="Wing">Wing</option><option value="Flat">Flat</option><option value="Point">Point</option><option value="Center">Center</option><option value="Center Defender">Center Defender</option><option value="Goalkeeper">Goalkeeper</option></select></label></div>
+      <div class="smallRow"><label>Cap Number<input id="inspCapNumber" type="number" min="1" step="1"></label></div>
       <div class="smallRow"><label>Goal Line X (m)<input id="inspX" type="number" step="0.1" min="0" max="25"></label><label>Sideline Y (m)<input id="inspY" type="number" step="0.1" min="0" max="20"></label></div>
       <div class="smallRow"><label>Rotation<input id="inspRot" type="number" step="5"></label><label>Pose<select id="inspPose"><option value="v">Vertical</option><option value="h">Horizontal</option></select></label></div>
       <div class="smallRow"><label>Max Block Angle<input id="inspBlockMaxAngle" type="number" min="3" max="90" step="1"></label></div>
@@ -5661,7 +5665,69 @@ function loadFrame(i) {
 function updateFrame() { if(!frames.length) { frames=[makeFrameState()]; currentFrame=0; resetHistoryOnFrameChange(); } else frames[currentFrame]=makeFrameState(); renderFrames(); }
 function addFrame() { if(frames.length) frames[currentFrame]=makeFrameState(); frames.splice(currentFrame+1,0,makeFrameState()); currentFrame++; resetHistoryOnFrameChange(); renderFrames(); }
 function deleteFrame() { if(frames.length<=1) { frames=[makeFrameState()]; currentFrame=0; resetHistoryOnFrameChange(); } else { frames.splice(currentFrame,1); currentFrame=Math.max(0,currentFrame-1); loadFrame(currentFrame); } renderFrames(); }
-function renderFrames() { const strip=document.getElementById('frameStrip'); strip.innerHTML=''; frames.forEach((f,i)=>{ const b=document.createElement('button'); b.className='frameBtn'+(i===currentFrame?' active':''); b.textContent='Frame '+(i+1); b.onclick=()=>{ if(frames.length) frames[currentFrame]=makeFrameState(); loadFrame(i); }; strip.appendChild(b); }); updateTimelineRemoteVisibility(); const moveLeftBtn=document.getElementById('moveFrameLeftBtn'), moveRightBtn=document.getElementById('moveFrameRightBtn'); if(moveLeftBtn) moveLeftBtn.disabled=(currentFrame<=0); if(moveRightBtn) moveRightBtn.disabled=(currentFrame>=frames.length-1); const tcCounter=document.getElementById('tcFrameCounter'); if(tcCounter) tcCounter.textContent=frames.length ? ((currentFrame+1)+' / '+frames.length) : '0 / 0'; const tcDel=document.getElementById('tcDeleteFrameBtn'); if(tcDel) tcDel.disabled=(frames.length<=1); }
+let frameSuppressNextClick=false;
+function renderFrames() { const strip=document.getElementById('frameStrip'); strip.innerHTML=''; frames.forEach((f,i)=>{ const b=document.createElement('button'); b.className='frameBtn'+(i===currentFrame?' active':''); b.textContent='Frame '+(i+1); b.dataset.frameIdx=i; b.onclick=()=>{ if(frameSuppressNextClick){ frameSuppressNextClick=false; return; } if(frames.length) frames[currentFrame]=makeFrameState(); loadFrame(i); }; strip.appendChild(b); }); updateTimelineRemoteVisibility(); const moveLeftBtn=document.getElementById('moveFrameLeftBtn'), moveRightBtn=document.getElementById('moveFrameRightBtn'); if(moveLeftBtn) moveLeftBtn.disabled=(currentFrame<=0); if(moveRightBtn) moveRightBtn.disabled=(currentFrame>=frames.length-1); const tcCounter=document.getElementById('tcFrameCounter'); if(tcCounter) tcCounter.textContent=frames.length ? ((currentFrame+1)+' / '+frames.length) : '0 / 0'; const tcDel=document.getElementById('tcDeleteFrameBtn'); if(tcDel) tcDel.disabled=(frames.length<=1); wireFrameStripDrag(); }
+// Drag-to-reorder for the frame strip, adapted from the same pattern used
+// for the Event Builder's Timeline items -- but this list can be laid out
+// either horizontally (docked normally) or vertically (#timelinePanel has
+// a .vertical modifier), so the axis is detected fresh at each drag-start
+// rather than assumed. A small movement threshold (8px) distinguishes a
+// genuine drag from a normal tap-to-navigate click on the same button,
+// since frameBtn already has its own onclick and there's no separate
+// handle the way the Event Builder's rows have (those needed one because
+// of the inputs/selects inside each row; a frame button has no such
+// children to protect).
+let frameDragState=null;
+function wireFrameStripDrag(){
+  const strip=document.getElementById('frameStrip');
+  if(!strip) return;
+  strip.querySelectorAll('.frameBtn').forEach(btn=>{
+    btn.addEventListener('pointerdown', e=>{
+      const isVertical = document.getElementById('timelinePanel')?.classList.contains('vertical');
+      const startIdx = +btn.dataset.frameIdx;
+      const itemRects=[...strip.children].map(el=>{
+        const r=el.getBoundingClientRect();
+        return isVertical ? { idx:+el.dataset.frameIdx, start:r.top, size:r.height, el } : { idx:+el.dataset.frameIdx, start:r.left, size:r.width, el };
+      });
+      frameDragState = { strip, btn, startIdx, startPos:(isVertical?e.clientY:e.clientX), isVertical, itemRects, moved:false, currentTargetIdx:startIdx };
+    });
+  });
+}
+document.addEventListener('pointermove', e=>{
+  if(!frameDragState) return;
+  const { btn, startPos, isVertical, itemRects, startIdx } = frameDragState;
+  const pos = isVertical ? e.clientY : e.clientX;
+  const delta = pos - startPos;
+  if(!frameDragState.moved && Math.abs(delta) > 8) frameDragState.moved = true;
+  if(!frameDragState.moved) return;
+  btn.classList.add('dragging');
+  btn.style.transform = isVertical ? 'translateY('+delta+'px)' : 'translateX('+delta+'px)';
+  const nonDragged = itemRects.filter(item=>item.idx!==startIdx);
+  let targetIdx=0;
+  nonDragged.forEach(item=>{ if(pos > item.start+item.size/2) targetIdx++; });
+  nonDragged.forEach(item=>item.el.classList.remove('dragOverBefore'));
+  if(targetIdx < nonDragged.length) nonDragged[targetIdx].el.classList.add('dragOverBefore');
+  frameDragState.currentTargetIdx = targetIdx;
+});
+document.addEventListener('pointerup', ()=>{
+  if(!frameDragState) return;
+  const { btn, startIdx, currentTargetIdx, moved, itemRects } = frameDragState;
+  btn.style.transform='';
+  btn.classList.remove('dragging');
+  itemRects.forEach(item=>item.el.classList.remove('dragOverBefore'));
+  const wasMoved = moved;
+  frameDragState = null;
+  if(wasMoved && currentTargetIdx !== startIdx){
+    frameSuppressNextClick = true;
+    if(frames.length) frames[currentFrame]=makeFrameState();
+    const activeFrameRef = frames[currentFrame]; // tracked by identity, not index, since the splice below can shift which index the active frame ends up at
+    const [movedFrame] = frames.splice(startIdx, 1);
+    frames.splice(currentTargetIdx, 0, movedFrame);
+    currentFrame = frames.indexOf(activeFrameRef);
+    resetHistoryOnFrameChange();
+    renderFrames();
+  }
+});
 function updateTimelineRemoteVisibility(){
   const bar=document.getElementById('timelineCommandsBar');
   const cb=document.getElementById('timelineRemoteToggle');
@@ -8312,10 +8378,13 @@ updateInspector=function(){
   const el=singleSelection();
   const ids=['inspName','inspTeam','inspRole'];
   ids.forEach(id=>{ const n=document.getElementById(id); if(n) n.disabled=!el || isAnyBall(el); });
+  const capField=document.getElementById('inspCapNumber');
+  if(capField) capField.disabled = !el || isAnyBall(el) || el.dataset.team==='goalie';
   if(!el || isAnyBall(el)) return;
   document.getElementById('inspName').value=el.dataset.name||el.dataset.label;
   document.getElementById('inspTeam').value=el.dataset.team||'blue';
   document.getElementById('inspRole').value=el.dataset.role||(el.dataset.team==='goalie'?'Goalkeeper':'Driver');
+  if(capField) capField.value = capText(el.dataset.label);
 };
 const oldApplyInspector=applyInspector;
 applyInspector=function(){
@@ -8331,6 +8400,42 @@ applyInspector=function(){
   }
 };
 ['inspName','inspTeam','inspRole'].forEach(id=>document.getElementById(id)?.addEventListener('change',applyInspector));
+function changeCapNumber(el, rawValue){
+  if(!el || isAnyBall(el) || el.dataset.team==='goalie') return;
+  const capField=document.getElementById('inspCapNumber');
+  const n=Math.trunc(+rawValue);
+  if(!Number.isFinite(n) || n<1){
+    if(typeof MizeDialog!=='undefined') MizeDialog.alert('Cap number must be a positive whole number.');
+    if(capField) capField.value=capText(el.dataset.label);
+    return;
+  }
+  const team=playerSide(el); // the label's own leading letter is what every tactical calculation actually keys off, not dataset.team, which can drift out of sync via the Team dropdown -- so this is the correct source of truth for "which roster" to check against
+  const teammates=[...document.querySelectorAll('.player')].filter(p=>p!==el && playerSide(p)===team);
+  const collision=teammates.some(p=>capText(p.dataset.label)===String(n));
+  if(collision){
+    if(typeof MizeDialog!=='undefined') MizeDialog.alert('Cap #'+n+' is already in use on this team. Pick a different number.');
+    if(capField) capField.value=capText(el.dataset.label);
+    return;
+  }
+  recordHistory('Change Cap Number: '+displayName(el));
+  const prefix=team==='white' ? 'W' : 'B';
+  const oldLabel=el.dataset.label;
+  const newLabel=prefix+(n-1);
+  const nameWasDefault=(el.dataset.name===oldLabel);
+  el.dataset.label=newLabel;
+  if(nameWasDefault) el.dataset.name=newLabel;
+  // Every OTHER frame in the sequence currently being edited references
+  // this player by the OLD label -- without this, animateToFrame would
+  // stop matching this player in every frame but the current one.
+  frames.forEach(f=>{ (f.players||[]).forEach(p=>{ if(p.label===oldLabel) p.label=newLabel; }); });
+  updatePlayerVisual(el);
+  updateInspector();
+  renderTeamManager();
+}
+document.getElementById('inspCapNumber')?.addEventListener('change', e=>{
+  const el=singleSelection();
+  changeCapNumber(el, e.target.value);
+});
 
 function changeTeam(el){
   if(!el || isAnyBall(el)) return; recordHistory();
@@ -8831,8 +8936,8 @@ document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)').forEach(b=>{
 });
 
 // --- Floating quick-command bar: 5 fixed presets (Photoshop-style) + 3 recently-used ---
-const QUICKBAR_PRESETS=['selectBtn','ballBtn','freeDrawBtn','shotBlockToggleBtn','goalieVisionToggleBtn','shootingAngleToggleBtn','smartPositioningToggleBtn','fieldZonesToggleBtn','smartGoaliePositioningToggleBtn'];
-const QCB_DRAWING_TOOLS=['passBtn','swimBtn','driveBtn','shotBtn','screenBtn','highlightBtn','noteBtn','textBoxBtn','measureBtn','freeDrawBtn','eraseBtn','clearBtn'];
+const QUICKBAR_PRESETS=['selectBtn','freeDrawBtn','fieldZonesToggleBtn','textBoxBtn','clearBtn','shootingAngleToggleBtn','shotBlockToggleBtn','goalieVisionToggleBtn','smartPositioningToggleBtn','smartGoaliePositioningToggleBtn'];
+const QCB_DRAWING_TOOLS=['passBtn','swimBtn','driveBtn','shotBtn','screenBtn','highlightBtn','noteBtn','measureBtn','freeDrawBtn','eraseBtn','clearBtn'];
 const QUICKBAR_ICONS={
   swimBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14c2.5-4 5-4 7.5 0s5 4 7.5 0"/><path d="M16.2 12.7l3.3 1.3-1.3 3.3"/></svg>',
   driveBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 Q10 10 19 5"/><path d="M13 4.3h6v6"/></svg>',
@@ -11012,6 +11117,7 @@ MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange){
     const on=getFn();
     btn.textContent=label+': '+(on?'On':'Off');
     btn.classList.toggle('active', on);
+    if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
   }
   function toggle(){
     setFn(!getFn());
@@ -11377,6 +11483,7 @@ function renderSmartGoaliePositioning(){
 function updateSmartGoaliePositioningButton(){
   const btn = document.getElementById('smartGoaliePositioningToggleBtn');
   if(btn){ btn.textContent = 'Smart Goalie Positioning: '+(smartGoaliePositioningActive?'On':'Off'); btn.classList.toggle('active', smartGoaliePositioningActive); }
+  if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
 }
 document.getElementById('smartGoaliePositioningToggleBtn')?.addEventListener('click', ()=>{
   const panel = document.getElementById('smartGoaliePositioningPanel');
