@@ -85,8 +85,13 @@
   .qcbColorRow { display:flex; gap:8px; justify-content:center; }
   #qcbDrawingToolsPopup .freeDrawColorSwatch { width:26px; height:26px; min-height:26px; border-radius:50%; border:2px solid #d9e0e0; padding:0; cursor:pointer; }
   #qcbDrawingToolsPopup .freeDrawColorSwatch.active { border-color:#14235c; box-shadow:0 0 0 2px rgba(20,35,92,.25); }
-  #textBoxToolbar { display:none; position:fixed; z-index:1522; background:rgba(255,255,255,.98); border:1px solid #c3d2d2; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.25); padding:10px; flex-direction:column; gap:8px; width:220px; top:70px; right:12px; }
-  #textBoxToolbar.show { display:flex; }
+  #textBoxToolbar { display:flex; flex-direction:column; gap:8px; position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; background:rgba(18,77,77,.92); padding:10px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); width:220px; transform:translateX(-260px) scale(.67); transform-origin:top left; opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
+  #textBoxToolbar.show { transform:translateX(0) scale(.67); opacity:1; pointer-events:auto; }
+  .textBoxToolbarRow select, .textBoxToolbarRow input[type="range"] { background:rgba(255,255,255,.92); border:none; border-radius:6px; padding:6px; font-size:13px; }
+  .textBoxToolbarRow input[type="color"] { border:none; border-radius:6px; width:36px; height:36px; padding:0; background:none; }
+  .tbIconBtn, #tbBold, #tbItalic, #tbUnderline, #tbEditText { width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:#1a6363; color:#fff; border:none; border-radius:8px; cursor:pointer; padding:0; }
+  #tbEditText { width:auto; flex:1; padding:0 10px; font-size:13px; font-weight:600; }
+  .tbIconBtn.active, #tbBold.active, #tbItalic.active, #tbUnderline.active { background:#ffcc00; color:#111; }
   .textBoxToolbarRow { display:flex; gap:6px; align-items:center; }
   .textBoxToolbarRow select, .textBoxToolbarRow input[type=range] { flex:1; min-width:0; padding:5px 6px; border-radius:6px; border:1.5px solid #d5dede; font-size:12px; }
   .textBoxToolbarRow input[type=color] { width:32px; height:30px; padding:2px; border-radius:6px; border:1.5px solid #d5dede; flex-shrink:0; }
@@ -193,6 +198,8 @@
   .drawing.selected, .drawing.selected * { stroke:#ffcc00 !important; stroke-width:3 !important; }
   .drawing[data-kind="textbox"].selected text, .drawing[data-kind="textbox"].selected tspan { stroke:none !important; }
   .drawing[data-kind="textbox"].selected .textBoxBg { stroke:#ffcc00 !important; stroke-width:.06 !important; fill:rgba(255,204,0,.12) !important; }
+  .textBoxResizeHandle { fill:#fff; stroke:#ffcc00 !important; stroke-width:.05 !important; opacity:0; pointer-events:none; cursor:ew-resize; }
+  .drawing[data-kind="textbox"].selected .textBoxResizeHandle { opacity:1; pointer-events:all; }
   .drawing { cursor:move; }
   .player:active { cursor:grabbing; }
   .playerBody { position:relative; transform:rotate(var(--rot,0deg)); transform-origin:center center; }
@@ -652,6 +659,8 @@
   #multiDeleteBtn:hover { background:#c62828; }
   #directionPad { position:fixed; right:10px; bottom:10px; z-index:1540; width:170px; height:170px; border-radius:50%; background:radial-gradient(circle, rgba(10,40,40,.92) 60%, rgba(10,40,40,.75) 100%); box-shadow:0 4px 16px rgba(0,0,0,.35); display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:4px; padding:10px; transform:translateX(160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #directionPad.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
+  #textBoxDirectionPad { position:fixed; right:10px; bottom:10px; z-index:1540; width:170px; height:170px; border-radius:50%; background:radial-gradient(circle, rgba(10,40,40,.92) 60%, rgba(10,40,40,.75) 100%); box-shadow:0 4px 16px rgba(0,0,0,.35); display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:4px; padding:10px; transform:translateX(160px); opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
+  #textBoxDirectionPad.visible { transform:translateX(0); opacity:1; pointer-events:auto; }
   .dpadBtn { background:rgba(18,77,77,.92); color:#fff; border:none; font-size:22px; display:flex; align-items:center; justify-content:center; touch-action:none; }
   .dpadBtn:active { background:#0d3838; }
   #dpadUpBtn { grid-column:2; grid-row:1; border-radius:10px 10px 0 0; }
@@ -1500,6 +1509,17 @@
   <button id="dpadDownBtn" class="dpadBtn" title="Move down">&#9660;</button>
   <button id="dpadDriveRightBtn" class="dpadBtn dpadCornerBtn" title="Drive to the right post at the 2m line (goalie's perspective)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20L6 6M6 6H14M6 6V14"/></svg></button>
 </div>
+<div id="textBoxDirectionPad">
+  <div></div>
+  <button id="tbDpadUpBtn" class="dpadBtn" title="Move up">&#9650;</button>
+  <div></div>
+  <button id="tbDpadLeftBtn" class="dpadBtn" title="Move left">&#9664;</button>
+  <button id="tbDpadEditBtn" class="dpadBtn" title="Edit text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+  <button id="tbDpadRightBtn" class="dpadBtn" title="Move right">&#9654;</button>
+  <div></div>
+  <button id="tbDpadDownBtn" class="dpadBtn" title="Move down">&#9660;</button>
+  <div></div>
+</div>
 <div id="quickCommandBar">
   <span id="quickCommandBarHandle" title="Drag to move this bar anywhere on screen">&#9776;</span>
   <div id="quickCommandBarInner"></div>
@@ -1524,10 +1544,8 @@
       <option value="'Courier New', monospace">Courier</option>
       <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
     </select>
-    <select id="tbOrientation" title="Orientation">
-      <option value="horizontal">Horizontal</option>
-      <option value="vertical">Vertical</option>
-    </select>
+    <button type="button" id="tbTurnLeft" class="tbIconBtn" title="Turn text left 90&deg;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg></button>
+    <button type="button" id="tbTurnRight" class="tbIconBtn" title="Turn text right 90&deg;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></button>
   </div>
   <div class="textBoxToolbarRow">
     <input type="range" id="tbFontSize" min="0.2" max="1.5" step="0.05" title="Size">
@@ -3425,6 +3443,7 @@ function updateHistoryUI(){
 }
 const selected = new Set();
 let playerActionBarTarget=null;
+let textBoxDpadTarget = null;
 const initial = [
   ['B1','blue',6.5,6,'v',0],['B2','blue',7.7,9.5,'h',90],['B3','blue',10,12,'v',0],['B4','blue',7.7,14.5,'h',90],['B5','blue',6.5,18,'h',90],['B6','blue',11.5,16,'v',0],['BG','goalie',3.2,12,'v',90],
   ['W1','white',22.5,6,'v',0],['W2','white',21.3,9.5,'h',270],['W3','white',19,12,'v',0],['W4','white',21.3,14.5,'h',270],['W5','white',22.5,18,'h',270],['W6','white',17.5,16,'v',0],['WG','goalie',25.8,12,'v',270]
@@ -3470,6 +3489,25 @@ function pxToM(e) {
   if(frontCourtActive) return { x: FC_CROPX1 - FC_FULL_MIN_Y - fy*FC_FULL_HEIGHT, y: fx*M.fieldH + M.fieldY };
   if(presentationFieldWidened) return { x: fx*PRESENT_VIEWBOX_W - PRESENT_SHIFT_X, y: fy*PRESENT_VIEWBOX_H - PRESENT_SHIFT_Y };
   return { x: fx*M.W, y: fy*M.H };
+}
+// Inverse of pxToM -- converts a field-meter position to on-screen client
+// coordinates, for positioning the HTML text-edit overlay over an SVG
+// element (which can't otherwise inherit the board's own viewBox math).
+function mToScreenPx(x, y){
+  const r=rect();
+  let fx, fy;
+  if(frontCourtActive){ fy=(FC_CROPX1-FC_FULL_MIN_Y-x)/FC_FULL_HEIGHT; fx=(y-M.fieldY)/M.fieldH; }
+  else if(presentationFieldWidened){ fx=(x+PRESENT_SHIFT_X)/PRESENT_VIEWBOX_W; fy=(y+PRESENT_SHIFT_Y)/PRESENT_VIEWBOX_H; }
+  else { fx=x/M.W; fy=y/M.H; }
+  return { clientX: r.left+fx*r.width, clientY: r.top+fy*r.height };
+}
+// Rotates a vector by deg degrees -- used to translate a pointer-movement
+// delta into a rotated text box's own local coordinate space, so the
+// resize handle drags correctly regardless of the box's current turn.
+function rotatePoint(x, y, deg){
+  const rad = deg*Math.PI/180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  return { x: x*cos - y*sin, y: x*sin + y*cos };
 }
 function meterPxX(m) { return rect().width / (frontCourtActive ? M.fieldH : (presentationFieldWidened ? PRESENT_VIEWBOX_W : M.W)) * m; }
 function meterPxY(m) { return rect().height / (frontCourtActive ? FC_FULL_HEIGHT : (presentationFieldWidened ? PRESENT_VIEWBOX_H : M.H)) * m; }
@@ -3547,6 +3585,10 @@ function getDrawingTranslate(el){
   return m ? { x:parseFloat(m[1]), y:parseFloat(m[2]) } : { x:0, y:0 };
 }
 function setDrawingTranslate(el, x, y){ el.setAttribute('transform', `translate(${x},${y})`); }
+function getDrawingTranslate(el){
+  const m = (el.getAttribute('transform')||'').match(/translate\(([-\d.]+),([-\d.]+)\)/);
+  return m ? {x:+m[1], y:+m[2]} : {x:0, y:0};
+}
 function isDrawingEl(el){ return el.classList && el.classList.contains('drawing'); }
 function isLockedForDrag(el){
   if(!el) return false;
@@ -3897,7 +3939,9 @@ function drawHighlight(x1,y1,x2,y2,preview=false) {
   c.classList.add('highlightShape','drawing'); c.dataset.id=genObjectId(); c.dataset.kind='highlight';
   c.setAttribute('cx',(x1+x2)/2); c.setAttribute('cy',(y1+y2)/2); c.setAttribute('rx',Math.abs(x2-x1)/2); c.setAttribute('ry',Math.abs(y2-y1)/2); c.style.opacity=preview?'.55':'1'; arrowsGroup.appendChild(c); return c;
 }
-const TEXTBOX_DEFAULTS = { fontFamily:'Arial, sans-serif', fontSize:0.5, textAlign:'left', color:'#1a1a1a', bold:false, italic:false, underline:false, orientation:'horizontal', maxWidth:3 };
+const TEXTBOX_DEFAULTS = { fontFamily:'Arial, sans-serif', fontSize:0.5, textAlign:'left', color:'#1a1a1a', bold:false, italic:false, underline:false, rotation:0, maxWidth:3 };
+let textBoxResizing = null; // {el, startMaxWidth, startField:{x,y}, rotation} -- set on the resize handle's own pointerdown, consumed by the shared document-level pointermove/pointerup below.
+let textBoxDragStart = null, textBoxDragPreview = null; // drag-to-create state, mirroring the startArrow/measureStart pattern used by the other drawing tools.
 // SVG has no native text wrapping -- estimates characters-per-line from an
 // average glyph-width ratio (a common approximation for sans-serif fonts)
 // rather than measuring real glyphs, which would need the element already
@@ -3934,7 +3978,8 @@ function renderTextBoxVisual(g, opts){
   const lines = wrapTextForBox(opts.text, opts.fontSize, opts.maxWidth);
   const lineHeight = opts.fontSize*1.3;
   const anchor = opts.textAlign==='center' ? 'middle' : (opts.textAlign==='right' ? 'end' : 'start');
-  const rotationTransform = opts.orientation==='vertical' ? 'rotate(-90)' : '';
+  const rot = ((opts.rotation||0)%360+360)%360;
+  const rotationTransform = rot ? 'rotate(-'+rot+')' : '';
 
   const bgRect = document.createElementNS('http://www.w3.org/2000/svg','rect');
   bgRect.classList.add('textBoxBg');
@@ -3994,9 +4039,25 @@ function renderTextBoxVisual(g, opts){
   bgRect.setAttribute('height', Math.max((lines.length-1)*lineHeight + opts.fontSize*1.1 + pad*2, opts.fontSize));
   const rectWidth = Math.max(maxLineWidth + pad*2, opts.fontSize);
   bgRect.setAttribute('width', rectWidth);
-  if(anchor==='middle') bgRect.setAttribute('x', -rectWidth/2);
-  else if(anchor==='end') bgRect.setAttribute('x', -rectWidth+pad);
-  else bgRect.setAttribute('x', -pad);
+  let rectX;
+  if(anchor==='middle') rectX = -rectWidth/2;
+  else if(anchor==='end') rectX = -rectWidth+pad;
+  else rectX = -pad;
+  bgRect.setAttribute('x', rectX);
+
+  const handle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  handle.classList.add('textBoxResizeHandle');
+  handle.setAttribute('r', opts.fontSize*0.22);
+  handle.setAttribute('cx', rectX+rectWidth);
+  handle.setAttribute('cy', +bgRect.getAttribute('y') + (+bgRect.getAttribute('height'))/2);
+  handle.addEventListener('pointerdown', e=>{
+    recordHistory('Resize Text Box');
+    textBoxResizing = { el:g, startMaxWidth:opts.maxWidth, startField:pxToM(e), rotation:rot };
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  if(rotationTransform) handle.setAttribute('transform', rotationTransform);
+  g.appendChild(handle);
 }
 function drawTextBox(x, y, opts){
   const g=document.createElementNS('http://www.w3.org/2000/svg','g');
@@ -4004,7 +4065,7 @@ function drawTextBox(x, y, opts){
   g.dataset.text=opts.text; g.dataset.fontFamily=opts.fontFamily; g.dataset.fontSize=opts.fontSize;
   g.dataset.textAlign=opts.textAlign; g.dataset.color=opts.color; g.dataset.bold=opts.bold?'true':'false';
   g.dataset.italic=opts.italic?'true':'false'; g.dataset.underline=opts.underline?'true':'false';
-  g.dataset.orientation=opts.orientation; g.dataset.maxWidth=opts.maxWidth;
+  g.dataset.rotation=opts.rotation||0; g.dataset.maxWidth=opts.maxWidth;
   renderTextBoxVisual(g, opts);
   arrowsGroup.appendChild(g);
   setDrawingTranslate(g, x, y);
@@ -4015,7 +4076,7 @@ function textBoxOptsFromEl(g){
     text: g.dataset.text||'', fontFamily: g.dataset.fontFamily||TEXTBOX_DEFAULTS.fontFamily,
     fontSize: +g.dataset.fontSize||TEXTBOX_DEFAULTS.fontSize, textAlign: g.dataset.textAlign||TEXTBOX_DEFAULTS.textAlign,
     color: g.dataset.color||TEXTBOX_DEFAULTS.color, bold: g.dataset.bold==='true', italic: g.dataset.italic==='true',
-    underline: g.dataset.underline==='true', orientation: g.dataset.orientation||TEXTBOX_DEFAULTS.orientation,
+    underline: g.dataset.underline==='true', rotation: +g.dataset.rotation||0,
     maxWidth: +g.dataset.maxWidth||TEXTBOX_DEFAULTS.maxWidth,
   };
 }
@@ -4030,11 +4091,10 @@ function updateTextBoxToolbar(){
   const toolbar = document.getElementById('textBoxToolbar');
   if(!toolbar) return;
   const sel = [...selected].filter(el=>el.dataset && el.dataset.kind==='textbox');
-  if(sel.length !== 1){ toolbar.classList.remove('show'); toolbar._activeTextBox=null; return; }
+  if(sel.length !== 1){ toolbar.classList.remove('show'); toolbar._activeTextBox=null; textBoxDpadTarget=null; updateTextBoxDirectionPad(); return; }
   const g = sel[0];
   const opts = textBoxOptsFromEl(g);
   document.getElementById('tbFontFamily').value = opts.fontFamily;
-  document.getElementById('tbOrientation').value = opts.orientation;
   document.getElementById('tbFontSize').value = opts.fontSize;
   document.getElementById('tbAlign').value = opts.textAlign;
   document.getElementById('tbColor').value = opts.color;
@@ -4043,15 +4103,69 @@ function updateTextBoxToolbar(){
   document.getElementById('tbUnderline').classList.toggle('active', opts.underline);
   toolbar.classList.add('show');
   toolbar._activeTextBox = g;
+  textBoxDpadTarget = g;
+  updateTextBoxDirectionPad();
 }
 function currentTextBoxTarget(){ return document.getElementById('textBoxToolbar')?._activeTextBox || null; }
+let textBoxEditOverlay = null, textBoxEditTarget = null;
+function openTextBoxEditor(g){
+  closeTextBoxEditor();
+  const opts = textBoxOptsFromEl(g);
+  const pos = getDrawingTranslate(g);
+  const screenPos = mToScreenPx(pos.x, pos.y);
+  const widthPx = Math.max(80, meterPxX(opts.maxWidth));
+  const ta = document.createElement('textarea');
+  ta.id = 'textBoxEditOverlay';
+  ta.value = opts.text;
+  ta.placeholder = 'Type here\u2026';
+  let left = screenPos.clientX;
+  if(opts.textAlign==='center') left -= widthPx/2;
+  else if(opts.textAlign==='right') left -= widthPx;
+  ta.style.cssText = `position:fixed; left:${left}px; top:${screenPos.clientY - Math.max(20,meterPxY(opts.fontSize*0.8))}px; width:${widthPx}px; min-height:${Math.max(40,meterPxY(opts.fontSize*1.3))}px; z-index:1600; font-family:${opts.fontFamily}; font-size:${Math.max(14,meterPxY(opts.fontSize))}px; color:${opts.color}; font-weight:${opts.bold?'700':'400'}; font-style:${opts.italic?'italic':'normal'}; text-align:${opts.textAlign}; border:2px solid #ffcc00; border-radius:4px; padding:4px; resize:none; overflow:hidden; background:rgba(255,255,255,.97); box-shadow:0 4px 16px rgba(0,0,0,.25);`;
+  document.body.appendChild(ta);
+  textBoxEditOverlay = ta; textBoxEditTarget = g;
+  ta.focus(); ta.select();
+  const liveUpdate = ()=>{
+    updateTextBoxEl(g, {text: ta.value});
+    ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px';
+  };
+  ta.addEventListener('input', liveUpdate);
+  ta.addEventListener('blur', ()=>{
+    setTimeout(()=>{
+      const active = document.activeElement;
+      if(active && active.closest && active.closest('#textBoxToolbar')) return; // formatting control clicked -- keep editor open rather than ending the session
+      closeTextBoxEditor();
+    }, 0);
+  });
+  ta.addEventListener('keydown', e=>{
+    if(e.key==='Escape'){ e.preventDefault(); closeTextBoxEditor(); }
+    e.stopPropagation(); // typing letters like 't' shouldn't also trigger board keyboard shortcuts
+  });
+  liveUpdate();
+}
+function closeTextBoxEditor(){
+  if(!textBoxEditOverlay) return;
+  const g = textBoxEditTarget;
+  textBoxEditOverlay.remove();
+  textBoxEditOverlay = null; textBoxEditTarget = null;
+  if(g && !(g.dataset.text||'').trim()){
+    g.remove();
+    clearSelection();
+  }
+}
 document.getElementById('tbFontFamily')?.addEventListener('change', e=>{
   const g=currentTextBoxTarget(); if(!g) return;
   recordHistory('Text Box Format'); updateTextBoxEl(g, {fontFamily:e.target.value});
 });
-document.getElementById('tbOrientation')?.addEventListener('change', e=>{
+document.getElementById('tbTurnLeft')?.addEventListener('click', ()=>{
   const g=currentTextBoxTarget(); if(!g) return;
-  recordHistory('Text Box Format'); updateTextBoxEl(g, {orientation:e.target.value});
+  recordHistory('Text Box Format');
+  updateTextBoxEl(g, {rotation: (((+g.dataset.rotation||0)-90)%360+360)%360});
+});
+document.getElementById('tbTurnRight')?.addEventListener('click', ()=>{
+  const g=currentTextBoxTarget(); if(!g) return;
+  recordHistory('Text Box Format');
+  updateTextBoxEl(g, {rotation: (((+g.dataset.rotation||0)+90)%360+360)%360});
 });
 document.getElementById('tbAlign')?.addEventListener('change', e=>{
   const g=currentTextBoxTarget(); if(!g) return;
@@ -4090,12 +4204,10 @@ document.getElementById('tbColor')?.addEventListener('input', e=>{
   if(!tbColorHistoryRecorded){ recordHistory('Text Box Format'); tbColorHistoryRecorded=true; }
   updateTextBoxEl(g, {color:e.target.value});
 });
-document.getElementById('tbEditText')?.addEventListener('click', async ()=>{
+document.getElementById('tbEditText')?.addEventListener('click', ()=>{
   const g=currentTextBoxTarget(); if(!g) return;
-  const newText = await MizeDialog.prompt('Text box content:', g.dataset.text||'');
-  if(!newText) return;
   recordHistory('Edit Text Box');
-  updateTextBoxEl(g, {text:newText});
+  openTextBoxEditor(g);
 });
 function drawNote(x,y,text) {
   const t=document.createElementNS('http://www.w3.org/2000/svg','text'); t.classList.add('noteLabel','drawing'); t.dataset.id=genObjectId(); t.dataset.kind='note'; t.dataset.text=text;
@@ -4224,7 +4336,17 @@ document.addEventListener('pointermove', e=>{
   if(measureStart && previewLine) { const p=pxToM(e); updateMeasure(previewLine, measureStart.x, measureStart.y, p.x, p.y); }
   if(freehandPoints && freehandPath) { const p=pxToM(e); freehandPoints.push({x:p.x,y:p.y}); freehandPath.setAttribute('d', pointsToPath(freehandPoints)); if(freehandPressures){ freehandPressures.push(e.pressure); freehandPath.setAttribute('stroke-width', penPressureToStrokeWidth(e.pressure)); } }
   if(selectingBox) updateSelectionBox(e);
+  if(textBoxDragStart && textBoxDragPreview){ const p=pxToM(e); textBoxDragPreview.setAttribute('width', Math.max(0, p.x-textBoxDragStart.x)); }
 });
+document.addEventListener('pointermove', e=>{
+  if(!textBoxResizing) return;
+  const p = pxToM(e);
+  const deltaField = { x: p.x-textBoxResizing.startField.x, y: p.y-textBoxResizing.startField.y };
+  const deltaLocal = rotatePoint(deltaField.x, deltaField.y, textBoxResizing.rotation);
+  const newMaxWidth = Math.max(0.5, Math.min(15, textBoxResizing.startMaxWidth + deltaLocal.x));
+  updateTextBoxEl(textBoxResizing.el, {maxWidth:newMaxWidth});
+});
+document.addEventListener('pointerup', ()=>{ textBoxResizing=null; });
 document.addEventListener('pointerup', e=>{
   releaseTouchFromPlayer(e.pointerId);
   if(rightDragRotating){
@@ -4251,9 +4373,20 @@ board.addEventListener('pointerdown', e=>{
   if(mode==='measure') { const p=pxToM(e); measureStart={x:p.x,y:p.y}; previewLine=drawMeasure(p.x,p.y,p.x,p.y,true); board.setPointerCapture(e.pointerId); e.preventDefault(); }
   if(mode==='freeDraw') { const p=pxToM(e); freehandPoints=[{x:p.x,y:p.y}]; freehandPressures=(e.pointerType==='pen')?[e.pressure]:null; freehandPath=drawFreehand(freehandPoints,true); board.setPointerCapture(e.pointerId); e.preventDefault(); }
   if(mode==='note') { const p=pxToM(e); MizeDialog.prompt('Field note:').then(txt=>{ if(txt) { recordHistory(); drawNote(p.x,p.y,txt); } setMode('select'); }); }
-  if(mode==='textBox') { const p=pxToM(e); MizeDialog.prompt('Text box content:').then(txt=>{ if(txt) { recordHistory(); const g=drawTextBox(p.x,p.y,{...TEXTBOX_DEFAULTS, text:txt}); clearSelection(); setSelected(g,true); } setMode('select'); }); }
+  if(mode==='textBox') {
+    const p=pxToM(e);
+    textBoxDragStart = {x:p.x, y:p.y};
+    textBoxDragPreview = document.createElementNS('http://www.w3.org/2000/svg','rect');
+    textBoxDragPreview.setAttribute('x', p.x); textBoxDragPreview.setAttribute('y', p.y-0.3);
+    textBoxDragPreview.setAttribute('width', 0); textBoxDragPreview.setAttribute('height', 0.6);
+    textBoxDragPreview.setAttribute('fill', 'rgba(255,204,0,.15)');
+    textBoxDragPreview.setAttribute('stroke', '#ffcc00'); textBoxDragPreview.setAttribute('stroke-width', 0.04);
+    textBoxDragPreview.setAttribute('stroke-dasharray', '.12,.08');
+    arrowsGroup.appendChild(textBoxDragPreview);
+    board.setPointerCapture(e.pointerId); e.preventDefault();
+  }
 });
-board.addEventListener('pointerup', e=>{ if(startArrow && previewLine) { const p=pxToM(e); previewLine.remove(); if(Math.hypot(p.x-startArrow.x,p.y-startArrow.y)>.15) { recordHistory(); if(startArrow.type==='highlight') drawHighlight(startArrow.x,startArrow.y,p.x,p.y,false); else drawLine(startArrow.x,startArrow.y,p.x,p.y,startArrow.type,false); } startArrow=null; previewLine=null; } if(measureStart && previewLine) { const p=pxToM(e); previewLine.remove(); if(Math.hypot(p.x-measureStart.x,p.y-measureStart.y)>.15) { recordHistory(); drawMeasure(measureStart.x,measureStart.y,p.x,p.y,false); } measureStart=null; previewLine=null; } if(freehandPoints && freehandPath) { freehandPath.remove(); if(freehandPoints.length>1) { recordHistory('Free Draw'); const finalWidth=(freehandPressures && freehandPressures.length) ? penPressureToStrokeWidth(freehandPressures.reduce((a,b)=>a+b,0)/freehandPressures.length) : 0.08; drawFreehand(freehandPoints,false,finalWidth); } freehandPoints=null; freehandPath=null; freehandPressures=null; } });
+board.addEventListener('pointerup', e=>{ if(startArrow && previewLine) { const p=pxToM(e); previewLine.remove(); if(Math.hypot(p.x-startArrow.x,p.y-startArrow.y)>.15) { recordHistory(); if(startArrow.type==='highlight') drawHighlight(startArrow.x,startArrow.y,p.x,p.y,false); else drawLine(startArrow.x,startArrow.y,p.x,p.y,startArrow.type,false); } startArrow=null; previewLine=null; } if(measureStart && previewLine) { const p=pxToM(e); previewLine.remove(); if(Math.hypot(p.x-measureStart.x,p.y-measureStart.y)>.15) { recordHistory(); drawMeasure(measureStart.x,measureStart.y,p.x,p.y,false); } measureStart=null; previewLine=null; } if(freehandPoints && freehandPath) { freehandPath.remove(); if(freehandPoints.length>1) { recordHistory('Free Draw'); const finalWidth=(freehandPressures && freehandPressures.length) ? penPressureToStrokeWidth(freehandPressures.reduce((a,b)=>a+b,0)/freehandPressures.length) : 0.08; drawFreehand(freehandPoints,false,finalWidth); } freehandPoints=null; freehandPath=null; freehandPressures=null; } if(textBoxDragStart){ const p=pxToM(e); const dragWidth=p.x-textBoxDragStart.x; textBoxDragPreview?.remove(); recordHistory(); let maxWidth,x,y; if(Math.abs(dragWidth)<0.3){ maxWidth=TEXTBOX_DEFAULTS.maxWidth; x=textBoxDragStart.x; y=textBoxDragStart.y; } else { maxWidth=Math.max(0.5,Math.abs(dragWidth)); x=Math.min(textBoxDragStart.x,p.x); y=textBoxDragStart.y; } const g=drawTextBox(x,y,{...TEXTBOX_DEFAULTS, text:'', maxWidth}); clearSelection(); setSelected(g,true); openTextBoxEditor(g); textBoxDragStart=null; textBoxDragPreview=null; setMode('select'); } });
 arrows.addEventListener('click', e=>{
   const el=e.target.closest('.drawing');
   if(!el) return;
@@ -4300,7 +4433,7 @@ function getState() {
       else if(d.dataset.kind==='highlight') base={kind:'highlight',cx:+d.getAttribute('cx'),cy:+d.getAttribute('cy'),rx:+d.getAttribute('rx'),ry:+d.getAttribute('ry')};
       else if(d.dataset.kind==='measure') { const l=d.querySelector('line'); base={kind:'measure',x1:+l.getAttribute('x1'),y1:+l.getAttribute('y1'),x2:+l.getAttribute('x2'),y2:+l.getAttribute('y2')}; }
       else if(d.dataset.kind==='freehand') base={kind:'freehand',path:d.getAttribute('d'),strokeWidth:+d.dataset.strokeWidth||0.08,strokeColor:d.dataset.strokeColor||'#1a1a1a'};
-      else if(d.dataset.kind==='textbox') base={kind:'textbox', text:d.dataset.text||'', fontFamily:d.dataset.fontFamily||TEXTBOX_DEFAULTS.fontFamily, fontSize:+d.dataset.fontSize||TEXTBOX_DEFAULTS.fontSize, textAlign:d.dataset.textAlign||TEXTBOX_DEFAULTS.textAlign, color:d.dataset.color||TEXTBOX_DEFAULTS.color, bold:d.dataset.bold==='true', italic:d.dataset.italic==='true', underline:d.dataset.underline==='true', orientation:d.dataset.orientation||TEXTBOX_DEFAULTS.orientation, maxWidth:+d.dataset.maxWidth||TEXTBOX_DEFAULTS.maxWidth};
+      else if(d.dataset.kind==='textbox') base={kind:'textbox', text:d.dataset.text||'', fontFamily:d.dataset.fontFamily||TEXTBOX_DEFAULTS.fontFamily, fontSize:+d.dataset.fontSize||TEXTBOX_DEFAULTS.fontSize, textAlign:d.dataset.textAlign||TEXTBOX_DEFAULTS.textAlign, color:d.dataset.color||TEXTBOX_DEFAULTS.color, bold:d.dataset.bold==='true', italic:d.dataset.italic==='true', underline:d.dataset.underline==='true', rotation:+d.dataset.rotation||0, maxWidth:+d.dataset.maxWidth||TEXTBOX_DEFAULTS.maxWidth};
       else base={kind:'note',x:+d.getAttribute('x'),y:+d.getAttribute('y'),text:d.dataset.text||d.textContent||''};
       base.tx=t.x; base.ty=t.y;
       base.locked=d.dataset.locked==='true'; base.hidden=d.dataset.hidden==='true';
@@ -4333,7 +4466,7 @@ function loadState(st) {
     else if(d.kind==='highlight') el=drawHighlight(d.cx-d.rx,d.cy-d.ry,d.cx+d.rx,d.cy+d.ry,false);
     else if(d.kind==='measure') el=drawMeasure(d.x1,d.y1,d.x2,d.y2,false);
     else if(d.kind==='freehand') { el=document.createElementNS('http://www.w3.org/2000/svg','path'); el.classList.add('drawing'); el.dataset.id=genObjectId(); el.dataset.kind='freehand'; const _sw=d.strokeWidth||0.08; const _sc=d.strokeColor||'#1a1a1a'; el.dataset.strokeWidth=_sw; el.dataset.strokeColor=_sc; el.setAttribute('d',d.path); el.setAttribute('fill','none'); el.setAttribute('stroke',_sc); el.setAttribute('stroke-width',_sw); el.setAttribute('stroke-linecap','round'); el.setAttribute('stroke-linejoin','round'); arrowsGroup.appendChild(el); }
-    else if(d.kind==='textbox') el=drawTextBox(0,0,{text:d.text||'', fontFamily:d.fontFamily||TEXTBOX_DEFAULTS.fontFamily, fontSize:d.fontSize||TEXTBOX_DEFAULTS.fontSize, textAlign:d.textAlign||TEXTBOX_DEFAULTS.textAlign, color:d.color||TEXTBOX_DEFAULTS.color, bold:!!d.bold, italic:!!d.italic, underline:!!d.underline, orientation:d.orientation||TEXTBOX_DEFAULTS.orientation, maxWidth:d.maxWidth||TEXTBOX_DEFAULTS.maxWidth});
+    else if(d.kind==='textbox') el=drawTextBox(0,0,{text:d.text||'', fontFamily:d.fontFamily||TEXTBOX_DEFAULTS.fontFamily, fontSize:d.fontSize||TEXTBOX_DEFAULTS.fontSize, textAlign:d.textAlign||TEXTBOX_DEFAULTS.textAlign, color:d.color||TEXTBOX_DEFAULTS.color, bold:!!d.bold, italic:!!d.italic, underline:!!d.underline, rotation: d.rotation!=null ? d.rotation : (d.orientation==='vertical' ? 90 : 0), maxWidth:d.maxWidth||TEXTBOX_DEFAULTS.maxWidth});
     else el=drawNote(d.x,d.y,d.text||'Note');
     if(!el) return;
     if(d.tx||d.ty) setDrawingTranslate(el, d.tx||0, d.ty||0);
@@ -5665,6 +5798,11 @@ document.addEventListener('keydown', e=>{
       const step=e.shiftKey ? 0.3 : 0.05;
       startOrContinueNudgeHistory();
       items.forEach(el=>{
+        if(el.dataset && el.dataset.kind==='textbox'){
+          const cur=getDrawingTranslate(el);
+          setDrawingTranslate(el, cur.x+arrowDir.dx*step, cur.y+arrowDir.dy*step);
+          return;
+        }
         el.dataset.x=clamp((+el.dataset.x)+arrowDir.dx*step, 0.1, M.W-.1);
         el.dataset.y=clamp((+el.dataset.y)+arrowDir.dy*step, 0.1, M.H-.1);
         maybeAutoFace(el);
@@ -8616,7 +8754,7 @@ function updatePlayerActionBar(){
   const bar=document.getElementById('playerActionBar');
   if(!bar) return;
   const only=singleSelection();
-  if(only && !isAnyBall(only)){
+  if(only && !isAnyBall(only) && !(only.dataset && only.dataset.kind==='textbox')){
     playerActionBarTarget=only;
     bar.classList.add('visible');
   } else {
@@ -8721,6 +8859,43 @@ wireDpadButton('dpadUpBtn', 'up');
 wireDpadButton('dpadDownBtn', 'down');
 wireDpadButton('dpadLeftBtn', 'left');
 wireDpadButton('dpadRightBtn', 'right');
+function updateTextBoxDirectionPad(){
+  const pad=document.getElementById('textBoxDirectionPad');
+  if(!pad) return;
+  if(textBoxDpadTarget && isTouchDevice()) pad.classList.add('visible');
+  else pad.classList.remove('visible');
+}
+let tbDpadInterval=null;
+function nudgeTextBoxDpadTarget(dx, dy){
+  const el = textBoxDpadTarget;
+  if(!el) return;
+  const cur = getDrawingTranslate(el);
+  setDrawingTranslate(el, cur.x+dx, cur.y+dy);
+}
+function startTextBoxDpadRepeat(direction){
+  if(!textBoxDpadTarget) return;
+  recordHistory('Move Text Box (Direction Pad)');
+  const tick=()=>{ const [dx,dy]=resolveDpadDelta(direction); nudgeTextBoxDpadTarget(dx,dy); };
+  tick();
+  clearInterval(tbDpadInterval);
+  tbDpadInterval = setInterval(tick, DPAD_REPEAT_MS);
+}
+function stopTextBoxDpadRepeat(){ clearInterval(tbDpadInterval); tbDpadInterval=null; }
+function wireTextBoxDpadButton(id, direction){
+  const btn=document.getElementById(id);
+  if(!btn) return;
+  btn.addEventListener('pointerdown', e=>{ e.preventDefault(); startTextBoxDpadRepeat(direction); });
+  btn.addEventListener('pointerup', stopTextBoxDpadRepeat);
+  btn.addEventListener('pointerleave', stopTextBoxDpadRepeat);
+  btn.addEventListener('pointercancel', stopTextBoxDpadRepeat);
+}
+wireTextBoxDpadButton('tbDpadUpBtn', 'up');
+wireTextBoxDpadButton('tbDpadDownBtn', 'down');
+wireTextBoxDpadButton('tbDpadLeftBtn', 'left');
+wireTextBoxDpadButton('tbDpadRightBtn', 'right');
+document.getElementById('tbDpadEditBtn')?.addEventListener('click', ()=>{
+  if(textBoxDpadTarget) openTextBoxEditor(textBoxDpadTarget);
+});
 // Jump to the next player on the same team (dataset.team match -- goalies
 // cycle only with other goalies, not with their color's field players),
 // ordered by ascending cap number. Non-numeric labels (shouldn't normally
