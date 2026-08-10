@@ -73,6 +73,7 @@
   body.guestExperienceActive #saveFormationBtn,
   body.guestExperienceActive #savePackageBtn { display:none !important; }
   #quickCommandBar { position:fixed; top:12px; right:12px; z-index:70; background:rgba(255,255,255,.96); border:1px solid #c3d2d2; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.2); display:flex; align-items:center; gap:4px; padding:6px 8px; transition:opacity .2s ease; }
+  body.presentation.qcbHiddenForScreen #quickCommandBar, body.presentation.qcbHiddenForScreen #showQuickCommandBarTab { display:none !important; }
   #quickCommandBar { z-index:1520; top:12px; left:50%; right:auto; transform:translateX(-50%); }
   #quickCommandBar.qcbFaded { opacity:0; pointer-events:none; }
   #quickCommandBarHandle { cursor:grab; padding:6px 8px; margin:-6px 2px -6px -8px; background:#124d4d; color:#fff; border-radius:8px 0 0 8px; touch-action:none; display:flex; align-items:center; justify-content:center; align-self:stretch; }
@@ -3631,7 +3632,7 @@ function startGroupDrag(anchor,e) {
   if(!items.length) return;
   recordHistory();
   const p=pxToM(e);
-  dragging={ group:items.map(el=>{
+  dragging={ anchor, group:items.map(el=>{
     if(isDrawingEl(el)){
       const t=getDrawingTranslate(el);
       return { el, isDrawing:true, startTx:t.x, startTy:t.y, startPx:p.x, startPy:p.y };
@@ -3748,11 +3749,6 @@ function makeExtraBall(x, y, id){
     if(mode!=='select' && mode!=='ball') return;
     if(isCmd(e)) { toggleSelected(el); moved=false; e.preventDefault(); return; }
     startGroupDrag(el,e); el.setPointerCapture(e.pointerId); e.preventDefault();
-  });
-  el.addEventListener('click', e=>{
-    if(layerState.lockBall || el.dataset.locked==='true') return;
-    if(moved || mode!=='select' || isCmd(e)) return;
-    if(!selected.has(el)){ clearSelection(); setSelected(el,true); }
   });
   attachLongPress(el, ()=>el);
   return el;
@@ -4442,14 +4438,19 @@ document.addEventListener('pointerup', e=>{
   if(rotating) rotating.classList.remove('rotating');
   if(selectingBox) finishSelectionBox(e);
   if(snapEnabled && dragging?.group) dragging.group.forEach(item=>applySnapToElement(item.el));
+  // A drag that ended without any actual movement was really just a plain
+  // click/tap on the anchor -- select it (matching how players already do
+  // this via their own click listener). Kept as its own reliable path
+  // rather than a click event specifically for the ball/extra balls, since
+  // relying on the browser's native click synthesis after
+  // setPointerCapture() is where the ball's selection was actually falling
+  // through on Safari, even though the drag itself worked fine.
+  if(dragging?.anchor && !moved && mode==='select' && !isCmd(e) && isAnyBall(dragging.anchor)){
+    if(!selected.has(dragging.anchor)){ clearSelection(); setSelected(dragging.anchor,true); }
+  }
   dragging=null; rotating=null; updateInspector();
 });
 ball.addEventListener('pointerdown', e=>{ if(layerState.lockBall || ball.dataset.locked==='true') return; if(mode!=='select' && mode!=='ball') return; if(isCmd(e)) { toggleSelected(ball); moved=false; e.preventDefault(); return; } startGroupDrag(ball,e); ball.setPointerCapture(e.pointerId); e.preventDefault(); });
-ball.addEventListener('click', e=>{
-  if(layerState.lockBall || ball.dataset.locked==='true') return;
-  if(moved || mode!=='select' || isCmd(e)) return;
-  if(!selected.has(ball)){ clearSelection(); setSelected(ball,true); }
-});
 ball.addEventListener('dragstart', e=>e.preventDefault());
 document.addEventListener('dragstart', e=>{ if(e.target.closest && (e.target===ball || e.target.closest('.player'))) e.preventDefault(); });
 attachLongPress(ball, ()=>ball);
@@ -5135,19 +5136,22 @@ function renderPresentationSubView(){
   else { clearStudioFrameContent('video'); presentationFrameHasContent.video=false; }
   if(step.text){ libRenderTextIntoStudioFrame(step); presentationFrameHasContent.stats=true; }
   else { clearStudioFrameContent('stats'); presentationFrameHasContent.stats=false; }
+  const remoteToggle = document.getElementById('timelineRemoteToggle');
   if(step.board){
     if(step.board.kind==='formation'){
       const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
       const rec=saved[step.board.refName];
       if(!rec){ MizeDialog.alert('Formation "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
       else loadState(formationRecordState(rec));
+      if(remoteToggle) remoteToggle.checked = false; // single frame -- nothing to play/navigate, so the remote stays hidden
     } else if(step.board.kind==='package'){
       const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
       const rec=packs[step.board.refName];
       if(!rec){ MizeDialog.alert('Package "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
-      else { frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0); }
+      else { frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0); if(remoteToggle) remoteToggle.checked = frames.length>1; }
     }
-  }
+  } else if(remoteToggle) remoteToggle.checked = false; // no board content this step at all
+  if(typeof updateTimelineRemoteVisibility==='function') updateTimelineRemoteVisibility();
   presentationFrameHasContent.board = true; // always available -- the live board can always be interacted with, regardless of whether this specific step pre-loaded a formation for it
   updateStudioFrameDots();
   navigateToBestAvailableStudioFrame(step);
@@ -5363,6 +5367,7 @@ function goToStudioFrame(index){
   const newIndex=Math.max(0,Math.min(2,index));
   const changed=newIndex!==studioFrameIndex;
   studioFrameIndex=newIndex;
+  document.body.classList.toggle('qcbHiddenForScreen', studioFrameIndex!==1);
   const track=document.getElementById('studioTrack');
   if(track){
     track.style.transform='translateX(-'+(studioFrameIndex*33.33333)+'%)';
@@ -5604,6 +5609,7 @@ function togglePresentation(mode){
     if(typeof updatePresentationPlaybackUI==='function') updatePresentationPlaybackUI();
   } else {
     body.classList.add('presentation');
+    body.classList.toggle('qcbHiddenForScreen', studioFrameIndex!==1);
     if(mode==='real') body.classList.add('presentation-real');
     // Mirror the exit path's cleanup: whatever editing UI happens to be
     // open at the moment of entry (sidebar, timeline, any tool panel like
@@ -10603,6 +10609,7 @@ function refreshFrontCourtScrollZones(){
     right.style.display='none';
   }
   updateSpotlightOverlayScrollGap();
+  updateFrontCourtScrollZoneNavGap();
 }
 // Carves the Front Court scroll strips out of the spotlight overlay's
 // hit-test region (and, incidentally, its darkened background) whenever
@@ -10624,6 +10631,40 @@ function updateSpotlightOverlayScrollGap(){
     overlay.style.clipPath=`inset(0 ${rightW}px 0 ${leftW}px)`;
   } else {
     overlay.style.clipPath='';
+  }
+}
+// The mirror-image problem to updateSpotlightOverlayScrollGap above: in
+// presentation mode, Front Court expands the board to near-full viewport
+// width (see fitBoardToScreen), which pushes these edge scroll strips
+// into the exact same screen region as the fixed-position studio nav
+// arrows (used to swing to the video/text screens). The strip's own
+// pointerdown handler calls setPointerCapture + preventDefault +
+// stopPropagation (see wireFrontCourtScrollZoneDrag below), which
+// swallows a tap intended for the arrow before it ever reaches it. Carves
+// a notch out of the strip at the arrow's vertical position using the
+// same clip-path "keyhole" technique: a single polygon path that traces
+// around a top rectangle and a bottom rectangle joined by a zero-width
+// seam down the strip's own left edge, leaving a real gap in between
+// where the arrow's tap can land directly on the strip's usual sibling
+// beneath it in stacking order.
+function updateFrontCourtScrollZoneNavGap(){
+  const left=document.getElementById('fcScrollZoneLeft');
+  const right=document.getElementById('fcScrollZoneRight');
+  if(!left || !right) return;
+  const inPresentation = document.body.classList.contains('presentation') || document.body.classList.contains('presentation-real');
+  const navBtn = document.getElementById('studioNavLeft'); // left/right arrows share the same vertical band
+  if(frontCourtActive && inPresentation && left.style.display==='block' && navBtn){
+    const btnRect = navBtn.getBoundingClientRect();
+    const zoneRect = left.getBoundingClientRect();
+    const pad = 14;
+    const nT = Math.max(0, btnRect.top - zoneRect.top - pad);
+    const nB = Math.min(zoneRect.height, btnRect.bottom - zoneRect.top + pad);
+    const notch = `polygon(0 0, 100% 0, 100% ${nT}px, 0 ${nT}px, 0 ${nB}px, 100% ${nB}px, 100% 100%, 0 100%)`;
+    left.style.clipPath = notch;
+    right.style.clipPath = notch;
+  } else {
+    left.style.clipPath = '';
+    right.style.clipPath = '';
   }
 }
 // Manually drives #stageWrap's scrollTop from pointer movement within a
@@ -13818,6 +13859,7 @@ function fitBoardToScreen(){
     });
     document.querySelectorAll('.player').forEach(place);
     placeBall();
+    refreshFrontCourtScrollZones();
     return;
   }
   const margin=20;
