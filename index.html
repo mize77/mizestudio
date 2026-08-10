@@ -478,6 +478,7 @@
   body.presentation #studioFrameDots { display:flex; }
   #studioFrameDots span { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.35); }
   #studioFrameDots span.active { background:#fff; }
+  #studioFrameDots span.empty { background:rgba(255,255,255,.12); }
   .edgeTab.active { background:#ffcf40; color:#20200a; }
   #spotlightOverlay { display:none; position:fixed; inset:0; z-index:1250; pointer-events:none; touch-action:none; --sx:50%; --sy:50%; --sr:150px; background:radial-gradient(circle at var(--sx) var(--sy), transparent 0, transparent var(--sr), rgba(0,0,0,.74) calc(var(--sr) + 55px), rgba(0,0,0,.74) 100%); }
   #spotlightOverlay.armed { display:block; pointer-events:auto; }
@@ -4790,23 +4791,61 @@ function switchPresentationSubView(){
   libRunPresentationSwing(fromView, toView);
 }
 document.getElementById('presentationSwitchViewBtn')?.addEventListener('click', switchPresentationSubView);
+let presentationFrameHasContent = {video:false, board:true, stats:false};
+function libRenderVideoIntoStudioFrame(step){
+  const embed = step.video.embed;
+  let el;
+  if(embed && (embed.kind==='youtube' || embed.kind==='vimeo')){
+    el = document.createElement('iframe');
+    el.src = embed.embedUrl;
+    el.allow = 'autoplay; fullscreen; picture-in-picture';
+    el.allowFullscreen = true;
+  } else if(embed && embed.kind==='file'){
+    el = document.createElement('video');
+    el.src = embed.embedUrl;
+    el.controls = true;
+  } else {
+    el = document.createElement('div');
+    el.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;width:100%;height:100%;background:#0d1b1b;color:#fff;font-size:15px;text-align:center;padding:20px;box-sizing:border-box;';
+    const safeUrl = (step.video.url||'').replace(/"/g,'&quot;');
+    el.innerHTML = 'This link can\u2019t be played inline.<br><a href="'+safeUrl+'" target="_blank" rel="noopener" style="color:#7dd3d8;">Open link in a new tab</a>';
+  }
+  showStudioFrameContent('video', el);
+}
+function libRenderTextIntoStudioFrame(step){
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;flex-direction:column;width:100%;height:100%;background:#0a2f3d;color:#fff;padding:40px 36px;box-sizing:border-box;overflow-y:auto;text-align:left;';
+  const roleParts = [];
+  if(step.day!=null) roleParts.push('Day '+step.day);
+  if(step.time) roleParts.push(step.time);
+  if(step.role) roleParts.push(step.role);
+  const roleLine = roleParts.length ? '<div style="font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:10px;">'+libEsc(roleParts.join(' \u2013 '))+'</div>' : '';
+  div.innerHTML = roleLine +
+    '<div style="font-size:clamp(20px,2.6vw,30px);font-weight:700;margin-bottom:16px;">'+libEsc(step.title||'')+'</div>' +
+    '<div style="font-size:clamp(14px,1.5vw,17px);line-height:1.6;white-space:pre-wrap;color:rgba(255,255,255,.9);">'+libEsc(step.text.body||'')+'</div>';
+  showStudioFrameContent('stats', div);
+}
+function updateStudioFrameDots(){
+  const order = ['video','board','stats'];
+  document.querySelectorAll('#studioFrameDots span').forEach((dot,i)=>{
+    dot.classList.toggle('empty', !presentationFrameHasContent[order[i]]);
+  });
+}
+function navigateToBestAvailableStudioFrame(){
+  const order = ['video','board','stats'];
+  if(presentationFrameHasContent[order[studioFrameIndex]]) return; // current frame still has content for the new step -- stay put
+  const preferredOrder = ['board','video','stats']; // board first: it's always interactable, so it's the best default landing spot
+  for(const type of preferredOrder){
+    if(presentationFrameHasContent[type]){ goToStudioFrame(order.indexOf(type)); return; }
+  }
+}
 function renderPresentationSubView(){
   const step = activePresentation.slides[activeSlideIndex];
-  const textEl = document.getElementById('presentationTextSlide');
-  const videoEl = document.getElementById('presentationVideoSlide');
-  textEl.classList.remove('show');
-  videoEl.classList.remove('show');
-  if(activeSubView==='text' && step.text){
-    const roleEl=textEl.querySelector('.presTextSlideRole');
-    roleEl.textContent=(step.day!=null?'Day '+step.day+(step.time?', ':' \u2013 '):'')+(step.time?step.time+' \u2013 ':'')+(step.role||'');
-    roleEl.style.display=(step.day!=null||step.time||step.role)?'':'none';
-    textEl.querySelector('.presTextSlideTitle').textContent=step.title||'';
-    textEl.querySelector('.presTextSlideBody').textContent=step.text.body||'';
-    textEl.classList.add('show');
-  } else if(activeSubView==='video' && step.video){
-    libRenderVideoSlide(step);
-    videoEl.classList.add('show');
-  } else if(activeSubView==='board' && step.board){
+  if(step.video){ libRenderVideoIntoStudioFrame(step); presentationFrameHasContent.video=true; }
+  else { clearStudioFrameContent('video'); presentationFrameHasContent.video=false; }
+  if(step.text){ libRenderTextIntoStudioFrame(step); presentationFrameHasContent.stats=true; }
+  else { clearStudioFrameContent('stats'); presentationFrameHasContent.stats=false; }
+  if(step.board){
     if(step.board.kind==='formation'){
       const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
       const rec=saved[step.board.refName];
@@ -4819,14 +4858,14 @@ function renderPresentationSubView(){
       else { frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0); }
     }
   }
-  updatePresentationSwitchControls();
+  presentationFrameHasContent.board = true; // always available -- the live board can always be interacted with, regardless of whether this specific step pre-loaded a formation for it
+  updateStudioFrameDots();
+  navigateToBestAvailableStudioFrame();
   updatePresentationPlaybackUI();
 }
 function loadPresentationSlide(index){
   if(!activePresentation) return;
   const step=activePresentation.slides[index]; if(!step) return;
-  const views = libAvailableSubViews(step);
-  activeSubView = views[0] || 'text';
   renderPresentationSubView();
   if(liveCoachingSession) recordLiveCoachingStepChange(index);
 }
@@ -5049,8 +5088,16 @@ function goToStudioFrame(index){
   if(rightBtn) rightBtn.disabled=studioFrameIndex===2;
   document.querySelectorAll('#studioFrameDots span').forEach((dot,i)=>dot.classList.toggle('active', i===studioFrameIndex));
 }
-document.getElementById('studioNavLeft').addEventListener('click', ()=>goToStudioFrame(studioFrameIndex-1));
-document.getElementById('studioNavRight').addEventListener('click', ()=>goToStudioFrame(studioFrameIndex+1));
+function goToStudioFrameSkippingEmpty(requestedIndex, direction){
+  if(!activePresentation){ goToStudioFrame(requestedIndex); return; } // no step content to judge emptiness against -- every frame stays freely navigable
+  const order=['video','board','stats'];
+  let idx=requestedIndex;
+  while(idx>=0 && idx<=2 && !presentationFrameHasContent[order[idx]]) idx+=direction;
+  if(idx>=0 && idx<=2) goToStudioFrame(idx);
+  // Ran off the end without finding content in that direction -- nothing to do, matches the existing disabled-at-boundary feel.
+}
+document.getElementById('studioNavLeft').addEventListener('click', ()=>goToStudioFrameSkippingEmpty(studioFrameIndex-1, -1));
+document.getElementById('studioNavRight').addEventListener('click', ()=>goToStudioFrameSkippingEmpty(studioFrameIndex+1, 1));
 // Swipe is scoped to the video/stats placeholder frames specifically -- the
 // pool frame already has its own drag/draw pointer handling, and keeping
 // swipe-to-change-frame off of it avoids any risk of the two conflicting.
@@ -5063,7 +5110,7 @@ function attachStudioSwipe(el){
     const dx=e.clientX-studioSwipeStartX;
     studioSwipeStartX=null;
     if(Math.abs(dx)<40) return;
-    goToStudioFrame(studioFrameIndex + (dx<0 ? 1 : -1));
+    goToStudioFrameSkippingEmpty(studioFrameIndex + (dx<0 ? 1 : -1), dx<0 ? 1 : -1);
   });
 }
 attachStudioSwipe(document.getElementById('videoFrame'));
