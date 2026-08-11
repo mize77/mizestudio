@@ -434,9 +434,11 @@
   #studioWindowLayer.dark { opacity:.12; }
   #studioWindowLayer svg { width:100%; height:100%; display:block; }
   #studioWindowMullions { position:absolute; inset:0; background:repeating-linear-gradient(90deg, rgba(28,24,18,.6) 0 5px, transparent 5px 240px), repeating-linear-gradient(0deg, rgba(28,24,18,.6) 0 5px, transparent 5px 240px); }
-  #studioWindowBlinds { display:none; position:fixed; top:0; left:0; right:0; height:0; overflow:hidden; background:repeating-linear-gradient(180deg, #d9d4c6 0px, #d9d4c6 18px, #b6b0a0 18px, #b6b0a0 20px); box-shadow:inset 0 -10px 14px -8px rgba(0,0,0,.35); transition:height 2s ease; z-index:41; }
+  #studioWindowBlinds { display:none; position:fixed; top:0; left:0; right:0; height:0; overflow:hidden; background:repeating-linear-gradient(180deg, #0c1220 0px, #0c1220 18px, #05070d 18px, #05070d 20px); box-shadow:inset 0 -10px 14px -8px rgba(0,0,0,.5); transition:height 2s ease; z-index:41; }
   body.presentation #studioWindowBlinds { display:block; }
   #studioWindowBlinds.closed { height:100%; }
+  .blindsStar { position:absolute; border-radius:50%; background:#fff; animation:blindsStarTwinkle ease-in-out infinite; }
+  @keyframes blindsStarTwinkle { 0%,100% { opacity:var(--starMin,.08); } 50% { opacity:var(--starMax,.32); } }
   #studioBlindsControlBtn { display:none; position:fixed; top:calc(14px + env(safe-area-inset-top)); right:calc(64px + env(safe-area-inset-right)); z-index:1450; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; align-items:center; justify-content:center; cursor:pointer; padding:0; }
   #studioBlindsControlBtn svg { width:20px; height:20px; }
   #studioBlindsControlBtn:hover { background:rgba(255,255,255,.24); }
@@ -5787,8 +5789,10 @@ function updateWindowDarkenState(){
   const shouldBeDark=studioWindowsManuallyDark || MIZE.State.spotlight.placed;
   if(layer) layer.classList.toggle('dark', shouldBeDark);
   if(btn) btn.classList.toggle('active', studioWindowsManuallyDark);
-  if(blinds) blinds.classList.toggle('closed', shouldBeDark);
-  if(blindsBtn) blindsBtn.classList.toggle('active', shouldBeDark);
+  // Blinds are deliberately kept separate from spotlight activation -- they
+  // only respond to their own dedicated control, not to shouldBeDark.
+  if(blinds) blinds.classList.toggle('closed', studioWindowsManuallyDark);
+  if(blindsBtn) blindsBtn.classList.toggle('active', studioWindowsManuallyDark);
 }
 document.getElementById('studioWindowDarkenBtn').addEventListener('click', ()=>{
   studioWindowsManuallyDark=!studioWindowsManuallyDark;
@@ -5798,6 +5802,27 @@ document.getElementById('studioBlindsControlBtn')?.addEventListener('click', ()=
   studioWindowsManuallyDark=!studioWindowsManuallyDark;
   updateWindowDarkenState();
 });
+(function generateBlindsStars(){
+  const container=document.getElementById('studioWindowBlinds');
+  if(!container) return;
+  const STAR_COUNT=70;
+  const HEIGHT_RANGE=1400; // covers tall viewports; stars simply get revealed as the blinds height grows, not stretched
+  for(let i=0;i<STAR_COUNT;i++){
+    const star=document.createElement('div');
+    star.className='blindsStar';
+    const size=(1.2+Math.random()*1.6).toFixed(1);
+    star.style.width=size+'px';
+    star.style.height=size+'px';
+    star.style.left=(Math.random()*100)+'%';
+    star.style.top=(Math.random()*HEIGHT_RANGE).toFixed(0)+'px';
+    const dur=(2.5+Math.random()*3.5).toFixed(1);
+    star.style.animationDuration=dur+'s';
+    star.style.animationDelay='-'+(Math.random()*parseFloat(dur)).toFixed(1)+'s'; // negative delay so stars aren't all synchronized to the same twinkle phase
+    star.style.setProperty('--starMin', (0.08+Math.random()*0.1).toFixed(2));
+    star.style.setProperty('--starMax', (0.35+Math.random()*0.25).toFixed(2));
+    container.appendChild(star);
+  }
+})();
 function placeSpotlight(x,y){
   MIZE.State.spotlight.x=x; MIZE.State.spotlight.y=y;
   if(!MIZE.State.spotlight.placed) MIZE.State.spotlight.r=defaultSpotlightRadius();
@@ -9529,10 +9554,10 @@ document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)').forEach(b=>{
 });
 
 // --- Floating quick-command bar: 5 fixed presets (Photoshop-style) + 3 recently-used ---
-const QUICKBAR_PRESETS=['selectBtn','freeDrawBtn','fieldZonesToggleBtn','textBoxBtn','clearBtn','quickViewToggleBtn','shootingAngleToggleBtn','shotBlockToggleBtn','goalieVisionToggleBtn','smartPositioningToggleBtn','smartGoaliePositioningToggleBtn','applySmartPositioningBtn'];
+const QUICKBAR_PRESETS=['selectBtn','freeDrawBtn','fieldZonesToggleBtn','textBoxBtn','shotClockToggleBtn','quickViewToggleBtn','shootingAngleToggleBtn','shotBlockToggleBtn','goalieVisionToggleBtn','smartPositioningToggleBtn','smartGoaliePositioningToggleBtn','clearBtn'];
 const QCB_DRAWING_TOOLS=['passBtn','swimBtn','driveBtn','shotBtn','screenBtn','highlightBtn','noteBtn','measureBtn','freeDrawBtn','eraseBtn','clearBtn'];
 const QUICKBAR_ICONS={
-  applySmartPositioningBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><path d="M8 11v7M8 14l4 1.5"/><path d="M18 4v8M18 4h-4M18 4l4 4M18 12h-4M18 12l4-4" stroke-width="1.4"/></svg>',
+  shotClockToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2"/><path d="M9 2h6M12 2v3" stroke-width="1.6"/></svg>',
   quickViewToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="8" width="11" height="7" rx="1"/><rect x="16" y="3" width="7" height="18" rx="1"/><path d="M12.5 5.5l2.5-2 2.5 2M12.5 18.5l2.5 2 2.5-2" stroke-width="1.4"/></svg>',
   swimBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14c2.5-4 5-4 7.5 0s5 4 7.5 0"/><path d="M16.2 12.7l3.3 1.3-1.3 3.3"/></svg>',
   driveBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 Q10 10 19 5"/><path d="M13 4.3h6v6"/></svg>',
