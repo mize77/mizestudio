@@ -455,8 +455,10 @@
   .shotClockCorner { display:none; position:absolute; top:3%; z-index:50; text-align:center; background:rgba(255,255,255,.92); padding:6px 10px; border-radius:8px; box-shadow:0 4px 14px rgba(0,0,0,.25); }
   .shotClockCorner.shotClockViewportFixed { position:fixed; }
   .shotClockCorner.active { display:block; }
+  .shotClockCorner.userDragged { z-index:1450; }
   #shotClockLeft { left:3%; }
   #shotClockRight { right:3%; }
+  #shotClockLeft.userDragged, #shotClockRight.userDragged { position:fixed !important; top:var(--scDragTop) !important; left:var(--scDragLeft) !important; right:auto !important; }
   #shotClockCenter { position:fixed; top:calc(106px + env(safe-area-inset-top)); left:50%; z-index:1450; transform-origin:top center; touch-action:none; }
   #shotClockCenter .shotClockNumber { cursor:grab; }
   #shotClockCenter.scDragging .shotClockNumber { cursor:grabbing; }
@@ -5992,6 +5994,8 @@ function selectAllPlayers(){
 document.addEventListener('keydown', e=>{
   if(document.body.classList.contains('tutorialLockActive')) return; // keyboard shortcuts bypass the pointer-events lock entirely -- block them here instead
   const tag=(document.activeElement?.tagName||'').toLowerCase();
+  const inTextBoxToolbar = document.activeElement?.closest && document.activeElement.closest('#textBoxToolbar');
+  if((e.key==='Delete' || e.key==='Backspace') && inTextBoxToolbar){ deleteSelectedObject(); e.preventDefault(); return; }
   if(['input','textarea','select'].includes(tag) || document.activeElement?.isContentEditable) return;
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='z') { if(e.shiftKey) redo(); else undo(); e.preventDefault(); return; }
   // Select All / Select Team. e.code (the physical key) is used for the
@@ -6525,7 +6529,6 @@ document.getElementById('tcDurationInput')?.addEventListener('change', e=>{
 // ===== Shot Clock =====
 function formatShotClockValue(v){ return Math.max(0, Math.ceil(v)).toString(); }
 const SHOT_CLOCK_CENTER_REF_PXPERM = 36; // calibrated so scale=1 matches the element's original ~72px natural width (2m x 36px/m)
-let shotClockCenterDragged = false; // once true, position is explicit (left/top in px) instead of the default centered layout
 function shotClockCenterScale(){
   if(!board) return 1;
   const rect = board.getBoundingClientRect();
@@ -6538,10 +6541,10 @@ function updateShotClockCenterTransform(){
   const el=document.getElementById('shotClockCenter');
   if(!el) return;
   const scale=shotClockCenterScale();
-  el.style.transform = shotClockCenterDragged ? `scale(${scale})` : `translateX(-50%) scale(${scale})`;
+  el.style.transform = el.classList.contains('userDragged') ? `scale(${scale})` : `translateX(-50%) scale(${scale})`;
 }
-(function makeShotClockCenterDraggable(){
-  const el=document.getElementById('shotClockCenter');
+function makeShotClockDraggable(elId, opts={}){
+  const el=document.getElementById(elId);
   const handle=el?.querySelector('.shotClockNumber');
   if(!el || !handle) return;
   let dragState=null;
@@ -6551,21 +6554,48 @@ function updateShotClockCenterTransform(){
     el.classList.add('scDragging');
     handle.setPointerCapture(e.pointerId);
     e.preventDefault();
+    e.stopPropagation();
   });
   handle.addEventListener('pointermove', e=>{
     if(!dragState) return;
-    if(!shotClockCenterDragged){
-      shotClockCenterDragged=true;
-      el.style.left=dragState.startLeft+'px';
-      el.style.top=dragState.startTop+'px';
-      updateShotClockCenterTransform(); // switch from translateX(-50%)-centered to explicit-position scale-only
+    if(!el.classList.contains('userDragged')){
+      // Corner clocks (left/right) live inside #studioTrack, which gets its
+      // own transform during presentation mode -- position:fixed on a
+      // still-nested child would compute relative to that transformed
+      // ancestor, not the true viewport. Reparenting to document.body here,
+      // on the first actual drag move, sidesteps that entirely while
+      // leaving default (never-dragged) behavior untouched.
+      if(opts.reparentToBody && el.parentElement!==document.body) document.body.appendChild(el);
+      el.classList.add('userDragged');
+      if(opts.useCssVars){
+        el.style.setProperty('--scDragTop', dragState.startTop+'px');
+        el.style.setProperty('--scDragLeft', dragState.startLeft+'px');
+      } else {
+        el.style.left=dragState.startLeft+'px';
+        el.style.top=dragState.startTop+'px';
+      }
+      if(el===document.getElementById('shotClockCenter')) updateShotClockCenterTransform(); // switch from translateX(-50%)-centered to explicit-position scale-only
     }
     const dx=e.clientX-dragState.sx, dy=e.clientY-dragState.sy;
-    el.style.left=Math.max(0, Math.min(window.innerWidth-20, dragState.startLeft+dx))+'px';
-    el.style.top=Math.max(0, Math.min(window.innerHeight-20, dragState.startTop+dy))+'px';
+    const newLeft=Math.max(0, Math.min(window.innerWidth-20, dragState.startLeft+dx));
+    const newTop=Math.max(0, Math.min(window.innerHeight-20, dragState.startTop+dy));
+    if(opts.useCssVars){
+      el.style.setProperty('--scDragTop', newTop+'px');
+      el.style.setProperty('--scDragLeft', newLeft+'px');
+    } else {
+      el.style.left=newLeft+'px';
+      el.style.top=newTop+'px';
+    }
   });
   handle.addEventListener('pointerup', e=>{ dragState=null; el.classList.remove('scDragging'); try{ handle.releasePointerCapture(e.pointerId); }catch(err){} });
-})();
+  // Fallback: reparenting el mid-drag (for corner clocks) can implicitly
+  // release pointer capture, so the handle's own pointerup above isn't
+  // guaranteed to fire in that case -- this catches it regardless.
+  document.addEventListener('pointerup', ()=>{ if(dragState){ dragState=null; el.classList.remove('scDragging'); } });
+}
+makeShotClockDraggable('shotClockCenter');
+makeShotClockDraggable('shotClockLeft', { reparentToBody:true, useCssVars:true });
+makeShotClockDraggable('shotClockRight', { reparentToBody:true, useCssVars:true });
 function updateShotClockDisplay(){
   const text=formatShotClockValue(MIZE.State.shotClock.seconds);
   const big=document.getElementById('shotClockBigDisplay');
@@ -6583,6 +6613,9 @@ function updateShotClockDisplay(){
     const playBtn=el.querySelector('.scPlayPause');
     if(playBtn){ playBtn.innerHTML=MIZE.State.shotClock.running?'&#9208;':'&#9654;'; playBtn.classList.toggle('active', MIZE.State.shotClock.running); }
   });
+  const toggleBtn=document.getElementById('shotClockToggleBtn');
+  if(toggleBtn) toggleBtn.classList.toggle('active', MIZE.State.shotClock.active);
+  if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
 }
 function tickShotClock(){
   if(!MIZE.State.shotClock.running) return;
@@ -10919,15 +10952,23 @@ function refreshShotClockPosition(){
   if(frontCourtActive && wrap){
     const r=wrap.getBoundingClientRect();
     const margin=10;
-    left.classList.add('shotClockViewportFixed');
-    right.classList.add('shotClockViewportFixed');
-    left.style.top=(r.top+margin)+'px'; left.style.left=(r.left+margin)+'px'; left.style.right='';
-    right.style.top=(r.top+margin)+'px'; right.style.right=(viewportWidth()-r.right+margin)+'px'; right.style.left='';
+    if(!left.classList.contains('userDragged')){
+      left.classList.add('shotClockViewportFixed');
+      left.style.top=(r.top+margin)+'px'; left.style.left=(r.left+margin)+'px'; left.style.right='';
+    }
+    if(!right.classList.contains('userDragged')){
+      right.classList.add('shotClockViewportFixed');
+      right.style.top=(r.top+margin)+'px'; right.style.right=(viewportWidth()-r.right+margin)+'px'; right.style.left='';
+    }
   } else {
-    left.classList.remove('shotClockViewportFixed');
-    right.classList.remove('shotClockViewportFixed');
-    left.style.top=''; left.style.left=''; left.style.right='';
-    right.style.top=''; right.style.right=''; right.style.left='';
+    if(!left.classList.contains('userDragged')){
+      left.classList.remove('shotClockViewportFixed');
+      left.style.top=''; left.style.left=''; left.style.right='';
+    }
+    if(!right.classList.contains('userDragged')){
+      right.classList.remove('shotClockViewportFixed');
+      right.style.top=''; right.style.right=''; right.style.left='';
+    }
   }
 }
 document.getElementById('quickViewToggleBtn')?.addEventListener('click', ()=>{
