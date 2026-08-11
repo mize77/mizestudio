@@ -110,7 +110,7 @@
   @media (pointer:coarse) { #qcbDrawingToolsPopup { width:190px; } #qcbDrawingToolsPopup .freeDrawColorSwatch { width:38px; height:38px; min-height:38px; } }
   #quickCommandBarInner { display:flex; align-items:center; gap:8px; }
   .quickBarGrid { display:grid; gap:4px; }
-  .quickBarStandardGrid { grid-template-columns:repeat(5, auto); grid-template-rows:repeat(2, auto); }
+  .quickBarStandardGrid { grid-template-columns:repeat(6, auto); grid-template-rows:repeat(2, auto); }
   .quickBarRecentGrid { grid-template-columns:repeat(2, auto); grid-template-rows:repeat(2, auto); }
   .quickBarBtn { width:34px; height:34px; padding:0; font-size:11px; font-weight:800; border-radius:8px; background:#eef4f4; border:1px solid #c3d2d2; display:flex; align-items:center; justify-content:center; color:#1b4f4f; }
   .quickBarBtn svg { width:19px; height:19px; }
@@ -343,6 +343,9 @@
   #tutorialExitBtn { pointer-events: auto !important; }
   #tutorialAcknowledgeBtn { pointer-events: auto !important; }
   #tutorialInstruction { pointer-events: auto !important; user-select: none; -webkit-user-select: none; }
+  body.tutorialLockActive #mizeDialogBackdrop.open,
+  body.tutorialLockActive #mizeDialogBox.open,
+  body.tutorialLockActive #mizeDialogBox.open * { pointer-events: auto !important; }
   #guestWelcomeScreen h1 { user-select: none; -webkit-user-select: none; }
   /* Every guest overlay (Exit confirmation, completion, error, welcome,
      A2HS guide) and everything inside it stays clickable no matter what
@@ -610,7 +613,8 @@
   #contextMenu button { display:block; width:100%; text-align:left; border:0; border-radius:7px; padding:8px 9px; background:#fff; font-weight:700; }
   #contextMenu button:hover { background:#eef7f8; }
   #contextMenu .sep { height:1px; background:#e1e6e6; margin:5px 0; }
-  #playerActionBar { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; display:grid; grid-template-columns:repeat(2, auto); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px) scale(.67); transform-origin:top left; opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
+  #playerActionBar { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; display:grid; grid-template-columns:repeat(2, 38px); gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px) scale(.67); transform-origin:top left; opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
+  #paButtonGrid { display:grid; grid-template-columns:repeat(2, auto); gap:6px; }
   #playerActionBar.visible { transform:translateX(0) scale(.67); opacity:1; pointer-events:auto; }
   #ballActionBar { position:fixed; top:calc(10px + env(safe-area-inset-top)); left:calc(10px + env(safe-area-inset-left)); z-index:1540; display:flex; gap:6px; background:rgba(18,77,77,.92); padding:6px; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,.3); transform:translateX(-160px) scale(.67); transform-origin:top left; opacity:0; pointer-events:none; transition:transform .28s ease, opacity .28s ease; }
   #ballActionBar.visible { transform:translateX(0) scale(.67); opacity:1; pointer-events:auto; }
@@ -619,10 +623,10 @@
      player-cap styling) rather than inventing a new palette, so this
      reads as "the same team color", not a different visual language. */
   #paBallInfoToggleBtn.active { background:rgba(255,255,255,.25); }
-  #paBallInfoPanel { grid-column:1/-1; max-height:0; overflow:hidden; transition:max-height .2s ease; }
+  #paBallInfoPanel { grid-column:1/-1; min-width:0; max-height:0; overflow:hidden; transition:max-height .2s ease; }
   #paBallInfoPanel.open { max-height:60px; }
-  #paBallInfoPanel #ballOwnerStatus { font-size:11.5px; font-weight:700; color:#fff; background:rgba(255,255,255,.12); border-radius:8px; padding:6px 8px; margin-top:2px; }
-  #paMarkedIndicator { grid-column:1/-1; display:flex; align-items:center; justify-content:center; margin-top:2px; }
+  #paBallInfoPanel #ballOwnerStatus { font-size:11.5px; font-weight:700; color:#fff; background:rgba(255,255,255,.12); border-radius:8px; padding:6px 8px; margin-top:2px; overflow-wrap:break-word; }
+  #paMarkedIndicator { grid-column:1/-1; min-width:0; display:flex; align-items:center; justify-content:center; margin-top:2px; }
   .paMarkedChip { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:900; line-height:1; color:#111; background:rgba(255,255,255,.86); border:1px solid rgba(255,255,255,.4); }
   .paMarkedChip[data-team="blue"] { color:#fff; background:rgba(0,55,210,.86); }
   .paMarkedChip[data-team="goalie"] { color:#fff; background:rgba(220,0,0,.86); }
@@ -696,7 +700,7 @@
   .playerActionBtn:active { background:#0d3838; }
   .playerActionBtn svg { width:20px; height:20px; pointer-events:none; }
   .playerActionMaskIcon { display:inline-block; width:30px; aspect-ratio:1000/584; background-color:currentColor; -webkit-mask-size:contain; -webkit-mask-repeat:no-repeat; -webkit-mask-position:center; mask-size:contain; mask-repeat:no-repeat; mask-position:center; pointer-events:none; }
-  @media (pointer:coarse) { .playerActionBtn { width:44px; height:44px; } .playerActionBtn svg { width:23px; height:23px; } .playerActionMaskIcon { width:36px; } .touchHiddenActionBtn { display:none; } }
+  @media (pointer:coarse) { .playerActionBtn { width:44px; height:44px; } .playerActionBtn svg { width:23px; height:23px; } .playerActionMaskIcon { width:36px; } .touchHiddenActionBtn { display:none; } #playerActionBar { grid-template-columns:repeat(2, 44px); } }
   #teamManagerList { display:flex; flex-direction:column; gap:8px; max-height:260px; overflow:auto; }
   .teamRow { border:1px solid #e1e6e6; border-radius:8px; padding:7px; background:#fafafa; }
   .teamRowTitle { font-size:12px; font-weight:900; margin-bottom:5px; }
@@ -1010,7 +1014,7 @@
     <select id="tcTransitionSelect" title="Frame transition mode">
       <option value="cut">Cut</option>
       <option value="ghost">Ghost</option>
-      <option value="animated">Animated</option>
+      <option value="animated" selected>Animated</option>
       <option value="animatedPause">Anim. Pause</option>
       <option value="animatedTwoGhost">Anim. 2-Ghost</option>
     </select>
@@ -1311,6 +1315,7 @@
   <div class="cmdCategory" data-cat="field">
     <button type="button" class="cmdCatHeader">Field <span class="chev">&#9656;</span></button>
     <div class="cmdFlyout">
+      <button id="quickViewToggleBtn" data-tip="Switch between Full Court and Front Court (Zoomed) view in one tap. For plain (non-zoomed) Front Court, use View Options instead.">Toggle Full/Front Court</button>
       <button id="viewToggleTab" data-tip="View options: Full Court, Front Court, or Front Court (Zoomed).">View Options</button>
       <button id="fieldZonesToggleBtn" data-tip="Field Zones: show reference zones around the goal.">Field Zones</button>
     </div>
@@ -1386,7 +1391,7 @@
             <select id="frameTransitionSelect" data-tip="Controls how frames appear when playing back the timeline, and shows/hides the ghost outline of prior frames while editing.">
               <option value="cut">Appear / Disappear</option>
               <option value="ghost">Appear with Previous Frame as Ghost</option>
-              <option value="animated">Animated (by Duration)</option>
+              <option value="animated" selected>Animated (by Duration)</option>
               <option value="animatedPause">Animated, Pause Halfway</option>
               <option value="animatedTwoGhost">Animated with Last Two Ghosts</option>
             </select>
@@ -2300,7 +2305,7 @@ let ghostMode=false;
 // tutorial's playback-checkpoint save/restore system -- deriving it keeps
 // every existing dependency working without needing to individually find
 // and update each one.
-let frameTransitionMode='cut';
+let frameTransitionMode='animated';
 function syncGhostModeFromTransition(){ ghostMode = (frameTransitionMode==='ghost' || frameTransitionMode==='animatedTwoGhost'); }
 // Centralized product configuration (Development Phase 2, Section 5.3).
 // Additive only for now: introduced as the single source of truth for
@@ -5918,6 +5923,7 @@ function selectAllPlayers(){
   document.querySelectorAll('.player').forEach(el=>setSelected(el,true));
 }
 document.addEventListener('keydown', e=>{
+  if(document.body.classList.contains('tutorialLockActive')) return; // keyboard shortcuts bypass the pointer-events lock entirely -- block them here instead
   const tag=(document.activeElement?.tagName||'').toLowerCase();
   if(['input','textarea','select'].includes(tag) || document.activeElement?.isContentEditable) return;
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='z') { if(e.shiftKey) redo(); else undo(); e.preventDefault(); return; }
@@ -6613,7 +6619,18 @@ function startTutorial(steps, { onComplete } = {}){
   if(typeof tutorialContinueInPortrait!=='undefined') tutorialContinueInPortrait=false;
   if(typeof hideTutorialOrientationWarning==='function') hideTutorialOrientationWarning();
   if(typeof MIZE!=='undefined' && MIZE.State && MIZE.State.fieldZones && MIZE.State.fieldZones.active!=='none' && typeof selectFieldZoneSet==='function'){ selectFieldZoneSet('none'); }
-  if(typeof frameTransitionMode!=='undefined' && typeof clearGhosts==='function'){ frameTransitionMode='cut'; syncGhostModeFromTransition(); clearGhosts(); if(typeof clearSecondGhosts==='function') clearSecondGhosts(); const fts=document.getElementById('frameTransitionSelect'); if(fts) fts.value='cut'; }
+  if(typeof setFrameTransitionMode==='function') setFrameTransitionMode('animated');
+  // Defensive: guarantee a clean playback state on every run regardless
+  // of how the previous run actually ended (exitTutorial() now handles
+  // the normal Exit-button path, but this covers any other route back
+  // here, e.g. a second startTutorial() call without an exit in between).
+  if(typeof playing!=='undefined' && playing){
+    if(typeof animFrameHandle!=='undefined' && animFrameHandle) cancelAnimationFrame(animFrameHandle);
+    if(typeof cutPlaybackTimeout!=='undefined' && cutPlaybackTimeout){ clearTimeout(cutPlaybackTimeout); cutPlaybackTimeout=null; }
+    playing=false;
+  }
+  if(typeof pausedTargetIndex!=='undefined'){ pausedTargetIndex=null; pausedAtProgress=0; }
+  if(typeof syncPlayPauseUI==='function') syncPlayPauseUI();
   if(typeof renderShotBlockCorridors==='function') renderShotBlockCorridors();
   // The Quick Command Bar's buttons are clones rebuilt from the real
   // buttons' current text/class at whatever moment it was last rendered --
@@ -6650,6 +6667,18 @@ function exitTutorial(){
   tutorialTrackHandle = null;
   if(tutorialPhaseTimer) clearTimeout(tutorialPhaseTimer);
   tutorialPhaseTimer = null;
+  // Stop any in-progress frame playback outright -- exiting mid-playback
+  // otherwise leaves the animation loop running in the background and
+  // the playing flag stuck true, which makes the NEXT playFrames() call
+  // (e.g. the next tutorial run's own intro sequence) immediately stop
+  // instead of start, since playFrames() toggles based on that flag.
+  if(typeof playing!=='undefined' && playing){
+    if(typeof animFrameHandle!=='undefined' && animFrameHandle) cancelAnimationFrame(animFrameHandle);
+    if(typeof cutPlaybackTimeout!=='undefined' && cutPlaybackTimeout){ clearTimeout(cutPlaybackTimeout); cutPlaybackTimeout=null; }
+    playing=false;
+    if(typeof syncPlayPauseUI==='function') syncPlayPauseUI();
+  }
+  if(typeof pausedTargetIndex!=='undefined'){ pausedTargetIndex=null; pausedAtProgress=0; }
   clearTutorialGhost();
   clearTutorialSpotlight();
   document.getElementById('tutorialDimOverlay')?.classList.remove('show');
@@ -6855,6 +6884,7 @@ function tutorialTrackLoop(){
     if(!tutorialAdvancing && step.validate && evaluateTutorialValidator(step.validate)){
       tutorialAdvancing = true;
       tutorialHideAllHighlights();
+      if(typeof step.onValidated === 'function') step.onValidated(); // fires immediately, not after the checkmark delay -- for closing a popup/panel this step opened that's no longer needed the instant it's accomplished
       if(step.skipSuccessMessage){
         setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 0);
       } else {
@@ -7512,7 +7542,7 @@ function buildFirstCoachingSessionSteps(){
   const b6_T08 = tutorialFormationPlayer('T08 - Defender Moved into Shooting Angle', 'B6');
   const playThenBoard = () => playing ? null : '#tcPlayPauseBtn'; // no highlight at all once playing -- a ring around the whole board looked oversized, and there's nothing to point at while the coach is just watching it play
   const QCB_SHOOTING_ANGLE = '#quickCommandBarInner button[title^="Shooting Angle"]';
-  const QCB_FREE_DRAW = '#quickCommandBarInner button[title^="Free Draw"]';
+  const QCB_DRAWING_TOOLS_ANCHOR = '#quickCommandBarInner button[title^="Drawing Tools"]';
   const QCB_CLEAR = '#quickCommandBarInner button[title^="Clear Arrows"], #qcbDrawingToolsGrid button[title^="Clear Arrows"]';
   const QCB_SMART_POSITIONING = '#quickCommandBarInner button[title^="Smart Positioning"]';
 
@@ -7735,22 +7765,20 @@ function buildFirstCoachingSessionSteps(){
       allowedSelectors: '#tcPlayPauseBtn', // unconditional (unlike the highlight, which drops to nothing while playing) -- the coach should still be able to pause if they want, not just watch with no control at all
       validate: { type:'custom', fn: ()=> introFrames && currentFrame===introFrames.length-1 && !playing }
     },
-    { // Step 5 -- Front Court (Zoomed) view, part 1: open the View panel.
-      // Gives the rest of the tutorial's close-quarters work (attacker and
-      // defender positioning) a closer, easier-to-see view from here on.
-      instruction: 'The scene has paused. Before marking any players, let\u2019s switch to a closer view. Open the Menu, then tap the highlighted "View Options" under Field.',
-      onEnter(){ tutorialOpenCategory('field'); },
-      highlight: '#viewToggleTab',
-      allowedSelectors: '#controlsPanel', // whole sidebar, matching the pattern used elsewhere for a sidebar-nested target
-      validate: { type:'custom', fn: ()=> document.getElementById('viewPanel')?.classList.contains('open') }
-    },
-    { // Step 6 -- Front Court (Zoomed) view, part 2: choose the option
-      instruction: 'Tap the highlighted "Front Court (Zoomed)" option for a closer view of the action.',
-      bannerSide: 'left', // was covering the option itself on a narrow phone screen
-      onEnter(){ tutorialHideTimelineRemote(); }, // not needed again until the outro plays at the very end -- keeps the view clear until then
-      highlight: '#viewOptionFrontCourtZoomed',
+    { // Step 5 -- Front Court (Zoomed) view: one-click switch via the Quick
+      // Command Bar. Gives the rest of the tutorial's close-quarters work
+      // (attacker and defender positioning) a closer, easier-to-see view
+      // from here on. The QCB is shown just for this one tap and hidden
+      // again right after via onValidated -- its formal introduction (how
+      // to open/close it via the "Quicks" edge tab) still happens
+      // properly at Step 9; this earlier appearance doesn't preempt that
+      // lesson, it's simply visible long enough for one tap.
+      instruction: 'The scene has paused. Before marking any players, let\u2019s switch to a closer view. In the Quick Command Bar, tap the highlighted "Switch to Front Court (Zoomed)" icon -- one tap gets you there.',
+      onEnter(){ tutorialShowQuickCommandBar(); tutorialHideTimelineRemote(); }, // remote not needed again until the outro plays at the very end -- keeps the view clear until then
+      highlight: '#quickCommandBarInner button[title^="Switch to Front Court"]',
       useShadeHighlight: true,
-      validate: { type:'custom', fn: ()=> typeof frontCourtActive!=='undefined' && frontCourtActive && typeof frontCourtZoomed!=='undefined' && frontCourtZoomed }
+      validate: { type:'custom', fn: ()=> typeof frontCourtActive!=='undefined' && frontCourtActive && typeof frontCourtZoomed!=='undefined' && frontCourtZoomed },
+      onValidated(){ tutorialHideQuickCommandBar(); } // hidden again so Step 9's "tap Quicks to open it" framing still makes sense
     },
     { // Step 6b -- try the Front Court scroll gesture before marking any
       // players. #fcScrollZoneLeft/Right are two narrow strips at the
@@ -7907,11 +7935,12 @@ function buildFirstCoachingSessionSteps(){
       validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'v' }, w1GuardAfterStable)
     },
     { // Step 18 -- turn on Free Draw
-      instruction: 'The Quick Command Bar is back -- tap the highlighted "Free Draw" icon.',
+      instruction: 'The Quick Command Bar is back -- tap the highlighted "Drawing Tools" icon to turn on Free Draw. (A tools popup will also appear -- you can ignore it for now.)',
       onEnter(){ tutorialShowQuickCommandBar(); },
-      highlight: QCB_FREE_DRAW,
+      highlight: QCB_DRAWING_TOOLS_ANCHOR,
       useShadeHighlight: true,
-      validate: withPositionGuards({ type:'custom', fn: ()=> mode==='freeDraw' }, w1GuardAfterStable)
+      validate: withPositionGuards({ type:'custom', fn: ()=> mode==='freeDraw' }, w1GuardAfterStable),
+      onValidated(){ if(typeof closeQcbDrawingToolsPopup==='function') closeQcbDrawingToolsPopup(); }
     },
     { // Step 19 (ref: T11) -- actually draw something
       instruction: 'Draw directly on the field with your finger or mouse -- any mark counts.',
@@ -7962,7 +7991,8 @@ function buildFirstCoachingSessionSteps(){
       },
       highlight: '#resetBtn',
       allowedSelectors: '#controlsPanel', // the whole sidebar, not just the button -- may still need manual scrolling to reach it in a short landscape viewport even after the programmatic scrollIntoView above
-      validate: { type:'stateMatchesCheckpoint' }
+      validate: { type:'stateMatchesCheckpoint' },
+      onValidated(){ document.getElementById('controlsPanel')?.classList.remove('open'); } // the Menu isn't needed for the outro playback that follows
     },
     { // Step 22 (ref: T14 -- the Continuation sequence, loaded fresh as this step begins)
       instruction: 'The board now smoothly continues to where your practiced drill leaves off. Tap the highlighted \u25B6 Play to watch the play continue to its finish.',
@@ -8648,8 +8678,7 @@ async function autoplayPerformStep(step){
   if(instr.includes('"Open Sequence"')) return autoplayClickTarget('#soMenuOpenSequence');
   if(instr.includes('First Coaching Session') && instr.includes('load it')) return autoplayClickTarget(step.highlight, {moveMs:700});
   if(instr.includes('start the intro')) return autoplayPlayAndWait();
-  if(instr.includes('"View Options" under Field')) return autoplayClickTarget('#viewToggleTab');
-  if(instr.includes('Front Court (Zoomed)')) return autoplayClickTarget('#viewOptionFrontCourtZoomed');
+  if(instr.includes('"Switch to Front Court (Zoomed)" icon')) return autoplayClickTarget(autoplayQCBButton('Switch to Front Court'));
   if(instr.includes('click-drag')) return autoplayScrollGesture();
   if(instr.includes('attacker who will run')) return autoplaySelectPlayer('W1');
   if(instr.includes('Grey shade = target spot')) return autoplayDragPlayerToGhost('W1');
@@ -8664,7 +8693,7 @@ async function autoplayPerformStep(step){
   if(instr.includes('Left Arm')) return autoplayAssignLeftArm();
   if(instr.includes('horizontal (swimming)')) return autoplayTogglePose('B6');
   if(instr.includes('back to a vertical position')) return autoplayTogglePose('B6');
-  if(instr.includes('"Free Draw" icon')) return autoplayClickTarget(autoplayQCBButton('Free Draw'));
+  if(instr.includes('"Drawing Tools" icon')) return autoplayClickTarget(autoplayQCBButton('Drawing Tools'));
   if(instr.includes('Draw directly on the field')) return autoplayDrawSomething();
   if(instr.includes('trash-can icon')) return autoplayClickTarget(autoplayQCBButton('Clear Arrows'));
   if(instr.includes('"Reset" button')) return autoplayOpenReset();
@@ -9278,6 +9307,7 @@ function showContextMenu(x,y,el){ contextTarget=el; const isP=el && !isAnyBall(e
     add('Pass Left',()=>passToLateral('left',contextTarget),isP && ballCarrier && teamColorOf(contextTarget)===teamColorOf(ballCarrier), isP && !(ballCarrier && teamColorOf(contextTarget)===teamColorOf(ballCarrier)) ? 'Only available when the right-clicked player\u2019s team currently has the ball' : null);
     add('Pass Right',()=>passToLateral('right',contextTarget),isP && ballCarrier && teamColorOf(contextTarget)===teamColorOf(ballCarrier), isP && !(ballCarrier && teamColorOf(contextTarget)===teamColorOf(ballCarrier)) ? 'Only available when the right-clicked player\u2019s team currently has the ball' : null);
   }
+  add('Auto-Face Goal',()=>autoFaceGoalForPlayer(contextTarget),isP && contextTarget?.dataset.team!=='goalie' && ballCarrier && teamColorOf(contextTarget)===teamColorOf(ballCarrier), isP && contextTarget?.dataset.team!=='goalie' && !(ballCarrier && teamColorOf(contextTarget)===teamColorOf(ballCarrier)) ? 'Only available when the right-clicked player\u2019s team currently has the ball' : null);
   add('Left Arm',()=>setArmSide(contextTarget,'left'),isP);
   add('Right Arm',()=>setArmSide(contextTarget,'right'),isP);
   add('No Block',()=>clearBlockArm(contextTarget),isP);
@@ -9369,6 +9399,7 @@ board.addEventListener('click', e=>{ const target=e.target.closest?.('.player');
 // Extended keyboard shortcuts
 const oldKeyHandlerNote=true;
 document.addEventListener('keydown', e=>{
+  if(document.body.classList.contains('tutorialLockActive')) return;
   const tag=(document.activeElement?.tagName||'').toLowerCase(); if(['input','textarea','select'].includes(tag)) return;
   const k=e.key.toLowerCase();
   if((e.metaKey||e.ctrlKey) && k==='c'){ copySelected(); e.preventDefault(); return; }
@@ -9464,9 +9495,11 @@ document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)').forEach(b=>{
 });
 
 // --- Floating quick-command bar: 5 fixed presets (Photoshop-style) + 3 recently-used ---
-const QUICKBAR_PRESETS=['selectBtn','freeDrawBtn','fieldZonesToggleBtn','textBoxBtn','clearBtn','shootingAngleToggleBtn','shotBlockToggleBtn','goalieVisionToggleBtn','smartPositioningToggleBtn','smartGoaliePositioningToggleBtn'];
+const QUICKBAR_PRESETS=['selectBtn','freeDrawBtn','fieldZonesToggleBtn','textBoxBtn','clearBtn','quickViewToggleBtn','shootingAngleToggleBtn','shotBlockToggleBtn','goalieVisionToggleBtn','smartPositioningToggleBtn','smartGoaliePositioningToggleBtn','applySmartPositioningBtn'];
 const QCB_DRAWING_TOOLS=['passBtn','swimBtn','driveBtn','shotBtn','screenBtn','highlightBtn','noteBtn','measureBtn','freeDrawBtn','eraseBtn','clearBtn'];
 const QUICKBAR_ICONS={
+  applySmartPositioningBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><path d="M8 11v7M8 14l4 1.5"/><path d="M18 4v8M18 4h-4M18 4l4 4M18 12h-4M18 12l4-4" stroke-width="1.4"/></svg>',
+  quickViewToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="8" width="11" height="7" rx="1"/><rect x="16" y="3" width="7" height="18" rx="1"/><path d="M12.5 5.5l2.5-2 2.5 2M12.5 18.5l2.5 2 2.5-2" stroke-width="1.4"/></svg>',
   swimBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14c2.5-4 5-4 7.5 0s5 4 7.5 0"/><path d="M16.2 12.7l3.3 1.3-1.3 3.3"/></svg>',
   driveBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 Q10 10 19 5"/><path d="M13 4.3h6v6"/></svg>',
   shotBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21L15 8"/><path d="M9.5 8H15v5.5"/><rect x="15.5" y="2" width="6.5" height="6.5" stroke-width="1.3"/></svg>',
@@ -10779,10 +10812,26 @@ function refreshShotClockPosition(){
     right.style.top=''; right.style.right=''; right.style.left='';
   }
 }
+document.getElementById('quickViewToggleBtn')?.addEventListener('click', ()=>{
+  if(frontCourtActive){
+    frontCourtZoomed=false;
+    toggleFrontCourt(false);
+  } else {
+    toggleFrontCourtZoom(true);
+  }
+  updateViewOptionCards();
+});
+function updateQuickViewToggleBtn(){
+  const btn=document.getElementById('quickViewToggleBtn');
+  if(!btn) return;
+  btn.textContent = frontCourtActive ? 'Switch to Full Court' : 'Switch to Front Court (Zoomed)';
+  btn.classList.toggle('active', frontCourtActive);
+}
 function updateViewOptionCards(){
   document.getElementById('viewOptionFullCourt')?.classList.toggle('active', !frontCourtActive);
   document.getElementById('viewOptionFrontCourt')?.classList.toggle('active', frontCourtActive && !frontCourtZoomed);
   document.getElementById('viewOptionFrontCourtZoomed')?.classList.toggle('active', frontCourtActive && frontCourtZoomed);
+  updateQuickViewToggleBtn();
 }
 // Recomputes the Front Court crop depth (how much of the field's length is
 // shown) and, if Front Court is currently active, re-applies the rotation/
@@ -11702,6 +11751,14 @@ const _smartPositioningUI=MIZE.UI.ToggleButton('smartPositioningToggleBtn', 'Sma
   ()=>smartPositioningActive, v=>{ smartPositioningActive=v; });
 function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
 document.getElementById('applySmartPositioningBtn')?.addEventListener('click', applySmartPositioningToSelection);
+function autoFaceGoalForPlayer(el){
+  if(!el || isAnyBall(el) || el.dataset.team==='goalie') return;
+  recordHistory('Auto-Face Goal: '+displayName(el));
+  const ex=+el.dataset.x, ey=+el.dataset.y;
+  const goal=goalPointFor(playerSide(el));
+  const r=faceRotationTo(ex,ey,goal.x,goal.y);
+  if(r!==null){ el.dataset.rot=r; placeAny(el); }
+}
 function applySmartPositioningToSelection(){
   if(!ballCarrier){
     if(typeof MizeDialog!=='undefined') MizeDialog.alert('No one has the ball right now, so there\u2019s no way to tell who\u2019s attacking vs. defending. Give a player the ball first.');
@@ -14046,6 +14103,6 @@ document.querySelectorAll('.closeToolPanelBtn').forEach(btn=>{
   btn.addEventListener('click', ()=>closeToolPanels());
 });
 document.getElementById('toolPanelBackdrop').addEventListener('click', ()=>{ closeToolPanels(); closePresentationPanels(); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeToolPanels(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.classList.contains('tutorialLockActive')) closeToolPanels(); });
 </script>
 </body></html>
