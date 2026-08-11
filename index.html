@@ -457,7 +457,9 @@
   .shotClockCorner.active { display:block; }
   #shotClockLeft { left:3%; }
   #shotClockRight { right:3%; }
-  #shotClockCenter { position:fixed; top:calc(106px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:1450; }
+  #shotClockCenter { position:fixed; top:calc(106px + env(safe-area-inset-top)); left:50%; z-index:1450; transform-origin:top center; touch-action:none; }
+  #shotClockCenter .shotClockNumber { cursor:grab; }
+  #shotClockCenter.scDragging .shotClockNumber { cursor:grabbing; }
   .shotClockNumber { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; color:#14235c; line-height:1; }
   .shotClockCorner.warning .shotClockNumber { color:#c0392b; }
   .shotClockMiniControls { display:flex; gap:4px; justify-content:center; margin-top:4px; }
@@ -6522,6 +6524,48 @@ document.getElementById('tcDurationInput')?.addEventListener('change', e=>{
 
 // ===== Shot Clock =====
 function formatShotClockValue(v){ return Math.max(0, Math.ceil(v)).toString(); }
+const SHOT_CLOCK_CENTER_REF_PXPERM = 36; // calibrated so scale=1 matches the element's original ~72px natural width (2m x 36px/m)
+let shotClockCenterDragged = false; // once true, position is explicit (left/top in px) instead of the default centered layout
+function shotClockCenterScale(){
+  if(!board) return 1;
+  const rect = board.getBoundingClientRect();
+  if(!rect.width) return 1;
+  const widthRatioMeters = (typeof frontCourtActive!=='undefined' && frontCourtActive) ? M.fieldH : M.W;
+  const pxPerMeter = rect.width / widthRatioMeters;
+  return pxPerMeter / SHOT_CLOCK_CENTER_REF_PXPERM;
+}
+function updateShotClockCenterTransform(){
+  const el=document.getElementById('shotClockCenter');
+  if(!el) return;
+  const scale=shotClockCenterScale();
+  el.style.transform = shotClockCenterDragged ? `scale(${scale})` : `translateX(-50%) scale(${scale})`;
+}
+(function makeShotClockCenterDraggable(){
+  const el=document.getElementById('shotClockCenter');
+  const handle=el?.querySelector('.shotClockNumber');
+  if(!el || !handle) return;
+  let dragState=null;
+  handle.addEventListener('pointerdown', e=>{
+    const r=el.getBoundingClientRect();
+    dragState={ sx:e.clientX, sy:e.clientY, startLeft:r.left, startTop:r.top };
+    el.classList.add('scDragging');
+    handle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', e=>{
+    if(!dragState) return;
+    if(!shotClockCenterDragged){
+      shotClockCenterDragged=true;
+      el.style.left=dragState.startLeft+'px';
+      el.style.top=dragState.startTop+'px';
+      updateShotClockCenterTransform(); // switch from translateX(-50%)-centered to explicit-position scale-only
+    }
+    const dx=e.clientX-dragState.sx, dy=e.clientY-dragState.sy;
+    el.style.left=Math.max(0, Math.min(window.innerWidth-20, dragState.startLeft+dx))+'px';
+    el.style.top=Math.max(0, Math.min(window.innerHeight-20, dragState.startTop+dy))+'px';
+  });
+  handle.addEventListener('pointerup', e=>{ dragState=null; el.classList.remove('scDragging'); try{ handle.releasePointerCapture(e.pointerId); }catch(err){} });
+})();
 function updateShotClockDisplay(){
   const text=formatShotClockValue(MIZE.State.shotClock.seconds);
   const big=document.getElementById('shotClockBigDisplay');
@@ -14034,6 +14078,7 @@ function fitBoardToScreen(){
     board.style.aspectRatio='auto';
     board.style.width=boardW+'px';
     board.style.height=boardH+'px';
+    updateShotClockCenterTransform();
     const wrap=document.getElementById('stageWrap');
     if(wrap){ wrap.style.height=availH+'px'; wrap.style.overflowY='auto'; }
     // #board itself has touch-action:none (needed elsewhere to keep the
@@ -14072,6 +14117,7 @@ function fitBoardToScreen(){
     if(boardH>availH){ boardH=availH; boardW=boardH*ratioW/ratioH; }
     board.style.width=boardW+'px';
     board.style.height=boardH+'px';
+    updateShotClockCenterTransform();
     ['videoContent','statsContent'].forEach(id=>{
       const el=document.getElementById(id);
       if(el){ el.style.width=boardW+'px'; el.style.height=boardH+'px'; }
@@ -14101,6 +14147,7 @@ function fitBoardToScreen(){
   refreshShotClockPosition();
   board.style.width=boardW+'px';
   board.style.height=boardH+'px';
+  updateShotClockCenterTransform();
   document.querySelectorAll('.player').forEach(place);
   placeBall();
   document.querySelectorAll('.extraBall').forEach(place);
