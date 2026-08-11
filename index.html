@@ -457,6 +457,7 @@
   .shotClockCorner.active { display:block; }
   #shotClockLeft { left:3%; }
   #shotClockRight { right:3%; }
+  #shotClockCenter { position:fixed; top:calc(106px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:1450; }
   .shotClockNumber { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; color:#14235c; line-height:1; }
   .shotClockCorner.warning .shotClockNumber { color:#c0392b; }
   .shotClockMiniControls { display:flex; gap:4px; justify-content:center; margin-top:4px; }
@@ -1094,6 +1095,13 @@
 </div>
 <div id="studioWindowBlinds"></div>
 <button id="studioBlindsControlBtn" title="Open/close the studio window blinds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+<div id="shotClockCenter" class="shotClockCorner">
+  <div class="shotClockNumber">28</div>
+  <div class="shotClockMiniControls">
+    <button class="scPlayPause" title="Start/Pause shot clock">&#9654;</button>
+    <button class="scReset" title="Reset shot clock">&#8635;</button>
+  </div>
+</div>
 <div id="studioProps">
   <svg id="propCamera" viewBox="0 0 70 70"><ellipse cx="35" cy="64" rx="26" ry="4" fill="#000" opacity=".3"/><line x1="15" y1="62" x2="35" y2="30" stroke="#2a2d30" stroke-width="4"/><line x1="55" y1="62" x2="35" y2="30" stroke="#2a2d30" stroke-width="4"/><line x1="35" y1="62" x2="35" y2="30" stroke="#2a2d30" stroke-width="4"/><rect x="18" y="14" width="34" height="20" rx="3" fill="#3a3f45"/><circle cx="48" cy="24" r="9" fill="#111"/><circle cx="48" cy="24" r="5" fill="#2a4a5a"/><rect x="16" y="18" width="8" height="10" rx="1" fill="#25282c"/></svg>
   <svg id="propMonitor" viewBox="0 0 60 70"><rect x="24" y="55" width="12" height="10" fill="#2a2d30"/><rect x="14" y="63" width="32" height="4" rx="2" fill="#1a1c1e"/><rect x="6" y="6" width="48" height="34" rx="3" fill="#1c1f22"/><rect x="10" y="10" width="40" height="26" rx="1" fill="#2e6b8a"/><line x1="10" y1="10" x2="50" y2="36" stroke="#4a95b8" stroke-width="1" opacity=".5"/></svg>
@@ -1328,8 +1336,8 @@
   <div class="cmdCategory" data-cat="field">
     <button type="button" class="cmdCatHeader">Field <span class="chev">&#9656;</span></button>
     <div class="cmdFlyout">
-      <button id="quickViewToggleBtn" data-tip="Switch between Full Court and Front Court (Zoomed) view in one tap. For plain (non-zoomed) Front Court, use View Options instead.">Toggle Full/Front Court</button>
-      <button id="viewToggleTab" data-tip="View options: Full Court, Front Court, or Front Court (Zoomed).">View Options</button>
+      <button id="quickViewToggleBtn" data-tip="Switch between Full Court and Front Court view in one tap.">Toggle Full/Front Court</button>
+      <button id="viewToggleTab" data-tip="View options: Full Court or Front Court.">View Options</button>
       <button id="fieldZonesToggleBtn" data-tip="Field Zones: show reference zones around the goal.">Field Zones</button>
     </div>
   </div>
@@ -2018,9 +2026,12 @@ const MizeDialog = (function(){
     </div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">Set seconds: <input id="shotClockSecondsInput" type="number" min="1" max="999" value="28" style="width:70px;"></label>
     <label style="display:block;margin-bottom:6px;"><input type="radio" name="shotClockDirection" id="shotClockDirDown" checked> Count down</label>
-    <label style="display:block;margin-bottom:8px;"><input type="radio" name="shotClockDirection" id="shotClockDirUp"> Count up</label>
-    <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><input type="checkbox" id="shotClockSyncPackage"> Sync to package duration when playing</label>
-    <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="shotClockShowOnScreen" checked> Show clocks on screen</label>
+    <label style="display:block;margin-bottom:12px;"><input type="radio" name="shotClockDirection" id="shotClockDirUp"> Count up</label>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;"><input type="checkbox" id="shotClockSyncPackage"> Sync to package duration when playing</label>
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Position</div>
+    <label style="display:block;margin-bottom:6px;"><input type="radio" name="shotClockPosition" id="shotClockPosCorners" checked> Corners (left &amp; right, on the board)</label>
+    <label style="display:block;margin-bottom:14px;"><input type="radio" name="shotClockPosition" id="shotClockPosCenter"> Center (top of screen, always visible)</label>
+    <button id="shotClockOkBtn" style="width:100%;font-weight:700;">OK</button>
   </div>
 </div>
 <div class="toolPanel" id="smartGoaliePositioningPanel">
@@ -2107,13 +2118,9 @@ const MizeDialog = (function(){
         <svg viewBox="0 0 100 62" class="viewOptionIcon"><rect x="4" y="4" width="92" height="54" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><line x1="50" y1="4" x2="50" y2="58" stroke="currentColor" stroke-width="2"/><rect x="4" y="21" width="6" height="20" fill="currentColor"/><rect x="90" y="21" width="6" height="20" fill="currentColor"/></svg>
         <span>Full Court</span>
       </button>
-      <button type="button" class="viewOptionCard" id="viewOptionFrontCourt" data-view="front">
-        <svg viewBox="0 0 62 100" class="viewOptionIcon"><rect x="4" y="4" width="54" height="92" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><rect x="21" y="90" width="20" height="6" fill="currentColor"/></svg>
-        <span>Front Court</span>
-      </button>
       <button type="button" class="viewOptionCard" id="viewOptionFrontCourtZoomed" data-view="front-zoomed">
         <svg viewBox="0 0 62 100" class="viewOptionIcon"><rect x="4" y="4" width="54" height="92" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><rect x="4" y="4" width="54" height="46" fill="currentColor" fill-opacity="0.15"/><rect x="21" y="42" width="20" height="6" fill="currentColor"/></svg>
-        <span>Front Court (Zoomed)</span>
+        <span>Front Court</span>
       </button>
     </div>
   </div>
@@ -2303,7 +2310,8 @@ MIZE.State.shotClock = {
   direction: 'down',
   active: false,
   intervalId: null,
-  syncPackage: false
+  syncPackage: false,
+  position: 'corners'
 };
 let smartPositioningActive=true;
 let frontCourtActive=false;
@@ -2777,8 +2785,6 @@ function refreshFeatureVisibility(){
   if(sb) sb.style.display = feature('shotBlocking') ? '' : 'none';
   const gv=document.getElementById('goalieVisionToggleBtn');
   if(gv) gv.style.display = feature('goalieVision') ? '' : 'none';
-  const fc=document.getElementById('viewOptionFrontCourt');
-  if(fc) fc.style.display = feature('frontCourtView') ? '' : 'none';
   const fcz=document.getElementById('viewOptionFrontCourtZoomed');
   if(fcz) fcz.style.display = feature('frontCourtView') ? '' : 'none';
   const sc=document.getElementById('shotClockToggleBtn');
@@ -6520,11 +6526,15 @@ function updateShotClockDisplay(){
   const text=formatShotClockValue(MIZE.State.shotClock.seconds);
   const big=document.getElementById('shotClockBigDisplay');
   if(big) big.textContent=text;
-  [document.getElementById('shotClockLeft'), document.getElementById('shotClockRight')].forEach(el=>{
+  const isCenter=MIZE.State.shotClock.position==='center';
+  const corners=[document.getElementById('shotClockLeft'), document.getElementById('shotClockRight')];
+  const center=document.getElementById('shotClockCenter');
+  [...corners, center].forEach(el=>{
     if(!el) return;
     const numEl=el.querySelector('.shotClockNumber');
     if(numEl) numEl.textContent=text;
-    el.classList.toggle('active', MIZE.State.shotClock.active);
+    const isThisOneShown = (el===center) ? isCenter : !isCenter;
+    el.classList.toggle('active', MIZE.State.shotClock.active && isThisOneShown);
     el.classList.toggle('warning', MIZE.State.shotClock.direction==='down' && MIZE.State.shotClock.seconds<=5);
     const playBtn=el.querySelector('.scPlayPause');
     if(playBtn){ playBtn.innerHTML=MIZE.State.shotClock.running?'&#9208;':'&#9654;'; playBtn.classList.toggle('active', MIZE.State.shotClock.running); }
@@ -7824,7 +7834,7 @@ function buildFirstCoachingSessionSteps(){
       allowedSelectors: '#tcPlayPauseBtn', // unconditional (unlike the highlight, which drops to nothing while playing) -- the coach should still be able to pause if they want, not just watch with no control at all
       validate: { type:'custom', fn: ()=> introFrames && currentFrame===introFrames.length-1 && !playing }
     },
-    { // Step 5 -- Front Court (Zoomed) view: one-click switch via the Quick
+    { // Step 5 -- Front Court view: one-click switch via the Quick
       // Command Bar. Gives the rest of the tutorial's close-quarters work
       // (attacker and defender positioning) a closer, easier-to-see view
       // from here on. The QCB is shown just for this one tap and hidden
@@ -7832,7 +7842,7 @@ function buildFirstCoachingSessionSteps(){
       // to open/close it via the "Quicks" edge tab) still happens
       // properly at Step 9; this earlier appearance doesn't preempt that
       // lesson, it's simply visible long enough for one tap.
-      instruction: 'The scene has paused. Before marking any players, let\u2019s switch to a closer view. In the Quick Command Bar, tap the highlighted "Switch to Front Court (Zoomed)" icon -- one tap gets you there.',
+      instruction: 'The scene has paused. Before marking any players, let\u2019s switch to a closer view. In the Quick Command Bar, tap the highlighted "Switch to Front Court" icon -- one tap gets you there.',
       onEnter(){ tutorialShowQuickCommandBar(); tutorialHideTimelineRemote(); }, // remote not needed again until the outro plays at the very end -- keeps the view clear until then
       highlight: '#quickCommandBarInner button[title^="Switch to Front Court"]',
       useShadeHighlight: true,
@@ -8737,7 +8747,7 @@ async function autoplayPerformStep(step){
   if(instr.includes('"Open Sequence"')) return autoplayClickTarget('#soMenuOpenSequence');
   if(instr.includes('First Coaching Session') && instr.includes('load it')) return autoplayClickTarget(step.highlight, {moveMs:700});
   if(instr.includes('start the intro')) return autoplayPlayAndWait();
-  if(instr.includes('"Switch to Front Court (Zoomed)" icon')) return autoplayClickTarget(autoplayQCBButton('Switch to Front Court'));
+  if(instr.includes('"Switch to Front Court" icon')) return autoplayClickTarget(autoplayQCBButton('Switch to Front Court'));
   if(instr.includes('click-drag')) return autoplayScrollGesture();
   if(instr.includes('attacker who will run')) return autoplaySelectPlayer('W1');
   if(instr.includes('Grey shade = target spot')) return autoplayDragPlayerToGhost('W1');
@@ -8864,14 +8874,19 @@ document.getElementById('guestReloadBtn')?.addEventListener('click', ()=>{
 if(GUEST_EXPERIENCE_MODE) startGuestExperience();
 
 document.getElementById('shotClockToggleBtn')?.addEventListener('click', ()=>{
-  const panel=document.getElementById('shotClockPanel');
-  if(panel.classList.contains('open')){ closeToolPanels(); return; }
+  if(MIZE.State.shotClock.active){
+    MIZE.State.shotClock.active=false;
+    updateShotClockDisplay();
+    closeToolPanels();
+    return;
+  }
   MIZE.State.shotClock.active=true;
-  const showCb=document.getElementById('shotClockShowOnScreen'); if(showCb) showCb.checked=true;
   updateShotClockDisplay();
   openToolPanel('shotClockPanel');
 });
-document.getElementById('shotClockShowOnScreen')?.addEventListener('change', e=>{ MIZE.State.shotClock.active=e.target.checked; updateShotClockDisplay(); });
+document.getElementById('shotClockOkBtn')?.addEventListener('click', ()=>{ closeToolPanels(); });
+document.getElementById('shotClockPosCorners')?.addEventListener('change', e=>{ if(e.target.checked){ MIZE.State.shotClock.position='corners'; updateShotClockDisplay(); } });
+document.getElementById('shotClockPosCenter')?.addEventListener('change', e=>{ if(e.target.checked){ MIZE.State.shotClock.position='center'; updateShotClockDisplay(); } });
 document.getElementById('shotClockStartBtn')?.addEventListener('click', startShotClock);
 document.getElementById('shotClockStopBtn')?.addEventListener('click', stopShotClock);
 document.getElementById('shotClockResetBtn')?.addEventListener('click', resetShotClock);
@@ -10883,12 +10898,11 @@ document.getElementById('quickViewToggleBtn')?.addEventListener('click', ()=>{
 function updateQuickViewToggleBtn(){
   const btn=document.getElementById('quickViewToggleBtn');
   if(!btn) return;
-  btn.textContent = frontCourtActive ? 'Switch to Full Court' : 'Switch to Front Court (Zoomed)';
+  btn.textContent = frontCourtActive ? 'Switch to Full Court' : 'Switch to Front Court';
   btn.classList.toggle('active', frontCourtActive);
 }
 function updateViewOptionCards(){
   document.getElementById('viewOptionFullCourt')?.classList.toggle('active', !frontCourtActive);
-  document.getElementById('viewOptionFrontCourt')?.classList.toggle('active', frontCourtActive && !frontCourtZoomed);
   document.getElementById('viewOptionFrontCourtZoomed')?.classList.toggle('active', frontCourtActive && frontCourtZoomed);
   updateQuickViewToggleBtn();
 }
@@ -10915,7 +10929,6 @@ function toggleFrontCourtZoom(on){
   setFrontCourtDepth(on ? FC_ZOOM_DEPTH : FC_DEFAULT_DEPTH);
 }
 document.getElementById('viewOptionFullCourt')?.addEventListener('click', ()=>{ frontCourtZoomed=false; toggleFrontCourt(false); updateViewOptionCards(); closeToolPanels(); });
-document.getElementById('viewOptionFrontCourt')?.addEventListener('click', ()=>{ frontCourtZoomed=false; toggleFrontCourt(true); setFrontCourtDepth(FC_DEFAULT_DEPTH); updateViewOptionCards(); closeToolPanels(); });
 document.getElementById('viewOptionFrontCourtZoomed')?.addEventListener('click', ()=>{ toggleFrontCourtZoom(true); updateViewOptionCards(); closeToolPanels(); });
 updateViewOptionCards();
 
