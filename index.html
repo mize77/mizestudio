@@ -434,14 +434,20 @@
   #studioWindowLayer.dark { opacity:.12; }
   #studioWindowLayer svg { width:100%; height:100%; display:block; }
   #studioWindowMullions { position:absolute; inset:0; background:repeating-linear-gradient(90deg, rgba(28,24,18,.6) 0 5px, transparent 5px 240px), repeating-linear-gradient(0deg, rgba(28,24,18,.6) 0 5px, transparent 5px 240px); }
+  #studioWindowBlinds { display:none; position:fixed; top:0; left:0; right:0; height:0; overflow:hidden; background:repeating-linear-gradient(180deg, #d9d4c6 0px, #d9d4c6 18px, #b6b0a0 18px, #b6b0a0 20px); box-shadow:inset 0 -10px 14px -8px rgba(0,0,0,.35); transition:height 2s ease; z-index:41; }
+  body.presentation #studioWindowBlinds { display:block; }
+  #studioWindowBlinds.closed { height:100%; }
+  #studioBlindsControlBtn { display:none; position:fixed; top:calc(14px + env(safe-area-inset-top)); right:calc(64px + env(safe-area-inset-right)); z-index:1450; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; align-items:center; justify-content:center; cursor:pointer; padding:0; }
+  #studioBlindsControlBtn svg { width:20px; height:20px; }
+  #studioBlindsControlBtn:hover { background:rgba(255,255,255,.24); }
+  #studioBlindsControlBtn.active { background:rgba(255,207,64,.3); border-color:rgba(255,207,64,.7); }
+  body.presentation #studioBlindsControlBtn { display:flex; }
   #studioProps { display:none; position:fixed; inset:0; z-index:45; pointer-events:none; }
   body.presentation #studioProps { display:block; }
   #propCamera { position:absolute; bottom:0; left:3%; width:90px; height:90px; opacity:.55; }
   #propMonitor { position:absolute; bottom:0; right:4%; width:80px; height:80px; opacity:.5; }
   #studioWindowDarkenBtn, #spotlightToggleBtn { display:none; }
-  body.presentation #studioWindowDarkenBtn.edgeTab.windowsHandleTab { display:block; }
-  #shotClockToggleBtn { display:none; }
-  #shotClockToggleBtn.edgeTab.shotClockHandleTab { display:block; }
+  body.presentation #studioWindowDarkenBtn { display:block; }
   
   #shotClockToggleBtn.active { background:#ffcf40; color:#20200a; }
   .shotClockCorner { display:none; position:absolute; top:3%; z-index:50; text-align:center; background:rgba(255,255,255,.92); padding:6px 10px; border-radius:8px; box-shadow:0 4px 14px rgba(0,0,0,.25); }
@@ -454,7 +460,7 @@
   .shotClockMiniControls { display:flex; gap:4px; justify-content:center; margin-top:4px; }
   .shotClockMiniControls button { width:24px; height:24px; border-radius:50%; background:#14235c; color:#fff; border:none; font-size:11px; display:flex; align-items:center; justify-content:center; padding:0; }
   .shotClockMiniControls button.active { background:#ffcf40; color:#20200a; }
-  body.presentation #spotlightToggleBtn.edgeTab.spotlightHandleTab { display:block; }
+  body.presentation #spotlightToggleBtn { display:block; }
   .fieldZoneLine { fill:none; stroke:#6b6b6b; stroke-width:.06; stroke-dasharray:.3 .2; }
   .fieldZoneLabel { text-anchor:middle; dominant-baseline:central; font-family:Arial, sans-serif; fill:#6b6b6b; fill-opacity:.7; }
   .setupButtonList { display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto; padding:2px; }
@@ -515,7 +521,10 @@
   body.presentation .studioFrame .studioFramePlaceholder { position:relative; z-index:1; }
   #stageLights { display:none; position:fixed; top:0; left:0; width:100%; z-index:1300; pointer-events:none; height:90px; }
   body.presentation #stageLights { display:block; }
-  .stageLight { position:absolute; top:-6px; width:60px; height:86px; }
+  .stageLight { position:absolute; top:-6px; width:60px; height:86px; pointer-events:auto; cursor:pointer; }
+  .stageLight .stageLightHousing { transition:filter .15s ease; }
+  .stageLight:hover .stageLightHousing { filter:brightness(1.35); }
+  .stageLight.spotlightSource .stageLightHousing { filter:brightness(1.5); box-shadow:0 0 10px 2px rgba(255,224,130,.7); }
   .stageLight .stageLightYoke { position:absolute; top:0; left:50%; transform:translateX(-50%); width:34px; height:10px; border:2.5px solid #4a4f56; border-bottom:none; border-radius:8px 8px 0 0; background:transparent; }
   .stageLight .stageLightHousing { position:absolute; top:7px; left:50%; transform:translateX(-50%); width:34px; height:36px; background:linear-gradient(120deg,#585d64 0%,#33373c 40%,#141618 85%); border-radius:9px 9px 7px 7px; box-shadow:inset 0 0 5px rgba(255,255,255,.18), 0 3px 6px rgba(0,0,0,.4); }
   .stageLight .stageLightHousing::after { content:''; position:absolute; top:4px; left:4px; width:8px; height:14px; background:rgba(255,255,255,.12); border-radius:4px; }
@@ -1081,6 +1090,8 @@
   </svg>
   <div id="studioWindowMullions"></div>
 </div>
+<div id="studioWindowBlinds"></div>
+<button id="studioBlindsControlBtn" title="Open/close the studio window blinds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
 <div id="studioProps">
   <svg id="propCamera" viewBox="0 0 70 70"><ellipse cx="35" cy="64" rx="26" ry="4" fill="#000" opacity=".3"/><line x1="15" y1="62" x2="35" y2="30" stroke="#2a2d30" stroke-width="4"/><line x1="55" y1="62" x2="35" y2="30" stroke="#2a2d30" stroke-width="4"/><line x1="35" y1="62" x2="35" y2="30" stroke="#2a2d30" stroke-width="4"/><rect x="18" y="14" width="34" height="20" rx="3" fill="#3a3f45"/><circle cx="48" cy="24" r="9" fill="#111"/><circle cx="48" cy="24" r="5" fill="#2a4a5a"/><rect x="16" y="18" width="8" height="10" rx="1" fill="#25282c"/></svg>
   <svg id="propMonitor" viewBox="0 0 60 70"><rect x="24" y="55" width="12" height="10" fill="#2a2d30"/><rect x="14" y="63" width="32" height="4" rx="2" fill="#1a1c1e"/><rect x="6" y="6" width="48" height="34" rx="3" fill="#1c1f22"/><rect x="10" y="10" width="40" height="26" rx="1" fill="#2e6b8a"/><line x1="10" y1="10" x2="50" y2="36" stroke="#4a95b8" stroke-width="1" opacity=".5"/></svg>
@@ -5771,11 +5782,19 @@ let studioWindowsManuallyDark=false;
 function updateWindowDarkenState(){
   const layer=document.getElementById('studioWindowLayer');
   const btn=document.getElementById('studioWindowDarkenBtn');
+  const blinds=document.getElementById('studioWindowBlinds');
+  const blindsBtn=document.getElementById('studioBlindsControlBtn');
   const shouldBeDark=studioWindowsManuallyDark || MIZE.State.spotlight.placed;
   if(layer) layer.classList.toggle('dark', shouldBeDark);
   if(btn) btn.classList.toggle('active', studioWindowsManuallyDark);
+  if(blinds) blinds.classList.toggle('closed', shouldBeDark);
+  if(blindsBtn) blindsBtn.classList.toggle('active', shouldBeDark);
 }
 document.getElementById('studioWindowDarkenBtn').addEventListener('click', ()=>{
+  studioWindowsManuallyDark=!studioWindowsManuallyDark;
+  updateWindowDarkenState();
+});
+document.getElementById('studioBlindsControlBtn')?.addEventListener('click', ()=>{
   studioWindowsManuallyDark=!studioWindowsManuallyDark;
   updateWindowDarkenState();
 });
@@ -5807,9 +5826,24 @@ function disarmSpotlight(){
   MIZE.State.spotlight.armed=false;
   document.getElementById('spotlightToggleBtn').classList.remove('active');
   document.getElementById('spotlightOverlay').classList.remove('armed');
+  document.querySelectorAll('.stageLight').forEach(f=>f.classList.remove('spotlightSource'));
   removeSpotlight();
 }
 document.getElementById('spotlightToggleBtn').addEventListener('click', ()=>{ if(MIZE.State.spotlight.armed) disarmSpotlight(); else armSpotlight(); });
+document.querySelectorAll('.stageLight').forEach(fixture=>{
+  fixture.addEventListener('click', e=>{
+    e.stopPropagation();
+    document.querySelectorAll('.stageLight').forEach(f=>f.classList.remove('spotlightSource'));
+    if(MIZE.State.spotlight.armed || MIZE.State.spotlight.placed){
+      disarmSpotlight();
+      return;
+    }
+    fixture.classList.add('spotlightSource');
+    armSpotlight();
+    const boardRect = board.getBoundingClientRect();
+    placeSpotlight(boardRect.left+boardRect.width/2, boardRect.top+boardRect.height/2);
+  });
+});
 let spotlightAnimFrame=null;
 function animateSpotlightTo(targetX, targetY){
   if(spotlightAnimFrame){ cancelAnimationFrame(spotlightAnimFrame); spotlightAnimFrame=null; }
@@ -13936,8 +13970,16 @@ function fitBoardToScreen(){
     const inPresentation=document.body.classList.contains('presentation')||document.body.classList.contains('presentation-real');
     const isReal=document.body.classList.contains('presentation-real');
     const margin=inPresentation ? (isReal?12:20) : 20;
-    const availW=Math.max(280, viewportWidth()-margin);
+    let availW=Math.max(280, viewportWidth()-margin);
     const availH=Math.max(220, viewportHeight()-margin);
+    // During presentation, cap the width so it matches the same "screen
+    // within the studio" frame the normal (non-Front-Court) presentation
+    // view already uses -- otherwise the board expands to the full
+    // viewport width, hiding the studio backdrop on the sides entirely.
+    if(inPresentation){
+      const maxScreenW=availH*(PRESENT_VIEWBOX_W/PRESENT_VIEWBOX_H);
+      availW=Math.max(280, Math.min(availW, maxScreenW));
+    }
     // ratioW uses the playable pool width (M.fieldH) rather than the full
     // board height (M.H) -- M.H includes 2m of purely decorative margin
     // band above and below the pool on each side, which was wasting about
