@@ -1826,7 +1826,7 @@
 <div class="toolPanel devModeOnly" id="brandingManagerPanel" style="width:min(720px,94vw);display:none;">
   <div class="toolPanelHeader"><h3>Branding &amp; Sponsors</h3><button class="closeToolPanelBtn">&#10005;</button></div>
   <div class="toolPanelBody">
-    <div style="font-size:12px;color:#54605f;margin-bottom:10px;">Manage logos and sponsor placements across the app. Changes apply immediately and are saved to this browser. Still admin-only for now -- once real per-user authorization exists, this becomes the customer-facing branding manager for organization admins.</div>
+    <div id="brandPanelDescription" style="font-size:12px;color:#54605f;margin-bottom:10px;">Manage logos and sponsor placements across the app. Changes apply immediately and are saved to this browser. Still admin-only for now -- once real per-user authorization exists, this becomes the customer-facing branding manager for organization admins.</div>
 
     <div id="brandProfileSection" style="border:1px solid #e2e8e8;border-radius:8px;padding:10px;margin-bottom:14px;">
       <div style="font-weight:700;margin-bottom:6px;">Branding Profile</div>
@@ -8767,7 +8767,7 @@ function buildFirstCoachingSessionSteps(){
       // gesture works for a mouse (click and drag) and touch (swipe),
       // which is also why the instruction can describe both at once
       // rather than needing separate mouse/touch guidance.
-      instruction: 'Try it: click-drag (or swipe) near the left/right edge of the screen to scroll up/down and see more of the field. Make sure your device is in landscape mode.',
+      instruction: 'Try it: click-drag (or swipe) near the left/right edge of the screen to scroll up/down and see more of the field.'+(isTouchDevice ? ' Make sure your device is in landscape mode.' : ''),
       onEnter(){
         scrollStartTop = document.getElementById('stageWrap')?.scrollTop ?? 0;
         if(tutorialContinueInPortrait){
@@ -9884,11 +9884,19 @@ function buildViewerExperienceSteps(){
       onEnter(){ tutorialShowQuickCommandBar(); },
       highlight: '[data-src-id="quickViewToggleBtn"]',
       validate: { type:'custom', fn: ()=> frontCourtActive===true },
+      onValidated(){ tutorialHideQuickCommandBar(); }, // its job here is done -- hidden again immediately (not just at tutorial completion) so only the remote is active from here on; the person can still bring it back manually via the Quicks handle at any time
       autoComplete(){ if(typeof toggleFrontCourtZoom==='function') toggleFrontCourtZoom(true); }
     },
     { // Step 5 -- press Play on the remote
       instruction: 'Almost there! Tap the highlighted \u25B6 Play button on the remote to run the drill.',
       bannerSide: 'left',
+      // The engine's default behavior hides the remote the instant playing
+      // becomes true (see updateTutorialBannerPlayingVisibility) -- built
+      // for the OTHER tutorial, where the remote isn't needed again until
+      // a later outro step. Here, pressing Play is the tutorial's final
+      // action, and the whole point is for the remote to stay visible
+      // through it and into free play afterward.
+      onEnter(){ tutorialSuppressRemoteAutoHide = true; },
       highlight: '#tcPlayPauseBtn',
       validate: { type:'custom', fn: ()=> playing===true },
       autoComplete(){ if(typeof playFrames==='function') playFrames(); }
@@ -9904,9 +9912,17 @@ async function startViewerMode(){
     // from the devModeOnly system (no visible entry point for regular
     // coaches) -- explicitly overridden here since this guest-facing mode
     // deliberately exposes a narrowed version of it (see the CSS rules
-    // restricting its contents to Field Logo + Perimeter Zones).
+    // restricting its contents to Field Logo + Perimeter Zones). The PANEL
+    // itself carries this same devModeOnly inline display:none separately
+    // from its trigger button -- both need overriding, or the button
+    // click correctly adds .open but the panel's own inline style still
+    // wins and it never actually becomes visible.
     const brandBtn = document.querySelector('[data-panel="brandingManagerPanel"]');
     if(brandBtn) brandBtn.style.display = '';
+    const brandPanel = document.getElementById('brandingManagerPanel');
+    if(brandPanel) brandPanel.style.display = '';
+    const brandDesc = document.getElementById('brandPanelDescription');
+    if(brandDesc) brandDesc.textContent = 'Customize your field logo and deck labels below. Changes are saved to this browser and applied immediately.';
     // Seed the drill into the real sequence store (only if not already
     // present, so a second run never clobbers something the guest saved
     // themselves) so Step 3 of the tutorial finds and opens it through the
@@ -9923,7 +9939,8 @@ async function startViewerMode(){
         }
       } catch(err) { console.error('Could not seed embedded viewer drill:', err); }
       startTutorial(buildViewerExperienceSteps(), {
-        completionMessage: 'You\u2019re all set! Explore \u201c'+VIEWER_DRILL_NAME+'\u201d freely -- switch views, use the remote, or try the tools on the left.'
+        completionMessage: 'You\u2019re all set! Explore \u201c'+VIEWER_DRILL_NAME+'\u201d freely -- switch views, use the remote, or try the tools on the left.',
+        onComplete(){ tutorialSuppressRemoteAutoHide = false; }
       });
     }
   } catch(err) {
