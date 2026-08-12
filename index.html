@@ -2694,8 +2694,6 @@ MIZE.Branding.apply = function(){
   MIZE.Branding.applyHtmlLogos();
   MIZE.Branding.applySponsorZones();
 };
-MIZE.Branding.loadFromStorage();
-MIZE.Branding.apply();
 // ===== Brand Asset Model (Milestone 1A) =====
 MIZE.Branding.addAsset = function(href, meta){
   meta = meta || {};
@@ -2797,6 +2795,8 @@ MIZE.Branding.listAssets = function(filter){
   }).sort((a,b)=> (b.updatedAt||'').localeCompare(a.updatedAt||''));
 };
 MIZE.Branding.getAsset = function(id){ return MIZE.Branding.assets[id] || null; };
+MIZE.Branding.loadFromStorage();
+MIZE.Branding.apply();
 MIZE.Branding.deleteAsset = function(id){
   delete MIZE.Branding.assets[id];
   // Unassign from anything currently pointing at it, so nothing is left
