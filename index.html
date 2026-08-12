@@ -1790,6 +1790,10 @@
     <div style="font-weight:700;margin:16px 0 6px;">Sponsor Zones</div>
     <div style="font-size:12px;color:#54605f;margin-bottom:8px;">Shown during presentations. Assign one logo for a static display, or several to rotate through automatically.</div>
     <div id="brandSponsorZonesContainer"></div>
+
+    <div style="font-weight:700;margin:16px 0 6px;">Perimeter Zones</div>
+    <div style="font-size:12px;color:#54605f;margin-bottom:8px;">The four deck areas next to the goals. Each can show text (up to 12 characters) or a logo -- a square logo displays three times to fill the strip. Assign more than one logo to rotate between sponsors.</div>
+    <div id="brandPerimeterZonesContainer"></div>
   </div>
 </div>
 <div id="toolPanelBackdrop"></div>
@@ -2345,8 +2349,8 @@ MIZE.Branding = {
   fieldLogo: {
     enabled: true,
     href: null, // null = leave whatever's already in the HTML (today's XquiX Studio logo) untouched; set this to swap in a different image
-    width: 4,
-    height: 3.08,
+    width: 10,
+    height: 7.7,
     opacity: 0.92
   },
   // One entry per existing perimeter text position. Keys describe screen
@@ -2354,25 +2358,25 @@ MIZE.Branding = {
   // this field's actual layout -- not the spec document's own "top"
   // example, which doesn't correspond to how this field is laid out.
   perimeterText: {
-    leftUpper:  { text:'RESPECT',    visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
-    leftLower:  { text:'FAIR PLAY',  visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
-    rightUpper: { text:'HAVE FUN',   visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
-    rightLower: { text:'PLAY SMART', visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 }
+    leftUpper:  { mode:'text', text:'RESPECT',    visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
+    leftLower:  { mode:'text', text:'FAIR PLAY',  visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
+    rightUpper: { mode:'text', text:'HAVE FUN',   visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
+    rightLower: { mode:'text', text:'PLAY SMART', visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 }
   },
   // The four plain HTML (non-field) logo placements. href:null on each
   // means "use the shared default logo" (read once from the field logo's
   // own embedded image below, rather than duplicating that same base64
   // data four more times in the page) -- set an individual href to
   // override just that one placement with something different.
-  headerLogo:         { enabled:true, href:null, height:32,  opacity:1 },
-  sidebarLogo:        { enabled:true, href:null, height:36,  opacity:1 },
-  presentationLogo:   { enabled:true, href:null, height:28,  opacity:.8, corner:'bottom-right' },
-  practiceStudioLogo: { enabled:true, href:null, height:28,  opacity:1 },
+  headerLogo:         { enabled:true, href:null, height:100, opacity:1 },
+  sidebarLogo:        { enabled:true, href:null, height:100, opacity:1 },
+  presentationLogo:   { enabled:true, href:null, height:100, opacity:.8, corner:'bottom-right' },
+  practiceStudioLogo: { enabled:true, href:null, height:100, opacity:1 },
   // Sponsor zones (Milestone 1E): unlike the single-image logo placements
   // above, these hold assetIds (plural) to support rotation through
   // multiple approved sponsor assets rather than one fixed href.
-  sponsorZoneA: { enabled:false, assetIds:[], height:26, opacity:.85, rotateSeconds:8 },
-  sponsorZoneB: { enabled:false, assetIds:[], height:26, opacity:.85, rotateSeconds:8 }
+  sponsorZoneA: { enabled:false, assetIds:[], height:100, opacity:.85, rotateSeconds:8 },
+  sponsorZoneB: { enabled:false, assetIds:[], height:100, opacity:.85, rotateSeconds:8 }
 };
 // Brand Asset store (Milestone 1A): a reusable pool of uploaded logo/
 // sponsor images, keyed by id, that placements reference rather than
@@ -2450,33 +2454,118 @@ MIZE.Branding.getText = function(key){
   return shortKey ? MIZE.Branding.perimeterText[shortKey] : null;
 };
 MIZE.Branding.applyFieldLogo = function(){
-  const logo = document.getElementById('fieldCenterLogo');
-  if(!logo) return;
-  const cfg = MIZE.Branding.fieldLogo;
-  logo.style.display = cfg.enabled ? '' : 'none';
-  if(!cfg.enabled) return;
-  if(cfg.href) logo.setAttribute('href', cfg.href);
-  // Always recentered on the field's true center, so changing width/
-  // height (e.g. a customer's logo has a different aspect ratio) never
-  // shifts the logo off-center the way just resizing in place would.
   const centerX = M.fieldX + M.fieldW/2, centerY = M.fieldY + M.fieldH/2;
-  logo.setAttribute('width', cfg.width);
-  logo.setAttribute('height', cfg.height);
-  logo.setAttribute('x', centerX - cfg.width/2);
-  logo.setAttribute('y', centerY - cfg.height/2);
-  logo.setAttribute('opacity', cfg.opacity);
+  const cfg = MIZE.Branding.fieldLogo;
+  [document.getElementById('fieldCenterLogo'), document.getElementById('fieldCenterLogoPresentation')].forEach(logo=>{
+    if(!logo) return;
+    logo.style.display = cfg.enabled ? '' : 'none';
+    if(!cfg.enabled) return;
+    if(cfg.href) logo.setAttribute('href', cfg.href);
+    // Always recentered on the field's true center, so changing width/
+    // height (e.g. a customer's logo has a different aspect ratio) never
+    // shifts the logo off-center the way just resizing in place would.
+    logo.setAttribute('width', cfg.width);
+    logo.setAttribute('height', cfg.height);
+    logo.setAttribute('x', centerX - cfg.width/2);
+    logo.setAttribute('y', centerY - cfg.height/2);
+    logo.setAttribute('opacity', cfg.opacity);
+  });
 };
+// Geometry (center point, rotation angle, along-strip length in that
+// context's own coordinate space) for each of the 4 perimeter zones --
+// captured directly from the existing hand-authored text elements' own
+// x/y/transform/textLength, so logo-mode rendering lines up exactly
+// where the text used to sit.
+const PERIMETER_ZONE_GEOM_NORMAL = {
+  leftUpper:  { cx:1,  cy:6.25,  angle:-90, length:7 },
+  leftLower:  { cx:1,  cy:17.75, angle:-90, length:7 },
+  rightUpper: { cx:28, cy:6.25,  angle:-90, length:7 },
+  rightLower: { cx:28, cy:17.75, angle:-90, length:7 }
+};
+const PERIMETER_ZONE_GEOM_PRESENT = {
+  leftUpper:  { cx:1.4,  cy:8.25,  angle:-90, length:7.8 },
+  leftLower:  { cx:1.4,  cy:19.75, angle:-90, length:7.8 },
+  rightUpper: { cx:33.6, cy:8.25,  angle:90,  length:7.8 },
+  rightLower: { cx:33.6, cy:19.75, angle:90,  length:7.8 }
+};
+const PERIMETER_PRESENT_EL_MAP = { leftUpper:'presentBrandRespect', leftLower:'presentBrandFairPlay', rightUpper:'presentBrandHaveFun', rightLower:'presentBrandPlaySmart' };
+function renderPerimeterZoneVisual(key, textElId, geom){
+  const textEl = document.getElementById(textElId);
+  if(!textEl || !geom) return;
+  const cfg = MIZE.Branding.perimeterText[key];
+  const NS = 'http://www.w3.org/2000/svg';
+  let group = document.getElementById(textElId+'Logos');
+  if(!group){
+    group = document.createElementNS(NS,'g');
+    group.id = textElId+'Logos';
+    textEl.parentNode.insertBefore(group, textEl.nextSibling);
+  }
+  if(group._rotTimer) clearInterval(group._rotTimer);
+  const validIds = (cfg.assetIds||[]).filter(id=>MIZE.Branding.assets[id]);
+  if(cfg.mode!=='logo' || !validIds.length){
+    group.style.display = 'none';
+    textEl.style.display = cfg.visible ? '' : 'none';
+    return;
+  }
+  textEl.style.display = 'none';
+  group.style.display = cfg.visible ? '' : 'none';
+  function renderCurrent(){
+    group.innerHTML = '';
+    if(cfg._rotIndex==null || cfg._rotIndex>=validIds.length) cfg._rotIndex = 0;
+    const asset = MIZE.Branding.assets[validIds[cfg._rotIndex]];
+    if(!asset) return;
+    const gT = document.createElementNS(NS,'g');
+    gT.setAttribute('transform', 'rotate('+geom.angle+', '+geom.cx+', '+geom.cy+')');
+    if(MIZE.Branding.isSquareAsset(asset.id)){
+      // Square logo: shown 3 times side-by-side to fill the long, narrow
+      // strip better than a single small square would.
+      const s = geom.length/3 - 0.1;
+      for(let i=0;i<3;i++){
+        const img = document.createElementNS(NS,'image');
+        const x = geom.cx - geom.length/2 + i*(geom.length/3) + 0.05;
+        img.setAttribute('x', x); img.setAttribute('y', geom.cy - s/2);
+        img.setAttribute('width', s); img.setAttribute('height', s);
+        img.setAttribute('href', asset.href);
+        img.setAttribute('preserveAspectRatio','xMidYMid meet');
+        gT.appendChild(img);
+      }
+    } else {
+      const maxW = geom.length - 0.5, maxH = 1.8;
+      let w = maxW, h = maxH;
+      if(asset.naturalWidth && asset.naturalHeight){
+        const ratio = asset.naturalWidth/asset.naturalHeight;
+        if(maxW/ratio <= maxH){ w = maxW; h = maxW/ratio; } else { h = maxH; w = maxH*ratio; }
+      }
+      const img = document.createElementNS(NS,'image');
+      img.setAttribute('x', geom.cx - w/2); img.setAttribute('y', geom.cy - h/2);
+      img.setAttribute('width', w); img.setAttribute('height', h);
+      img.setAttribute('href', asset.href);
+      img.setAttribute('preserveAspectRatio','xMidYMid meet');
+      gT.appendChild(img);
+    }
+    group.appendChild(gT);
+  }
+  renderCurrent();
+  if(validIds.length > 1){
+    group._rotTimer = setInterval(()=>{
+      cfg._rotIndex = (cfg._rotIndex+1) % validIds.length;
+      renderCurrent();
+    }, Math.max(3, cfg.rotateSeconds||8) * 1000);
+  }
+}
 MIZE.Branding.applyPerimeterText = function(){
   Object.keys(MIZE_BRANDING_PERIMETER_EL_MAP).forEach(key=>{
     const el = document.getElementById(MIZE_BRANDING_PERIMETER_EL_MAP[key]);
     if(!el) return;
     const cfg = MIZE.Branding.perimeterText[key];
-    el.style.display = cfg.visible ? '' : 'none';
+    if(cfg.text && cfg.text.length > 12) cfg.text = cfg.text.slice(0,12); // 12-char cap, enforced here regardless of what set it (defense in depth alongside the UI's own maxlength)
     el.textContent = cfg.text;
     el.setAttribute('fill', cfg.color);
     el.setAttribute('font-family', cfg.font);
     el.setAttribute('font-size', cfg.fontSize);
     el.setAttribute('textLength', cfg.textLength);
+    renderPerimeterZoneVisual(key, MIZE_BRANDING_PERIMETER_EL_MAP[key], PERIMETER_ZONE_GEOM_NORMAL[key]);
+    renderPerimeterZoneVisual(key, PERIMETER_PRESENT_EL_MAP[key], PERIMETER_ZONE_GEOM_PRESENT[key]);
   });
 };
 MIZE.Branding.applyHtmlLogos = function(){
@@ -2550,6 +2639,8 @@ MIZE.Branding.addAsset = function(href, meta){
     type: meta.type || 'logo',
     name: meta.name || 'Untitled Asset',
     href,
+    naturalWidth: meta.naturalWidth || null,
+    naturalHeight: meta.naturalHeight || null,
     createdAt: now,
     updatedAt: now,
     active: true,
@@ -2558,6 +2649,12 @@ MIZE.Branding.addAsset = function(href, meta){
   };
   MIZE.Branding.assets[id] = asset;
   return asset;
+};
+MIZE.Branding.isSquareAsset = function(id){
+  const a = MIZE.Branding.assets[id];
+  if(!a || !a.naturalWidth || !a.naturalHeight) return false;
+  const ratio = a.naturalWidth / a.naturalHeight;
+  return ratio > 0.85 && ratio < 1.18; // within ~15% of 1:1 counts as "square" for the triple-display rule
 };
 MIZE.Branding.listAssets = function(filter){
   filter = filter || {};
@@ -2659,19 +2756,19 @@ MIZE.Branding.migrateToAssetModel();
 // could modify anything in place -- Reset buttons restore from this,
 // not from whatever happens to be currently loaded.
 MIZE.Branding.DEFAULTS = JSON.parse(JSON.stringify({
-  fieldLogo: { enabled:true, href:null, width:4, height:3.08, opacity:0.92 },
+  fieldLogo: { enabled:true, href:null, width:10, height:7.7, opacity:0.92 },
   perimeterText: {
-    leftUpper:  { text:'RESPECT',    visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
-    leftLower:  { text:'FAIR PLAY',  visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
-    rightUpper: { text:'HAVE FUN',   visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 },
-    rightLower: { text:'PLAY SMART', visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7 }
+    leftUpper:  { mode:'text', text:'RESPECT',    visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
+    leftLower:  { mode:'text', text:'FAIR PLAY',  visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
+    rightUpper: { mode:'text', text:'HAVE FUN',   visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
+    rightLower: { mode:'text', text:'PLAY SMART', visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 }
   },
-  headerLogo:         { enabled:true, href:null, height:32,  opacity:1 },
-  sidebarLogo:        { enabled:true, href:null, height:36,  opacity:1 },
-  presentationLogo:   { enabled:true, href:null, height:28,  opacity:.8, corner:'bottom-right' },
-  practiceStudioLogo: { enabled:true, href:null, height:28,  opacity:1 },
-  sponsorZoneA: { enabled:false, assetIds:[], height:26, opacity:.85, rotateSeconds:8 },
-  sponsorZoneB: { enabled:false, assetIds:[], height:26, opacity:.85, rotateSeconds:8 }
+  headerLogo:         { enabled:true, href:null, height:100, opacity:1 },
+  sidebarLogo:        { enabled:true, href:null, height:100, opacity:1 },
+  presentationLogo:   { enabled:true, href:null, height:100, opacity:.8, corner:'bottom-right' },
+  practiceStudioLogo: { enabled:true, href:null, height:100, opacity:1 },
+  sponsorZoneA: { enabled:false, assetIds:[], height:100, opacity:.85, rotateSeconds:8 },
+  sponsorZoneB: { enabled:false, assetIds:[], height:100, opacity:.85, rotateSeconds:8 }
 }));
 // ===== Splash screen =====
 // Runs after MIZE.Branding.apply() above, so it picks up whatever logo is
@@ -2703,7 +2800,7 @@ function resizeImageFileToDataUri(file, maxDim, callback){
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      callback(canvas.toDataURL('image/png'));
+      callback(canvas.toDataURL('image/png'), { width:w, height:h });
     };
     img.src = reader.result;
   };
@@ -3337,6 +3434,18 @@ document.querySelector('.toolListBtn[data-panel="developerModePanel"]')?.addEven
 // "Size" means width+height together (proportionally) for the field
 // logo specifically (an SVG image needing both explicit), and just
 // height for the other four (plain <img> tags that auto-scale width).
+function previewPlacement(key){
+  closeToolPanels();
+  if(key==='presentationLogo' || key==='sponsorZoneA' || key==='sponsorZoneB'){
+    if(!document.body.classList.contains('presentation') && !document.body.classList.contains('presentation-real')){
+      togglePresentation('fit');
+    }
+  } else if(key==='practiceStudioLogo'){
+    document.getElementById('openPracticeStudioBtn')?.click();
+  }
+  // fieldLogo, headerLogo, sidebarLogo: already visible in the normal
+  // editing view -- simply closing the panel above is enough to see them.
+}
 function brandThumb(assetId){
   const asset = MIZE.Branding.getAsset(assetId);
   if(!asset || !asset.href) return '<span style="display:inline-block;width:32px;height:32px;background:#eef2f2;border-radius:4px;"></span>';
@@ -3379,6 +3488,7 @@ function renderBrandingManagerPanel(){
           <label>${sizeLabel} <input type="number" class="brandSizeInput" data-key="${p.key}" ${sizeAttrs} value="${sizeValue}" style="width:55px;"></label>
           <label>Opacity <input type="number" class="brandOpacityInput" data-key="${p.key}" min="0" max="1" step="0.05" value="${cfg.opacity}" style="width:55px;"></label>
           ${cornerRow}
+          <button type="button" class="brandPreviewBtn" data-key="${p.key}">Preview</button>
           <button type="button" class="brandResetBtn" data-key="${p.key}">Reset</button>
         </div>
       </div>`;
@@ -3404,12 +3514,117 @@ function renderBrandingManagerPanel(){
           <label>Height (px) <input type="number" class="brandSizeInput" data-key="${p.key}" min="12" max="120" step="1" value="${cfg.height}" style="width:55px;"></label>
           <label>Opacity <input type="number" class="brandOpacityInput" data-key="${p.key}" min="0" max="1" step="0.05" value="${cfg.opacity}" style="width:55px;"></label>
           <label>Rotate every <input type="number" class="brandRotateInput" data-key="${p.key}" min="3" max="60" step="1" value="${cfg.rotateSeconds}" style="width:45px;"> sec</label>
+          <button type="button" class="brandPreviewBtn" data-key="${p.key}">Preview</button>
           <button type="button" class="brandResetBtn" data-key="${p.key}">Reset</button>
         </div>
       </div>`;
     }).join('');
     wireBrandingRowEvents(sponsorContainer);
   }
+  // ----- Perimeter zones (text or logo) -----
+  const perimContainer = document.getElementById('brandPerimeterZonesContainer');
+  if(perimContainer){
+    const labels = { leftUpper:'Top Left', leftLower:'Bottom Left', rightUpper:'Top Right', rightLower:'Bottom Right' };
+    perimContainer.innerHTML = Object.keys(labels).map(key=>{
+      const cfg = MIZE.Branding.perimeterText[key];
+      const isText = cfg.mode!=='logo';
+      const assigned = (cfg.assetIds||[]).map(id=>`<span class="brandSponsorChip" data-perimkey="${key}" data-asset="${id}" style="display:inline-flex;align-items:center;gap:4px;background:#eef2f2;border-radius:4px;padding:2px 6px;margin:2px;">${brandThumb(id)}<button type="button" class="perimRemoveBtn" data-perimkey="${key}" data-asset="${id}" style="border:none;background:none;cursor:pointer;">&#10005;</button></span>`).join('');
+      return `<div class="brandingRow" data-perimkey="${key}" style="border-bottom:1px solid #e2e8e8;padding-bottom:10px;margin-bottom:10px;">
+        <div style="font-weight:700;margin-bottom:4px;">${labels[key]} (currently: ${cfg.text||'logo'})</div>
+        <div class="smallRow full">
+          <label><input type="radio" name="perimMode_${key}" class="perimModeRadio" data-perimkey="${key}" value="text"${isText?' checked':''}> Text</label>
+          <label><input type="radio" name="perimMode_${key}" class="perimModeRadio" data-perimkey="${key}" value="logo"${!isText?' checked':''}> Logo</label>
+          <label><input type="checkbox" class="perimVisibleCheck" data-perimkey="${key}"${cfg.visible?' checked':''}> Visible</label>
+        </div>
+        <div class="perimTextSection" data-perimkey="${key}" style="display:${isText?'flex':'none'};gap:8px;align-items:center;margin-top:6px;">
+          <input type="text" class="perimTextInput" data-perimkey="${key}" maxlength="12" value="${cfg.text||''}" placeholder="Up to 12 characters" style="flex:1;">
+          <input type="color" class="perimColorInput" data-perimkey="${key}" value="${cfg.color}">
+        </div>
+        <div class="perimLogoSection" data-perimkey="${key}" style="display:${isText?'none':'block'};margin-top:6px;">
+          <div class="smallRow full" style="flex-wrap:wrap;">${assigned || '<span style="color:#9aa5a5;font-size:12px;">No logos assigned yet.</span>'}</div>
+          <div class="smallRow full">
+            <select class="perimAddSelect" data-perimkey="${key}"><option value="">+ Add existing logo...</option>${brandAssetOptions(null)}</select>
+            <button type="button" class="perimUploadBtn" data-perimkey="${key}">Upload New</button>
+            <input type="file" class="perimFileInput" data-perimkey="${key}" accept="image/*" style="display:none;">
+            <label>Rotate every <input type="number" class="perimRotateInput" data-perimkey="${key}" min="3" max="60" step="1" value="${cfg.rotateSeconds||8}" style="width:45px;"> sec</label>
+            <button type="button" class="perimPreviewBtn" data-perimkey="${key}">Preview</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    wirePerimeterZoneEvents(perimContainer);
+  }
+}
+function wirePerimeterZoneEvents(root){
+  root.querySelectorAll('.perimModeRadio').forEach(r=>{
+    r.addEventListener('change', e=>{
+      if(!e.target.checked) return;
+      MIZE.Branding.perimeterText[r.dataset.perimkey].mode = e.target.value;
+      MIZE.Branding.apply(); MIZE.Branding.saveToStorage(); renderBrandingManagerPanel();
+    });
+  });
+  root.querySelectorAll('.perimVisibleCheck').forEach(cb=>{
+    cb.addEventListener('change', e=>{
+      MIZE.Branding.perimeterText[cb.dataset.perimkey].visible = e.target.checked;
+      MIZE.Branding.apply(); MIZE.Branding.saveToStorage();
+    });
+  });
+  root.querySelectorAll('.perimTextInput').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      MIZE.Branding.perimeterText[inp.dataset.perimkey].text = e.target.value.slice(0,12);
+      MIZE.Branding.apply(); MIZE.Branding.saveToStorage();
+    });
+  });
+  root.querySelectorAll('.perimColorInput').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      MIZE.Branding.perimeterText[inp.dataset.perimkey].color = e.target.value;
+      MIZE.Branding.apply(); MIZE.Branding.saveToStorage();
+    });
+  });
+  root.querySelectorAll('.perimRotateInput').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      MIZE.Branding.perimeterText[inp.dataset.perimkey].rotateSeconds = +e.target.value || 8;
+      MIZE.Branding.apply(); MIZE.Branding.saveToStorage();
+    });
+  });
+  root.querySelectorAll('.perimAddSelect').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const key = sel.dataset.perimkey, assetId = e.target.value;
+      if(!assetId) return;
+      const cfg = MIZE.Branding.perimeterText[key];
+      if(!(cfg.assetIds||[]).includes(assetId)) cfg.assetIds = [...(cfg.assetIds||[]), assetId];
+      MIZE.Branding.apply(); MIZE.Branding.saveToStorage(); renderBrandingManagerPanel();
+    });
+  });
+  root.querySelectorAll('.perimRemoveBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.dataset.perimkey, assetId = btn.dataset.asset;
+      const cfg = MIZE.Branding.perimeterText[key];
+      cfg.assetIds = (cfg.assetIds||[]).filter(id=>id!==assetId);
+      if(cfg._rotIndex >= cfg.assetIds.length) cfg._rotIndex = 0;
+      MIZE.Branding.apply(); MIZE.Branding.saveToStorage(); renderBrandingManagerPanel();
+    });
+  });
+  root.querySelectorAll('.perimUploadBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ root.querySelector(`.perimFileInput[data-perimkey="${btn.dataset.perimkey}"]`).click(); });
+  });
+  root.querySelectorAll('.perimFileInput').forEach(input=>{
+    input.addEventListener('change', e=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const key = input.dataset.perimkey;
+      resizeImageFileToDataUri(file, 400, (dataUri, dims)=>{
+        const asset = MIZE.Branding.addAsset(dataUri, { type:'logo', name:file.name.replace(/\.[^.]+$/,'') || 'Uploaded Logo', naturalWidth:dims.width, naturalHeight:dims.height });
+        const cfg = MIZE.Branding.perimeterText[key];
+        cfg.assetIds = [...(cfg.assetIds||[]), asset.id];
+        MIZE.Branding.apply(); MIZE.Branding.saveToStorage(); renderBrandingManagerPanel();
+      });
+      e.target.value = '';
+    });
+  });
+  root.querySelectorAll('.perimPreviewBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ previewPlacement('presentationLogo'); });
+  });
 }
 function wireBrandingRowEvents(root){
   root.querySelectorAll('.brandUploadBtn').forEach(btn=>{
@@ -3420,8 +3635,8 @@ function wireBrandingRowEvents(root){
       const file = e.target.files[0];
       if(!file) return;
       const key = input.dataset.key;
-      resizeImageFileToDataUri(file, 400, dataUri=>{
-        const asset = MIZE.Branding.addAsset(dataUri, { type:'logo', name:file.name.replace(/\.[^.]+$/,'') || 'Uploaded Logo' });
+      resizeImageFileToDataUri(file, 400, (dataUri, dims)=>{
+        const asset = MIZE.Branding.addAsset(dataUri, { type:'logo', name:file.name.replace(/\.[^.]+$/,'') || 'Uploaded Logo', naturalWidth:dims.width, naturalHeight:dims.height });
         const p = MIZE.Branding.PLACEMENT_REGISTRY.find(pp=>pp.key===key);
         const cfg = MIZE.Branding[key];
         if(p.multi){ cfg.assetIds = [...(cfg.assetIds||[]), asset.id]; }
@@ -3494,6 +3709,9 @@ function wireBrandingRowEvents(root){
       MIZE.Branding[sel.dataset.key].corner = e.target.value;
       MIZE.Branding.apply(); MIZE.Branding.saveToStorage();
     });
+  });
+  root.querySelectorAll('.brandPreviewBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ previewPlacement(btn.dataset.key); });
   });
   root.querySelectorAll('.brandResetBtn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -5573,7 +5791,7 @@ function setFrameTransitionMode(newMode){
   }
 }
 document.getElementById('frameTransitionSelect')?.addEventListener('change', e=>setFrameTransitionMode(e.target.value));
-const PRESENT_SKIP_IDS=['fieldBgRect','goalFrameL1','goalFrameL2','goalFrameR1','goalFrameR2','fieldSideBands','brandRespect','brandFairPlay','brandHaveFun','brandPlaySmart','fieldDimLabel','fieldCenterLogo'];
+const PRESENT_SKIP_IDS=['fieldBgRect','goalFrameL1','goalFrameL2','goalFrameR1','goalFrameR2','fieldSideBands','brandRespect','brandFairPlay','brandHaveFun','brandPlaySmart','fieldDimLabel'];
 function buildPresentationFieldGroup(){
   if(document.getElementById('presentationFieldGroup')) return; // build once
   const svg=document.getElementById('fieldSvg');
@@ -5637,7 +5855,9 @@ function buildPresentationFieldGroup(){
   inner.setAttribute('transform','translate('+PRESENT_SHIFT_X+','+PRESENT_SHIFT_Y+')');
   Array.from(original.children).forEach(child=>{
     if(PRESENT_SKIP_IDS.includes(child.id)) return;
-    inner.appendChild(child.cloneNode(true));
+    const clone=child.cloneNode(true);
+    if(clone.id==='fieldCenterLogo') clone.id='fieldCenterLogoPresentation'; // avoid a duplicate id -- this is a separate element that applyFieldLogo keeps in sync alongside the original
+    inner.appendChild(clone);
   });
   // The goals now sit in the extended pool area rather than a white deck --
   // their backgrounds should show water through the netting, not white.
@@ -5652,6 +5872,7 @@ function buildPresentationFieldGroup(){
 function setPresentationFieldGeometry(active){
   presentationFieldWidened=active;
   buildPresentationFieldGroup();
+  if(active && typeof MIZE!=='undefined' && MIZE.Branding) MIZE.Branding.applyPerimeterText();
   const normalGroup=document.getElementById('fieldGroup');
   const presentGroup=document.getElementById('presentationFieldGroup');
   if(normalGroup) normalGroup.style.display=active?'none':'';
