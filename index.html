@@ -1796,6 +1796,26 @@
     <div id="brandPerimeterZonesContainer"></div>
   </div>
 </div>
+<div id="brandAssetEditBackdrop" style="display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.4);"></div>
+<div id="brandAssetEditModal" style="display:none;position:fixed;z-index:2101;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:10px;padding:18px;width:min(420px,90vw);box-shadow:0 12px 40px rgba(0,0,0,.3);">
+  <div style="font-weight:700;margin-bottom:10px;" id="brandAssetEditTitle">Edit Logo</div>
+  <div id="brandAssetEditPreviewFrame" style="width:100%;height:110px;background:#eef2f2;border-radius:6px;margin-bottom:12px;background-repeat:no-repeat;"></div>
+  <label style="display:block;margin-bottom:10px;">Link (optional) -- tapping the logo will ask to open this
+    <input type="url" id="brandAssetEditUrl" placeholder="https://example.com" style="width:100%;margin-top:4px;">
+  </label>
+  <div style="margin-bottom:10px;">
+    <label style="margin-right:14px;"><input type="radio" name="brandAssetFitMode" id="brandAssetFitContain" value="contain"> Fit whole image (may show empty space)</label><br>
+    <label><input type="radio" name="brandAssetFitMode" id="brandAssetFitCover" value="cover"> Fill the frame (crops to fit -- use the sliders to choose what shows)</label>
+  </div>
+  <div id="brandAssetCropControls" style="display:none;margin-bottom:10px;">
+    <label style="display:block;margin-bottom:6px;">Horizontal position <input type="range" id="brandAssetCropX" min="0" max="100" style="width:100%;"></label>
+    <label style="display:block;">Vertical position <input type="range" id="brandAssetCropY" min="0" max="100" style="width:100%;"></label>
+  </div>
+  <div class="smallRow full" style="justify-content:flex-end;margin-top:6px;">
+    <button type="button" id="brandAssetEditCancelBtn">Cancel</button>
+    <button type="button" id="brandAssetEditSaveBtn">Save</button>
+  </div>
+</div>
 <div id="toolPanelBackdrop"></div>
 <div id="mizeDialogBackdrop"></div>
 <div id="mizeDialogBox" role="dialog" aria-modal="true">
@@ -2494,6 +2514,7 @@ function renderPerimeterZoneVisual(key, textElId, geom){
   if(!textEl || !geom) return;
   const cfg = MIZE.Branding.perimeterText[key];
   const NS = 'http://www.w3.org/2000/svg';
+  const svgDefs = textEl.closest('svg')?.querySelector('defs');
   let group = document.getElementById(textElId+'Logos');
   if(!group){
     group = document.createElementNS(NS,'g');
@@ -2502,7 +2523,7 @@ function renderPerimeterZoneVisual(key, textElId, geom){
   }
   if(group._rotTimer) clearInterval(group._rotTimer);
   const validIds = (cfg.assetIds||[]).filter(id=>MIZE.Branding.assets[id]);
-  if(cfg.mode!=='logo' || !validIds.length){
+  if(cfg.mode==='text' || !validIds.length){
     group.style.display = 'none';
     textEl.style.display = cfg.visible ? '' : 'none';
     return;
@@ -2516,31 +2537,59 @@ function renderPerimeterZoneVisual(key, textElId, geom){
     if(!asset) return;
     const gT = document.createElementNS(NS,'g');
     gT.setAttribute('transform', 'rotate('+geom.angle+', '+geom.cx+', '+geom.cy+')');
-    if(MIZE.Branding.isSquareAsset(asset.id)){
-      // Square logo: shown 3 times side-by-side to fill the long, narrow
-      // strip better than a single small square would.
+    if(cfg.mode==='both'){
+      // Logo + small caption (e.g. a web address): logo fills the top
+      // ~70% of the strip, caption text sits in the remainder below it --
+      // never tripled, since the space is now shared with the caption.
+      const logoLen = geom.length*0.68, capLen = geom.length - logoLen;
+      const maxW = logoLen - 0.3, maxH = 1.8;
+      const fit = MIZE.Branding.computeAssetFit(asset, geom.cx-maxW/2, geom.cy-geom.length/2+0.15, maxW, maxH);
+      const img = document.createElementNS(NS,'image');
+      img.id = textElId+'_img0';
+      img.setAttribute('x', fit.x); img.setAttribute('y', fit.y);
+      img.setAttribute('width', fit.width); img.setAttribute('height', fit.height);
+      img.setAttribute('href', asset.href);
+      img.setAttribute('preserveAspectRatio','xMidYMid meet');
+      MIZE.Branding.applyAssetFitAndLink(img, asset, fit, geom.cx-maxW/2, geom.cy-geom.length/2+0.15, maxW, maxH, svgDefs);
+      gT.appendChild(img);
+      const capText = document.createElementNS(NS,'text');
+      capText.setAttribute('x', geom.cx);
+      capText.setAttribute('y', geom.cy+geom.length/2-capLen/2+0.1);
+      capText.setAttribute('text-anchor','middle');
+      capText.setAttribute('dominant-baseline','central');
+      capText.setAttribute('font-size', Math.max(0.5, cfg.fontSize*0.5));
+      capText.setAttribute('font-weight','700');
+      capText.setAttribute('fill', cfg.color);
+      capText.setAttribute('font-family', cfg.font);
+      capText.textContent = (cfg.text||'').slice(0,12);
+      gT.appendChild(capText);
+    } else if(MIZE.Branding.isSquareAsset(asset.id)){
+      // Square logo, logo-only mode: shown 3 times side-by-side to fill
+      // the long, narrow strip better than a single small square would.
       const s = geom.length/3 - 0.1;
       for(let i=0;i<3;i++){
+        const fx = geom.cx - geom.length/2 + i*(geom.length/3) + 0.05, fy = geom.cy - s/2;
+        const fit = MIZE.Branding.computeAssetFit(asset, fx, fy, s, s);
         const img = document.createElementNS(NS,'image');
-        const x = geom.cx - geom.length/2 + i*(geom.length/3) + 0.05;
-        img.setAttribute('x', x); img.setAttribute('y', geom.cy - s/2);
-        img.setAttribute('width', s); img.setAttribute('height', s);
+        img.id = textElId+'_img'+i;
+        img.setAttribute('x', fit.x); img.setAttribute('y', fit.y);
+        img.setAttribute('width', fit.width); img.setAttribute('height', fit.height);
         img.setAttribute('href', asset.href);
         img.setAttribute('preserveAspectRatio','xMidYMid meet');
+        MIZE.Branding.applyAssetFitAndLink(img, asset, fit, fx, fy, s, s, svgDefs);
         gT.appendChild(img);
       }
     } else {
       const maxW = geom.length - 0.5, maxH = 1.8;
-      let w = maxW, h = maxH;
-      if(asset.naturalWidth && asset.naturalHeight){
-        const ratio = asset.naturalWidth/asset.naturalHeight;
-        if(maxW/ratio <= maxH){ w = maxW; h = maxW/ratio; } else { h = maxH; w = maxH*ratio; }
-      }
+      const fx = geom.cx-maxW/2, fy = geom.cy-maxH/2;
+      const fit = MIZE.Branding.computeAssetFit(asset, fx, fy, maxW, maxH);
       const img = document.createElementNS(NS,'image');
-      img.setAttribute('x', geom.cx - w/2); img.setAttribute('y', geom.cy - h/2);
-      img.setAttribute('width', w); img.setAttribute('height', h);
+      img.id = textElId+'_img0';
+      img.setAttribute('x', fit.x); img.setAttribute('y', fit.y);
+      img.setAttribute('width', fit.width); img.setAttribute('height', fit.height);
       img.setAttribute('href', asset.href);
       img.setAttribute('preserveAspectRatio','xMidYMid meet');
+      MIZE.Branding.applyAssetFitAndLink(img, asset, fit, fx, fy, maxW, maxH, svgDefs);
       gT.appendChild(img);
     }
     group.appendChild(gT);
@@ -2568,6 +2617,22 @@ MIZE.Branding.applyPerimeterText = function(){
     renderPerimeterZoneVisual(key, PERIMETER_PRESENT_EL_MAP[key], PERIMETER_ZONE_GEOM_PRESENT[key]);
   });
 };
+function applyHtmlAssetFitAndLink(imgEl, asset){
+  if(!asset) return;
+  imgEl.style.objectFit = asset.fitMode==='cover' ? 'cover' : 'contain';
+  imgEl.style.objectPosition = (asset.cropX!=null?asset.cropX:50)+'% '+(asset.cropY!=null?asset.cropY:50)+'%';
+  if(asset.linkUrl){
+    imgEl.style.cursor = 'pointer';
+    imgEl.onclick = ()=>{
+      MizeDialog.confirm('Open '+asset.linkUrl+' in a new tab?').then(ok=>{
+        if(ok) window.open(asset.linkUrl, '_blank', 'noopener');
+      });
+    };
+  } else {
+    imgEl.style.cursor = '';
+    imgEl.onclick = null;
+  }
+}
 MIZE.Branding.applyHtmlLogos = function(){
   // Shared default image, read once from the field logo's own embedded
   // data rather than storing the same base64 blob five times over.
@@ -2581,6 +2646,7 @@ MIZE.Branding.applyHtmlLogos = function(){
     el.src = cfg.href || defaultHref;
     el.style.height = cfg.height + 'px';
     el.style.opacity = cfg.opacity;
+    applyHtmlAssetFitAndLink(el, cfg._assetId ? MIZE.Branding.getAsset(cfg._assetId) : null);
   });
   // Presentation logo's corner is separately positionable, since it's the
   // one fixed-position placement among the four.
@@ -2607,7 +2673,11 @@ MIZE.Branding.applySponsorZones = function(){
     el.style.height = cfg.height + 'px';
     el.style.opacity = cfg.opacity;
     let idx = 0;
-    const showCurrent = ()=>{ el.src = MIZE.Branding.assets[assetIds[idx]].href; };
+    const showCurrent = ()=>{
+      const asset = MIZE.Branding.assets[assetIds[idx]];
+      el.src = asset.href;
+      applyHtmlAssetFitAndLink(el, asset);
+    };
     showCurrent();
     if(assetIds.length > 1){
       MIZE.Branding._sponsorRotationTimers[key] = setInterval(()=>{
@@ -2641,6 +2711,10 @@ MIZE.Branding.addAsset = function(href, meta){
     href,
     naturalWidth: meta.naturalWidth || null,
     naturalHeight: meta.naturalHeight || null,
+    linkUrl: meta.linkUrl || null,
+    fitMode: meta.fitMode || 'contain',
+    cropX: meta.cropX!=null ? meta.cropX : 50,
+    cropY: meta.cropY!=null ? meta.cropY : 50,
     createdAt: now,
     updatedAt: now,
     active: true,
@@ -2655,6 +2729,64 @@ MIZE.Branding.isSquareAsset = function(id){
   if(!a || !a.naturalWidth || !a.naturalHeight) return false;
   const ratio = a.naturalWidth / a.naturalHeight;
   return ratio > 0.85 && ratio < 1.18; // within ~15% of 1:1 counts as "square" for the triple-display rule
+};
+// Shared placement math for every logo-rendering path. 'contain' (default)
+// preserves existing behavior exactly -- shows the whole image, centered,
+// possibly letterboxed. 'cover' fills the target frame completely and
+// crops the overflow, positioned by cropX/cropY (0-100, each axis
+// independently -- 50 is centered, 0/100 are the two edges) so a photo
+// whose aspect ratio doesn't match the frame can still be positioned
+// deliberately rather than always auto-centered.
+MIZE.Branding.computeAssetFit = function(asset, fx, fy, fw, fh){
+  if(asset.fitMode==='cover' && asset.naturalWidth && asset.naturalHeight){
+    const scale = Math.max(fw/asset.naturalWidth, fh/asset.naturalHeight);
+    const scaledW = asset.naturalWidth*scale, scaledH = asset.naturalHeight*scale;
+    const overflowX = Math.max(0, scaledW-fw), overflowY = Math.max(0, scaledH-fh);
+    const cropX = asset.cropX!=null ? asset.cropX : 50, cropY = asset.cropY!=null ? asset.cropY : 50;
+    return { x: fx-overflowX*(cropX/100), y: fy-overflowY*(cropY/100), width:scaledW, height:scaledH, needsClip:true };
+  }
+  let w = fw, h = fh;
+  if(asset.naturalWidth && asset.naturalHeight){
+    const ratio = asset.naturalWidth/asset.naturalHeight;
+    if(fw/ratio <= fh){ w = fw; h = fw/ratio; } else { h = fh; w = fh*ratio; }
+  }
+  return { x: fx+(fw-w)/2, y: fy+(fh-h)/2, width:w, height:h, needsClip:false };
+};
+// Optionally clips an SVG image element to a frame (for 'cover' fit) and
+// wires the click-through-to-sponsor-site behavior when the asset has a
+// linkUrl. defs is the <svg>'s own <defs> element to hold the clipPath.
+MIZE.Branding.applyAssetFitAndLink = function(imgEl, asset, fit, fx, fy, fw, fh, defs){
+  if(fit.needsClip && defs){
+    const NS='http://www.w3.org/2000/svg';
+    let clip = defs.querySelector('#'+imgEl.id+'_clip');
+    if(!clip){
+      clip = document.createElementNS(NS,'clipPath');
+      clip.id = imgEl.id+'_clip';
+      const rect = document.createElementNS(NS,'rect');
+      clip.appendChild(rect);
+      defs.appendChild(clip);
+    }
+    const rect = clip.querySelector('rect');
+    rect.setAttribute('x',fx); rect.setAttribute('y',fy); rect.setAttribute('width',fw); rect.setAttribute('height',fh);
+    imgEl.setAttribute('clip-path','url(#'+imgEl.id+'_clip)');
+  } else {
+    imgEl.removeAttribute('clip-path');
+  }
+  if(asset.linkUrl){
+    imgEl.style.cursor = 'pointer';
+    imgEl.style.pointerEvents = 'auto';
+    imgEl.onpointerdown = e=>{ e.stopPropagation(); };
+    imgEl.onclick = e=>{
+      e.stopPropagation();
+      MizeDialog.confirm('Open '+asset.linkUrl+' in a new tab?').then(ok=>{
+        if(ok) window.open(asset.linkUrl, '_blank', 'noopener');
+      });
+    };
+  } else {
+    imgEl.style.cursor = '';
+    imgEl.onpointerdown = null;
+    imgEl.onclick = null;
+  }
 };
 MIZE.Branding.listAssets = function(filter){
   filter = filter || {};
@@ -3434,6 +3566,58 @@ document.querySelector('.toolListBtn[data-panel="developerModePanel"]')?.addEven
 // "Size" means width+height together (proportionally) for the field
 // logo specifically (an SVG image needing both explicit), and just
 // height for the other four (plain <img> tags that auto-scale width).
+let brandAssetEditingId = null;
+function openAssetEditModal(assetId){
+  const asset = MIZE.Branding.getAsset(assetId);
+  if(!asset) return;
+  brandAssetEditingId = assetId;
+  document.getElementById('brandAssetEditTitle').textContent = 'Edit: ' + asset.name;
+  document.getElementById('brandAssetEditUrl').value = asset.linkUrl || '';
+  document.getElementById('brandAssetFitContain').checked = asset.fitMode!=='cover';
+  document.getElementById('brandAssetFitCover').checked = asset.fitMode==='cover';
+  document.getElementById('brandAssetCropX').value = asset.cropX!=null ? asset.cropX : 50;
+  document.getElementById('brandAssetCropY').value = asset.cropY!=null ? asset.cropY : 50;
+  updateAssetEditPreview();
+  document.getElementById('brandAssetEditBackdrop').style.display = 'block';
+  document.getElementById('brandAssetEditModal').style.display = 'block';
+}
+function closeAssetEditModal(){
+  brandAssetEditingId = null;
+  document.getElementById('brandAssetEditBackdrop').style.display = 'none';
+  document.getElementById('brandAssetEditModal').style.display = 'none';
+}
+function updateAssetEditPreview(){
+  const asset = MIZE.Branding.getAsset(brandAssetEditingId);
+  if(!asset) return;
+  const isCover = document.getElementById('brandAssetFitCover').checked;
+  document.getElementById('brandAssetCropControls').style.display = isCover ? 'block' : 'none';
+  const frame = document.getElementById('brandAssetEditPreviewFrame');
+  const cropX = document.getElementById('brandAssetCropX').value;
+  const cropY = document.getElementById('brandAssetCropY').value;
+  frame.style.backgroundImage = `url('${asset.href}')`;
+  frame.style.backgroundSize = isCover ? 'cover' : 'contain';
+  frame.style.backgroundPosition = isCover ? `${cropX}% ${cropY}%` : 'center';
+}
+document.getElementById('brandAssetEditCancelBtn')?.addEventListener('click', closeAssetEditModal);
+document.getElementById('brandAssetEditBackdrop')?.addEventListener('click', closeAssetEditModal);
+document.getElementById('brandAssetFitContain')?.addEventListener('change', updateAssetEditPreview);
+document.getElementById('brandAssetFitCover')?.addEventListener('change', updateAssetEditPreview);
+document.getElementById('brandAssetCropX')?.addEventListener('input', updateAssetEditPreview);
+document.getElementById('brandAssetCropY')?.addEventListener('input', updateAssetEditPreview);
+document.getElementById('brandAssetEditSaveBtn')?.addEventListener('click', ()=>{
+  const asset = MIZE.Branding.getAsset(brandAssetEditingId);
+  if(!asset) return;
+  const url = document.getElementById('brandAssetEditUrl').value.trim();
+  asset.linkUrl = url || null;
+  asset.fitMode = document.getElementById('brandAssetFitCover').checked ? 'cover' : 'contain';
+  asset.cropX = +document.getElementById('brandAssetCropX').value;
+  asset.cropY = +document.getElementById('brandAssetCropY').value;
+  asset.updatedAt = new Date().toISOString();
+  closeAssetEditModal();
+  MIZE.Branding.apply();
+  MIZE.Branding.saveToStorage();
+  renderBrandingManagerPanel();
+});
 function previewPlacement(key){
   closeToolPanels();
   if(key==='presentationLogo' || key==='sponsorZoneA' || key==='sponsorZoneB'){
@@ -3500,7 +3684,7 @@ function renderBrandingManagerPanel(){
   if(sponsorContainer){
     sponsorContainer.innerHTML = MIZE.Branding.PLACEMENT_REGISTRY.filter(p=>p.multi).map(p=>{
       const cfg = MIZE.Branding[p.key];
-      const assigned = (cfg.assetIds||[]).map(id=>`<span class="brandSponsorChip" data-key="${p.key}" data-asset="${id}" style="display:inline-flex;align-items:center;gap:4px;background:#eef2f2;border-radius:4px;padding:2px 6px;margin:2px;">${brandThumb(id)}<button type="button" class="brandSponsorRemoveBtn" data-key="${p.key}" data-asset="${id}" style="border:none;background:none;cursor:pointer;">&#10005;</button></span>`).join('');
+      const assigned = (cfg.assetIds||[]).map(id=>`<span class="brandSponsorChip" data-key="${p.key}" data-asset="${id}" style="display:inline-flex;align-items:center;gap:4px;background:#eef2f2;border-radius:4px;padding:2px 6px;margin:2px;">${brandThumb(id)}<button type="button" class="brandEditAssetBtn" data-asset="${id}" title="Link, fit &amp; crop" style="border:none;background:none;cursor:pointer;">&#9881;</button><button type="button" class="brandSponsorRemoveBtn" data-key="${p.key}" data-asset="${id}" style="border:none;background:none;cursor:pointer;">&#10005;</button></span>`).join('');
       return `<div class="brandingRow" data-key="${p.key}" style="border-bottom:1px solid #e2e8e8;padding-bottom:10px;margin-bottom:10px;">
         <div style="font-weight:700;margin-bottom:4px;">${p.label}</div>
         <div class="smallRow full" style="flex-wrap:wrap;">${assigned || '<span style="color:#9aa5a5;font-size:12px;">No sponsors assigned yet.</span>'}</div>
@@ -3527,20 +3711,22 @@ function renderBrandingManagerPanel(){
     const labels = { leftUpper:'Top Left', leftLower:'Bottom Left', rightUpper:'Top Right', rightLower:'Bottom Right' };
     perimContainer.innerHTML = Object.keys(labels).map(key=>{
       const cfg = MIZE.Branding.perimeterText[key];
-      const isText = cfg.mode!=='logo';
-      const assigned = (cfg.assetIds||[]).map(id=>`<span class="brandSponsorChip" data-perimkey="${key}" data-asset="${id}" style="display:inline-flex;align-items:center;gap:4px;background:#eef2f2;border-radius:4px;padding:2px 6px;margin:2px;">${brandThumb(id)}<button type="button" class="perimRemoveBtn" data-perimkey="${key}" data-asset="${id}" style="border:none;background:none;cursor:pointer;">&#10005;</button></span>`).join('');
+      const showText = cfg.mode==='text' || cfg.mode==='both';
+      const showLogo = cfg.mode==='logo' || cfg.mode==='both';
+      const assigned = (cfg.assetIds||[]).map(id=>`<span class="brandSponsorChip" data-perimkey="${key}" data-asset="${id}" style="display:inline-flex;align-items:center;gap:4px;background:#eef2f2;border-radius:4px;padding:2px 6px;margin:2px;">${brandThumb(id)}<button type="button" class="brandEditAssetBtn" data-asset="${id}" title="Link, fit &amp; crop" style="border:none;background:none;cursor:pointer;">&#9881;</button><button type="button" class="perimRemoveBtn" data-perimkey="${key}" data-asset="${id}" style="border:none;background:none;cursor:pointer;">&#10005;</button></span>`).join('');
       return `<div class="brandingRow" data-perimkey="${key}" style="border-bottom:1px solid #e2e8e8;padding-bottom:10px;margin-bottom:10px;">
         <div style="font-weight:700;margin-bottom:4px;">${labels[key]} (currently: ${cfg.text||'logo'})</div>
         <div class="smallRow full">
-          <label><input type="radio" name="perimMode_${key}" class="perimModeRadio" data-perimkey="${key}" value="text"${isText?' checked':''}> Text</label>
-          <label><input type="radio" name="perimMode_${key}" class="perimModeRadio" data-perimkey="${key}" value="logo"${!isText?' checked':''}> Logo</label>
+          <label><input type="radio" name="perimMode_${key}" class="perimModeRadio" data-perimkey="${key}" value="text"${cfg.mode==='text'?' checked':''}> Text</label>
+          <label><input type="radio" name="perimMode_${key}" class="perimModeRadio" data-perimkey="${key}" value="logo"${cfg.mode==='logo'?' checked':''}> Logo</label>
+          <label><input type="radio" name="perimMode_${key}" class="perimModeRadio" data-perimkey="${key}" value="both"${cfg.mode==='both'?' checked':''}> Both (logo + small text, e.g. a web address)</label>
           <label><input type="checkbox" class="perimVisibleCheck" data-perimkey="${key}"${cfg.visible?' checked':''}> Visible</label>
         </div>
-        <div class="perimTextSection" data-perimkey="${key}" style="display:${isText?'flex':'none'};gap:8px;align-items:center;margin-top:6px;">
+        <div class="perimTextSection" data-perimkey="${key}" style="display:${showText?'flex':'none'};gap:8px;align-items:center;margin-top:6px;">
           <input type="text" class="perimTextInput" data-perimkey="${key}" maxlength="12" value="${cfg.text||''}" placeholder="Up to 12 characters" style="flex:1;">
           <input type="color" class="perimColorInput" data-perimkey="${key}" value="${cfg.color}">
         </div>
-        <div class="perimLogoSection" data-perimkey="${key}" style="display:${isText?'none':'block'};margin-top:6px;">
+        <div class="perimLogoSection" data-perimkey="${key}" style="display:${showLogo?'block':'none'};margin-top:6px;">
           <div class="smallRow full" style="flex-wrap:wrap;">${assigned || '<span style="color:#9aa5a5;font-size:12px;">No logos assigned yet.</span>'}</div>
           <div class="smallRow full">
             <select class="perimAddSelect" data-perimkey="${key}"><option value="">+ Add existing logo...</option>${brandAssetOptions(null)}</select>
@@ -3621,6 +3807,9 @@ function wirePerimeterZoneEvents(root){
       });
       e.target.value = '';
     });
+  });
+  root.querySelectorAll('.brandEditAssetBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ openAssetEditModal(btn.dataset.asset); });
   });
   root.querySelectorAll('.perimPreviewBtn').forEach(btn=>{
     btn.addEventListener('click', ()=>{ previewPlacement('presentationLogo'); });
@@ -3709,6 +3898,9 @@ function wireBrandingRowEvents(root){
       MIZE.Branding[sel.dataset.key].corner = e.target.value;
       MIZE.Branding.apply(); MIZE.Branding.saveToStorage();
     });
+  });
+  root.querySelectorAll('.brandEditAssetBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ openAssetEditModal(btn.dataset.asset); });
   });
   root.querySelectorAll('.brandPreviewBtn').forEach(btn=>{
     btn.addEventListener('click', ()=>{ previewPlacement(btn.dataset.key); });
