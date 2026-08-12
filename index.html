@@ -621,6 +621,7 @@
   #timelineCommandsBar #tcPlayPauseBtn { width:60px; border-radius:16px; padding:0; overflow:hidden; }
   #tcFrameCounter { color:#fff; font-size:12.5px; font-variant-numeric:tabular-nums; min-width:44px; text-align:center; }
   #tcTransitionSelect { background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; border-radius:10px; font-size:11.5px; padding:5px 4px; max-width:110px; }
+  #tcSpeedSelect { background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; border-radius:10px; font-size:11.5px; padding:5px 4px; max-width:60px; }
   #tcTransitionSelect option { color:#111; }
   #tcPlayPauseBtn .tcPlayHalf { flex:1; height:100%; display:flex; align-items:center; justify-content:center; }
   #tcPlayPauseBtn .tcPlayHalf:first-child { border-right:1px solid rgba(255,255,255,.3); }
@@ -1040,6 +1041,13 @@
       <option value="animatedTwoGhost">Anim. 2-Ghost</option>
     </select>
     <label style="font-size:11px;font-weight:700;color:#fff;display:flex;align-items:center;gap:3px;" title="This frame's transition duration"><input id="tcDurationInput" type="number" step="0.1" min="0.1" style="width:44px;"> s</label>
+    <select id="tcSpeedSelect" title="Playback speed">
+      <option value="0.25">&frac14;&times;</option>
+      <option value="0.5">&frac12;&times;</option>
+      <option value="1" selected>1&times;</option>
+      <option value="2">2&times;</option>
+      <option value="4">4&times;</option>
+    </select>
   </div>
 </div>
 <button id="studioNavLeft" title="Turn camera left">&#8249;</button>
@@ -1818,6 +1826,10 @@
 </div>
 <div id="toolPanelBackdrop"></div>
 <div id="mizeDialogBackdrop"></div>
+<div id="frameDeleteUndoToast" style="display:none;position:fixed;bottom:130px;left:50%;transform:translateX(-50%);background:#16302f;color:#fff;padding:10px 10px 10px 16px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:3000;align-items:center;gap:14px;font-size:13px;">
+  <span>Frame deleted.</span>
+  <button id="frameDeleteUndoBtn" style="background:#2a9d8f;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700;">Undo</button>
+</div>
 <div id="mizeDialogBox" role="dialog" aria-modal="true">
   <div id="mizeDialogTitle">XquiX Studio</div>
   <div id="mizeDialogMessage"></div>
@@ -2028,10 +2040,10 @@ const MizeDialog = (function(){
 <div class="toolPanel" id="smartGoaliePositioningPanel">
   <div class="toolPanelHeader"><h3>Smart Goalie Positioning</h3><button class="closeToolPanelBtn">&#10005;</button></div>
   <div class="toolPanelBody">
-    <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input type="checkbox" id="smartGoalieEnabledCheckbox"> Enabled</label>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">Distance to goal-line, central position (m): <input id="smartGoalieDistanceInput" type="number" min="0.1" max="5" step="0.1" value="0.9" style="width:70px;"></label>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">Maximum turning angle (±°, from squared to the other goal): <input id="smartGoalieMaxAngleInput" type="number" min="0" max="90" step="1" value="45" style="width:70px;"></label>
-    <label style="display:flex;align-items:center;gap:8px;">Lateral reach of the arc (±m, together with Distance to Goal this shapes the arc -- circle if equal, oval if not; fully reached only at a 90° max angle): <input id="smartGoalieMaxLateralInput" type="number" min="0.1" max="5" step="0.1" value="1.2" style="width:70px;"></label>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">Lateral reach of the arc (±m, together with Distance to Goal this shapes the arc -- circle if equal, oval if not; fully reached only at a 90° max angle): <input id="smartGoalieMaxLateralInput" type="number" min="0.1" max="5" step="0.1" value="1.2" style="width:70px;"></label>
+    <button id="smartGoalieOkBtn" style="width:100%;font-weight:700;">OK</button>
   </div>
 </div>
 <div class="toolPanel toolPanelLarge" id="coachingLibraryPanel">
@@ -2318,6 +2330,7 @@ let ghostMode=false;
 // every existing dependency working without needing to individually find
 // and update each one.
 let frameTransitionMode='animated';
+let playbackSpeed=1;
 function syncGhostModeFromTransition(){ ghostMode = (frameTransitionMode==='ghost' || frameTransitionMode==='animatedTwoGhost'); }
 // Centralized product configuration (Development Phase 2, Section 5.3).
 // Additive only for now: introduced as the single source of truth for
@@ -2371,17 +2384,17 @@ MIZE.Branding = {
     href: null, // null = leave whatever's already in the HTML (today's XquiX Studio logo) untouched; set this to swap in a different image
     width: 10,
     height: 7.7,
-    opacity: 0.92
+    opacity: 0.5
   },
   // One entry per existing perimeter text position. Keys describe screen
   // position (left/right side, upper/lower along that side), matching
   // this field's actual layout -- not the spec document's own "top"
   // example, which doesn't correspond to how this field is laid out.
   perimeterText: {
-    leftUpper:  { mode:'text', text:'RESPECT',    visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
-    leftLower:  { mode:'text', text:'FAIR PLAY',  visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
-    rightUpper: { mode:'text', text:'HAVE FUN',   visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
-    rightLower: { mode:'text', text:'PLAY SMART', visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 }
+    leftUpper:  { mode:'text', text:'RESPECT',    visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0, opacity:1 },
+    leftLower:  { mode:'text', text:'FAIR PLAY',  visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0, opacity:1 },
+    rightUpper: { mode:'text', text:'HAVE FUN',   visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0, opacity:1 },
+    rightLower: { mode:'text', text:'PLAY SMART', visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0, opacity:1 }
   },
   // The four plain HTML (non-field) logo placements. href:null on each
   // means "use the shared default logo" (read once from the field logo's
@@ -2537,6 +2550,7 @@ function renderPerimeterZoneVisual(key, textElId, geom){
     if(!asset) return;
     const gT = document.createElementNS(NS,'g');
     gT.setAttribute('transform', 'rotate('+geom.angle+', '+geom.cx+', '+geom.cy+')');
+    gT.setAttribute('opacity', cfg.opacity!=null ? cfg.opacity : 1);
     if(cfg.mode==='both'){
       // Logo + small caption (e.g. a web address): logo fills the top
       // ~70% of the strip, caption text sits in the remainder below it --
@@ -2608,9 +2622,13 @@ MIZE.Branding.applyPerimeterText = function(){
     if(!el) return;
     const cfg = MIZE.Branding.perimeterText[key];
     if(cfg.text && cfg.text.length > 12) cfg.text = cfg.text.slice(0,12); // 12-char cap, enforced here regardless of what set it (defense in depth alongside the UI's own maxlength)
-    el.textContent = cfg.text;
-    el.setAttribute('fill', cfg.color);
-    el.setAttribute('font-family', cfg.font);
+    [el, document.getElementById(PERIMETER_PRESENT_EL_MAP[key])].forEach(textEl=>{
+      if(!textEl) return;
+      textEl.textContent = cfg.text;
+      textEl.setAttribute('fill', cfg.color);
+      textEl.setAttribute('font-family', cfg.font);
+      textEl.setAttribute('opacity', cfg.opacity!=null ? cfg.opacity : 1);
+    });
     el.setAttribute('font-size', cfg.fontSize);
     el.setAttribute('textLength', cfg.textLength);
     renderPerimeterZoneVisual(key, MIZE_BRANDING_PERIMETER_EL_MAP[key], PERIMETER_ZONE_GEOM_NORMAL[key]);
@@ -2888,12 +2906,12 @@ MIZE.Branding.migrateToAssetModel();
 // could modify anything in place -- Reset buttons restore from this,
 // not from whatever happens to be currently loaded.
 MIZE.Branding.DEFAULTS = JSON.parse(JSON.stringify({
-  fieldLogo: { enabled:true, href:null, width:10, height:7.7, opacity:0.92 },
+  fieldLogo: { enabled:true, href:null, width:10, height:7.7, opacity:0.5 },
   perimeterText: {
-    leftUpper:  { mode:'text', text:'RESPECT',    visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
-    leftLower:  { mode:'text', text:'FAIR PLAY',  visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
-    rightUpper: { mode:'text', text:'HAVE FUN',   visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 },
-    rightLower: { mode:'text', text:'PLAY SMART', visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0 }
+    leftUpper:  { mode:'text', text:'RESPECT',    visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0, opacity:1 },
+    leftLower:  { mode:'text', text:'FAIR PLAY',  visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0, opacity:1 },
+    rightUpper: { mode:'text', text:'HAVE FUN',   visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0, opacity:1 },
+    rightLower: { mode:'text', text:'PLAY SMART', visible:true, color:'#14235c', font:'Arial, sans-serif', fontSize:1.5, textLength:7, assetIds:[], rotateSeconds:8, _rotIndex:0, opacity:1 }
   },
   headerLogo:         { enabled:true, href:null, height:100, opacity:1 },
   sidebarLogo:        { enabled:true, href:null, height:100, opacity:1 },
@@ -3721,6 +3739,7 @@ function renderBrandingManagerPanel(){
           <label><input type="radio" name="perimMode_${key}" class="perimModeRadio" data-perimkey="${key}" value="logo"${cfg.mode==='logo'?' checked':''}> Logo</label>
           <label><input type="radio" name="perimMode_${key}" class="perimModeRadio" data-perimkey="${key}" value="both"${cfg.mode==='both'?' checked':''}> Both (logo + small text, e.g. a web address)</label>
           <label><input type="checkbox" class="perimVisibleCheck" data-perimkey="${key}"${cfg.visible?' checked':''}> Visible</label>
+          <label>Opacity <input type="number" class="perimOpacityInput" data-perimkey="${key}" min="0" max="1" step="0.05" value="${cfg.opacity!=null?cfg.opacity:1}" style="width:55px;"></label>
         </div>
         <div class="perimTextSection" data-perimkey="${key}" style="display:${showText?'flex':'none'};gap:8px;align-items:center;margin-top:6px;">
           <input type="text" class="perimTextInput" data-perimkey="${key}" maxlength="12" value="${cfg.text||''}" placeholder="Up to 12 characters" style="flex:1;">
@@ -3752,6 +3771,12 @@ function wirePerimeterZoneEvents(root){
   root.querySelectorAll('.perimVisibleCheck').forEach(cb=>{
     cb.addEventListener('change', e=>{
       MIZE.Branding.perimeterText[cb.dataset.perimkey].visible = e.target.checked;
+      MIZE.Branding.apply(); MIZE.Branding.saveToStorage();
+    });
+  });
+  root.querySelectorAll('.perimOpacityInput').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      MIZE.Branding.perimeterText[inp.dataset.perimkey].opacity = +e.target.value;
       MIZE.Branding.apply(); MIZE.Branding.saveToStorage();
     });
   });
@@ -6842,7 +6867,43 @@ function loadFrame(i) {
 }
 function updateFrame() { if(!frames.length) { frames=[makeFrameState()]; currentFrame=0; resetHistoryOnFrameChange(); } else frames[currentFrame]=makeFrameState(); renderFrames(); }
 function addFrame() { if(frames.length) frames[currentFrame]=makeFrameState(); frames.splice(currentFrame+1,0,makeFrameState()); currentFrame++; resetHistoryOnFrameChange(); renderFrames(); }
-function deleteFrame() { if(frames.length<=1) { frames=[makeFrameState()]; currentFrame=0; resetHistoryOnFrameChange(); } else { frames.splice(currentFrame,1); currentFrame=Math.max(0,currentFrame-1); loadFrame(currentFrame); } renderFrames(); }
+let lastDeletedFrame = null; // { frame, index } -- a dedicated safety net separate from Ctrl+Z, since the main undo/redo stack only snapshots current board content, not the frames-array structure itself
+let frameDeleteToastTimer = null;
+async function deleteFrame() {
+  if(!(await MizeDialog.confirm('Delete this frame? Ctrl+Z won\u2019t bring it back, but you\u2019ll get a brief "Undo" option right after.'))) return;
+  const deletedData = JSON.parse(JSON.stringify(makeFrameState()));
+  if(frames.length<=1) {
+    lastDeletedFrame = { frame: deletedData, index: 0 };
+    frames=[makeFrameState()]; currentFrame=0; resetHistoryOnFrameChange();
+  } else {
+    lastDeletedFrame = { frame: deletedData, index: currentFrame };
+    frames.splice(currentFrame,1); currentFrame=Math.max(0,currentFrame-1); loadFrame(currentFrame);
+  }
+  renderFrames();
+  showFrameDeleteUndoToast();
+}
+function showFrameDeleteUndoToast(){
+  const toast = document.getElementById('frameDeleteUndoToast');
+  if(!toast) return;
+  toast.style.display = 'flex';
+  if(frameDeleteToastTimer) clearTimeout(frameDeleteToastTimer);
+  frameDeleteToastTimer = setTimeout(hideFrameDeleteUndoToast, 8000);
+}
+function hideFrameDeleteUndoToast(){
+  const toast = document.getElementById('frameDeleteUndoToast');
+  if(toast) toast.style.display = 'none';
+  if(frameDeleteToastTimer){ clearTimeout(frameDeleteToastTimer); frameDeleteToastTimer=null; }
+}
+function restoreLastDeletedFrame(){
+  if(!lastDeletedFrame) return;
+  frames.splice(lastDeletedFrame.index, 0, lastDeletedFrame.frame);
+  currentFrame = lastDeletedFrame.index;
+  lastDeletedFrame = null;
+  loadFrame(currentFrame);
+  renderFrames();
+  hideFrameDeleteUndoToast();
+}
+document.getElementById('frameDeleteUndoBtn')?.addEventListener('click', restoreLastDeletedFrame);
 let frameSuppressNextClick=false;
 function renderFrames() { const strip=document.getElementById('frameStrip'); strip.innerHTML=''; frames.forEach((f,i)=>{ const b=document.createElement('button'); b.className='frameBtn'+(i===currentFrame?' active':''); b.textContent='Frame '+(i+1); b.dataset.frameIdx=i; b.onclick=()=>{ if(frameSuppressNextClick){ frameSuppressNextClick=false; return; } if(frames.length) frames[currentFrame]=makeFrameState(); loadFrame(i); }; strip.appendChild(b); }); updateTimelineRemoteVisibility(); const moveLeftBtn=document.getElementById('moveFrameLeftBtn'), moveRightBtn=document.getElementById('moveFrameRightBtn'); if(moveLeftBtn) moveLeftBtn.disabled=(currentFrame<=0); if(moveRightBtn) moveRightBtn.disabled=(currentFrame>=frames.length-1); const tcCounter=document.getElementById('tcFrameCounter'); if(tcCounter) tcCounter.textContent=frames.length ? ((currentFrame+1)+' / '+frames.length) : '0 / 0'; const tcDel=document.getElementById('tcDeleteFrameBtn'); if(tcDel) tcDel.disabled=(frames.length<=1); const tcDur=document.getElementById('tcDurationInput'); if(tcDur) tcDur.value=document.getElementById('frameDuration')?.value||0.9; wireFrameStripDrag(); }
 // Drag-to-reorder for the frame strip, adapted from the same pattern used
@@ -7068,6 +7129,7 @@ function setShotClockDirectionFor(direction){
 let cutPlaybackTimeout=null;
 const FRAME_PAUSE_HALFWAY_MS=400;
 function animateOrCutToFrame(targetIndex, durationSec, onDone){
+  durationSec = Math.max(0.02, (durationSec||0.9) / (playbackSpeed||1));
   if(frameTransitionMode==='cut' || frameTransitionMode==='ghost'){
     const durationMs=Math.max(50,(durationSec||0.9)*1000);
     if(frameTransitionMode==='ghost' && frames[currentFrame]) addGhostsFromState(frames[currentFrame]); else clearGhosts();
@@ -7194,6 +7256,7 @@ document.getElementById('tcNextFrameBtn')?.addEventListener('click', ()=>loadFra
 document.getElementById('tcAddFrameBtn')?.addEventListener('click', addFrame);
 document.getElementById('tcDeleteFrameBtn')?.addEventListener('click', deleteFrame);
 document.getElementById('tcTransitionSelect')?.addEventListener('change', e=>setFrameTransitionMode(e.target.value));
+document.getElementById('tcSpeedSelect')?.addEventListener('change', e=>{ playbackSpeed = +e.target.value || 1; });
 document.getElementById('tcDurationInput')?.addEventListener('change', e=>{
   const durEl = document.getElementById('frameDuration');
   if(durEl) durEl.value = e.target.value;
@@ -12944,20 +13007,21 @@ function updateSmartGoaliePositioningButton(){
   if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
 }
 document.getElementById('smartGoaliePositioningToggleBtn')?.addEventListener('click', ()=>{
-  const panel = document.getElementById('smartGoaliePositioningPanel');
-  if(panel.classList.contains('open')){ closeToolPanels(); return; }
-  const cb = document.getElementById('smartGoalieEnabledCheckbox'); if(cb) cb.checked = smartGoaliePositioningActive;
+  if(smartGoaliePositioningActive){
+    smartGoaliePositioningActive = false;
+    updateSmartGoaliePositioningButton();
+    closeToolPanels();
+    return;
+  }
+  smartGoaliePositioningActive = true;
+  updateSmartGoaliePositioningButton();
   const di = document.getElementById('smartGoalieDistanceInput'); if(di) di.value = smartGoalieDistanceToGoal;
   const ai = document.getElementById('smartGoalieMaxAngleInput'); if(ai) ai.value = smartGoalieMaxTurnAngle;
   const li = document.getElementById('smartGoalieMaxLateralInput'); if(li) li.value = smartGoalieMaxLateralDist;
+  renderSmartGoaliePositioning();
   openToolPanel('smartGoaliePositioningPanel');
 });
-document.getElementById('smartGoalieEnabledCheckbox')?.addEventListener('change', e=>{
-  smartGoaliePositioningActive = e.target.checked;
-  updateSmartGoaliePositioningButton();
-  renderQuickCommandBar();
-  renderSmartGoaliePositioning();
-});
+document.getElementById('smartGoalieOkBtn')?.addEventListener('click', ()=>{ closeToolPanels(); });
 document.getElementById('smartGoalieDistanceInput')?.addEventListener('change', e=>{
   smartGoalieDistanceToGoal = Math.max(0.1, +e.target.value||0.9);
   e.target.value = smartGoalieDistanceToGoal;
