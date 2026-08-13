@@ -1002,6 +1002,14 @@
   }
   @media print { header, #controlsPanel, #timelinePanel { display:none; } #stageWrap { width:100vw; margin:0; } #board { box-shadow:none; } }
 </style>
+<!-- Milestone 4: first external dependency this app has ever had. Loaded
+     here (end of head, before any body content) so window.supabase is
+     guaranteed ready before the main application script runs below.
+     Everything that uses it checks for its existence first (see
+     XQUIX.Auth) -- if this fails to load (offline, CDN blocked, etc.),
+     the rest of the app keeps working exactly as before; only sign-in
+     becomes unavailable. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="hideNames">
 <div id="splashScreen">
@@ -1354,6 +1362,7 @@
 <aside id="controlsPanel">
   <img id="brandLogoSidebar" alt="" style="height:36px;display:block;margin:0 auto 8px;">
   <button id="closeSidebarBtn" title="Hide Sidebar">Hide Sidebar &#10095;</button>
+  <button type="button" class="toolListBtn" id="accountSidebarBtn" data-panel="accountPanel" style="width:100%;margin-bottom:8px;font-size:13px;">Sign In</button>
   <div class="panelTitle">Commands</div>
   <label class="tooltipToggle"><input type="checkbox" id="tooltipsEnabled" checked> Show help tooltips on hover</label>
   <button type="button" id="sidebarPracticeStudioBtn" style="width:100%;margin:6px 0 10px;font-size:13px;font-weight:700;">Practice Studio (Preview) →</button>
@@ -1753,6 +1762,27 @@
   <div class="toolPanelHeader"><h3>About &amp; Diagnostics</h3><button class="closeToolPanelBtn">&#10005;</button></div>
   <div class="toolPanelBody">
     <div id="aboutDiagnosticsContent" style="font-size:13px;line-height:1.7;"></div>
+  </div>
+</div>
+<div class="toolPanel" id="accountPanel" style="width:min(360px,94vw);">
+  <div class="toolPanelHeader"><h3>Account</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+    <div id="accountSignedOutView">
+      <div id="accountFormMessage" style="font-size:12px;color:#b23b3b;margin-bottom:8px;display:none;"></div>
+      <div class="smallRow full"><label>Email<input type="email" id="accountEmailInput" autocomplete="email"></label></div>
+      <div class="smallRow full"><label>Password<input type="password" id="accountPasswordInput" autocomplete="current-password"></label></div>
+      <div class="smallRow" style="gap:8px;">
+        <button type="button" id="accountSignInBtn">Sign In</button>
+        <button type="button" id="accountSignUpBtn">Create Account</button>
+      </div>
+      <div class="smallRow full"><button type="button" id="accountForgotBtn" style="font-size:12px;background:none;border:none;color:#14a89a;cursor:pointer;padding:4px 0;">Forgot password?</button></div>
+      <div style="font-size:11.5px;color:#7c8a8a;margin-top:6px;">Signing in isn't required -- your work saves normally on this device either way. An account will let you access your library from other devices once that's available.</div>
+    </div>
+    <div id="accountSignedInView" style="display:none;">
+      <div style="font-size:14px;margin-bottom:4px;">Signed in as</div>
+      <div id="accountSignedInEmail" style="font-size:15px;font-weight:600;margin-bottom:14px;word-break:break-all;"></div>
+      <button type="button" id="accountSignOutBtn">Sign Out</button>
+    </div>
   </div>
 </div>
 <div class="toolPanel devModeOnly" id="developerModePanel" style="width:min(820px,94vw);display:none;">
@@ -3085,6 +3115,171 @@ MIZE.Storage.makeMetadata = function(type, name, coachingDNA, existingRecord){
 // shape is a swap of the XQUIX.StorageProvider binding below, not a
 // rewrite of anything that calls it.
 const XQUIX = window.XQUIX || (window.XQUIX = {});
+// ===== XQUIX.Auth (Milestone 4 -- Authentication & User Accounts) =====
+// "Development" environment per the Milestone 3 resolution -- this file is
+// the one under active development; a separate, empty "Production" project
+// stays untouched until real launch.
+const XQUIX_SUPABASE_CONFIG = {
+  url: 'https://asmmplnwbzlnmsctbhmx.supabase.co',
+  publishableKey: 'sb_publishable_ncm3IqQ2v7FvJCIQ5Z8d-A_-MR-n5_k',
+};
+XQUIX.Auth = (function(){
+  let client = null;
+  let currentUser = null;
+  let initialized = false;
+  const listeners = [];
+
+  // Every network call goes through this. Confirmed necessary, not just
+  // theoretical: supabase-js has a documented bug (its internal
+  // navigator.locks-based cross-tab session sync can deadlock) where auth
+  // calls hang forever client-side even though the call succeeds on the
+  // server -- we hit this exact failure directly while building the
+  // verification test page earlier this session. persistSession stays ON
+  // here (unlike that one-shot test page) since a real app must remember
+  // login across visits -- so this timeout is the actual safety net, not
+  // a nicety.
+  function withTimeout(promise, seconds){
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out after '+seconds+'s.')), seconds*1000))
+    ]);
+  }
+  const UNAVAILABLE = { error: { message: 'Sign-in is unavailable right now. Your work is still saved normally on this device.' } };
+
+  try {
+    if(typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function'){
+      client = window.supabase.createClient(XQUIX_SUPABASE_CONFIG.url, XQUIX_SUPABASE_CONFIG.publishableKey, {
+        auth: { persistSession: true, autoRefreshToken: true }
+      });
+    }
+  } catch(err) { console.error('XQUIX.Auth: client init failed, continuing in local-only mode:', err); client = null; }
+
+  function setUser(u){ currentUser = u; listeners.forEach(fn => { try { fn(currentUser); } catch(err){} }); }
+
+  return {
+    isAvailable(){ return !!client; },
+    getCurrentUser(){ return currentUser; },
+    // display-name helper: prefer a real display name if ever set, else
+    // the email's local part, else 'Guest' for logged-out/unavailable.
+    getDisplayName(){
+      if(!currentUser) return 'Guest';
+      return currentUser.user_metadata?.display_name || (currentUser.email ? currentUser.email.split('@')[0] : 'Account');
+    },
+    onChange(fn){ listeners.push(fn); },
+    // Restores any existing session on load. Called once, fire-and-forget,
+    // from the app's own boot sequence -- must never block the rest of
+    // the app's initialization, and must never throw past this function.
+    async init(){
+      if(initialized) return currentUser;
+      initialized = true;
+      if(!client) return null;
+      try {
+        const { data, error } = await withTimeout(client.auth.getSession(), 10);
+        setUser(error || !data.session ? null : data.session.user);
+      } catch(err) { setUser(null); }
+      try {
+        client.auth.onAuthStateChange((event, session) => { setUser(session ? session.user : null); });
+      } catch(err) {}
+      return currentUser;
+    },
+    async signUp(email, password){
+      if(!client) return UNAVAILABLE;
+      try {
+        const { data, error } = await withTimeout(client.auth.signUp({ email, password }), 15);
+        if(error) return { error };
+        if(!data.session) return { needsConfirmation: true };
+        setUser(data.user);
+        return { user: data.user };
+      } catch(err) { return { error: { message: err.message } }; }
+    },
+    async signIn(email, password){
+      if(!client) return UNAVAILABLE;
+      try {
+        const { data, error } = await withTimeout(client.auth.signInWithPassword({ email, password }), 15);
+        if(error) return { error };
+        setUser(data.user);
+        return { user: data.user };
+      } catch(err) { return { error: { message: err.message } }; }
+    },
+    async signOut(){
+      if(!client) return;
+      try { await withTimeout(client.auth.signOut(), 10); } catch(err) {}
+      setUser(null);
+    },
+    async resetPassword(email){
+      if(!client) return UNAVAILABLE;
+      try {
+        const { error } = await withTimeout(client.auth.resetPasswordForEmail(email), 15);
+        return error ? { error } : { success: true };
+      } catch(err) { return { error: { message: err.message } }; }
+    },
+  };
+})();
+// ===== Account UI (Milestone 4) =====
+function renderAccountUI(){
+  const user = XQUIX.Auth.getCurrentUser();
+  const sidebarBtn = document.getElementById('accountSidebarBtn');
+  const signedOutView = document.getElementById('accountSignedOutView');
+  const signedInView = document.getElementById('accountSignedInView');
+  if(user){
+    if(sidebarBtn) sidebarBtn.textContent = XQUIX.Auth.getDisplayName();
+    if(signedOutView) signedOutView.style.display = 'none';
+    if(signedInView) signedInView.style.display = '';
+    const emailEl = document.getElementById('accountSignedInEmail');
+    if(emailEl) emailEl.textContent = user.email || '';
+  } else {
+    if(sidebarBtn) sidebarBtn.textContent = 'Sign In';
+    if(signedOutView) signedOutView.style.display = '';
+    if(signedInView) signedInView.style.display = 'none';
+  }
+  if(typeof renderCustomSystems==='function') renderCustomSystems();
+  if(typeof renderPackages==='function') renderPackages();
+}
+function showAccountFormMessage(text){
+  const el = document.getElementById('accountFormMessage');
+  if(!el) return;
+  if(!text){ el.style.display = 'none'; return; }
+  el.textContent = text;
+  el.style.display = '';
+}
+// Panel-opening itself is handled by the generic .toolListBtn wiring
+// (data-panel="accountPanel") elsewhere in the file -- this just clears
+// any stale error message left over from a previous attempt.
+document.getElementById('accountSidebarBtn')?.addEventListener('click', ()=>{ showAccountFormMessage(''); });
+document.getElementById('accountSignInBtn')?.addEventListener('click', async ()=>{
+  const email = document.getElementById('accountEmailInput').value.trim();
+  const password = document.getElementById('accountPasswordInput').value;
+  if(!email || !password){ showAccountFormMessage('Enter your email and password.'); return; }
+  showAccountFormMessage('Signing in...');
+  const result = await XQUIX.Auth.signIn(email, password);
+  if(result.error){ showAccountFormMessage(result.error.message); return; }
+  showAccountFormMessage('');
+  closeToolPanels();
+});
+document.getElementById('accountSignUpBtn')?.addEventListener('click', async ()=>{
+  const email = document.getElementById('accountEmailInput').value.trim();
+  const password = document.getElementById('accountPasswordInput').value;
+  if(!email || !password){ showAccountFormMessage('Enter an email and password.'); return; }
+  if(password.length < 6){ showAccountFormMessage('Password should be at least 6 characters.'); return; }
+  showAccountFormMessage('Creating account...');
+  const result = await XQUIX.Auth.signUp(email, password);
+  if(result.error){ showAccountFormMessage(result.error.message); return; }
+  if(result.needsConfirmation){ showAccountFormMessage('Check your email to confirm your account, then sign in.'); return; }
+  showAccountFormMessage('');
+  closeToolPanels();
+});
+document.getElementById('accountSignOutBtn')?.addEventListener('click', async ()=>{ await XQUIX.Auth.signOut(); closeToolPanels(); });
+document.getElementById('accountForgotBtn')?.addEventListener('click', async ()=>{
+  const email = document.getElementById('accountEmailInput').value.trim();
+  if(!email){ showAccountFormMessage('Enter your email above first, then tap this again.'); return; }
+  showAccountFormMessage('Sending...');
+  const result = await XQUIX.Auth.resetPassword(email);
+  showAccountFormMessage(result.error ? result.error.message : 'Check your email for a reset link.');
+});
+XQUIX.Auth.onChange(renderAccountUI);
+// Fire-and-forget: restores any existing session without blocking the
+// rest of the app's own initialization below.
+XQUIX.Auth.init().then(renderAccountUI);
 XQUIX.LocalStorageProvider = (function(){
   function key(kind){ return kind==='formation' ? 'wpStrategyFormationsV5' : 'tpgTacticalPackagesV8'; }
   function load(kind){ try { return JSON.parse(localStorage.getItem(key(kind))||'{}'); } catch(err){ return {}; } }
@@ -4298,7 +4493,15 @@ function deleteSequenceLibraryEntry(orgId, name){
 // simulation above -- so per spec, this is unconditionally "XquiX" for
 // now, Developer Mode included. This one function is the only place that
 // will need to change once real per-user login exists.
-function getActiveUserName(){ return 'XquiX'; }
+function getActiveUserName(){
+  const user = (typeof XQUIX!=='undefined' && XQUIX.Auth) ? XQUIX.Auth.getCurrentUser() : null;
+  if(user) return XQUIX.Auth.getDisplayName();
+  // Not logged in (or Auth unavailable) -- unchanged from before Milestone
+  // 4, on purpose: every formation/sequence saved prior to real accounts
+  // existing is namespaced under this exact string, and changing it here
+  // would make all of that vanish from the Save/Open panel.
+  return 'XquiX';
+}
 // One-time, idempotent migration: anything saved before this naming scheme
 // existed gets the current user name prefixed on, so nothing already saved
 // (including formations/sequences built earlier in this project) becomes
