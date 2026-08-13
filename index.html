@@ -1256,6 +1256,7 @@
   <button id="videoClearBtn" class="studioFrameClearBtn" title="Clear and load something else">&#10005;</button>
 </div>
 <div id="stageWrap"><div id="presentationWaterBackdrop"></div><div id="board">
+  <div id="xquixCopyrightNotice" style="position:absolute;right:6px;bottom:4px;font-size:9.5px;color:rgba(0,0,0,.38);pointer-events:none;z-index:5;text-align:right;line-height:1.3;white-space:nowrap;"></div>
   <svg id="fieldSvg" viewBox="0 0 29 24" preserveAspectRatio="none">
     <defs>
       <pattern id="water" patternUnits="userSpaceOnUse" width="1.4" height="1.4">
@@ -1585,6 +1586,7 @@
       </div>
 
       <button class="toolListBtn devModeOnly" data-panel="developerModePanel" style="display:none;">Developer Mode: Sport Templates</button>
+      <button class="toolListBtn devModeOnly" data-panel="platformAnalysisPanel" style="display:none;">Internal: Cross-System Analysis</button>
       <button class="devModeOnly" id="devPreviewTutorialBtn" style="display:none;">Preview Tutorial Engine (Demo)</button>
       <button class="devModeOnly" id="devPreviewRealTutorialBtn" style="display:none;">Preview: First Coaching Session</button>
 
@@ -1782,6 +1784,10 @@
     <div id="accountSignedInView" style="display:none;">
       <div style="font-size:14px;margin-bottom:4px;">Signed in as</div>
       <div id="accountSignedInEmail" style="font-size:15px;font-weight:600;margin-bottom:14px;word-break:break-all;"></div>
+      <div style="font-size:11px;color:#7c8a8a;font-weight:600;margin-bottom:6px;">YOUR LOCATION <span style="font-weight:400;">(optional, internal only)</span></div>
+      <div class="smallRow full"><label>Country<input type="text" id="accountCountryInput" placeholder="e.g. Hungary"></label></div>
+      <div class="smallRow full"><label>Postal/ZIP code<input type="text" id="accountPostalInput" placeholder="e.g. 1146"></label></div>
+      <button type="button" id="accountSaveLocationBtn" style="width:100%;margin-bottom:14px;">Save</button>
       <button type="button" class="toolListBtn" data-panel="organizationsPanel" style="width:100%;margin-bottom:8px;" id="openOrganizationsBtn">Organizations</button>
       <button type="button" class="toolListBtn" data-panel="orgLibraryPanel" style="width:100%;margin-bottom:8px;display:none;" id="openOrgLibraryBtn">Organization Library</button>
       <button type="button" class="toolListBtn" data-panel="trashPanel" style="width:100%;margin-bottom:8px;" id="openTrashBtn">Recently Deleted</button>
@@ -1795,6 +1801,14 @@
     <div style="font-size:11.5px;color:#7c8a8a;margin-bottom:10px;">Switch between your personal library and any team/club you belong to. Formations and sequences saved while an organization is active go to that organization's shared library, not just this device.</div>
     <div id="xquixOrgActiveRow" style="margin-bottom:12px;"></div>
     <div id="xquixOrgList" style="font-size:13px;margin-bottom:14px;"></div>
+    <div id="xquixOrgDetailsSection" style="display:none;border-top:1px solid #e5eaea;padding-top:12px;margin-bottom:12px;">
+      <div style="font-size:11px;color:#7c8a8a;font-weight:600;margin-bottom:6px;">ORGANIZATION DETAILS (admin only)</div>
+      <div class="smallRow full"><label>Sport(s)<input type="text" id="xquixOrgSportsInput" placeholder="e.g. Water Polo, Swimming"></label></div>
+      <div class="smallRow full"><label>Country <span style="font-weight:400;color:#7c8a8a;">(optional)</span><input type="text" id="xquixOrgCountryInput" placeholder="e.g. Hungary"></label></div>
+      <div class="smallRow full"><label>Postal/ZIP code <span style="font-weight:400;color:#7c8a8a;">(optional)</span><input type="text" id="xquixOrgPostalInput" placeholder="e.g. 1146"></label></div>
+      <div style="font-size:10.5px;color:#7c8a8a;margin-bottom:6px;">Country/postal code are never required and aren't shown to other users -- internal only, for now.</div>
+      <button type="button" id="xquixSaveOrgDetailsBtn" style="width:100%;">Save Organization Details</button>
+    </div>
     <div style="border-top:1px solid #e5eaea;padding-top:12px;">
       <button type="button" id="xquixCreateOrgBtn" style="width:100%;margin-bottom:8px;">+ Create Organization</button>
       <div class="smallRow full"><label>Join with an ID<input type="text" id="xquixJoinOrgIdInput" placeholder="Paste an organization ID shared with you"></label></div>
@@ -1824,6 +1838,19 @@
   <div class="toolPanelBody">
     <div style="font-size:11.5px;color:#7c8a8a;margin-bottom:8px;">Deleted formations and sequences from your account. Restoring brings one back to your library.</div>
     <div id="trashList" style="font-size:13px;"></div>
+  </div>
+</div>
+<div class="toolPanel devModeOnly" id="platformAnalysisPanel" style="width:min(820px,94vw);display:none;">
+  <div class="toolPanelHeader"><h3>Internal: Cross-System Analysis</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+    <div style="font-size:12px;color:#54605f;margin-bottom:10px;">Every formation/sequence across every account, with attribution and (where set) organization/author location. Internal only -- nothing here is visible to any other user, regardless of role. This is a browsable, cross-referenced view of existing data, not automated pattern-matching -- that's separate, later work.</div>
+    <div id="platformAnalysisStatus" style="font-size:12px;color:#7c8a8a;margin-bottom:10px;"></div>
+    <div class="smallRow" style="gap:8px;margin-bottom:10px;">
+      <label style="flex:1;">Sport<select id="platformAnalysisSportFilter"><option value="">All</option></select></label>
+      <label style="flex:1;">Country<select id="platformAnalysisCountryFilter"><option value="">All</option></select></label>
+      <label style="flex:1;">Organization<select id="platformAnalysisOrgFilter"><option value="">All</option></select></label>
+    </div>
+    <div id="platformAnalysisList" style="max-height:60vh;overflow-y:auto;font-size:13px;"></div>
   </div>
 </div>
 <div class="toolPanel devModeOnly" id="developerModePanel" style="width:min(820px,94vw);display:none;">
@@ -3116,6 +3143,8 @@ MIZE.Storage.SCHEMA_VERSION = 1;
 MIZE.Storage.genId = function(prefix){ return (prefix||'obj')+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10); };
 MIZE.Storage.stampRecord = function(extra, existingRecord){
   const now = new Date().toISOString();
+  const realActiveOrgId = (typeof XQUIX!=='undefined' && XQUIX.Org) ? XQUIX.Org.getActiveOrgId() : null;
+  const realActiveOrg = realActiveOrgId && XQUIX.Org.getMyOrgsSync().find(o=>o.id===realActiveOrgId);
   return {
     schemaVersion: MIZE.Storage.SCHEMA_VERSION,
     applicationVersion: MIZE.config.version,
@@ -3132,6 +3161,13 @@ MIZE.Storage.stampRecord = function(extra, existingRecord){
     createdAt: (existingRecord && existingRecord.createdAt) || now,
     updatedAt: now,
     deletedAt: null,
+    // Attribution for display (copyright notice) -- captured once at
+    // creation and preserved across re-saves, same as id/createdAt,
+    // since a copyright credits who originally made something, not
+    // whoever most recently opened and re-saved it.
+    authorName: (existingRecord && existingRecord.authorName) ||
+      ((typeof XQUIX!=='undefined' && XQUIX.Auth && XQUIX.Auth.getCurrentUser()) ? XQUIX.Auth.getDisplayName() : (typeof getActiveUserName==='function' ? getActiveUserName() : 'XquiX')),
+    organizationName: (existingRecord && 'organizationName' in existingRecord) ? existingRecord.organizationName : (realActiveOrg ? realActiveOrg.name : null),
     ...extra
   };
 };
@@ -3255,10 +3291,26 @@ XQUIX.Auth = (function(){
         return error ? { error } : { success: true };
       } catch(err) { return { error: { message: err.message } }; }
     },
+    async getProfileDetails(){
+      if(!client || !currentUser) return null;
+      try {
+        const { data, error } = await withTimeout(client.from('profiles').select('country,postal_code').eq('id', currentUser.id).single(), 15);
+        if(error) throw error;
+        return data;
+      } catch(err) { console.error('XQUIX.Auth: getProfileDetails failed:', err); return null; }
+    },
+    async updateProfileLocation(country, postal_code){
+      if(!client || !currentUser) return { error:{ message:'Sign in first.' } };
+      try {
+        const { error } = await withTimeout(client.from('profiles').update({ country: country||null, postal_code: postal_code||null }).eq('id', currentUser.id), 15);
+        if(error) throw error;
+        return { success:true };
+      } catch(err) { return { error:{ message: err.message } }; }
+    },
   };
 })();
 // ===== Account UI (Milestone 4) =====
-function renderAccountUI(){
+async function renderAccountUI(){
   const user = XQUIX.Auth.getCurrentUser();
   const sidebarBtn = document.getElementById('accountSidebarBtn');
   const signedOutView = document.getElementById('accountSignedOutView');
@@ -3269,6 +3321,13 @@ function renderAccountUI(){
     if(signedInView) signedInView.style.display = '';
     const emailEl = document.getElementById('accountSignedInEmail');
     if(emailEl) emailEl.textContent = user.email || '';
+    const details = await XQUIX.Auth.getProfileDetails();
+    if(details){
+      const countryEl = document.getElementById('accountCountryInput');
+      const postalEl = document.getElementById('accountPostalInput');
+      if(countryEl) countryEl.value = details.country||'';
+      if(postalEl) postalEl.value = details.postal_code||'';
+    }
   } else {
     if(sidebarBtn) sidebarBtn.textContent = 'Sign In';
     if(signedOutView) signedOutView.style.display = '';
@@ -3311,6 +3370,13 @@ document.getElementById('accountSignUpBtn')?.addEventListener('click', async ()=
   closeToolPanels();
 });
 document.getElementById('accountSignOutBtn')?.addEventListener('click', async ()=>{ await XQUIX.Auth.signOut(); closeToolPanels(); });
+document.getElementById('accountSaveLocationBtn')?.addEventListener('click', async ()=>{
+  const country = document.getElementById('accountCountryInput').value.trim();
+  const postal_code = document.getElementById('accountPostalInput').value.trim();
+  const result = await XQUIX.Auth.updateProfileLocation(country, postal_code);
+  if(result.error){ MizeDialog.alert('Could not save: '+result.error.message); return; }
+  MizeDialog.alert('Saved.');
+});
 document.getElementById('accountForgotBtn')?.addEventListener('click', async ()=>{
   const email = document.getElementById('accountEmailInput').value.trim();
   if(!email){ showAccountFormMessage('Enter your email above first, then tap this again.'); return; }
@@ -3400,9 +3466,82 @@ XQUIX.Org = (function(){
         return data;
       } catch(err) { console.error('XQUIX.Org: listMembers failed:', err); return []; }
     },
+    async getOrgDetails(orgId){
+      const client = XQUIX.Auth.getClient();
+      if(!client) return null;
+      try {
+        const { data, error } = await withTimeout(
+          client.from('organizations').select('id,name,sports,country,postal_code').eq('id', orgId).single(), 15);
+        if(error) throw error;
+        return data;
+      } catch(err) { console.error('XQUIX.Org: getOrgDetails failed:', err); return null; }
+    },
+    // Admin-only in practice: enforced server-side by the existing
+    // organizations_update_admin RLS policy (Milestone 3), not just by
+    // hiding this in the UI for non-admins.
+    async updateOrganizationDetails(orgId, { sports, country, postal_code }){
+      const client = XQUIX.Auth.getClient();
+      if(!client) return { error:{ message:'Sign in first.' } };
+      try {
+        const { error } = await withTimeout(
+          client.from('organizations').update({ sports, country: country||null, postal_code: postal_code||null }).eq('id', orgId), 15);
+        if(error) throw error;
+        return { success:true };
+      } catch(err) { return { error:{ message: err.message } }; }
+    },
   };
 })();
 XQUIX.Auth.onChange((user)=>{ if(user) XQUIX.Org.refreshMyOrganizations(); else XQUIX.Org.setActiveOrgId(null); });
+
+// ===== XQUIX.PlatformAdmin (internal-only, hidden analysis view) =====
+// Relies entirely on the server-side platform_admin RLS policies -- if
+// the signed-in account isn't actually flagged (the flag can only ever
+// be set via direct SQL, never through this app), every call here
+// naturally, safely returns an empty result, exactly like any other
+// query would for a regular, non-admin user. There is no client-side
+// gate doing the real work here; devModeActive below only controls
+// whether the UI entry point is shown, not whether the data is
+// reachable. This is the data-access foundation for internal pattern
+// analysis -- fetching and cross-referencing what already exists -- not
+// a pattern-recognition/matching engine, which is separate, later work.
+XQUIX.PlatformAdmin = (function(){
+  function withTimeout(promise, seconds){
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out after '+seconds+'s.')), seconds*1000))
+    ]);
+  }
+  return {
+    async listAllAssets(){
+      const client = XQUIX.Auth.getClient();
+      if(!client) return [];
+      try {
+        const { data, error } = await withTimeout(
+          client.from('coaching_assets').select('id,object_type,name,owner_id,organization_id,payload,coaching_dna,created_at').is('deleted_at', null), 25);
+        if(error) throw error;
+        return data;
+      } catch(err) { console.error('XQUIX.PlatformAdmin: listAllAssets failed (expected/harmless if this account is not platform_admin):', err); return []; }
+    },
+    async listAllOrganizations(){
+      const client = XQUIX.Auth.getClient();
+      if(!client) return [];
+      try {
+        const { data, error } = await withTimeout(client.from('organizations').select('id,name,sports,country,postal_code'), 20);
+        if(error) throw error;
+        return data;
+      } catch(err) { console.error('XQUIX.PlatformAdmin: listAllOrganizations failed:', err); return []; }
+    },
+    async listAllProfiles(){
+      const client = XQUIX.Auth.getClient();
+      if(!client) return [];
+      try {
+        const { data, error } = await withTimeout(client.from('profiles').select('id,display_name,country,postal_code'), 20);
+        if(error) throw error;
+        return data;
+      } catch(err) { console.error('XQUIX.PlatformAdmin: listAllProfiles failed:', err); return []; }
+    },
+  };
+})();
 
 // ===== XQUIX.OrgLibrary (Milestone 8 -- shared organization library) =====
 // Deliberately separate from XQUIX.CloudProvider (personal library,
@@ -4082,7 +4221,34 @@ async function xquixRenderOrganizations(){
     else { row.innerHTML += ' <span style="font-size:11px;color:#14a89a;">(active)</span>'; }
     list.appendChild(row);
   });
+
+  const detailsSection = document.getElementById('xquixOrgDetailsSection');
+  const activeOrg = orgs.find(o=>o.id===activeId);
+  if(detailsSection){
+    if(activeOrg && activeOrg.role==='org_admin'){
+      detailsSection.style.display = '';
+      const details = await XQUIX.Org.getOrgDetails(activeId);
+      if(details){
+        document.getElementById('xquixOrgSportsInput').value = (details.sports||[]).join(', ');
+        document.getElementById('xquixOrgCountryInput').value = details.country||'';
+        document.getElementById('xquixOrgPostalInput').value = details.postal_code||'';
+      }
+    } else {
+      detailsSection.style.display = 'none';
+    }
+  }
 }
+document.getElementById('xquixSaveOrgDetailsBtn')?.addEventListener('click', async ()=>{
+  const orgId = XQUIX.Org.getActiveOrgId();
+  if(!orgId) return;
+  const sports = document.getElementById('xquixOrgSportsInput').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const country = document.getElementById('xquixOrgCountryInput').value.trim();
+  const postal_code = document.getElementById('xquixOrgPostalInput').value.trim();
+  const result = await XQUIX.Org.updateOrganizationDetails(orgId, { sports, country, postal_code });
+  if(result.error){ xquixShowOrgFormMessage('Could not save: '+result.error.message); return; }
+  xquixShowOrgFormMessage('');
+  MizeDialog.alert('Organization details saved.');
+});
 document.getElementById('xquixCreateOrgBtn')?.addEventListener('click', async ()=>{
   const name = await MizeDialog.prompt('Organization name:');
   if(!name || !name.trim()) return;
@@ -4126,7 +4292,7 @@ async function xquixRenderOrgLibrary(){
     const rec = formations[name];
     const row = document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:6px;padding:4px 0;';
     const b = document.createElement('button'); b.textContent=name; b.style.flex='1'; b.title='Load this shared formation';
-    b.onclick=()=>{ recordHistory('Load Org Formation: '+name); loadState(formationRecordState(rec)); resetTimelineForFormationLoad(); closeToolPanels(); };
+    b.onclick=()=>{ recordHistory('Load Org Formation: '+name); loadState(formationRecordState(rec)); resetTimelineForFormationLoad(); xquixUpdateCopyrightNotice(rec); closeToolPanels(); };
     row.appendChild(b);
     if(canWrite){
       const del=document.createElement('button'); del.textContent='\u2715'; del.title='Delete (removes for everyone in this organization)';
@@ -4142,7 +4308,7 @@ async function xquixRenderOrgLibrary(){
     const rec = sequences[name];
     const row = document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:6px;padding:4px 0;';
     const b = document.createElement('button'); b.textContent=name; b.style.flex='1'; b.title='Load this shared sequence';
-    b.onclick=()=>{ recordHistory('Load Org Sequence: '+name); if(frames.length) frames[currentFrame]=makeFrameState(); const pkg=MIZE.Storage.readRecord(rec); frames=pkg.frames||[pkg.current]; currentFrame=0; loadFrame(0); closeToolPanels(); };
+    b.onclick=()=>{ recordHistory('Load Org Sequence: '+name); if(frames.length) frames[currentFrame]=makeFrameState(); const pkg=MIZE.Storage.readRecord(rec); frames=pkg.frames||[pkg.current]; currentFrame=0; loadFrame(0); xquixUpdateCopyrightNotice(rec); closeToolPanels(); };
     row.appendChild(b);
     if(canWrite){
       const del=document.createElement('button'); del.textContent='\u2715'; del.title='Delete (removes for everyone in this organization)';
@@ -4761,6 +4927,86 @@ document.getElementById('devTplImportFile')?.addEventListener('change', e=>{
   };
   reader.readAsText(file);
 });
+async function xquixRenderPlatformAnalysis(){
+  const statusEl = document.getElementById('platformAnalysisStatus');
+  const listEl = document.getElementById('platformAnalysisList');
+  statusEl.textContent = 'Loading\u2026';
+  listEl.innerHTML = '';
+
+  const [assets, orgs, profiles] = await Promise.all([
+    XQUIX.PlatformAdmin.listAllAssets(),
+    XQUIX.PlatformAdmin.listAllOrganizations(),
+    XQUIX.PlatformAdmin.listAllProfiles(),
+  ]);
+
+  if(!assets.length && !orgs.length && !profiles.length){
+    statusEl.textContent = 'No data returned. This means the signed-in account is not flagged platform_admin (or you\u2019re not signed in) -- this is the expected, correct result for any account other than yours once flagged.';
+    return;
+  }
+  statusEl.textContent = assets.length+' item(s) across '+orgs.length+' organization(s) and '+profiles.length+' account(s).';
+
+  const orgById = {}; orgs.forEach(o=>{ orgById[o.id]=o; });
+  const profileById = {}; profiles.forEach(p=>{ profileById[p.id]=p; });
+
+  function resolveFor(asset){
+    const org = asset.organization_id ? orgById[asset.organization_id] : null;
+    const profile = profileById[asset.owner_id];
+    const sports = org && org.sports && org.sports.length ? org.sports : [];
+    // Prefer the organization's location for org-scoped work (represents
+    // the club/federation), falling back to the individual author's own
+    // location for personal items or when the org hasn't set one.
+    const country = (org && org.country) || (profile && profile.country) || '';
+    return { sports, country, orgName: org ? org.name : null };
+  }
+
+  const allSports = new Set(), allCountries = new Set(), allOrgNames = new Set();
+  const resolved = assets.map(a => {
+    const r = resolveFor(a);
+    r.sports.forEach(s=>allSports.add(s));
+    if(r.country) allCountries.add(r.country);
+    if(r.orgName) allOrgNames.add(r.orgName);
+    return { asset: a, ...r };
+  });
+
+  function populateSelect(id, values){
+    const sel = document.getElementById(id);
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All</option>' + [...values].sort().map(v=>'<option value="'+libEsc(v)+'">'+libEsc(v)+'</option>').join('');
+    sel.value = [...values].includes(current) ? current : '';
+  }
+  populateSelect('platformAnalysisSportFilter', allSports);
+  populateSelect('platformAnalysisCountryFilter', allCountries);
+  populateSelect('platformAnalysisOrgFilter', allOrgNames);
+
+  function renderList(){
+    const sportFilter = document.getElementById('platformAnalysisSportFilter').value;
+    const countryFilter = document.getElementById('platformAnalysisCountryFilter').value;
+    const orgFilter = document.getElementById('platformAnalysisOrgFilter').value;
+    listEl.innerHTML = '';
+    const filtered = resolved.filter(r =>
+      (!sportFilter || r.sports.includes(sportFilter)) &&
+      (!countryFilter || r.country===countryFilter) &&
+      (!orgFilter || r.orgName===orgFilter)
+    );
+    if(!filtered.length){ listEl.innerHTML = '<div style="color:#7c8a8a;">No items match this filter.</div>'; return; }
+    filtered.forEach(r=>{
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:8px 0;border-bottom:1px solid #e5eaea;';
+      const authorName = (r.asset.payload && r.asset.payload.authorName) || 'Unknown';
+      const orgPart = r.orgName ? ' \u00b7 '+libEsc(r.orgName) : '';
+      const sportPart = r.sports.length ? ' \u00b7 '+libEsc(r.sports.join(', ')) : '';
+      const countryPart = r.country ? ' \u00b7 '+libEsc(r.country) : '';
+      row.innerHTML = '<strong>'+libEsc(r.asset.name)+'</strong> <span style="font-size:11px;color:#7c8a8a;">('+libEsc(r.asset.object_type)+')</span>'+
+        '<div style="font-size:11.5px;color:#54605f;">'+libEsc(authorName)+orgPart+sportPart+countryPart+'</div>';
+      listEl.appendChild(row);
+    });
+  }
+  renderList();
+  ['platformAnalysisSportFilter','platformAnalysisCountryFilter','platformAnalysisOrgFilter'].forEach(id=>{
+    document.getElementById(id).onchange = renderList;
+  });
+}
+document.querySelector('.toolListBtn[data-panel="platformAnalysisPanel"]')?.addEventListener('click', xquixRenderPlatformAnalysis);
 document.querySelector('.toolListBtn[data-panel="developerModePanel"]')?.addEventListener('click', ()=>{
   devPopulateTemplateSelect();
   const all = allSportTemplates();
@@ -6594,6 +6840,14 @@ async function saveFormation() {
   }
 }
 function formationRecordState(rec){ rec = MIZE.Storage.readRecord(rec); return (rec && typeof rec==='object' && rec.state) ? rec.state : rec; }
+function xquixUpdateCopyrightNotice(rec){
+  const el = document.getElementById('xquixCopyrightNotice');
+  if(!el) return;
+  if(!rec || !rec.authorName){ el.textContent = ''; return; }
+  const year = rec.createdAt ? new Date(rec.createdAt).getFullYear() : new Date().getFullYear();
+  const orgPart = rec.organizationName ? ' \u00b7 '+rec.organizationName : '';
+  el.textContent = '\u00a9 '+year+' '+rec.authorName+orgPart;
+}
 // A Formation is a single snapshot with no concept of a timeline -- but
 // loadState() only ever replaces the board's own content (players/ball/
 // drawings), never the separate `frames` array the Timeline strip renders
@@ -6619,7 +6873,7 @@ function renderCustomSystems() {
     const row=document.createElement('div'); row.className='formationRow';
     const topRow=document.createElement('div'); topRow.style.cssText='display:flex;align-items:center;gap:6px;';
     const b=document.createElement('button'); b.className='formationLoadBtn'; b.style.flex='1'; b.textContent=name; b.title='Load saved formation';
-    b.onclick=()=>{ recordHistory('Load Formation: '+name); loadState(formationRecordState(rec)); resetTimelineForFormationLoad(); closeToolPanels(); };
+    b.onclick=()=>{ recordHistory('Load Formation: '+name); loadState(formationRecordState(rec)); resetTimelineForFormationLoad(); xquixUpdateCopyrightNotice(rec); closeToolPanels(); };
     const exp=document.createElement('button'); exp.textContent='\u2913'; exp.title='Export this formation as its own file'; exp.style.cssText='flex:0 0 auto;padding:4px 9px;';
     exp.onclick=(ev)=>{ ev.stopPropagation(); exportSingleRecord('formation', name, rec); };
     const del=MIZE.UI.ConfirmDeleteButton(
@@ -6850,7 +7104,7 @@ function renderPackages() {
     if(filter && !tags.some(t=>t.toLowerCase().includes(filter))) return;
     shownCount++;
     const row=document.createElement('div'); row.className='miniBtnRow';
-    const load=document.createElement('button'); load.textContent=name; load.title='Load tactical package'; load.onclick=()=>{ recordHistory('Load Package: '+name); if(frames.length) frames[currentFrame]=makeFrameState(); const pkg=MIZE.Storage.readRecord(packs[name]); frames=pkg.frames||[pkg.current]; currentFrame=0; loadFrame(0); closeToolPanels(); };
+    const load=document.createElement('button'); load.textContent=name; load.title='Load tactical package'; load.onclick=()=>{ recordHistory('Load Package: '+name); if(frames.length) frames[currentFrame]=makeFrameState(); const pkg=MIZE.Storage.readRecord(packs[name]); frames=pkg.frames||[pkg.current]; currentFrame=0; loadFrame(0); xquixUpdateCopyrightNotice(pkg); closeToolPanels(); };
     const exp=document.createElement('button'); exp.textContent='\u2913'; exp.title='Export this package/sequence as its own file'; exp.onclick=(ev)=>{ ev.stopPropagation(); exportSingleRecord('sequence', name, packs[name]); };
     const del=MIZE.UI.ConfirmDeleteButton('Delete package "'+name+'"?', ()=>{ XQUIX.StorageProvider.deleteItem('sequence', name); renderPackages(); }, { title:'Delete package' });
     row.appendChild(load); row.appendChild(exp);
