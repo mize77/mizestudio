@@ -3717,6 +3717,15 @@ XQUIX.CloudProvider = (function(){
           const kind = row.object_type==='formation' ? 'formation' : 'sequence';
           cache[kind][row.name] = rowToRecord(row);
           XQUIX.OfflineDB.putItem(kind, row.name, cache[kind][row.name]); // keep the durable mirror current
+          // Self-healing for a fixed bug: re-sync the correct name into
+          // the local backup, and remove ONLY an entry matching this
+          // exact prior bug's signature ("XquiX " + the correct name) --
+          // never anything broader, since a wider cleanup here could
+          // destroy legitimate local-only saves from before this coach
+          // ever signed in.
+          XQUIX.LocalStorageProvider.saveItem(kind, row.name, cache[kind][row.name]);
+          const corruptedName = 'XquiX '+row.name;
+          if(XQUIX.LocalStorageProvider.getItemSync(kind, corruptedName)) XQUIX.LocalStorageProvider.deleteItem(kind, corruptedName);
         }
         loaded.formation = true; loaded.sequence = true;
         setSyncStatus('idle');
@@ -5384,14 +5393,13 @@ function getActiveUserName(){
   // would make all of that vanish from the Save/Open panel.
   return 'XquiX';
 }
-// One-time, idempotent migration: anything saved before this naming scheme
-// existed gets the current user name prefixed on, so nothing already saved
-// (including formations/sequences built earlier in this project) becomes
-// invisible once the new Save/Open panel starts filtering by user name.
+// One-time migration, no longer auto-run (see below) -- kept callable in
+// case a genuinely old, never-migrated installation is ever found and
+// needs this run manually and deliberately.
 function migrateSavesToUserNamePrefix(){
-  const prefix = getActiveUserName()+' ';
+  const prefix = 'XquiX ';
   [ 'formation', 'sequence' ].forEach(kind=>{
-    const store = XQUIX.StorageProvider.listStoreSync(kind);
+    const store = XQUIX.LocalStorageProvider.listStoreSync(kind);
     let changed = false;
     const migrated = {};
     Object.keys(store).forEach(key=>{
@@ -5399,10 +5407,20 @@ function migrateSavesToUserNamePrefix(){
       if(newKey !== key) changed = true;
       migrated[newKey] = { ...store[key], name:newKey };
     });
-    if(changed) XQUIX.StorageProvider.replaceStore(kind, migrated);
+    if(changed) XQUIX.LocalStorageProvider.replaceStore(kind, migrated);
   });
 }
-try { migrateSavesToUserNamePrefix(); } catch(err) { console.error('migrateSavesToUserNamePrefix failed:', err); }
+// NOT auto-called anymore. Confirmed via direct testing that this caused
+// real, silent data corruption for signed-in coaches: it renames any key
+// not starting with exactly "XquiX ", which includes every correctly
+// per-user-prefixed real save too ("mize77 Formation" doesn't start with
+// "XquiX " either) -- so it kept wrongly renaming already-correct saves
+// into "XquiX mize77 Formation" on every reload, creating duplicate
+// entries in the Library panel. This migration's one-time job -- moving
+// truly ancient, unprefixed saves into the naming scheme -- was already
+// completed for any existing installation back when Milestone 1 first
+// shipped; there is no remaining legitimate case for auto-running it.
+
 // New rotate gestures (in addition to the existing visible rotate handle):
 // mouse right-button-drag, and a second finger landing on an already-active
 // touch-drag player. Tracked separately from the handle-based `rotating` so
@@ -14585,6 +14603,19 @@ async function syncLegacyLibraryItems(){
   for(const src of legacySources){
     const store = await XQUIX.StorageProvider.listStore(src.kind);
     for(const [name, data] of Object.entries(store)){
+      // Cleanup for a fixed bug: a prior version could silently rename a
+      // coach's LOCAL BACKUP copy to "XquiX <already-correct name>" on
+      // reload (see migrateSavesToUserNamePrefix()), which this same sync
+      // process would then wrap as a second, orphaned Library entry
+      // alongside the correct one. Only removes a wrapper matching this
+      // exact signature, and only once confirmed the corrupted name no
+      // longer exists anywhere live -- never a broader cleanup.
+      const corruptedName = 'XquiX '+name;
+      if(corruptedName !== name && !store[corruptedName]){
+        const corruptedId = libLegacyAssetId(src.kind, corruptedName);
+        const corruptedWrapper = await LibraryStorage.getAsset(corruptedId);
+        if(corruptedWrapper) await LibraryStorage.deleteAsset(corruptedId);
+      }
       const id = libLegacyAssetId(src.kind, name);
       const existing = await LibraryStorage.getAsset(id);
       if(existing) continue; // already wrapped -- any metadata the coach added in the Library is preserved
