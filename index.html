@@ -1850,6 +1850,8 @@
       <label style="flex:1;">Country<select id="platformAnalysisCountryFilter"><option value="">All</option></select></label>
       <label style="flex:1;">Organization<select id="platformAnalysisOrgFilter"><option value="">All</option></select></label>
     </div>
+    <button type="button" id="platformAnalysisExportBtn" style="width:100%;margin-bottom:6px;">Export (content + metadata CSV)</button>
+    <div style="font-size:10.5px;color:#7c8a8a;margin-bottom:10px;">Exports the currently-filtered items above as two files: the tactical content itself, and a metadata CSV (copyright, author, organization, sport, country/postal code). These files leave the database's access controls once downloaded -- handle and store them the same way you would any file containing other people's personal information.</div>
     <div id="platformAnalysisList" style="max-height:60vh;overflow-y:auto;font-size:13px;"></div>
   </div>
 </div>
@@ -4927,6 +4929,7 @@ document.getElementById('devTplImportFile')?.addEventListener('change', e=>{
   };
   reader.readAsText(file);
 });
+let xquixPlatformAnalysisState = null; // { resolved, getFiltered() } -- set below, read by the export function
 async function xquixRenderPlatformAnalysis(){
   const statusEl = document.getElementById('platformAnalysisStatus');
   const listEl = document.getElementById('platformAnalysisList');
@@ -4941,6 +4944,7 @@ async function xquixRenderPlatformAnalysis(){
 
   if(!assets.length && !orgs.length && !profiles.length){
     statusEl.textContent = 'No data returned. This means the signed-in account is not flagged platform_admin (or you\u2019re not signed in) -- this is the expected, correct result for any account other than yours once flagged.';
+    xquixPlatformAnalysisState = null;
     return;
   }
   statusEl.textContent = assets.length+' item(s) across '+orgs.length+' organization(s) and '+profiles.length+' account(s).';
@@ -4954,9 +4958,19 @@ async function xquixRenderPlatformAnalysis(){
     const sports = org && org.sports && org.sports.length ? org.sports : [];
     // Prefer the organization's location for org-scoped work (represents
     // the club/federation), falling back to the individual author's own
-    // location for personal items or when the org hasn't set one.
+    // location for personal items or when the org hasn't set one -- used
+    // for the on-screen filter dropdown. The export below wants author
+    // and organization geography as genuinely separate columns, so both
+    // raw values are exposed here too, not just the combined one.
     const country = (org && org.country) || (profile && profile.country) || '';
-    return { sports, country, orgName: org ? org.name : null };
+    const postalCode = (org && org.postal_code) || (profile && profile.postal_code) || '';
+    return {
+      sports, country, postalCode, orgName: org ? org.name : null,
+      authorCountry: (profile && profile.country) || '',
+      authorPostalCode: (profile && profile.postal_code) || '',
+      orgCountry: (org && org.country) || '',
+      orgPostalCode: (org && org.postal_code) || '',
+    };
   }
 
   const allSports = new Set(), allCountries = new Set(), allOrgNames = new Set();
@@ -4978,16 +4992,21 @@ async function xquixRenderPlatformAnalysis(){
   populateSelect('platformAnalysisCountryFilter', allCountries);
   populateSelect('platformAnalysisOrgFilter', allOrgNames);
 
-  function renderList(){
+  function getFiltered(){
     const sportFilter = document.getElementById('platformAnalysisSportFilter').value;
     const countryFilter = document.getElementById('platformAnalysisCountryFilter').value;
     const orgFilter = document.getElementById('platformAnalysisOrgFilter').value;
-    listEl.innerHTML = '';
-    const filtered = resolved.filter(r =>
+    return resolved.filter(r =>
       (!sportFilter || r.sports.includes(sportFilter)) &&
       (!countryFilter || r.country===countryFilter) &&
       (!orgFilter || r.orgName===orgFilter)
     );
+  }
+  xquixPlatformAnalysisState = { getFiltered };
+
+  function renderList(){
+    const filtered = getFiltered();
+    listEl.innerHTML = '';
     if(!filtered.length){ listEl.innerHTML = '<div style="color:#7c8a8a;">No items match this filter.</div>'; return; }
     filtered.forEach(r=>{
       const row = document.createElement('div');
@@ -5006,6 +5025,49 @@ async function xquixRenderPlatformAnalysis(){
     document.getElementById(id).onchange = renderList;
   });
 }
+function xquixCsvEscape(val){
+  const s = (val==null) ? '' : String(val);
+  return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function xquixDownloadBlob(filename, content, mimeType){
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function xquixExportPlatformAnalysis(){
+  if(!xquixPlatformAnalysisState){ MizeDialog.alert('Nothing to export yet -- open this panel with a platform_admin account first.'); return; }
+  const filtered = xquixPlatformAnalysisState.getFiltered();
+  if(!filtered.length){ MizeDialog.alert('No items match the current filter.'); return; }
+  const stamp = new Date().toISOString().slice(0,10);
+
+  // File 1: the actual tactical content -- full records, unmodified.
+  const rawExport = filtered.map(r => r.asset);
+  xquixDownloadBlob('xquix-export-content-'+stamp+'.json', JSON.stringify(rawExport, null, 2), 'application/json');
+
+  // File 2: metadata only, one row per item -- built specifically for
+  // professional/legal handling: copyright line and geographic fields as
+  // their own explicit columns, not buried in a JSON blob.
+  const columns = ['Name','Type','Author','Author Country','Author Postal Code','Organization','Organization Sport(s)','Organization Country','Organization Postal Code','Created Date','Copyright Notice'];
+  const rows = filtered.map(r => {
+    const a = r.asset;
+    const authorName = (a.payload && a.payload.authorName) || 'Unknown';
+    const year = a.created_at ? new Date(a.created_at).getFullYear() : '';
+    const copyright = '\u00a9 '+year+' '+authorName+(r.orgName ? ' \u00b7 '+r.orgName : '');
+    return [
+      a.name, a.object_type, authorName,
+      r.authorCountry||'', r.authorPostalCode||'',
+      r.orgName||'', r.sports.join('; '), r.orgCountry||'', r.orgPostalCode||'',
+      a.created_at ? a.created_at.slice(0,10) : '',
+      copyright,
+    ];
+  });
+  const csv = [columns, ...rows].map(row => row.map(xquixCsvEscape).join(',')).join('\r\n');
+  xquixDownloadBlob('xquix-export-metadata-'+stamp+'.csv', csv, 'text/csv');
+}
+document.getElementById('platformAnalysisExportBtn')?.addEventListener('click', xquixExportPlatformAnalysis);
 document.querySelector('.toolListBtn[data-panel="platformAnalysisPanel"]')?.addEventListener('click', xquixRenderPlatformAnalysis);
 document.querySelector('.toolListBtn[data-panel="developerModePanel"]')?.addEventListener('click', ()=>{
   devPopulateTemplateSelect();
