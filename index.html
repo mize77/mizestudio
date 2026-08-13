@@ -1782,9 +1782,35 @@
     <div id="accountSignedInView" style="display:none;">
       <div style="font-size:14px;margin-bottom:4px;">Signed in as</div>
       <div id="accountSignedInEmail" style="font-size:15px;font-weight:600;margin-bottom:14px;word-break:break-all;"></div>
+      <button type="button" class="toolListBtn" data-panel="organizationsPanel" style="width:100%;margin-bottom:8px;" id="openOrganizationsBtn">Organizations</button>
+      <button type="button" class="toolListBtn" data-panel="orgLibraryPanel" style="width:100%;margin-bottom:8px;display:none;" id="openOrgLibraryBtn">Organization Library</button>
       <button type="button" class="toolListBtn" data-panel="trashPanel" style="width:100%;margin-bottom:8px;" id="openTrashBtn">Recently Deleted</button>
       <button type="button" id="accountSignOutBtn">Sign Out</button>
     </div>
+  </div>
+</div>
+<div class="toolPanel" id="organizationsPanel" style="width:min(420px,94vw);">
+  <div class="toolPanelHeader"><h3>Organizations</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+    <div style="font-size:11.5px;color:#7c8a8a;margin-bottom:10px;">Switch between your personal library and any team/club you belong to. Formations and sequences saved while an organization is active go to that organization's shared library, not just this device.</div>
+    <div id="xquixOrgActiveRow" style="margin-bottom:12px;"></div>
+    <div id="xquixOrgList" style="font-size:13px;margin-bottom:14px;"></div>
+    <div style="border-top:1px solid #e5eaea;padding-top:12px;">
+      <button type="button" id="xquixCreateOrgBtn" style="width:100%;margin-bottom:8px;">+ Create Organization</button>
+      <div class="smallRow full"><label>Join with an ID<input type="text" id="xquixJoinOrgIdInput" placeholder="Paste an organization ID shared with you"></label></div>
+      <button type="button" id="xquixJoinOrgBtn" style="width:100%;">Join</button>
+      <div id="xquixOrgFormMessage" style="font-size:12px;color:#b23b3b;margin-top:8px;display:none;"></div>
+    </div>
+  </div>
+</div>
+<div class="toolPanel" id="orgLibraryPanel" style="width:min(420px,94vw);">
+  <div class="toolPanelHeader"><h3 id="xquixOrgLibraryTitle">Organization Library</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+    <div style="font-size:11.5px;color:#7c8a8a;margin-bottom:8px;">Shared with everyone in this organization. Saving here requires an Editor or Admin role.</div>
+    <button type="button" id="xquixOrgSaveFormationBtn" style="width:100%;margin-bottom:6px;">Save Current Board as Formation</button>
+    <div id="xquixOrgFormationList" style="font-size:13px;margin-bottom:12px;"></div>
+    <div style="font-size:11px;color:#7c8a8a;margin:10px 0 4px;font-weight:600;">SEQUENCES</div>
+    <div id="xquixOrgSequenceList" style="font-size:13px;"></div>
   </div>
 </div>
 <div class="toolPanel" id="xquixCloudHistoryPanel" style="width:min(420px,94vw);">
@@ -3296,6 +3322,174 @@ XQUIX.Auth.onChange(renderAccountUI);
 // Fire-and-forget: restores any existing session without blocking the
 // rest of the app's own initialization below.
 XQUIX.Auth.init().then(renderAccountUI);
+
+// ===== XQUIX.Org (Milestone 8 -- Organization / Authorization Model) =====
+XQUIX.Org = (function(){
+  let myOrgs = []; // cache: [{id, name, role}], refreshed after sign-in and after create/join
+  let activeOrgId = null; // null = "My Library" (personal scope)
+  const listeners = [];
+  function withTimeout(promise, seconds){
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out after '+seconds+'s.')), seconds*1000))
+    ]);
+  }
+  function notify(){ listeners.forEach(fn => { try { fn(activeOrgId); } catch(err){} }); }
+  try { activeOrgId = localStorage.getItem('xquixActiveOrgV1') || null; } catch(err) {}
+
+  return {
+    onChange(fn){ listeners.push(fn); },
+    getActiveOrgId(){ return activeOrgId; },
+    getMyOrgsSync(){ return myOrgs; }, // sync bridge, same pattern as CloudProvider's -- possibly stale/empty until refreshed
+    setActiveOrgId(id){
+      if(id && !myOrgs.some(o=>o.id===id)) return; // can't activate an org you're not actually a member of
+      activeOrgId = id || null;
+      try { localStorage.setItem('xquixActiveOrgV1', activeOrgId||''); } catch(err) {}
+      notify();
+    },
+    getActiveOrgRole(){ const org = myOrgs.find(o=>o.id===activeOrgId); return org ? org.role : null; },
+
+    async refreshMyOrganizations(){
+      const client = XQUIX.Auth.getClient();
+      const user = XQUIX.Auth.getCurrentUser();
+      if(!client || !user){ myOrgs = []; if(activeOrgId){ activeOrgId=null; notify(); } return myOrgs; }
+      try {
+        const { data, error } = await withTimeout(
+          client.from('memberships').select('organization_id, role, organizations(id,name)').eq('user_id', user.id).eq('status','active'), 15);
+        if(error) throw error;
+        myOrgs = data.filter(m=>m.organizations).map(m => ({ id: m.organizations.id, name: m.organizations.name, role: m.role }));
+      } catch(err) { console.error('XQUIX.Org: refreshMyOrganizations failed:', err); myOrgs = []; }
+      if(activeOrgId && !myOrgs.some(o=>o.id===activeOrgId)){ activeOrgId = null; } // lost membership somehow -- fall back to personal
+      notify();
+      return myOrgs;
+    },
+    async createOrganization(name){
+      const client = XQUIX.Auth.getClient();
+      const user = XQUIX.Auth.getCurrentUser();
+      if(!client || !user) return { error:{ message:'Sign in first.' } };
+      try {
+        const { data, error } = await withTimeout(
+          client.from('organizations').insert({ name, created_by:user.id }).select().single(), 15);
+        if(error) throw error;
+        await this.refreshMyOrganizations();
+        return { organization:data };
+      } catch(err) { return { error:{ message: err.message } }; }
+    },
+    // role is always 'viewer' or 'coach' by request -- the RLS policy
+    // itself is the real enforcement (self-join can never grant
+    // 'editor'/'org_admin'), this is just a reasonable client-side default.
+    async joinOrganization(orgId, role){
+      const client = XQUIX.Auth.getClient();
+      const user = XQUIX.Auth.getCurrentUser();
+      if(!client || !user) return { error:{ message:'Sign in first.' } };
+      try {
+        const { error } = await withTimeout(
+          client.from('memberships').insert({ user_id:user.id, organization_id:orgId, role: role==='viewer'?'viewer':'coach' }), 15);
+        if(error) throw error;
+        await this.refreshMyOrganizations();
+        return { success:true };
+      } catch(err) { return { error:{ message: err.message } }; }
+    },
+    async listMembers(orgId){
+      const client = XQUIX.Auth.getClient();
+      if(!client) return [];
+      try {
+        const { data, error } = await withTimeout(
+          client.from('memberships').select('user_id, role, status, profiles(display_name)').eq('organization_id', orgId), 15);
+        if(error) throw error;
+        return data;
+      } catch(err) { console.error('XQUIX.Org: listMembers failed:', err); return []; }
+    },
+  };
+})();
+XQUIX.Auth.onChange((user)=>{ if(user) XQUIX.Org.refreshMyOrganizations(); else XQUIX.Org.setActiveOrgId(null); });
+
+// ===== XQUIX.OrgLibrary (Milestone 8 -- shared organization library) =====
+// Deliberately separate from XQUIX.CloudProvider (personal library,
+// Milestones 5-7) rather than folding org-scope into it -- that module is
+// already extensively tested; making it scope-aware would risk
+// regressing working, verified behavior for a feature that can
+// reasonably be its own, simpler surface instead. Same coaching_assets
+// table and envelope conventions, own minimal list/save/delete.
+XQUIX.OrgLibrary = (function(){
+  function withTimeout(promise, seconds){
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out after '+seconds+'s.')), seconds*1000))
+    ]);
+  }
+  function objectType(kind){ return kind==='formation' ? 'formation' : 'sequence'; }
+  function rowToRecord(row){
+    return {
+      schemaVersion: row.schema_version, applicationVersion: row.application_version,
+      type: row.object_type==='formation' ? 'formation' : 'tacticalPackage',
+      name: row.name, coachingDNA: row.coaching_dna||[], savedAt: row.updated_at,
+      id: row.id, revision: row.revision, ownerId: row.owner_id, organizationId: row.organization_id,
+      createdAt: row.created_at, updatedAt: row.updated_at, deletedAt: row.deleted_at,
+      ...(row.payload||{}),
+    };
+  }
+  return {
+    async list(kind, orgId){
+      const client = XQUIX.Auth.getClient();
+      if(!client || !orgId) return {};
+      try {
+        const { data, error } = await withTimeout(
+          client.from('coaching_assets').select('*')
+            .eq('organization_id', orgId).eq('object_type', objectType(kind))
+            .eq('visibility','organization').is('deleted_at', null), 15);
+        if(error) throw error;
+        const store = {};
+        data.forEach(row => { store[row.name] = rowToRecord(row); });
+        return store;
+      } catch(err) { console.error('XQUIX.OrgLibrary: list failed:', err); return {}; }
+    },
+    // Requires editor/org_admin role -- enforced server-side by RLS
+    // (assets_update_org_editor), not just by hiding the UI; a
+    // viewer/coach attempting this gets a clear error, not silent failure.
+    // Compare-and-swap on revision, same technique as the personal
+    // library (Milestone 7) -- arguably even more important here, since
+    // two coaches editing the same shared item at once is the central
+    // reason an org library exists. Unlike the personal library, a
+    // conflict here returns a clear error rather than auto-creating a
+    // resolved copy -- a deliberate simplification for this pass.
+    async save(kind, name, record, orgId, knownId, knownRevision){
+      const client = XQUIX.Auth.getClient();
+      const user = XQUIX.Auth.getCurrentUser();
+      if(!client || !user || !orgId) return { error:{ message:'Sign in and select an organization first.' } };
+      try {
+        const { schemaVersion, applicationVersion, type, coachingDNA, savedAt, id, revision, ownerId, organizationId, createdAt, updatedAt, deletedAt, ...payload } = record;
+        const row = {
+          object_type: objectType(kind), name, payload, owner_id:user.id,
+          organization_id: orgId, visibility:'organization',
+          coaching_dna: coachingDNA||[], schema_version: schemaVersion, application_version: applicationVersion,
+        };
+        if(knownId){
+          const expected = knownRevision||0;
+          const { data, error } = await withTimeout(
+            client.from('coaching_assets').update({ ...row, revision:expected+1 }).eq('id', knownId).eq('revision', expected).select(), 15);
+          if(error) throw error;
+          if(!data || data.length===0) return { conflict:true };
+          return { record: rowToRecord(data[0]) };
+        } else {
+          const { data, error } = await withTimeout(client.from('coaching_assets').insert({...row, revision:1}).select().single(), 15);
+          if(error){ if(error.code==='23505') return { conflict:true }; throw error; }
+          return { record: rowToRecord(data) };
+        }
+      } catch(err) { return { error:{ message: err.message } }; }
+    },
+    async delete(assetId){
+      const client = XQUIX.Auth.getClient();
+      if(!client) return { error:{ message:'Unavailable right now.' } };
+      try {
+        const { error } = await withTimeout(client.from('coaching_assets').update({ deleted_at:new Date().toISOString() }).eq('id', assetId), 15);
+        if(error) throw error;
+        return { success:true };
+      } catch(err) { return { error:{ message: err.message } }; }
+    },
+  };
+})();
+
 XQUIX.LocalStorageProvider = (function(){
   function key(kind){ return kind==='formation' ? 'wpStrategyFormationsV5' : 'tpgTacticalPackagesV8'; }
   function load(kind){ try { return JSON.parse(localStorage.getItem(key(kind))||'{}'); } catch(err){ return {}; } }
@@ -3845,6 +4039,132 @@ async function xquixRenderTrash(){
   });
 }
 document.getElementById('openTrashBtn')?.addEventListener('click', xquixRenderTrash);
+
+// ===== Organizations + Organization Library UI (Milestone 8) =====
+function xquixShowOrgFormMessage(text){
+  const el = document.getElementById('xquixOrgFormMessage');
+  if(!el) return;
+  if(!text){ el.style.display='none'; return; }
+  el.textContent = text; el.style.display='';
+}
+async function xquixRenderOrganizations(){
+  const activeId = XQUIX.Org.getActiveOrgId();
+  const orgs = XQUIX.Org.getMyOrgsSync();
+  const activeRow = document.getElementById('xquixOrgActiveRow');
+  if(activeRow){
+    const activeOrg = orgs.find(o=>o.id===activeId);
+    activeRow.innerHTML = '<div style="font-size:12px;color:#7c8a8a;">Currently active</div><div style="font-size:16px;font-weight:600;">'+
+      (activeOrg ? activeOrg.name+' <span style="font-size:11px;font-weight:400;color:#7c8a8a;">('+activeOrg.role+')</span>' : 'My Library (personal)')+'</div>';
+  }
+  const list = document.getElementById('xquixOrgList');
+  if(!list) return;
+  list.innerHTML = '';
+  const myLibRow = document.createElement('div');
+  myLibRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 0;';
+  myLibRow.innerHTML = '<span>My Library (personal)</span>';
+  if(activeId){ const btn=document.createElement('button'); btn.textContent='Switch'; btn.onclick=()=>{ XQUIX.Org.setActiveOrgId(null); }; myLibRow.appendChild(btn); }
+  else { myLibRow.innerHTML += ' <span style="font-size:11px;color:#14a89a;">(active)</span>'; }
+  list.appendChild(myLibRow);
+  orgs.forEach(org=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 0;';
+    row.innerHTML = '<span>'+org.name+' <span style="font-size:11px;color:#7c8a8a;">('+org.role+')</span></span>';
+    if(org.id!==activeId){ const btn=document.createElement('button'); btn.textContent='Switch'; btn.onclick=()=>{ XQUIX.Org.setActiveOrgId(org.id); }; row.appendChild(btn); }
+    else { row.innerHTML += ' <span style="font-size:11px;color:#14a89a;">(active)</span>'; }
+    list.appendChild(row);
+  });
+}
+document.getElementById('xquixCreateOrgBtn')?.addEventListener('click', async ()=>{
+  const name = await MizeDialog.prompt('Organization name:');
+  if(!name || !name.trim()) return;
+  xquixShowOrgFormMessage('Creating\u2026');
+  const result = await XQUIX.Org.createOrganization(name.trim());
+  if(result.error){ xquixShowOrgFormMessage(result.error.message); return; }
+  xquixShowOrgFormMessage('');
+  XQUIX.Org.setActiveOrgId(result.organization.id);
+});
+document.getElementById('xquixJoinOrgBtn')?.addEventListener('click', async ()=>{
+  const input = document.getElementById('xquixJoinOrgIdInput');
+  const orgId = input.value.trim();
+  if(!orgId){ xquixShowOrgFormMessage('Paste an organization ID first.'); return; }
+  xquixShowOrgFormMessage('Joining\u2026');
+  const result = await XQUIX.Org.joinOrganization(orgId, 'coach');
+  if(result.error){ xquixShowOrgFormMessage('Could not join: '+result.error.message); return; }
+  xquixShowOrgFormMessage('');
+  input.value = '';
+});
+
+function xquixSyncOrgLibraryVisibility(){
+  const btn = document.getElementById('openOrgLibraryBtn');
+  if(btn) btn.style.display = XQUIX.Org.getActiveOrgId() ? '' : 'none';
+}
+async function xquixRenderOrgLibrary(){
+  const orgId = XQUIX.Org.getActiveOrgId();
+  const org = XQUIX.Org.getMyOrgsSync().find(o=>o.id===orgId);
+  document.getElementById('xquixOrgLibraryTitle').textContent = org ? org.name+' Library' : 'Organization Library';
+  const canWrite = org && (org.role==='editor' || org.role==='org_admin');
+  const saveBtn = document.getElementById('xquixOrgSaveFormationBtn');
+  if(saveBtn) saveBtn.style.display = canWrite ? '' : 'none';
+  if(!orgId) return;
+
+  const formList = document.getElementById('xquixOrgFormationList');
+  const seqList = document.getElementById('xquixOrgSequenceList');
+  formList.innerHTML = '<div style="color:#7c8a8a;">Loading\u2026</div>';
+  seqList.innerHTML = '';
+  const formations = await XQUIX.OrgLibrary.list('formation', orgId);
+  formList.innerHTML = '';
+  Object.keys(formations).forEach(name=>{
+    const rec = formations[name];
+    const row = document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:6px;padding:4px 0;';
+    const b = document.createElement('button'); b.textContent=name; b.style.flex='1'; b.title='Load this shared formation';
+    b.onclick=()=>{ recordHistory('Load Org Formation: '+name); loadState(formationRecordState(rec)); resetTimelineForFormationLoad(); closeToolPanels(); };
+    row.appendChild(b);
+    if(canWrite){
+      const del=document.createElement('button'); del.textContent='\u2715'; del.title='Delete (removes for everyone in this organization)';
+      del.onclick=async(ev)=>{ ev.stopPropagation(); if(!(await MizeDialog.confirm('Delete "'+name+'" for the whole organization?'))) return; await XQUIX.OrgLibrary.delete(rec.id); xquixRenderOrgLibrary(); };
+      row.appendChild(del);
+    }
+    formList.appendChild(row);
+  });
+  if(!Object.keys(formations).length) formList.innerHTML = '<div style="color:#7c8a8a;">No shared formations yet.</div>';
+
+  const sequences = await XQUIX.OrgLibrary.list('sequence', orgId);
+  Object.keys(sequences).forEach(name=>{
+    const rec = sequences[name];
+    const row = document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:6px;padding:4px 0;';
+    const b = document.createElement('button'); b.textContent=name; b.style.flex='1'; b.title='Load this shared sequence';
+    b.onclick=()=>{ recordHistory('Load Org Sequence: '+name); if(frames.length) frames[currentFrame]=makeFrameState(); const pkg=MIZE.Storage.readRecord(rec); frames=pkg.frames||[pkg.current]; currentFrame=0; loadFrame(0); closeToolPanels(); };
+    row.appendChild(b);
+    if(canWrite){
+      const del=document.createElement('button'); del.textContent='\u2715'; del.title='Delete (removes for everyone in this organization)';
+      del.onclick=async(ev)=>{ ev.stopPropagation(); if(!(await MizeDialog.confirm('Delete "'+name+'" for the whole organization?'))) return; await XQUIX.OrgLibrary.delete(rec.id); xquixRenderOrgLibrary(); };
+      row.appendChild(del);
+    }
+    seqList.appendChild(row);
+  });
+  if(!Object.keys(sequences).length) seqList.innerHTML = '<div style="color:#7c8a8a;">No shared sequences yet.</div>';
+}
+document.getElementById('xquixOrgSaveFormationBtn')?.addEventListener('click', async ()=>{
+  const orgId = XQUIX.Org.getActiveOrgId();
+  if(!orgId) return;
+  const name = await MizeDialog.prompt('Name this shared formation:');
+  if(!name || !name.trim()) return;
+  const existingStore = await XQUIX.OrgLibrary.list('formation', orgId);
+  const existing = existingStore[name.trim()];
+  const record = { ...MIZE.Storage.makeMetadata('formation', name.trim(), [], existing), state:getState(), engineObjects:getSceneObjects() };
+  const result = await XQUIX.OrgLibrary.save('formation', name.trim(), record, orgId, existing?existing.id:null, existing?existing.revision:null);
+  if(result.error){ MizeDialog.alert('Could not save: '+result.error.message); return; }
+  if(result.conflict){ MizeDialog.alert('Someone else changed "'+name.trim()+'" at the same time. Try again after reloading the Organization Library.'); return; }
+  xquixRenderOrgLibrary();
+});
+
+XQUIX.Org.onChange(()=>{
+  xquixSyncOrgLibraryVisibility();
+  if(document.getElementById('organizationsPanel')?.classList.contains('open')) xquixRenderOrganizations();
+  if(document.getElementById('orgLibraryPanel')?.classList.contains('open')) xquixRenderOrgLibrary();
+});
+document.getElementById('openOrganizationsBtn')?.addEventListener('click', xquixRenderOrganizations);
+document.getElementById('openOrgLibraryBtn')?.addEventListener('click', xquixRenderOrgLibrary);
 // ===== Sport Template System (Developer Mode foundation) =====
 // A "Sport Template" fully describes a sport's field/court, markings, goals,
 // and default tactical parameters (player counts, formations, zone
@@ -4986,11 +5306,24 @@ function toggleDeveloperMode(){
 // needing real server-side accounts. Everyone (dev mode or not) sees
 // whichever org is currently active; only Developer Mode can switch it or
 // add new curated entries.
+//
+// Milestone 8 reconciliation: when signed in with real memberships,
+// these now reflect XQUIX.Org's real, cloud-backed organizations instead
+// of the local simulation below -- one canonical "active organization"
+// concept, per the Milestone 0 audit's own note that this reconciliation
+// was deferred to this exact milestone. When not signed in (or no real
+// memberships exist yet), behavior is unchanged from before: the local
+// simulation, verbatim, so this dev-mode-only tool keeps working exactly
+// as it always has.
 const ORG_LIST_KEY = 'mizeOrgListV1';
 const ACTIVE_ORG_KEY = 'mizeActiveOrgV1';
 const ORG_FORMATION_LIBRARY_KEY = 'mizeOrgFormationLibraryV1';
 const ORG_SEQUENCE_LIBRARY_KEY = 'mizeOrgSequenceLibraryV1';
 function getOrgList(){
+  if(typeof XQUIX!=='undefined' && XQUIX.Org){
+    const real = XQUIX.Org.getMyOrgsSync();
+    if(real.length) return real;
+  }
   try {
     const list = JSON.parse(localStorage.getItem(ORG_LIST_KEY)||'null');
     if(list && list.length) return list;
@@ -4998,8 +5331,16 @@ function getOrgList(){
   return [{id:'default', name:'Default'}];
 }
 function saveOrgList(list){ localStorage.setItem(ORG_LIST_KEY, JSON.stringify(list)); }
-function getActiveOrgId(){ return localStorage.getItem(ACTIVE_ORG_KEY) || 'default'; }
-function setActiveOrgId(id){ localStorage.setItem(ACTIVE_ORG_KEY, id); }
+function getActiveOrgId(){
+  if(typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getMyOrgsSync().length){
+    return XQUIX.Org.getActiveOrgId() || XQUIX.Org.getMyOrgsSync()[0].id;
+  }
+  return localStorage.getItem(ACTIVE_ORG_KEY) || 'default';
+}
+function setActiveOrgId(id){
+  if(typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getMyOrgsSync().length){ XQUIX.Org.setActiveOrgId(id); return; }
+  localStorage.setItem(ACTIVE_ORG_KEY, id);
+}
 function activeOrgName(){ const org=getOrgList().find(o=>o.id===getActiveOrgId()); return org ? org.name : 'Default'; }
 function getFormationLibraryAll(){ try { return JSON.parse(localStorage.getItem(ORG_FORMATION_LIBRARY_KEY)||'{}'); } catch(err) { return {}; } }
 function getFormationLibrary(orgId){ return getFormationLibraryAll()[orgId] || {}; }
