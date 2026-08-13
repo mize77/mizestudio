@@ -3042,8 +3042,27 @@ MIZE.Storage.SCHEMA_VERSION = 1;
 // pass-through -- but every save/load path below now funnels through it, so
 // a future schema change only needs migration logic added in one spot
 // rather than hunted down across every localStorage read site.
-MIZE.Storage.stampRecord = function(extra){
-  return { schemaVersion: MIZE.Storage.SCHEMA_VERSION, applicationVersion: MIZE.config.version, ...extra };
+MIZE.Storage.genId = function(prefix){ return (prefix||'obj')+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10); };
+MIZE.Storage.stampRecord = function(extra, existingRecord){
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: MIZE.Storage.SCHEMA_VERSION,
+    applicationVersion: MIZE.config.version,
+    // Standard object envelope (Milestone 2D) -- additive fields preparing
+    // every stored coaching asset for future cloud storage, without
+    // changing the existing top-level shape any current reader depends on.
+    // When existingRecord is passed (re-saving something that already
+    // exists), its id/createdAt carry forward and revision increments --
+    // otherwise this is a fresh object getting its first identity.
+    id: (existingRecord && existingRecord.id) || MIZE.Storage.genId('obj'),
+    revision: (existingRecord && existingRecord.revision || 0) + 1,
+    ownerId: (typeof getActiveUserName==='function') ? getActiveUserName() : 'XquiX',
+    organizationId: (typeof getActiveOrgId==='function') ? getActiveOrgId() : 'default',
+    createdAt: (existingRecord && existingRecord.createdAt) || now,
+    updatedAt: now,
+    deletedAt: null,
+    ...extra
+  };
 };
 MIZE.Storage.readRecord = function(raw){
   if(!raw || typeof raw !== 'object') return raw;
@@ -3052,9 +3071,44 @@ MIZE.Storage.readRecord = function(raw){
   // add "if(schemaVersion < N){ ... }" migration steps here as the schema evolves.
   return raw;
 };
-MIZE.Storage.makeMetadata = function(type, name, coachingDNA){
-  return MIZE.Storage.stampRecord({ type, name, coachingDNA: coachingDNA||[], savedAt: new Date().toISOString() });
+MIZE.Storage.makeMetadata = function(type, name, coachingDNA, existingRecord){
+  return MIZE.Storage.stampRecord({ type, name, coachingDNA: coachingDNA||[], savedAt: new Date().toISOString() }, existingRecord);
 };
+// ===== XQUIX.StorageProvider (Milestone 2 -- Storage Abstraction) =====
+// One authoritative interface between UI/business logic and wherever
+// coaching data actually lives, per the program's non-negotiable principle
+// "ONE STORAGE ABSTRACTION." Today only LocalStorageProvider exists,
+// wrapping the exact same two stores (wpStrategyFormationsV5,
+// tpgTacticalPackagesV8) with the exact same on-disk shape -- so every
+// formation/sequence saved before this milestone opens correctly, with no
+// migration step. A future CloudProvider implementing this same async
+// shape is a swap of the XQUIX.StorageProvider binding below, not a
+// rewrite of anything that calls it.
+const XQUIX = window.XQUIX || (window.XQUIX = {});
+XQUIX.LocalStorageProvider = (function(){
+  function key(kind){ return kind==='formation' ? 'wpStrategyFormationsV5' : 'tpgTacticalPackagesV8'; }
+  function load(kind){ try { return JSON.parse(localStorage.getItem(key(kind))||'{}'); } catch(err){ return {}; } }
+  function persist(kind, store){ localStorage.setItem(key(kind), JSON.stringify(store)); }
+  return {
+    // ----- Async contract (2A) -- the shape any future provider must match -----
+    // Returns the whole store as { name: record, ... }, matching the shape
+    // every existing caller already works with (Object.keys/store[name]),
+    // rather than forcing an array shape that would require rewriting the
+    // many render/list functions that iterate this way today.
+    async listStore(kind){ return load(kind); },
+    async getItem(kind, name){ const store = load(kind); return store[name] || null; },
+    async saveItem(kind, name, record){ const store = load(kind); store[name] = record; persist(kind, store); return record; },
+    async deleteItem(kind, name){ const store = load(kind); delete store[name]; persist(kind, store); },
+    // Bulk replace -- only for import/migration flows that already
+    // constructed a full merged store and need one atomic write.
+    async replaceStore(kind, store){ persist(kind, store); return store; },
+    // ----- Sync bridge (LocalStorageProvider-specific, NOT part of the
+    // swappable contract -- see comment above) -----
+    listStoreSync(kind){ return load(kind); },
+    getItemSync(kind, name){ const store = load(kind); return store[name] || null; },
+  };
+})();
+XQUIX.StorageProvider = XQUIX.LocalStorageProvider;
 // ===== Sport Template System (Developer Mode foundation) =====
 // A "Sport Template" fully describes a sport's field/court, markings, goals,
 // and default tactical parameters (player counts, formations, zone
@@ -4074,8 +4128,10 @@ function libGetStorageBreakdown(){
 }
 async function renderAboutDiagnostics(){
   const box = document.getElementById('aboutDiagnosticsContent'); if(!box) return;
-  const countKeys = (key) => { try { return Object.keys(JSON.parse(localStorage.getItem(key)||'{}')).length; } catch(err){ return 0; } };
   const countArray = (key) => { try { const v=JSON.parse(localStorage.getItem(key)||'[]'); return Array.isArray(v)?v.length:0; } catch(err){ return 0; } };
+  const countKeys = (key) => { try { return Object.keys(JSON.parse(localStorage.getItem(key)||'{}')).length; } catch(err){ return 0; } };
+  const formationCount = Object.keys(await XQUIX.StorageProvider.listStore('formation')).length;
+  const packageCount = Object.keys(await XQUIX.StorageProvider.listStore('sequence')).length;
   const { rows, totalBytes } = libGetStorageBreakdown();
   const breakdownHtml = rows.map(r=>'<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0;"><span>'+r.label+'</span><span>'+formatBytes(r.bytes)+'</span></div>').join('');
   box.innerHTML = `
@@ -4083,8 +4139,8 @@ async function renderAboutDiagnostics(){
     <div id="aboutVersionTapTarget" style="cursor:pointer;">Version: ${MIZE.config.version} &nbsp;|&nbsp; Schema: v${MIZE.Storage.SCHEMA_VERSION}</div>
     <div>${MIZE.config.copyright}</div>
     <hr style="margin:10px 0;border:none;border-top:1px solid #dbe4e4;">
-    <div>Saved Formations: ${countKeys('wpStrategyFormationsV5')}</div>
-    <div>Tactical Packages: ${countKeys('tpgTacticalPackagesV8')}</div>
+    <div>Saved Formations: ${formationCount}</div>
+    <div>Tactical Packages: ${packageCount}</div>
     <div>Practice Sessions: ${countKeys(PRACTICE_SESSIONS_KEY)}</div>
     <div>Version History Checkpoints: ${countArray('tpgVersionHistoryV1')}</div>
     <div>Custom Sport Templates: ${countKeys(SPORT_TEMPLATES_KEY)}</div>
@@ -4249,8 +4305,8 @@ function getActiveUserName(){ return 'XquiX'; }
 // invisible once the new Save/Open panel starts filtering by user name.
 function migrateSavesToUserNamePrefix(){
   const prefix = getActiveUserName()+' ';
-  [ 'wpStrategyFormationsV5', 'tpgTacticalPackagesV8' ].forEach(storeKey=>{
-    const store = JSON.parse(localStorage.getItem(storeKey)||'{}');
+  [ 'formation', 'sequence' ].forEach(kind=>{
+    const store = XQUIX.StorageProvider.listStoreSync(kind);
     let changed = false;
     const migrated = {};
     Object.keys(store).forEach(key=>{
@@ -4258,7 +4314,7 @@ function migrateSavesToUserNamePrefix(){
       if(newKey !== key) changed = true;
       migrated[newKey] = { ...store[key], name:newKey };
     });
-    if(changed) localStorage.setItem(storeKey, JSON.stringify(migrated));
+    if(changed) XQUIX.StorageProvider.replaceStore(kind, migrated);
   });
 }
 try { migrateSavesToUserNamePrefix(); } catch(err) { console.error('migrateSavesToUserNamePrefix failed:', err); }
@@ -5177,9 +5233,9 @@ let suppressAutosaveUntilRecoveryDecided = true;
       }
     } catch(err) {}
     try {
-      const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-      if(saved['Press']){
-        loadState(formationRecordState(saved['Press']));
+      const pressRecord=XQUIX.StorageProvider.getItemSync('formation', 'Press');
+      if(pressRecord){
+        loadState(formationRecordState(pressRecord));
         return;
       }
     } catch(err) {}
@@ -5422,9 +5478,10 @@ async function saveFormation() {
   const tagsInput=await MizeDialog.prompt('Coaching DNA tags (comma-separated, optional) — e.g. counterattack, 6-on-5, U16:','');
   const coachingDNA=(tagsInput||'').split(',').map(t=>t.trim()).filter(Boolean);
   try {
-    const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-    saved[name]={ ...MIZE.Storage.makeMetadata('formation', name, coachingDNA), state:getState(), engineObjects:getSceneObjects() };
-    localStorage.setItem('wpStrategyFormationsV5',JSON.stringify(saved)); renderCustomSystems();
+    const existing = await XQUIX.StorageProvider.getItem('formation', name);
+    const record = { ...MIZE.Storage.makeMetadata('formation', name, coachingDNA, existing), state:getState(), engineObjects:getSceneObjects() };
+    await XQUIX.StorageProvider.saveItem('formation', name, record);
+    renderCustomSystems();
   } catch(err) {
     // Without this, a failed write (most commonly the browser's storage
     // quota being full) looks identical to a successful save from the
@@ -5447,7 +5504,7 @@ function resetTimelineForFormationLoad(){
 function formationRecordTags(rec){ return (rec && typeof rec==='object' && rec.state) ? (rec.coachingDNA||[]) : []; }
 function renderCustomSystems() {
   const box=document.getElementById('customSystems'); box.innerHTML='';
-  const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
+  const saved=XQUIX.StorageProvider.listStoreSync('formation');
   const totalCount=Object.keys(saved).length;
   const filter=(document.getElementById('formationTagFilter')?.value||'').trim().toLowerCase();
   let shownCount=0;
@@ -5465,9 +5522,7 @@ function renderCustomSystems() {
     const del=MIZE.UI.ConfirmDeleteButton(
       'Delete saved formation "'+name+'"? This cannot be undone.',
       ()=>{
-        const all=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-        delete all[name];
-        localStorage.setItem('wpStrategyFormationsV5', JSON.stringify(all));
+        XQUIX.StorageProvider.deleteItem('formation', name);
         renderCustomSystems();
       },
       { title:'Delete this formation', style:'flex:0 0 auto;padding:4px 9px;', stopPropagation:true }
@@ -5667,16 +5722,17 @@ async function savePackage() {
   const tagsInput=await MizeDialog.prompt('Coaching DNA tags (comma-separated, optional) — e.g. counterattack, 6-on-5, U16:','');
   const coachingDNA=(tagsInput||'').split(',').map(t=>t.trim()).filter(Boolean);
   try {
-    const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
-    packs[name]={...MIZE.Storage.makeMetadata('tacticalPackage', name, coachingDNA), frames:frames.length?frames:[makeFrameState()], current:getState()};
-    localStorage.setItem('tpgTacticalPackagesV8',JSON.stringify(packs)); renderPackages();
+    const existing = await XQUIX.StorageProvider.getItem('sequence', name);
+    const record = {...MIZE.Storage.makeMetadata('tacticalPackage', name, coachingDNA, existing), frames:frames.length?frames:[makeFrameState()], current:getState()};
+    await XQUIX.StorageProvider.saveItem('sequence', name, record);
+    renderPackages();
   } catch(err) {
     await MizeDialog.alert('Could not save "'+name+'": '+err.message+'. This usually means local storage is full -- check About & Diagnostics for how much is in use, and consider exporting and deleting some older saved formations/packages.', 'Save Failed');
   }
 }
 function renderPackages() {
   const box=document.getElementById('packageList'); if(!box) return; box.innerHTML='';
-  const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
+  const packs=XQUIX.StorageProvider.listStoreSync('sequence');
   const totalCount=Object.keys(packs).length;
   const filter=(document.getElementById('packageTagFilter')?.value||'').trim().toLowerCase();
   let shownCount=0;
@@ -5687,7 +5743,7 @@ function renderPackages() {
     const row=document.createElement('div'); row.className='miniBtnRow';
     const load=document.createElement('button'); load.textContent=name; load.title='Load tactical package'; load.onclick=()=>{ recordHistory('Load Package: '+name); if(frames.length) frames[currentFrame]=makeFrameState(); const pkg=MIZE.Storage.readRecord(packs[name]); frames=pkg.frames||[pkg.current]; currentFrame=0; loadFrame(0); closeToolPanels(); };
     const exp=document.createElement('button'); exp.textContent='\u2913'; exp.title='Export this package/sequence as its own file'; exp.onclick=(ev)=>{ ev.stopPropagation(); exportSingleRecord('sequence', name, packs[name]); };
-    const del=MIZE.UI.ConfirmDeleteButton('Delete package "'+name+'"?', ()=>{ const p=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}'); delete p[name]; localStorage.setItem('tpgTacticalPackagesV8',JSON.stringify(p)); renderPackages(); }, { title:'Delete package' });
+    const del=MIZE.UI.ConfirmDeleteButton('Delete package "'+name+'"?', ()=>{ XQUIX.StorageProvider.deleteItem('sequence', name); renderPackages(); }, { title:'Delete package' });
     row.appendChild(load); row.appendChild(exp); row.appendChild(del); box.appendChild(row);
     if(tags.length){
       const tagRow=document.createElement('div'); tagRow.className='formationTags';
@@ -5725,8 +5781,8 @@ let liveCoachingSession=null;
 let liveCoachingTickHandle=null;
 
 function renderSlideOptions(){
-  const formations=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-  const packages=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
+  const formations=XQUIX.StorageProvider.listStoreSync('formation');
+  const packages=XQUIX.StorageProvider.listStoreSync('sequence');
   const fSel=document.getElementById('addSlideFormationSelect'), pSel=document.getElementById('addSlidePackageSelect');
   if(fSel){ fSel.innerHTML='<option value="">+ Add formation...</option>'+Object.keys(formations).map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join(''); }
   if(pSel){ pSel.innerHTML='<option value="">+ Add package...</option>'+Object.keys(packages).map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join(''); }
@@ -5878,13 +5934,11 @@ function switchPresentationSubView(){
     libRenderVideoSlide(step);
   } else if(toView==='board'){
     if(step.board.kind==='formation'){
-      const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-      const rec=saved[step.board.refName];
+      const rec=XQUIX.StorageProvider.getItemSync('formation', step.board.refName);
       if(!rec){ MizeDialog.alert('Formation "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
       else loadState(formationRecordState(rec));
     } else if(step.board.kind==='package'){
-      const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
-      const rec=packs[step.board.refName];
+      const rec=XQUIX.StorageProvider.getItemSync('sequence', step.board.refName);
       if(!rec){ MizeDialog.alert('Package "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
       else { frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0); }
     }
@@ -5976,14 +6030,12 @@ function renderPresentationSubView(){
   const remoteToggle = document.getElementById('timelineRemoteToggle');
   if(step.board){
     if(step.board.kind==='formation'){
-      const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-      const rec=saved[step.board.refName];
+      const rec=XQUIX.StorageProvider.getItemSync('formation', step.board.refName);
       if(!rec){ MizeDialog.alert('Formation "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
       else loadState(formationRecordState(rec));
       if(remoteToggle) remoteToggle.checked = false; // single frame -- nothing to play/navigate, so the remote stays hidden
     } else if(step.board.kind==='package'){
-      const packs=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
-      const rec=packs[step.board.refName];
+      const rec=XQUIX.StorageProvider.getItemSync('sequence', step.board.refName);
       if(!rec){ MizeDialog.alert('Package "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
       else { frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0); if(remoteToggle) remoteToggle.checked = frames.length>1; }
     }
@@ -12092,8 +12144,8 @@ function exportSingleRecord(kind, name, record){
 function exportLibrary(){
   const data={
     ...MIZE.Storage.stampRecord({ exportedAt: new Date().toISOString() }),
-    formations: JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}'),
-    packages: JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}'),
+    formations: XQUIX.StorageProvider.listStoreSync('formation'),
+    packages: XQUIX.StorageProvider.listStoreSync('sequence'),
     sessions: JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}')
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -12108,8 +12160,8 @@ function importLibraryFromFile(file){
   reader.onload=()=>{
     try{
       const data=JSON.parse(reader.result);
-      const existingFormations=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-      const existingPackages=JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
+      const existingFormations=XQUIX.StorageProvider.listStoreSync('formation');
+      const existingPackages=XQUIX.StorageProvider.listStoreSync('sequence');
       const existingSessions=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}');
       // Two accepted shapes: the bulk "Export Library (All)" shape
       // ({formations,packages,sessions}), or a single record from one of
@@ -12143,8 +12195,8 @@ function importLibraryFromFile(file){
         existingSessions[data.name] = data;
         imported = true; importedLabel = 'Imported "'+data.name+'".';
       }
-      localStorage.setItem('wpStrategyFormationsV5', JSON.stringify(existingFormations));
-      localStorage.setItem('tpgTacticalPackagesV8', JSON.stringify(existingPackages));
+      XQUIX.StorageProvider.replaceStore('formation', existingFormations);
+      XQUIX.StorageProvider.replaceStore('sequence', existingPackages);
       localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(existingSessions));
       renderCustomSystems(); renderPackages(); if(typeof renderSavedSessions==='function') renderSavedSessions();
       if(imported){
@@ -12172,8 +12224,8 @@ document.getElementById('importLibraryFile').addEventListener('change', e=>{
 // as "<user name> <item name>" (see getActiveUserName() above), so this
 // panel only ever shows/offers the current user's own items.
 function soStoreKey(kind){ return kind==='formation' ? 'wpStrategyFormationsV5' : 'tpgTacticalPackagesV8'; }
-function soGetStore(kind){ try { return JSON.parse(localStorage.getItem(soStoreKey(kind))||'{}'); } catch(err){ return {}; } }
-function soSetStore(kind, store){ localStorage.setItem(soStoreKey(kind), JSON.stringify(store)); }
+function soGetStore(kind){ return XQUIX.StorageProvider.listStoreSync(kind); }
+function soSetStore(kind, store){ XQUIX.StorageProvider.replaceStore(kind, store); }
 function soUserItemNames(kind){
   if(GUEST_EXPERIENCE_MODE){
     // Guest Experience: the only visible item, ever, regardless of what
@@ -12589,7 +12641,7 @@ document.getElementById('closePracticeStudioBtn').addEventListener('click', clos
 function renderDrillLibrary(){
   const box=document.getElementById('drillLibraryList'); if(!box) return;
   const filter=(document.getElementById('drillLibraryFilter')?.value||'').trim().toLowerCase();
-  const saved=JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
+  const saved=XQUIX.StorageProvider.listStoreSync('formation');
   box.innerHTML='';
   const names=Object.keys(saved);
   if(!names.length){ box.innerHTML='<div style="font-size:12px;color:#7c8a8a;">No Saved Formations yet. Save a formation in Tactical Studio first -- every Saved Formation becomes a Drill here automatically.</div>'; return; }
@@ -13434,8 +13486,7 @@ async function syncLegacyLibraryItems(){
     { kind:'sequence', storeKey:'tpgTacticalPackagesV8', type:'sequence', category:'Sequence' },
   ];
   for(const src of legacySources){
-    let store = {};
-    try { store = JSON.parse(localStorage.getItem(src.storeKey)||'{}'); } catch(err){ store = {}; }
+    const store = await XQUIX.StorageProvider.listStore(src.kind);
     for(const [name, data] of Object.entries(store)){
       const id = libLegacyAssetId(src.kind, name);
       const existing = await LibraryStorage.getAsset(id);
@@ -14227,10 +14278,10 @@ async function renderLibraryPracticeItemsList(asset){
     if(!typed || !typed.trim()) return;
     const prefix = getActiveUserName()+' ';
     const fullName = typed.trim().startsWith(prefix) ? typed.trim() : prefix+typed.trim();
-    const store = JSON.parse(localStorage.getItem('wpStrategyFormationsV5')||'{}');
-    if(store[fullName]){ await MizeDialog.alert('A formation named "'+fullName+'" already exists. Try a different name.'); return; }
-    store[fullName] = { ...MIZE.Storage.makeMetadata('formation', fullName, []), state: libBlankBoardState(), engineObjects: [] };
-    localStorage.setItem('wpStrategyFormationsV5', JSON.stringify(store));
+    const existingItem = await XQUIX.StorageProvider.getItem('formation', fullName);
+    if(existingItem){ await MizeDialog.alert('A formation named "'+fullName+'" already exists. Try a different name.'); return; }
+    const record = { ...MIZE.Storage.makeMetadata('formation', fullName, []), state: libBlankBoardState(), engineObjects: [] };
+    await XQUIX.StorageProvider.saveItem('formation', fullName, record);
     if(typeof renderCustomSystems==='function') renderCustomSystems();
     await libCreateAndAddItem(asset, {
       id: libLegacyAssetId('formation', fullName), type:'formation', title: fullName, description:'', author:'',
@@ -14245,11 +14296,11 @@ async function renderLibraryPracticeItemsList(asset){
     if(!typed || !typed.trim()) return;
     const prefix = getActiveUserName()+' ';
     const fullName = typed.trim().startsWith(prefix) ? typed.trim() : prefix+typed.trim();
-    const store = JSON.parse(localStorage.getItem('tpgTacticalPackagesV8')||'{}');
-    if(store[fullName]){ await MizeDialog.alert('A sequence named "'+fullName+'" already exists. Try a different name.'); return; }
+    const existingItem = await XQUIX.StorageProvider.getItem('sequence', fullName);
+    if(existingItem){ await MizeDialog.alert('A sequence named "'+fullName+'" already exists. Try a different name.'); return; }
     const blankFrame = { ...libBlankBoardState(), note:'', duration:1 };
-    store[fullName] = { ...MIZE.Storage.makeMetadata('tacticalPackage', fullName, []), frames:[blankFrame], current: libBlankBoardState() };
-    localStorage.setItem('tpgTacticalPackagesV8', JSON.stringify(store));
+    const record = { ...MIZE.Storage.makeMetadata('tacticalPackage', fullName, []), frames:[blankFrame], current: libBlankBoardState() };
+    await XQUIX.StorageProvider.saveItem('sequence', fullName, record);
     if(typeof renderPackages==='function') renderPackages();
     await libCreateAndAddItem(asset, {
       id: libLegacyAssetId('sequence', fullName), type:'sequence', title: fullName, description:'', author:'',
