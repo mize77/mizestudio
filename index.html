@@ -8664,7 +8664,7 @@ function buildFirstCoachingSessionSteps(){
       isPreStep: true,
       requiresAcknowledge: true,
       skipSuccessMessage: true, // nothing was actually accomplished besides reading and tapping "Got it"
-      instruction: 'Welcome! Throughout this tutorial, always look for the pulsing red circle -- it marks exactly what to tap or work with next.\n\nTap "Got it" below to begin.',
+      instruction: 'Welcome! Throughout this tutorial, always look for the pulsing red frame -- it marks exactly what to tap or work with next.\n\nTap "Got it" below to begin.',
       bannerSide: 'left',
       highlight: '#tutorialAcknowledgeBtn',
       validate: { type:'custom', fn: ()=> tutorialManualAck }
@@ -9208,7 +9208,7 @@ async function startGuestExperience(){
 // startGuestExperience's existing sequence, resolving once the coach
 // presses Continue/Skip (or immediately, without ever showing anything,
 // if they've already seen it on this browser).
-const GUEST_WELCOME_SEEN_KEY = 'xquixGuestWelcomeSeenV1';
+const GUEST_WELCOME_SEEN_KEY = (typeof VIEWER_MODE!=='undefined' && VIEWER_MODE) ? 'xquixViewerWelcomeSeenV1' : 'xquixGuestWelcomeSeenV1';
 
 function detectGuestWelcomeDeviceKind(){
   const ua = (navigator.userAgent || '');
@@ -9247,8 +9247,13 @@ function populateGuestWelcomeScreen(kind){
     if(continueBtn) continueBtn.textContent = 'Show Me How';
     if(skipBtn) skipBtn.style.display = '';
   } else {
-    msg.innerHTML = '<p>Your first coaching session takes approximately 2 minutes.</p>'
-      + '<p>Press Continue when you\u2019re ready.</p>';
+    if(typeof VIEWER_MODE!=='undefined' && VIEWER_MODE){
+      msg.innerHTML = '<p>We\u2019ve prepared \u201c'+VIEWER_DRILL_NAME+'\u201d for you to explore.</p>'
+        + '<p>Press Continue when you\u2019re ready.</p>';
+    } else {
+      msg.innerHTML = '<p>Your first coaching session takes approximately 2 minutes.</p>'
+        + '<p>Press Continue when you\u2019re ready.</p>';
+    }
     // Desktop is completely unchanged -- Continue only, no guide, no install step to skip.
     if(continueBtn) continueBtn.textContent = 'Continue';
     if(skipBtn) skipBtn.style.display = 'none';
@@ -9270,14 +9275,15 @@ function populateGuestWelcomeScreen(kind){
 function populateA2HSGuideMessage(kind){
   const msg = document.getElementById('guestA2HSGuideMessage');
   if(!msg) return;
+  const closing = (typeof VIEWER_MODE!=='undefined' && VIEWER_MODE) ? 'to begin exploring' : 'to begin your first coaching session';
   if(kind === 'ios'){
     const where = isGuestWelcomeTablet() ? 'near the top of your screen' : 'in your browser\u2019s toolbar';
     msg.innerHTML = '<p>If you see a \u2018\u2022\u2022\u2022\u2019 (more) icon in your toolbar, tap it first.</p>'
       + '<p>Then tap the highlighted Share button (\u25A1\u2191) '+where+', then choose \u2018Add to Home Screen\u2019.</p>'
-      + '<p>Once installed, tap Continue below to begin your first coaching session.</p>';
+      + '<p>Once installed, tap Continue below '+closing+'.</p>';
   } else {
     msg.innerHTML = '<p>Tap the highlighted menu icon near the top of your screen, then choose \u2018Add to Home Screen\u2019 or \u2018Install App\u2019.</p>'
-      + '<p>Once installed, tap Continue below to begin your first coaching session.</p>';
+      + '<p>Once installed, tap Continue below '+closing+'.</p>';
   }
 }
 
@@ -9798,7 +9804,7 @@ function hideFrontCourtTip(){
 }
 document.getElementById('frontCourtTipDismissBtn')?.addEventListener('click', hideFrontCourtTip);
 function buildViewerExperienceSteps(){
-  const drillName = VIEWER_DRILL_NAME;
+  const drillName = getActiveUserName()+' '+VIEWER_DRILL_NAME;
   const drillNameNormalized = drillName.trim().toLowerCase();
   function findDrillButton(){
     return [...document.querySelectorAll('#openItemList button')].find(b=>(b.textContent||'').trim().toLowerCase()===drillNameNormalized);
@@ -9819,7 +9825,7 @@ function buildViewerExperienceSteps(){
       isPreStep: true,
       requiresAcknowledge: true,
       skipSuccessMessage: true,
-      instruction: 'Welcome! We\u2019ve prepared \u201c'+drillName+'\u201d for you to explore. Look for the pulsing red circle -- it marks exactly what to tap next. You can leave this guided tour at any time with "Exit Tutorial".\n\nTap "Got it" to begin.',
+      instruction: 'Welcome! We\u2019ve prepared \u201c'+drillName+'\u201d for you to explore. Look for the pulsing red frame -- it marks exactly what to tap next. You can leave this guided tour at any time with "Exit Tutorial".\n\nTap "Got it" to begin.',
       bannerSide: 'left',
       highlight: '#tutorialAcknowledgeBtn',
       validate: { type:'custom', fn: ()=> tutorialManualAck },
@@ -9872,7 +9878,7 @@ function buildViewerExperienceSteps(){
         // step) -- load directly via the same path renderOpenItemList's own
         // click handler uses, so behavior matches exactly either way.
         const store = soGetStore('sequence');
-        const key = getActiveUserName()+' '+drillName;
+        const key = drillName;
         if(store[key]){
           recordHistory('Load Sequence: '+key);
           if(frames.length) frames[currentFrame]=makeFrameState();
@@ -9942,6 +9948,7 @@ async function startViewerMode(){
           soSetStore('sequence', seqStore);
         }
       } catch(err) { console.error('Could not seed embedded viewer drill:', err); }
+      await showGuestWelcomeScreenIfNeeded();
       startTutorial(buildViewerExperienceSteps(), {
         completionMessage: 'You\u2019re all set! Explore \u201c'+VIEWER_DRILL_NAME+'\u201d freely -- switch views, use the remote, or try the tools on the left.',
         onComplete(){ tutorialSuppressRemoteAutoHide = false; }
