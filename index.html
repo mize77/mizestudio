@@ -1782,8 +1782,22 @@
     <div id="accountSignedInView" style="display:none;">
       <div style="font-size:14px;margin-bottom:4px;">Signed in as</div>
       <div id="accountSignedInEmail" style="font-size:15px;font-weight:600;margin-bottom:14px;word-break:break-all;"></div>
+      <button type="button" class="toolListBtn" data-panel="trashPanel" style="width:100%;margin-bottom:8px;" id="openTrashBtn">Recently Deleted</button>
       <button type="button" id="accountSignOutBtn">Sign Out</button>
     </div>
+  </div>
+</div>
+<div class="toolPanel" id="xquixCloudHistoryPanel" style="width:min(420px,94vw);">
+  <div class="toolPanelHeader"><h3 id="xquixCloudHistoryTitle">Cloud History</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+    <div id="xquixCloudHistoryList" style="font-size:13px;"></div>
+  </div>
+</div>
+<div class="toolPanel" id="trashPanel" style="width:min(420px,94vw);">
+  <div class="toolPanelHeader"><h3>Recently Deleted</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+    <div style="font-size:11.5px;color:#7c8a8a;margin-bottom:8px;">Deleted formations and sequences from your account. Restoring brings one back to your library.</div>
+    <div id="trashList" style="font-size:13px;"></div>
   </div>
 </div>
 <div class="toolPanel devModeOnly" id="developerModePanel" style="width:min(820px,94vw);display:none;">
@@ -3398,6 +3412,7 @@ XQUIX.CloudProvider = (function(){
     ]);
   }
   function objectType(kind){ return kind==='formation' ? 'formation' : 'sequence'; }
+  function looksLikeCloudId(id){ return typeof id==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id); }
 
   // Cloud rows are normalized (name/owner/etc. as real columns, tactical
   // content in one jsonb payload column); local records are one flat
@@ -3425,14 +3440,56 @@ XQUIX.CloudProvider = (function(){
 
   // The network call in isolation, with no cache/queue side effects --
   // shared by saveItem() (optimistic path) and flushPendingOps() (retry
-  // path), so the actual upsert logic exists in exactly one place.
-  async function pushSaveToServer(kind, name, record){
+  // path), so the actual save logic exists in exactly one place. Returns
+  // { conflict:false, record } on success, or { conflict:true,
+  // serverRecord } if someone else's save landed first -- never silently
+  // overwrites in that case. knownCloudId/knownCloudRevision come from
+  // CloudProvider's own cache (the actual source of truth for "has this
+  // reached the cloud before"), NOT record.id -- every record already has
+  // a client-side id from MIZE.Storage.makeMetadata(), including
+  // brand-new ones the cloud has never seen, so record.id alone can't
+  // tell new from existing.
+  async function pushSaveToServer(kind, name, record, knownCloudId, knownCloudRevision){
     const uid = XQUIX.Auth.getCurrentUser().id;
     const row = { ...recordToRow(kind, name, record), owner_id: uid };
-    const { data, error } = await withTimeout(
-      client.from('coaching_assets').upsert(row, { onConflict: 'owner_id,object_type,name' }).select().single(), 15);
-    if(error) throw error;
-    return rowToRecord(data);
+
+    if(knownCloudId){
+      // Existing record: compare-and-swap on revision. The WHERE clause
+      // only matches if the server's revision is still what we last saw
+      // -- if another save happened in between, zero rows come back,
+      // which is how we detect the conflict instead of blindly winning.
+      const expectedRevision = knownCloudRevision || 0;
+      const { data, error } = await withTimeout(
+        client.from('coaching_assets')
+          .update({ ...row, revision: expectedRevision + 1 })
+          .eq('id', knownCloudId).eq('revision', expectedRevision)
+          .select(), 15);
+      if(error) throw error;
+      if(!data || data.length===0){
+        const { data: serverRow, error: fetchErr } = await withTimeout(
+          client.from('coaching_assets').select('*').eq('id', knownCloudId).single(), 15);
+        if(fetchErr) throw fetchErr;
+        return { conflict:true, serverRecord: rowToRecord(serverRow) };
+      }
+      client.from('asset_versions').insert({ asset_id:data[0].id, revision:data[0].revision, payload:data[0].payload, saved_by:uid }).then(()=>{}, (e)=>console.error('XQUIX.CloudProvider: version snapshot failed (main save still succeeded):', e));
+      return { conflict:false, record: rowToRecord(data[0]) };
+    } else {
+      // New record: unique index (Milestone 5) catches two devices
+      // creating the same name at once as its own conflict case.
+      const { data, error } = await withTimeout(
+        client.from('coaching_assets').insert({ ...row, revision:1 }).select().single(), 15);
+      if(error){
+        if(error.code==='23505'){
+          const { data: serverRow, error: fetchErr } = await withTimeout(
+            client.from('coaching_assets').select('*').eq('owner_id',uid).eq('object_type',objectType(kind)).eq('name',name).is('deleted_at',null).single(), 15);
+          if(fetchErr) throw fetchErr;
+          return { conflict:true, serverRecord: rowToRecord(serverRow) };
+        }
+        throw error;
+      }
+      client.from('asset_versions').insert({ asset_id:data.id, revision:data.revision, payload:data.payload, saved_by:uid }).then(()=>{}, (e)=>console.error('XQUIX.CloudProvider: version snapshot failed (main save still succeeded):', e));
+      return { conflict:false, record: rowToRecord(data) };
+    }
   }
   async function pushDeleteToServer(id){
     const { error } = await withTimeout(client.from('coaching_assets').update({ deleted_at: new Date().toISOString() }).eq('id', id), 15);
@@ -3491,9 +3548,22 @@ XQUIX.CloudProvider = (function(){
       for(const op of ops){
         try {
           if(op.type==='save'){
-            const saved = await pushSaveToServer(op.kind, op.name, op.record);
-            cache[op.kind][op.name] = saved;
-            await XQUIX.OfflineDB.putItem(op.kind, op.name, saved);
+            const result = await pushSaveToServer(op.kind, op.name, op.record, op.knownCloudId || null, op.knownCloudRevision);
+            if(result.conflict){
+              cache[op.kind][op.name] = result.serverRecord;
+              await XQUIX.OfflineDB.putItem(op.kind, op.name, result.serverRecord);
+              const conflictName = op.name+' (conflict copy '+new Date().toLocaleString()+')';
+              const conflictRecord = { ...op.record, name: conflictName, id: undefined, revision: undefined };
+              const conflictResult = await pushSaveToServer(op.kind, conflictName, conflictRecord, null, null);
+              if(!conflictResult.conflict){
+                cache[op.kind][conflictName] = conflictResult.record;
+                await XQUIX.OfflineDB.putItem(op.kind, conflictName, conflictResult.record);
+              }
+              if(typeof MizeDialog!=='undefined') MizeDialog.alert('"'+op.name+'" was changed elsewhere while you were offline. Nothing was lost \u2014 "'+op.name+'" now shows that other version, and your changes were saved separately as "'+conflictName+'".', 'Changes saved elsewhere');
+            } else {
+              cache[op.kind][op.name] = result.record;
+              await XQUIX.OfflineDB.putItem(op.kind, op.name, result.record);
+            }
           } else if(op.type==='delete' && op.assetId){
             await pushDeleteToServer(op.assetId);
           }
@@ -3508,24 +3578,50 @@ XQUIX.CloudProvider = (function(){
     async listStore(kind){ if(!loaded[kind]) await this.loadAll(); return cache[kind]; },
     async getItem(kind, name){ if(!loaded[kind]) await this.loadAll(); return cache[kind][name] || null; },
     async saveItem(kind, name, record){
+      const priorCloudRecord = cache[kind][name]; // capture BEFORE overwriting -- this is the last CONFIRMED server state, if any
+      const knownId = priorCloudRecord && looksLikeCloudId(priorCloudRecord.id) ? priorCloudRecord.id : null;
+      const knownRevision = priorCloudRecord ? priorCloudRecord.revision : null;
       cache[kind][name] = record; // optimistic, synchronous -- before any await
       XQUIX.LocalStorageProvider.saveItem(kind, name, record); // silent local backup -- see comment above the module
       await XQUIX.OfflineDB.putItem(kind, name, record); // durable -- survives reload even before any network attempt
       if(!client || !XQUIX.Auth.getCurrentUser()) return record;
       if(!isOnline()){
-        await XQUIX.OfflineDB.queueOp({ type:'save', kind, name, record });
+        await XQUIX.OfflineDB.queueOp({ type:'save', kind, name, record, knownCloudId: knownId, knownCloudRevision: knownRevision });
         setSyncStatus('pending');
         return record;
       }
       setSyncStatus('saving');
       try {
-        const saved = await pushSaveToServer(kind, name, record);
-        cache[kind][name] = saved; // reconcile with the server's own id/revision/timestamps
-        await XQUIX.OfflineDB.putItem(kind, name, saved);
+        const result = await pushSaveToServer(kind, name, record, knownId, knownRevision);
+        if(result.conflict){
+          setSyncStatus('conflict');
+          // Never pick a silent winner: the server's version stays under
+          // the original name (what everyone else sees), and the local
+          // changes that were about to be overwritten are preserved as
+          // their own new, clearly-named item instead.
+          cache[kind][name] = result.serverRecord;
+          XQUIX.LocalStorageProvider.saveItem(kind, name, result.serverRecord);
+          await XQUIX.OfflineDB.putItem(kind, name, result.serverRecord);
+          const conflictName = name+' (conflict copy '+new Date().toLocaleString()+')';
+          const conflictRecord = { ...record, name: conflictName, id: undefined, revision: undefined };
+          const conflictResult = await pushSaveToServer(kind, conflictName, conflictRecord, null, null);
+          if(!conflictResult.conflict){
+            cache[kind][conflictName] = conflictResult.record;
+            XQUIX.LocalStorageProvider.saveItem(kind, conflictName, conflictResult.record);
+            await XQUIX.OfflineDB.putItem(kind, conflictName, conflictResult.record);
+          }
+          if(typeof MizeDialog!=='undefined') MizeDialog.alert('"'+name+'" was changed elsewhere since you last opened it. Nothing was lost \u2014 "'+name+'" now shows that other version, and your changes were saved separately as "'+conflictName+'".', 'Changes saved elsewhere');
+          if(typeof renderCustomSystems==='function') renderCustomSystems();
+          if(typeof renderPackages==='function') renderPackages();
+          setSyncStatus('synced');
+          return cache[kind][name];
+        }
+        cache[kind][name] = result.record; // reconcile with the server's own id/revision/timestamps
+        await XQUIX.OfflineDB.putItem(kind, name, result.record);
         setSyncStatus('synced');
       } catch(err) {
         console.error('XQUIX.CloudProvider: cloud save failed, queued for retry:', err);
-        await XQUIX.OfflineDB.queueOp({ type:'save', kind, name, record });
+        await XQUIX.OfflineDB.queueOp({ type:'save', kind, name, record, knownCloudId: knownId, knownCloudRevision: knownRevision });
         setSyncStatus('pending');
       }
       return cache[kind][name];
@@ -3558,6 +3654,52 @@ XQUIX.CloudProvider = (function(){
     },
     listStoreSync(kind){ return cache[kind]; },
     getItemSync(kind, name){ return cache[kind][name] || null; },
+
+    // ----- Trash (7: "Recently Deleted") -----
+    async listDeleted(kind){
+      if(!client || !XQUIX.Auth.getCurrentUser()) return [];
+      const uid = XQUIX.Auth.getCurrentUser().id;
+      try {
+        const { data, error } = await withTimeout(
+          client.from('coaching_assets').select('*').eq('owner_id', uid).eq('object_type', objectType(kind)).not('deleted_at', 'is', null), 15);
+        if(error) throw error;
+        return data.map(rowToRecord).sort((a,b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+      } catch(err) { console.error('XQUIX.CloudProvider: listDeleted failed:', err); return []; }
+    },
+    async restoreItem(kind, name, assetId){
+      if(!client || !XQUIX.Auth.getCurrentUser()) return { error: { message:'Unavailable right now.' } };
+      try {
+        const { data, error } = await withTimeout(
+          client.from('coaching_assets').update({ deleted_at:null }).eq('id', assetId).select().single(), 15);
+        if(error) throw error;
+        const record = rowToRecord(data);
+        cache[kind][name] = record;
+        XQUIX.LocalStorageProvider.saveItem(kind, name, record);
+        await XQUIX.OfflineDB.putItem(kind, name, record);
+        return { record };
+      } catch(err) { return { error: { message: err.message } }; }
+    },
+
+    // ----- Version history (7: "restore a prior revision") -----
+    async getVersionHistory(assetId){
+      if(!client) return [];
+      try {
+        const { data, error } = await withTimeout(
+          client.from('asset_versions').select('*').eq('asset_id', assetId).order('revision', { ascending:false }), 15);
+        if(error) throw error;
+        return data;
+      } catch(err) { console.error('XQUIX.CloudProvider: getVersionHistory failed:', err); return []; }
+    },
+    // Restoring writes the OLD payload forward as a brand-new revision,
+    // rather than rewriting history in place -- the version chain stays
+    // complete and honest ("restored from revision 3" is itself now part
+    // of the record), and this reuses the exact same conflict-safe save
+    // path as any other edit, rather than a separate, riskier code path.
+    async restoreVersion(kind, name, versionRow){
+      const current = cache[kind][name];
+      const restoredRecord = { ...current, ...versionRow.payload };
+      return await this.saveItem(kind, name, restoredRecord);
+    },
   };
 })();
 
@@ -3635,6 +3777,74 @@ function renderCloudSyncStatus(status){
 XQUIX.CloudProvider.onSyncStatusChange(renderCloudSyncStatus);
 window.addEventListener('online', ()=>{ if(XQUIX.StorageProvider===XQUIX.CloudProvider) XQUIX.CloudProvider.flushPendingOps(); });
 window.addEventListener('offline', ()=>{ if(XQUIX.StorageProvider===XQUIX.CloudProvider) renderCloudSyncStatus('offline'); });
+
+// ===== Version history + Trash UI (Milestone 7) =====
+function xquixLooksLikeCloudId(id){ return typeof id==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id); }
+
+async function xquixShowVersionHistory(kind, name, assetId){
+  document.getElementById('xquixCloudHistoryTitle').textContent = 'Cloud History \u2014 '+name;
+  const list = document.getElementById('xquixCloudHistoryList');
+  list.innerHTML = '<div style="color:#7c8a8a;">Loading\u2026</div>';
+  openToolPanel('xquixCloudHistoryPanel');
+  const versions = await XQUIX.CloudProvider.getVersionHistory(assetId);
+  if(!versions.length){ list.innerHTML = '<div style="color:#7c8a8a;">No earlier versions yet \u2014 this is the first save.</div>'; return; }
+  list.innerHTML = '';
+  versions.forEach((v, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e5eaea;';
+    const label = document.createElement('div');
+    label.innerHTML = '<strong>Revision '+v.revision+'</strong>'+(i===0?' <span style="color:#7c8a8a;font-size:11px;">(current)</span>':'')+
+      '<div style="font-size:11px;color:#7c8a8a;">'+new Date(v.created_at).toLocaleString()+'</div>';
+    row.appendChild(label);
+    if(i!==0){
+      const restoreBtn = document.createElement('button');
+      restoreBtn.textContent = 'Restore this version';
+      restoreBtn.onclick = async () => {
+        const proceed = await MizeDialog.confirm('Restore revision '+v.revision+'? This becomes a new save \u2014 nothing in between is deleted from the history.', 'Restore version');
+        if(!proceed) return;
+        await XQUIX.CloudProvider.restoreVersion(kind, name, v);
+        closeToolPanels();
+        if(typeof renderCustomSystems==='function') renderCustomSystems();
+        if(typeof renderPackages==='function') renderPackages();
+      };
+      row.appendChild(restoreBtn);
+    }
+    list.appendChild(row);
+  });
+}
+
+async function xquixRenderTrash(){
+  const list = document.getElementById('trashList');
+  list.innerHTML = '<div style="color:#7c8a8a;">Loading\u2026</div>';
+  const [deletedFormations, deletedSequences] = await Promise.all([
+    XQUIX.CloudProvider.listDeleted('formation'),
+    XQUIX.CloudProvider.listDeleted('sequence'),
+  ]);
+  const all = [...deletedFormations.map(r=>({...r, kind:'formation'})), ...deletedSequences.map(r=>({...r, kind:'sequence'}))]
+    .sort((a,b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+  if(!all.length){ list.innerHTML = '<div style="color:#7c8a8a;">Nothing here.</div>'; return; }
+  list.innerHTML = '';
+  all.forEach(rec => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e5eaea;';
+    const label = document.createElement('div');
+    label.innerHTML = '<strong>'+rec.name+'</strong> <span style="color:#7c8a8a;font-size:11px;">('+(rec.kind==='formation'?'formation':'sequence')+')</span>'+
+      '<div style="font-size:11px;color:#7c8a8a;">Deleted '+new Date(rec.deletedAt).toLocaleString()+'</div>';
+    row.appendChild(label);
+    const restoreBtn = document.createElement('button');
+    restoreBtn.textContent = 'Restore';
+    restoreBtn.onclick = async () => {
+      const result = await XQUIX.CloudProvider.restoreItem(rec.kind, rec.name, rec.id);
+      if(result.error){ MizeDialog.alert('Could not restore: '+result.error.message); return; }
+      xquixRenderTrash();
+      if(typeof renderCustomSystems==='function') renderCustomSystems();
+      if(typeof renderPackages==='function') renderPackages();
+    };
+    row.appendChild(restoreBtn);
+    list.appendChild(row);
+  });
+}
+document.getElementById('openTrashBtn')?.addEventListener('click', xquixRenderTrash);
 // ===== Sport Template System (Developer Mode foundation) =====
 // A "Sport Template" fully describes a sport's field/court, markings, goals,
 // and default tactical parameters (player counts, formations, zone
@@ -6061,7 +6271,13 @@ function renderCustomSystems() {
       },
       { title:'Delete this formation', style:'flex:0 0 auto;padding:4px 9px;', stopPropagation:true }
     );
-    topRow.appendChild(b); topRow.appendChild(exp); topRow.appendChild(del);
+    topRow.appendChild(b); topRow.appendChild(exp);
+    if(xquixLooksLikeCloudId(rec.id)){
+      const hist=document.createElement('button'); hist.textContent='\u21bb'; hist.title='Cloud history & restore previous versions'; hist.style.cssText='flex:0 0 auto;padding:4px 9px;';
+      hist.onclick=(ev)=>{ ev.stopPropagation(); xquixShowVersionHistory('formation', name, rec.id); };
+      topRow.appendChild(hist);
+    }
+    topRow.appendChild(del);
     row.appendChild(topRow);
     if(tags.length){
       const tagRow=document.createElement('div'); tagRow.className='formationTags';
@@ -6278,7 +6494,13 @@ function renderPackages() {
     const load=document.createElement('button'); load.textContent=name; load.title='Load tactical package'; load.onclick=()=>{ recordHistory('Load Package: '+name); if(frames.length) frames[currentFrame]=makeFrameState(); const pkg=MIZE.Storage.readRecord(packs[name]); frames=pkg.frames||[pkg.current]; currentFrame=0; loadFrame(0); closeToolPanels(); };
     const exp=document.createElement('button'); exp.textContent='\u2913'; exp.title='Export this package/sequence as its own file'; exp.onclick=(ev)=>{ ev.stopPropagation(); exportSingleRecord('sequence', name, packs[name]); };
     const del=MIZE.UI.ConfirmDeleteButton('Delete package "'+name+'"?', ()=>{ XQUIX.StorageProvider.deleteItem('sequence', name); renderPackages(); }, { title:'Delete package' });
-    row.appendChild(load); row.appendChild(exp); row.appendChild(del); box.appendChild(row);
+    row.appendChild(load); row.appendChild(exp);
+    if(xquixLooksLikeCloudId(packs[name].id)){
+      const hist=document.createElement('button'); hist.textContent='\u21bb'; hist.title='Cloud history & restore previous versions';
+      hist.onclick=(ev)=>{ ev.stopPropagation(); xquixShowVersionHistory('sequence', name, packs[name].id); };
+      row.appendChild(hist);
+    }
+    row.appendChild(del); box.appendChild(row);
     if(tags.length){
       const tagRow=document.createElement('div'); tagRow.className='formationTags';
       tags.forEach(t=>{ const chip=document.createElement('span'); chip.className='dnaChip'; chip.textContent=t; tagRow.appendChild(chip); });
