@@ -18550,15 +18550,14 @@ function drawOverlay(counts) {
     var lp = labelPoint(z);
     var txt = document.createElementNS(NS, 'text');
     txt.setAttribute('x', lp.x); txt.setAttribute('y', lp.y);
-    txt.setAttribute('class', 'xgtZoneLabel');
+    txt.setAttribute('class', 'xgtZoneLabel xgtZoneNum');
     if (frontCourtOn()) txt.setAttribute('transform', 'rotate(90,' + lp.x + ',' + lp.y + ')');
-    var t1 = document.createElementNS(NS, 'tspan');
-    t1.setAttribute('x', lp.x); t1.setAttribute('dy', '-0.15em'); t1.setAttribute('class', 'xgtZoneNum');
-    t1.textContent = counts ? (counts.map[z.id] || 0) : z.n;
-    var t2 = document.createElementNS(NS, 'tspan');
-    t2.setAttribute('x', lp.x); t2.setAttribute('dy', '1.1em'); t2.setAttribute('class', 'xgtZoneName');
-    t2.textContent = counts ? ('ZONE ' + z.n) : z.name.toUpperCase();
-    txt.appendChild(t1); txt.appendChild(t2);
+    // Numbers only for now -- naming these zones (matching how Studio's
+    // own field zones can already be named) is a real feature, just not
+    // this one yet. A dedicated naming option later replaces this single
+    // line, rather than un-hiding a second one, so there's no leftover
+    // "ZONE N" scaffolding to work around when that's built.
+    txt.textContent = counts ? (counts.map[z.id] || 0) : z.n;
     clipped.appendChild(txt);
   });
   g.style.display = S.zonesVisible ? '' : 'none';
@@ -18663,6 +18662,48 @@ function describe(e) {
   return who + ' — ' + (e.outcomeLabel || e.actionLabel) + (c.dc ? ' (' + c.dc + ')' : '') + zn + pl;
 }
 
+/* Manual correction, reachable from the stats log -- deliberately not a
+   toggle to keep it available always right now (a coach fixing a
+   mis-tap during a live game is exactly the case this exists for), but
+   built as a single, isolated entry point so gating it behind a future
+   "official game" mode later only means adding one guard here, not
+   restructuring how editing works. */
+function openEditEvent(eventId) {
+  var e = S.events.filter(function (ev) { return ev.eventId === eventId; })[0];
+  if (!e) return;
+  var siblings = [];
+  if (e.context.kind === 'action') {
+    var t = treeFor(e);
+    for (var i = 0; i < t.length; i++) { if (t[i].id === e.action) { siblings = t[i].children || []; break; } }
+  }
+  sheetEl().innerHTML = head('Edit entry', 'Q' + e.quarter + ' ' + fmt(e.gameClock) + ' · ' + describe(e), null) +
+    (siblings.length ? '<span class="xgtLbl">Change outcome</span><div class="xgtOpts">' +
+      siblings.map(function (o) {
+        return '<button class="xgtOpt ' + o.cls + '" data-oc="' + o.id + '"><span class="dot"></span>' + o.label + '</button>';
+      }).join('') + '</div><p class="xgtNote">Changing the outcome clears any recorded goal placement for this entry, since it may no longer apply.</p>'
+      : '<p class="xgtNote">This entry has no alternate outcome to switch to.</p>') +
+    '<div style="height:14px"></div>' +
+    '<button class="xgtBtn" id="xgtDeleteEntry" style="background:#e53935;color:#fff;border-color:transparent">Delete this entry</button>';
+  wire(null);
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('.xgtOpt'), function (b) {
+    b.addEventListener('click', function () {
+      var o = null;
+      for (var j = 0; j < siblings.length; j++) { if (siblings[j].id === b.dataset.oc) { o = siblings[j]; break; } }
+      if (!o) return;
+      e.outcome = o.id; e.outcomeLabel = o.label; e.goalPlacement = null;
+      save(); closeSheet(); render(); openStats();
+      toast('Updated — ' + describe(e));
+    });
+  });
+  el('xgtDeleteEntry').onclick = function () {
+    var idx = S.events.indexOf(e);
+    if (idx >= 0) S.events.splice(idx, 1);
+    save(); closeSheet(); render(); openStats();
+    toast('Entry deleted');
+  };
+  openSheet();
+}
+
 /* ------------------------------------------------------------- persistence */
 function save() {
   try {
@@ -18742,9 +18783,9 @@ var CSS = [
 '#xgtSheet .xgtChip[aria-pressed="true"]{background:#1b7373;color:#fff;border-color:transparent}',
 '#xgtSheet .xgtChip.water{background:#2e7d32;color:#fff;border-color:transparent}',
 /* scrim + sheet */
-'#xgtScrim{position:fixed;inset:0;z-index:999984;background:rgba(13,43,43,.45);opacity:0;pointer-events:none;transition:opacity .18s}',
+'#xgtScrim{position:fixed;inset:0;z-index:999985;background:rgba(13,43,43,.45);opacity:0;pointer-events:none;transition:opacity .18s}',
 '#xgtScrim.on{opacity:1;pointer-events:auto}',
-'#xgtSheet{position:fixed;left:0;right:0;bottom:0;z-index:999985;max-width:520px;margin:0 auto;background:#fff;',
+'#xgtSheet{position:fixed;left:0;right:0;bottom:0;z-index:999986;max-width:520px;margin:0 auto;background:#fff;',
 '  border-radius:20px 20px 0 0;border-top:1px solid #ccd6d6;color:#14235c;box-shadow:0 -6px 30px rgba(20,35,92,.14);',
 '  font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;',
 '  transform:translateY(102%);transition:transform .22s cubic-bezier(.2,.8,.25,1);',
@@ -18810,11 +18851,11 @@ var CSS = [
 '#xgtSheet .xgtStep:active{background:#1b7373;color:#fff}',
 /* toast */
 '#xgtToast{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 108px);max-width:496px;margin:0 auto;',
-'  z-index:999986;background:#14235c;border:1px solid #14235c;border-radius:12px;padding:10px 12px;',
+'  z-index:999987;background:#14235c;border:1px solid #14235c;border-radius:12px;padding:10px 12px;',
 '  font:13px/1.35 system-ui,sans-serif;color:#fff;opacity:0;transform:translateY(-8px);pointer-events:none;transition:.2s}',
 '#xgtToast.on{opacity:1;transform:translateY(0)}',
 /* stats -- explicitly requested lighter, matching the rest of this pass */
-'#xgtStats{position:fixed;inset:0;z-index:999987;background:#f2f5f5;color:#14235c;overflow-y:auto;display:none;',
+'#xgtStats{position:fixed;inset:0;z-index:999984;background:#f2f5f5;color:#14235c;overflow-y:auto;display:none;',
 '  font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:calc(env(safe-area-inset-top) + 10px) 12px 40px}',
 '#xgtStats.on{display:block}',
 '#xgtStats h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:#7c8a8a;margin:16px 0 8px}',
@@ -18836,10 +18877,9 @@ var CSS = [
    field rendering, not on the tracker's own light UI chrome. */
 '.xgtZone{fill:rgba(255,255,255,.10);stroke:rgba(255,255,255,.85);stroke-width:1.6;vector-effect:non-scaling-stroke}',
 '.xgtZone.xgtFlash{fill:#1b7373;fill-opacity:.85}',
-'.xgtZoneLabel{text-anchor:middle;fill:#fff;paint-order:stroke;stroke:rgba(13,43,43,.55);stroke-width:.22;',
+'.xgtZoneLabel{text-anchor:middle;dominant-baseline:central;fill:#fff;paint-order:stroke;stroke:rgba(13,43,43,.55);stroke-width:.22;',
 '  stroke-linejoin:round;font-family:system-ui,sans-serif}',
-'.xgtZoneNum{font-size:.95px;font-weight:800}',
-'.xgtZoneName{font-size:.45px;font-weight:600;opacity:.9}',
+'.xgtZoneNum{font-size:1.3px;font-weight:800}',
 /* launcher */
 '#xgtLaunch{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom) + 10px);z-index:8000;',
 '  padding:11px 14px;border-radius:12px;background:#1b7373;color:#fff;border:1px solid #124d4d;',
@@ -19027,7 +19067,7 @@ function openZone(zoneId, board) {
   var z = zoneById(zoneId);
   S.draft = {
     fieldZone: z.id,
-    fieldZoneName: z.n + ' · ' + z.name,
+    fieldZoneName: z.n, // number only for now -- see the comment on xgtZoneNum
     fieldCoordinates: {
       bx: +board.x.toFixed(2), by: +board.y.toFixed(2),                 // board metres
       fx: +(board.x - 2).toFixed(2), fy: +(board.y - 2).toFixed(2),     // field-of-play metres
@@ -19370,7 +19410,7 @@ function renderBar() {
 }
 
 /* ================================================================= statistics */
-var HEAT = ['#1c3a5c', '#22507f', '#2a6aa8', '#1b7373', '#6da7ec', '#9ec5f4'];
+var HEAT = ['#e1e6e6', '#a9c2c2', '#6ba3a3', '#1b7373', '#124d4d', '#0d3838'];
 function heat(t) { var i = Math.round(t * (HEAT.length - 1)); return HEAT[Math.max(0, Math.min(HEAT.length - 1, i))]; }
 function fieldPlayerStats(evs) {
   function c(id) { return evs.filter(function (e) { return e.outcome === id; }).length; }
@@ -19420,41 +19460,88 @@ function zoneCounts(evs) {
 }
 function heatFieldSvg(evs) {
   var c = zoneCounts(evs);
-  var body = ZONES.map(function (z) {
+  var zoneBody = ZONES.map(function (z) {
     var n = c.map[z.id] || 0, lp = labelPoint(z);
-    return '<path d="' + wedgePath(z.r1, z.r2, z.a1, z.a2) + '" fill="' + (n ? heat(c.max ? n / c.max : 0) : '#16283d') +
-      '" stroke="rgba(255,255,255,.45)" stroke-width=".05"/>' +
-      '<text x="' + lp.x + '" y="' + lp.y + '" text-anchor="middle" fill="#fff" font-family="system-ui" ' +
-      'transform="rotate(90,' + lp.x + ',' + lp.y + ')" ' +
-      'style="paint-order:stroke" stroke="rgba(0,0,0,.5)" stroke-width=".18" stroke-linejoin="round">' +
-      '<tspan x="' + lp.x + '" dy="-0.15em" font-size=".95" font-weight="800">' + n + '</tspan>' +
-      '<tspan x="' + lp.x + '" dy="1.1em" font-size=".45" font-weight="600">ZONE ' + z.n + '</tspan></text>';
+    return '<path d="' + wedgePath(z.r1, z.r2, z.a1, z.a2) + '" fill="' + (n ? heat(c.max ? n / c.max : 0) : 'rgba(27,115,115,.05)') +
+      '" fill-opacity="' + (n ? '0.82' : '1') + '" stroke="rgba(20,35,92,.35)" stroke-width=".05"/>' +
+      '<text x="' + lp.x + '" y="' + lp.y + '" text-anchor="middle" font-family="system-ui" ' +
+      'transform="rotate(90,' + lp.x + ',' + lp.y + ')" fill="' + (n ? '#fff' : '#124d4d') + '" ' +
+      'style="paint-order:stroke" stroke="' + (n ? 'rgba(13,43,43,.45)' : 'none') + '" stroke-width=".18" stroke-linejoin="round">' +
+      /* Count (how many events) as the primary number, zone number alone
+         as a small secondary label -- no "ZONE" word, matching the live
+         overlay's numbers-only display. */
+      '<tspan x="' + lp.x + '" dy="-0.15em" font-size="1.05" font-weight="800">' + n + '</tspan>' +
+      '<tspan x="' + lp.x + '" dy="1.1em" font-size=".5" font-weight="600" opacity=".85">' + z.n + '</tspan></text>';
   }).join('');
-  /* Rotated to match what the user just tracked on: Front Court, goal at the
-     bottom. Same -90 rotation Studio applies to its own field group. */
-  return '<svg viewBox="1.5 -0.5 21 13.6" style="width:100%;height:auto;display:block;background:#124d4d;border-radius:8px">' +
+  /* Real field markings, reproduced from Studio's own #fieldGroup at the
+     same board coordinates (goal 0.5-2 wide x 1.5 deep, 2m box, 5m line,
+     6m line, center line at x=14.5) -- recolored to teal/grey/white
+     instead of Studio's red/yellow/green functional colors, since those
+     are meaningful during live coaching but this is a read-only summary
+     view, not something a referee needs to read at a glance. */
+  var field =
+    '<rect x="2" y="2" width="12.5" height="20" fill="#f2f5f5" stroke="#ccd6d6" stroke-width=".05"/>' +
+    '<rect x="0.5" y="10.5" width="1.5" height="3" fill="#fff" stroke="#54605f" stroke-width=".05"/>' +
+    '<path d="M0.65 10.65 H1.85 M0.65 11.0 H1.85 M0.65 11.35 H1.85 M0.65 11.7 H1.85 M0.65 12.05 H1.85 M0.65 12.4 H1.85 M0.65 12.75 H1.85 M0.65 13.1 H1.85 M0.65 13.45 H1.85 M0.65 10.65 V13.35 M0.95 10.65 V13.35 M1.25 10.65 V13.35 M1.55 10.65 V13.35 M1.85 10.65 V13.35" stroke="#ccd6d6" stroke-width=".02"/>' +
+    '<g fill="none" stroke-linecap="round" stroke-dasharray=".08 .16">' +
+      '<path d="M2 8.5 H4 V15.5 H2" stroke="#7c8a8a" stroke-width=".05"/>' +
+      '<path d="M7 2 V22" stroke="#a9c2c2" stroke-width=".05"/>' +
+      '<path d="M8 2 V22" stroke="#1b7373" stroke-width=".05"/>' +
+      '<path d="M14.5 2 V22" stroke="#54605f" stroke-width=".05"/>' +
+    '</g>';
+  return '<svg viewBox="-2.6 4.9 20 14.2" style="width:100%;height:auto;display:block;background:#e1e6e6;border-radius:8px">' +
     '<defs><clipPath id="xgtHeatClip" clipPathUnits="userSpaceOnUse">' +
     '<rect x="2" y="2" width="12.5" height="20"/></clipPath></defs>' +
-    '<g transform="rotate(-90, 7.25, 7.25)">' +
-      '<g clip-path="url(#xgtHeatClip)">' + body + '</g>' +
-      '<rect x="2" y="2" width="12.5" height="20" fill="none" stroke="rgba(255,255,255,.55)" stroke-width=".08"/>' +
-      '<line x1="2" y1="10.5" x2="2" y2="13.5" stroke="#2e7d32" stroke-width=".22"/>' +
+    '<g transform="rotate(-90, 7.4, 12)">' +
+      field +
+      '<g clip-path="url(#xgtHeatClip)">' + zoneBody + '</g>' +
+      '<rect x="2" y="2" width="12.5" height="20" fill="none" stroke="#54605f" stroke-width=".08"/>' +
     '</g></svg>';
 }
+/* Full goal graphic with posts, crossbar, and the surrounding miss area --
+   reuses buildGoalSvg's exact frame/net/target geometry (the same shape
+   the live picker itself uses) rather than a flat 3x3 grid, so every
+   recorded shot has a real place to land: in the cage (from IN_TARGETS,
+   heat-colored) or wide/high/off the post (from MISS_TARGETS). The
+   redundant in-cage "blocked_field" miss zone is dropped from this
+   combined view since the in-goal grid already covers that region. */
 function goalMapHtml(evs) {
-  var map = {}, max = 0;
+  var inMap = {}, inMax = 0, missMap = {}, missMax = 0;
   evs.forEach(function (e) {
-    var g = e.goalPlacement; if (!g || g.grid !== '3x3') return;
-    map[g.area] = (map[g.area] || 0) + 1; max = Math.max(max, map[g.area]);
+    var g = e.goalPlacement; if (!g) return;
+    if (g.grid === '3x3') { inMap[g.area] = (inMap[g.area] || 0) + 1; inMax = Math.max(inMax, inMap[g.area]); }
+    else if (g.grid === 'miss' && g.area !== 'blocked_field') { missMap[g.area] = (missMap[g.area] || 0) + 1; missMax = Math.max(missMax, missMap[g.area]); }
   });
-  if (!max) return '<p class="xgtNote">No in-cage placements recorded yet.</p>';
-  return '<div class="xgtGp">' + IN_TARGETS.map(function (t) {
-    var n = map[t.id] || 0, r = n ? n / max : 0;
-    var bg = n ? heat(r) : 'rgba(255,255,255,.06)';
-    var ink = r > 0.62 ? '#0b0b0b' : '#fff';
-    return '<div class="xgtGpc" style="background:' + bg + ';color:' + ink + '">' + n +
-      '<span>' + t.label.toUpperCase() + '</span></div>';
-  }).join('') + '</div>';
+  if (!inMax && !missMax) return '<p class="xgtNote">No shot placements recorded yet.</p>';
+  var G = GOALG;
+  var inCells = IN_TARGETS.map(function (t) {
+    var n = inMap[t.id] || 0, r = inMax ? n / inMax : 0;
+    var cx = t.x + t.w / 2, cy = t.y + t.h / 2;
+    return '<g><rect x="' + (t.x + 1.5) + '" y="' + (t.y + 1.5) + '" width="' + (t.w - 3) + '" height="' + (t.h - 3) +
+      '" rx="5" fill="' + (n ? heat(r) : 'rgba(27,115,115,.08)') + '" stroke="rgba(20,35,92,.30)"/>' +
+      '<text x="' + cx + '" y="' + (cy + 4) + '" text-anchor="middle" font-size="15" font-weight="800" fill="' + (n ? '#fff' : '#7c8a8a') + '">' + n + '</text></g>';
+  }).join('');
+  var missCells = MISS_TARGETS.filter(function (t) { return t.id !== 'blocked_field'; }).map(function (t) {
+    var n = missMap[t.id] || 0, r = missMax ? n / missMax : 0;
+    var cx = t.x + t.w / 2, cy = t.y + t.h / 2;
+    var label = t.rot
+      ? '<text x="' + cx + '" y="' + cy + '" text-anchor="middle" font-size="9" font-weight="700" transform="rotate(-90 ' + cx + ' ' + cy + ')" fill="' + (n ? '#fff' : '#7c8a8a') + '">' + n + '</text>'
+      : '<text x="' + cx + '" y="' + (cy + 4) + '" text-anchor="middle" font-size="13" font-weight="800" fill="' + (n ? '#fff' : '#7c8a8a') + '">' + n + '</text>';
+    return '<g><rect x="' + (t.x + 1.5) + '" y="' + (t.y + 1.5) + '" width="' + (t.w - 3) + '" height="' + (t.h - 3) +
+      '" rx="4" fill="' + (n ? heat(r) : 'rgba(124,138,138,.10)') + '" stroke="rgba(20,35,92,.20)"/>' + label + '</g>';
+  }).join('');
+  var net = '<g opacity=".4" stroke="rgba(84,96,95,.55)" stroke-width=".8">';
+  for (var i = 1; i <= 7; i++) net += '<line x1="' + (G.mouth.x + i * G.mouth.w / 8) + '" y1="' + G.mouth.y + '" x2="' + (G.mouth.x + i * G.mouth.w / 8) + '" y2="' + (G.mouth.y + G.mouth.h) + '"/>';
+  for (i = 1; i <= 3; i++) net += '<line x1="' + G.mouth.x + '" y1="' + (G.mouth.y + i * G.mouth.h / 4) + '" x2="' + (G.mouth.x + G.mouth.w) + '" y2="' + (G.mouth.y + i * G.mouth.h / 4) + '"/>';
+  net += '</g>';
+  var frame = '<g fill="#fff" stroke="#54605f" stroke-width="1.5">' +
+    '<rect x="' + G.frame.x + '" y="' + G.frame.y + '" width="50" height="' + G.frame.h + '" rx="4"/>' +
+    '<rect x="' + (G.frame.x + G.frame.w - 50) + '" y="' + G.frame.y + '" width="50" height="' + G.frame.h + '" rx="4"/>' +
+    '<rect x="' + G.mouth.x + '" y="' + G.frame.y + '" width="' + G.mouth.w + '" height="38" rx="4"/></g>';
+  return '<svg class="xgtGoal" viewBox="34 42 532 322" preserveAspectRatio="xMidYMid meet">' +
+    '<rect x="0" y="0" width="600" height="400" fill="#e1e6e6"/>' +
+    '<line x1="40" y1="' + G.waterY + '" x2="560" y2="' + G.waterY + '" stroke="#a9c2c2" stroke-width="2.5"/>' +
+    net + frame + missCells + inCells + '</svg>';
 }
 function fileName() {
   var sc = scoreOf();
@@ -19520,12 +19607,13 @@ function openStats() {
           (e.goalPlacement ? e.goalPlacement.label : '—') + '</td></tr>';
       }).join('') + '</table>' : '<p class="xgtNote">Nothing recorded yet.</p>') +
       '<p class="xgtNote">Stored per event, not derived — this is what future goalkeeper analysis needs.</p></div>' +
-    '<h2>Full log</h2><div class="xgtCard">' + (S.events.length ? S.events.slice().reverse().map(function (e) {
-      return '<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #1b7373;align-items:baseline">' +
+    '<h2>Full log — tap any entry to correct or remove it</h2><div class="xgtCard">' + (S.events.length ? S.events.slice().reverse().map(function (e) {
+      return '<div class="xgtLogRow" data-eid="' + e.eventId + '" style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #e1e6e6;align-items:baseline;cursor:pointer">' +
         '<span style="font-size:11px;color:#7c8a8a;width:56px;flex:none;font-variant-numeric:tabular-nums">Q' + e.quarter + ' ' + fmt(e.gameClock) + '</span>' +
         '<span style="flex:1;min-width:0;font-size:13px">' + describe(e) +
         '<small style="display:block;color:#7c8a8a;font-size:11px">' + (e.actionLabel || e.context.kind) + '</small></span>' +
-        (e.fieldCoordinates ? '<span style="flex:none;font-size:10px;color:#7c8a8a;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:4px 6px;opacity:.55">⤢ Studio</span>' : '') +
+        (e.fieldCoordinates ? '<span style="flex:none;font-size:10px;color:#7c8a8a;border:1px solid #ccd6d6;border-radius:6px;padding:4px 6px">⤢ Studio</span>' : '') +
+        '<span style="flex:none;font-size:11px;color:#a9c2c2">✎</span>' +
         '</div>';
     }).join('') : '<p class="xgtNote">Nothing logged yet.</p>') + '</div>' +
     '<h2>Save this game</h2><div class="xgtCard">' +
@@ -19538,6 +19626,9 @@ function openStats() {
 
   box.classList.add('on');
   el('xgtSb').onclick = function () { box.classList.remove('on'); };
+  Array.prototype.forEach.call(box.querySelectorAll('.xgtLogRow'), function (row) {
+    row.addEventListener('click', function () { openEditEvent(+row.dataset.eid); });
+  });
   el('xgtJson').onclick = function () {
     download(fileName() + '.json', 'application/json', JSON.stringify({
       app: 'XquiX Game Tracker', stage: 'beta', schema: 3,
@@ -19724,6 +19815,12 @@ var API = {
     S.active = true;
     injectCss(); buildChrome();
     S.hadFrontCourt = frontCourtOn();
+    // Same save-before-modify, restore-on-close pattern as Front Court
+    // above -- the coach's actual board (whatever formation/players were
+    // there before opening the tracker) is never lost, just temporarily
+    // set aside while tracking uses an empty pool as its backdrop.
+    try { S.savedBoardState = (typeof getState === 'function') ? getState() : null; } catch (err) { S.savedBoardState = null; }
+    try { if (typeof newBoard === 'function') newBoard(); } catch (err) {}
     drawOverlay(null);
     watchShield(true);
     if (window.MIZE.Field && window.MIZE.Field.fitBoardToScreen) {
@@ -19745,6 +19842,10 @@ var API = {
     removeChrome(); removeOverlay();
     if (frontCourtOn() !== S.hadFrontCourt && window.MIZE.Field && window.MIZE.Field.toggleFrontCourt) {
       try { window.MIZE.Field.toggleFrontCourt(S.hadFrontCourt); } catch (err) {}
+    }
+    if (S.savedBoardState) {
+      try { if (typeof loadState === 'function') loadState(S.savedBoardState); } catch (err) {}
+      S.savedBoardState = null;
     }
     var launch = el('xgtLaunch'); if (launch) launch.style.display = '';
   },
