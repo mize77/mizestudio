@@ -3758,7 +3758,12 @@ XQUIX.Entitlements = (function(){
       if(isPlatformAdmin) return true;
       if(featureName==='createOrganization') return !!currentPlanData.canCreateOrganization;
       if(featureName==='saveNewAsset') return (context && context.currentPersonalAssetCount || 0) < currentPlanData.maxPersonalAssets;
-      if(featureName==='gameTrackerStats') return !!currentPlanData.canViewGameTrackerStats;
+      // Developer Mode also unlocks this, same as other dev-gated
+      // features elsewhere in Studio -- otherwise testing this feature
+      // locally would require an actual signed-in "pro" account just to
+      // see whether the gate itself works, which isn't a reasonable bar
+      // for day-to-day development.
+      if(featureName==='gameTrackerStats') return !!currentPlanData.canViewGameTrackerStats || (typeof devModeActive!=='undefined' && devModeActive);
       return true; // unrecognized features default to allowed client-side -- real enforcement is always server-side regardless
     },
     getLimit(featureName){
@@ -18909,7 +18914,7 @@ function buildChrome() {
       '<div id="xgtUtil">' +
       '<button id="xgtTimeBtn">✎ Time</button>' +
       '<button id="xgtZoneBtn">Zones</button>' +
-      '<button id="xgtCourtBtn">Court</button>' +
+      '<button id="xgtFieldViewBtn">Field View</button>' +
       '<div class="sp"></div>' +
       '<button id="xgtStatsBtn">Stats</button>' +
       '<button id="xgtExitBtn">Exit</button>' +
@@ -18952,15 +18957,16 @@ function buildChrome() {
     var g = el('xgtZoneLayer'); if (g) g.style.display = S.zonesVisible ? '' : 'none';
     el('xgtZoneBtn').textContent = S.zonesVisible ? 'Zones' : 'Zones ▫';
   };
-  el('xgtCourtBtn').onclick = function () {
-    if (!window.MIZE.Field || !window.MIZE.Field.toggleFrontCourt) { toast('This view is not available.'); return; }
-    var goingFront = !frontCourtOn();
-    try { window.MIZE.Field.toggleFrontCourt(goingFront); } catch (err) {}
-    setTimeout(function () {
-      drawOverlay(null); fitStage(true); positionShield();
-      el('xgtCourtBtn').textContent = frontCourtOn() ? 'Full court' : 'Court';
-      if (goingFront) toast('Front Court can scroll — if the field cuts off, switch back.');
-    }, 120);
+  // Replaces the old "Court" toggle (removed when Front Court became
+  // the only tracking view, not something to switch away from). This
+  // is a recenter, not a mode switch: now that the field genuinely
+  // scrolls, a quick way back to the standard starting crop -- the same
+  // default position Studio's own fitBoardToScreen() sets -- is
+  // genuinely useful after scrolling around to look at the goal or the
+  // far end.
+  el('xgtFieldViewBtn').onclick = function () {
+    if (window.MIZE.Field && window.MIZE.Field.fitBoardToScreen) { try { window.MIZE.Field.fitBoardToScreen(); } catch (err) {} }
+    positionShield();
   };
   el('xgtStatsBtn').onclick = function () {
     // Client-side gate only -- see the migration file's own comment for
@@ -18978,62 +18984,162 @@ function buildChrome() {
     var f = S.onScrim; if (f) { S.onScrim = null; f(); } else closeSheet();
   });
 }
-function positionShield() {
-  var sh = el('xgtShield'), svg = el('fieldZonesSvg');
-  if (!sh || !svg) return;
-  var H = GEO.half;
-  var pts = [boardToClient(H.x0, H.y0), boardToClient(H.x1, H.y0),
-             boardToClient(H.x1, H.y1), boardToClient(H.x0, H.y1)];
-  if (!pts[0]) return;
-  var xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.y; });
-  var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
-  var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
-  sh.style.left = x0 + 'px'; sh.style.top = y0 + 'px';
-  sh.style.width = (x1 - x0) + 'px'; sh.style.height = (y1 - y0) + 'px';
+/* Tracks the currently VISIBLE portion of #stageWrap, not a fixed
+   half-field bounding box -- #stageWrap's own screen position/size stay
+   constant while scrolling (only its CONTENT scrolls inside it, via
+   native scrollTop), so this correctly follows whatever the coach has
+   scrolled to without needing to know where that is. */
+/* Widens the field view to also show the colored deck margin bands on
+   each side (2m of decorative color-coded area beyond the playable
+   pool, which Studio's own Front Court sizing deliberately excludes
+   elsewhere to maximize the playable area's screen space -- correct
+   for other uses, but the coach specifically wants these visible here
+   since they help with reading the field). Widens all four of Studio's
+   own field SVG viewBoxes symmetrically (2 units added on each side,
+   0 to 24 instead of 2 to 22) and correspondingly widens #board's own
+   CSS width to preserve the pool's actual on-screen scale -- capped at
+   the available screen width so this can only make the pool appear
+   very slightly smaller on narrow screens, never overflow off-screen.
+   Board/zone/arrow/shot-block rotation transforms are untouched: they
+   apply to the rotated group, not the viewBox, so widening the visible
+   window into that already-rotated content doesn't need to change them. */
+var _fieldViewWidened = false;
+function showFullVenueWidth() {
+  if (!frontCourtActive || _fieldViewWidened) return;
+  var board = document.getElementById('board');
+  if (!board || typeof fieldSvg === 'undefined' || !fieldSvg) return;
+  var svgs = [fieldSvg, (typeof fieldZonesSvg !== 'undefined' ? fieldZonesSvg : null),
+              (typeof arrows !== 'undefined' ? arrows : null), (typeof shotBlockSvg !== 'undefined' ? shotBlockSvg : null)];
+  var vb = (fieldSvg.getAttribute('viewBox') || '').split(/\s+/).map(Number);
+  if (vb.length !== 4) return;
+  var oldW = vb[2];
+  var newW = (typeof M !== 'undefined' && M.H) ? M.H : (oldW + 4); // fall back to +4 (2 each side) if M isn't reachable for some reason
+  if (newW <= oldW) return;
+  svgs.forEach(function (svgEl) {
+    if (!svgEl) return;
+    var v = (svgEl.getAttribute('viewBox') || '').split(/\s+/).map(Number);
+    if (v.length !== 4) return;
+    svgEl.setAttribute('viewBox', '0 ' + v[1] + ' ' + newW + ' ' + v[3]);
+  });
+  var oldBoardW = parseFloat(board.style.width) || 0;
+  if (oldBoardW > 0) {
+    board.dataset.xgtOrigWidth = board.style.width;
+    var scale = newW / oldW;
+    // Capped against #stageWrap's own actual available width, not the
+    // raw window width -- stageWrap can sit narrower than the full
+    // viewport (page padding, sidebar space on wider layouts), and it
+    // clips overflow rather than scrolling horizontally, so a cap based
+    // on window.innerWidth alone let the widened board run past
+    // stageWrap's real right edge, cropping that side's band off.
+    var wrapEl = document.getElementById('stageWrap');
+    var maxW = wrapEl ? wrapEl.getBoundingClientRect().width : (window.innerWidth - 14);
+    board.style.width = Math.min(oldBoardW * scale, maxW) + 'px';
+  }
+  _fieldViewWidened = true;
 }
-function onViewportChange() { fitStage(true); positionShield(); }
+function restoreVenueWidth() {
+  if (!_fieldViewWidened) return;
+  var board = document.getElementById('board');
+  if (board && board.dataset.xgtOrigWidth) { board.style.width = board.dataset.xgtOrigWidth; delete board.dataset.xgtOrigWidth; }
+  _fieldViewWidened = false;
+  // The viewBoxes themselves don't need restoring here -- the very next
+  // toggleFrontCourt()/fitBoardToScreen() call (which happens on close,
+  // restoring whatever Front Court state was active before) sets them
+  // correctly from scratch regardless of what this left behind.
+}
+function positionShield() {
+  // #stageWrap uses position:relative in Studio's own normal (non-
+  // tracker) layout, starting near the top of the page under Studio's
+  // own slim header -- it has no idea the tracker's own top chrome bar
+  // now overlays the first ~150px of that. viewportHeight() above
+  // already corrected #stageWrap's SIZE for this, but never its
+  // POSITION, leaving its top portion hidden behind the tracker's chrome
+  // and an equal-sized dead gap of empty space at the bottom instead.
+  // top on position:relative is an offset FROM wherever the element
+  // would normally sit, not an absolute target -- so this briefly clears
+  // any existing offset to measure the true baseline position first,
+  // then computes exactly how far down it needs to move to start right
+  // where the chrome ends, rather than guessing a fixed number.
+  var wrap = document.getElementById('stageWrap');
+  if (wrap) {
+    if (S.active) {
+      var topBar = el('xgtTop');
+      var chromeH = topBar ? topBar.getBoundingClientRect().height : 0;
+      var hadOffset = wrap.style.top;
+      wrap.style.top = '';
+      var baselineTop = wrap.getBoundingClientRect().top;
+      var needed = chromeH - baselineTop;
+      wrap.style.top = Math.max(0, needed) + 'px';
+    } else if (wrap.style.top) {
+      wrap.style.top = '';
+    }
+  }
+  var sh = el('xgtShield');
+  if (!sh || !wrap) return;
+  var r = wrap.getBoundingClientRect();
+  sh.style.left = r.left + 'px'; sh.style.top = r.top + 'px';
+  sh.style.width = r.width + 'px'; sh.style.height = r.height + 'px';
+  // Same "keyhole" clip-path technique Studio's own spotlight overlay
+  // already uses for this exact problem (see
+  // updateSpotlightOverlayScrollGap): without it, the shield -- built
+  // specifically to swallow every pointer event so no Studio tool can
+  // fire during tracking -- would also swallow Studio's own legitimate
+  // scroll-drag zones underneath it, and swiping to scroll would
+  // silently do nothing. Carving these two strips out of the shield's
+  // hit-test region lets pointer events pass through to Studio's real
+  // scroll zones there, while the rest of the shield still captures
+  // every tap for zone selection as before.
+  var leftZone = document.getElementById('fcScrollZoneLeft'), rightZone = document.getElementById('fcScrollZoneRight');
+  if (leftZone && rightZone && leftZone.style.display === 'block') {
+    var leftW = leftZone.getBoundingClientRect().width, rightW = rightZone.getBoundingClientRect().width;
+    sh.style.clipPath = 'inset(0 ' + rightW + 'px 0 ' + leftW + 'px)';
+  } else {
+    sh.style.clipPath = '';
+  }
+  // #xgtBlock sits directly beneath the shield, full-viewport, for the
+  // same reason (blocking everything outside the field area too) --
+  // needs the identical gap cut into it, or it would swallow the drag
+  // on its own even with the shield's own hole already in place.
+  var block = el('xgtBlock');
+  if (block) block.style.clipPath = sh.style.clipPath;
+}
+function onViewportChange() {
+  // A real resize/orientation change re-runs Studio's own sizing (via
+  // the same settle-in path open() uses), which resets the viewBoxes to
+  // their normal, un-widened state -- re-widen afterward so rotating
+  // the device doesn't quietly lose the deck bands.
+  if (S.active && window.MIZE && window.MIZE.Field && window.MIZE.Field.fitBoardToScreen) {
+    try { window.MIZE.Field.fitBoardToScreen(); } catch (err) {}
+    _fieldViewWidened = false;
+    showFullVenueWidth();
+  }
+  positionShield();
+}
 var shieldTick = null;
 function watchShield(on) {
   clearInterval(shieldTick);
-  if (!on) { window.removeEventListener('resize', onViewportChange); window.removeEventListener('orientationchange', onViewportChange); return; }
+  var wrap = document.getElementById('stageWrap');
+  if (!on) {
+    window.removeEventListener('resize', onViewportChange);
+    window.removeEventListener('orientationchange', onViewportChange);
+    if (wrap) wrap.removeEventListener('scroll', positionShield);
+    return;
+  }
   positionShield();
   window.addEventListener('resize', onViewportChange);
   window.addEventListener('orientationchange', onViewportChange);
-  // the Studio re-fits the board on its own schedule; a slow poll keeps the
-  // spotlight glued to it without hooking into that logic
+  // Native scroll (Front Court's own drag-to-scroll, see
+  // wireFrontCourtScrollZoneDrag) doesn't move #stageWrap itself, so the
+  // shield's position never actually needs to change on scroll -- this
+  // listener exists for the rare case something else nudges scroll
+  // programmatically. The poll below is the real safety net for
+  // anything neither this nor resize/orientationchange catches (Studio
+  // re-fitting the board on its own schedule, for instance).
+  if (wrap) wrap.addEventListener('scroll', positionShield);
   shieldTick = setInterval(positionShield, 700);
-}
-/* Zoom the board so the ATTACKING HALF fills the space between the two bars.
-   Pure CSS transform — the Studio's own sizing logic is untouched, and because
-   screenToBoard() reads getBoundingClientRect() the tap maths follows for free. */
-function fitStage(on) {
-  var st = document.getElementById('stageWrap');
-  if (!st) return;
-  if (!on) { st.style.transform = ''; st.style.transformOrigin = ''; return; }
-  st.style.transformOrigin = '50% 50%';
-  st.style.transform = 'none';
-  var H = GEO.half;
-  var a = boardToClient(H.x0, H.y0), b = boardToClient(H.x1, H.y1);
-  if (!a || !b) return;
-  var hw = Math.abs(b.x - a.x), hh = Math.abs(b.y - a.y);
-  if (hw < 4 || hh < 4) return;
-  var top = el('xgtTop'), bot = el('xgtBottom');
-  var topH = top ? top.getBoundingClientRect().height : 80;
-  var botH = bot ? bot.getBoundingClientRect().height : 180;
-  var availW = window.innerWidth - 14;
-  var availH = window.innerHeight - topH - botH - 16;
-  if (availH < 90) return;
-  var sc = Math.max(0.4, Math.min(3, Math.min(availW / hw, availH / hh)));
-  st.style.transform = 'scale(' + sc + ')';
-  var a2 = boardToClient(H.x0, H.y0), b2 = boardToClient(H.x1, H.y1);
-  var cx = (a2.x + b2.x) / 2, cy = (a2.y + b2.y) / 2;
-  var tx = window.innerWidth / 2 - cx;
-  var ty = (topH + 8 + availH / 2) - cy;
-  st.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + sc + ')';
 }
 function removeChrome() {
   watchShield(false);
-  fitStage(false);
   ['xgtBlock', 'xgtShield', 'xgtRoot', 'xgtScrim', 'xgtSheet', 'xgtToast', 'xgtStats'].forEach(function (id) {
     var n = el(id); if (n) n.remove();
   });
@@ -19373,7 +19479,16 @@ function render() {
   if (red) el('xgtRd').onclick = redoLast;
   renderBar();
   paintClock();
-  if (S.active) setTimeout(function () { fitStage(true); positionShield(); }, 0);
+  if (S.active) setTimeout(function () {
+    // Deliberately NOT calling Studio's fitBoardToScreen() here -- it
+    // unconditionally resets #stageWrap's scroll position back to the
+    // default crop every time it runs. Since render() fires after every
+    // single tap, calling it here would silently snap the coach back to
+    // the attacking half any time they interacted with anything after
+    // scrolling to look at the other end of the pool. Just keep the
+    // shield glued to wherever #stageWrap already is.
+    positionShield();
+  }, 0);
 }
 function renderBar() {
   var bar = el('xgtBar'), gk = S.playerRole === 'goalkeeper';
@@ -19607,7 +19722,9 @@ function openStats() {
           (e.goalPlacement ? e.goalPlacement.label : '—') + '</td></tr>';
       }).join('') + '</table>' : '<p class="xgtNote">Nothing recorded yet.</p>') +
       '<p class="xgtNote">Stored per event, not derived — this is what future goalkeeper analysis needs.</p></div>' +
-    '<h2>Full log — tap any entry to correct or remove it</h2><div class="xgtCard">' + (S.events.length ? S.events.slice().reverse().map(function (e) {
+    '<h2>Full log — tap any entry to correct or remove it</h2>' +
+    '<button class="xgtBtn pri" id="xgtAddEvent" style="margin-bottom:9px">+ Add Event</button>' +
+    '<div class="xgtCard">' + (S.events.length ? S.events.slice().reverse().map(function (e) {
       return '<div class="xgtLogRow" data-eid="' + e.eventId + '" style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #e1e6e6;align-items:baseline;cursor:pointer">' +
         '<span style="font-size:11px;color:#7c8a8a;width:56px;flex:none;font-variant-numeric:tabular-nums">Q' + e.quarter + ' ' + fmt(e.gameClock) + '</span>' +
         '<span style="flex:1;min-width:0;font-size:13px">' + describe(e) +
@@ -19626,6 +19743,18 @@ function openStats() {
 
   box.classList.add('on');
   el('xgtSb').onclick = function () { box.classList.remove('on'); };
+  el('xgtAddEvent').onclick = function () {
+    // Reuses the exact same zone -> action -> outcome -> placement flow
+    // live tracking already uses, rather than a separate input form --
+    // one flow to learn, and every field (zone, coordinates, variant,
+    // placement) gets filled in exactly as it would from a real tap,
+    // not approximated by hand. If the missing moment wasn't just now,
+    // the existing Time button already lets the coach set the clock
+    // back to when it happened first, then tap the zone as normal --
+    // this button doesn't need its own separate time picker for that.
+    box.classList.remove('on');
+    toast('Tap the zone where it happened — adjust the clock first (✎ Time) if it wasn\u2019t just now.');
+  };
   Array.prototype.forEach.call(box.querySelectorAll('.xgtLogRow'), function (row) {
     row.addEventListener('click', function () { openEditEvent(+row.dataset.eid); });
   });
@@ -19805,6 +19934,25 @@ function openSetup() {
 }
 
 /* ============================================================ public surface */
+// Studio's own fitBoardToScreen() sizes #stageWrap against the raw
+// viewport height, with no idea the tracker's own top/bottom chrome
+// (score bar, undo/log strip) visually overlays part of that space --
+// without this, #stageWrap ends up taller than what's actually visible
+// behind the chrome, so the goal and deck sections at either end never
+// scroll into view no matter how far the coach drags. Temporarily
+// wrapping the one function Studio's own sizing already reads from
+// (rather than adding a competing transform, which is exactly the bug
+// this whole rewrite removed) lets Studio compute the right size
+// itself, honestly, for as long as tracking is active.
+var _origViewportHeight = (typeof window.viewportHeight === 'function') ? window.viewportHeight : null;
+function xgtViewportHeight() {
+  var full = _origViewportHeight ? _origViewportHeight() : (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+  if (!S.active) return full;
+  var top = el('xgtTop'), bot = el('xgtBottom');
+  var topH = top ? top.getBoundingClientRect().height : 0;
+  var botH = bot ? bot.getBoundingClientRect().height : 0;
+  return Math.max(220, full - topH - botH);
+}
 var API = {
   open: function () {
     if (S.active) return;
@@ -19821,12 +19969,37 @@ var API = {
     // set aside while tracking uses an empty pool as its backdrop.
     try { S.savedBoardState = (typeof getState === 'function') ? getState() : null; } catch (err) { S.savedBoardState = null; }
     try { if (typeof newBoard === 'function') newBoard(); } catch (err) {}
+    // Swapped in AFTER buildChrome() (so #xgtTop/#xgtBottom already
+    // exist to measure) and BEFORE toggleFrontCourt() below, since that
+    // call is what actually triggers Studio's fitBoardToScreen() and
+    // needs the corrected height already in place the first time it runs.
+    if (typeof window.viewportHeight === 'function') window.viewportHeight = xgtViewportHeight;
+    // Always track in Front Court -- the same scrollable venue Studio's
+    // regular mode uses, goal to goal, not a separate cropped view of
+    // our own. There's no toggle away from this anymore (the old "Court"
+    // button is gone): switching away would just reintroduce the wrong,
+    // non-scrollable geometry this replaces. fitBoardToScreen() (called
+    // via toggleFrontCourt) sizes #stageWrap as a genuinely taller-than-
+    // viewport, natively scrollable container and sets a sensible
+    // starting scroll position -- nothing here needs its own transform
+    // on top of that.
+    if (window.MIZE.Field && window.MIZE.Field.toggleFrontCourt) {
+      try { window.MIZE.Field.toggleFrontCourt(true); } catch (err) {}
+    }
     drawOverlay(null);
     watchShield(true);
-    if (window.MIZE.Field && window.MIZE.Field.fitBoardToScreen) {
-      try { window.MIZE.Field.fitBoardToScreen(); } catch (err) {}
-    }
-    setTimeout(function () { fitStage(true); positionShield(); }, 60);
+    // toggleFrontCourt() above sized the field before the chrome's
+    // bottom panel had its actual content (log, undo strip) -- it grows
+    // once render()/openSetup() below populate it, which the earlier
+    // measurement couldn't have known about. One more sizing pass here,
+    // after that content exists, corrects for the real chrome height.
+    // Deliberately not repeated on every render() after this (see the
+    // comment there) -- just this one settle-in pass right after open.
+    setTimeout(function () {
+      if (window.MIZE.Field && window.MIZE.Field.fitBoardToScreen) { try { window.MIZE.Field.fitBoardToScreen(); } catch (err) {} }
+      showFullVenueWidth();
+      positionShield();
+    }, 60);
     var launch = el('xgtLaunch'); if (launch) launch.style.display = 'none';
     var saved = loadSaved();
     if (saved && saved.events && saved.events.length) {
@@ -19840,9 +20013,18 @@ var API = {
     S.active = false;
     S.running = false; clearInterval(S.tick);
     removeChrome(); removeOverlay();
+    restoreVenueWidth();
     if (frontCourtOn() !== S.hadFrontCourt && window.MIZE.Field && window.MIZE.Field.toggleFrontCourt) {
       try { window.MIZE.Field.toggleFrontCourt(S.hadFrontCourt); } catch (err) {}
     }
+    // Restored AFTER the toggleFrontCourt() call above, for the same
+    // reason it was swapped in before its counterpart in open(): that
+    // call re-triggers Studio's own sizing, and if the coach really was
+    // in Front Court before (S.hadFrontCourt), it should size against
+    // the tracker's chrome one last time (which is still on screen at
+    // this exact point) rather than against the full, chrome-free
+    // viewport too early.
+    if (_origViewportHeight) window.viewportHeight = _origViewportHeight;
     if (S.savedBoardState) {
       try { if (typeof loadState === 'function') loadState(S.savedBoardState); } catch (err) {}
       S.savedBoardState = null;
@@ -19854,6 +20036,7 @@ var API = {
   zones: ZONES,
   hitZone: hitZone,
   screenToBoard: screenToBoard,
+  boardToClient: boardToClient,
   FIELD_PLAYER_ACTIONS: FIELD_PLAYER_ACTIONS,
   GOALKEEPER_ACTIONS: GOALKEEPER_ACTIONS,
   events: function () { return S.events.slice(); }
