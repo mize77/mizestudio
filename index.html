@@ -1591,6 +1591,7 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
     <button type="button" class="cmdCatHeader">Administration <span class="chev">&#9656;</span></button>
     <div class="cmdFlyout">
       <button class="toolListBtn" id="brandingManagerEntryBtn" data-panel="brandingManagerPanel" style="display:none;">Branding &amp; Sponsors</button>
+      <button class="toolListBtn" id="featureManagementEntryBtn" data-panel="featureManagementPanel" style="display:none;">Feature Management</button>
     </div>
   </div>
 
@@ -2128,6 +2129,13 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
     <div class="guestOverlayButtons">
       <button type="button" id="guestReloadBtn">Reload</button>
     </div>
+  </div>
+</div>
+<div class="toolPanel" id="featureManagementPanel" style="width:min(560px,94vw);">
+  <div class="toolPanelHeader"><h3>Feature Management</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
+    <div style="font-size:12px;color:#54605f;margin-bottom:10px;">Choose which of your organization's available features your coaches can use. Everything is available by default -- turn off anything you'd rather they not have access to. You'll always keep full access yourself, regardless of what's turned off here.</div>
+    <div id="featureManagementList"></div>
   </div>
 </div>
 <script>
@@ -3778,7 +3786,7 @@ XQUIX.Entitlements = (function(){
       if(!client){ functionGates = new Map(); functionGatesLoading = null; notify(); return functionGates; }
       try {
         const { data, error } = await client.from('function_gates')
-          .select('function_name, function_id, individual_coach, team, organization, enterprise');
+          .select('function_name, function_id, license_family, individual_coach, team, organization, enterprise');
         if(error) throw error;
         functionGates = new Map((data||[]).map(row => [row.function_name, row]));
       } catch(err) {
@@ -3917,6 +3925,23 @@ XQUIX.Entitlements = (function(){
       return !disables.has(row.function_id);
     },
     loadOrgFunctionDisables,
+    // Raw data access for the admin UI itself (Team Manager-style
+    // panels need to RENDER a list of toggleable functions, not just
+    // get a yes/no answer for one). Returns a plain array, not the
+    // internal Map, so callers can't accidentally mutate the shared
+    // cache. Empty array if not loaded yet -- callers should call
+    // loadFunctionGates()/loadOrgFunctionDisables() themselves if they
+    // need to guarantee fresh data before rendering.
+    getAllFunctionGates(){ return functionGates ? Array.from(functionGates.values()) : []; },
+    getOrgDisabledSet(orgId){
+      const cached = orgDisablesCache.get(orgId);
+      return (cached instanceof Set) ? cached : new Set();
+    },
+    // Needed because loadOrgFunctionDisables is deliberately "load once"
+    // (like functionGates) -- after the admin panel writes a change,
+    // the cache needs to be told it's stale so the next load actually
+    // re-fetches instead of just returning what's already there.
+    invalidateOrgFunctionDisables(orgId){ orgDisablesCache.delete(orgId); },
   };
 })();
 XQUIX.Auth.onChange(()=>{ XQUIX.Entitlements.refresh(); XQUIX.Entitlements.loadFunctionGates(); });
@@ -6743,6 +6768,7 @@ let devModeActive = localStorage.getItem(DEV_MODE_KEY) === 'true';
 function applyDeveloperModeVisibility(){
   document.querySelectorAll('.devModeOnly').forEach(el => { el.style.display = devModeActive ? '' : 'none'; });
   xquixUpdateBrandingManagerAccess();
+  xquixUpdateFeatureManagementAccess();
 }
 function xquixUpdateBrandingManagerAccess(){
   // Two genuinely different questions, both required together (see the
@@ -6787,6 +6813,152 @@ if(typeof XQUIX!=='undefined' && XQUIX.Org) XQUIX.Org.onChange(()=>xquixUpdateBr
 // button incorrectly visible until an unrelated org-switch happens to
 // trigger a re-check.
 if(typeof XQUIX!=='undefined' && XQUIX.Entitlements) XQUIX.Entitlements.onChange(()=>xquixUpdateBrandingManagerAccess());
+
+// ===== Feature Management (org_admin curation of tier-included functions) =====
+// Access follows the exact same reasoning as Branding Manager above --
+// specifically THAT org's own admin, not any org_admin anywhere, plus
+// the same devMode/platform_admin bypasses for local testing. Unlike
+// Branding Manager, there's no separate function_gates entry to check
+// here -- being this org's admin IS the entire requirement, since this
+// panel exists specifically to let that admin curate access for
+// everyone else in their org.
+function xquixUpdateFeatureManagementAccess(){
+  const platformAdmin = (typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.isPlatformAdmin && XQUIX.Entitlements.isPlatformAdmin());
+  const isActiveOrgAdmin = (typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getActiveOrgRole()==='org_admin');
+  const canAccess = devModeActive || platformAdmin || isActiveOrgAdmin;
+  const btn = document.getElementById('featureManagementEntryBtn');
+  if(btn) btn.style.display = canAccess ? '' : 'none';
+  if(!canAccess){ const panel = document.getElementById('featureManagementPanel'); if(panel) panel.classList.remove('open'); }
+}
+if(typeof XQUIX!=='undefined' && XQUIX.Org) XQUIX.Org.onChange(()=>xquixUpdateFeatureManagementAccess());
+
+document.getElementById('featureManagementEntryBtn')?.addEventListener('click', renderFeatureManagementPanel);
+
+// The real, current list of function_name values that are actually
+// gated somewhere in this file -- not everything the spreadsheet marks
+// "Included" is necessarily built yet (Events & Live Coaching, for
+// instance, is 37 functions of real tier data describing something
+// that doesn't exist as working code). Extracted by grepping every
+// xquixRequireFunction('...') call site plus GATED_TOOL_PANELS's own
+// entries (Team Manager is gated through that lookup table with a
+// variable, not a literal string, so a plain search wouldn't find it).
+// Keep this in sync as more Phase 2 batches wire up new functions, or
+// Feature Management would never show them even once they exist.
+const XQUIX_WIRED_FUNCTION_NAMES = new Set([
+  'Count direction', 'Darken / brighten studio windows', 'Dock / detach timeline',
+  'Field Zones', 'Frame Transition / Display Modes', 'Load image / web content',
+  'Load local video', 'Load video URL', 'Measure', 'Open / close Practice Studio',
+  'Play / pause video', 'Player Setups', 'Reorder frames', 'Smart Goalie Positioning',
+  'Smart Positioning', 'Sync with package', 'Team Manager',
+]);
+async function renderFeatureManagementPanel(){
+  const container = document.getElementById('featureManagementList');
+  if(!container) return;
+  const client = XQUIX.Auth.getClient();
+  const orgId = (typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getActiveOrgId) ? XQUIX.Org.getActiveOrgId() : null;
+  if(!client || !orgId){ container.innerHTML = '<p style="color:#54605f;font-size:13px;">No active organization.</p>'; return; }
+  container.innerHTML = '<p style="color:#54605f;font-size:13px;">Loading...</p>';
+  // Deliberately invalidate + reload rather than trust whatever's
+  // cached -- this admin needs to see the actual current state every
+  // time they open this panel, not a possibly-stale snapshot from
+  // whenever the cache last happened to warm.
+  XQUIX.Entitlements.invalidateOrgFunctionDisables(orgId);
+  await XQUIX.Entitlements.loadOrgFunctionDisables(orgId);
+  const allGates = XQUIX.Entitlements.getAllFunctionGates();
+  const disabledSet = XQUIX.Entitlements.getOrgDisabledSet(orgId);
+  // Two filters, not one: "organization: Included" alone isn't enough --
+  // confirmed by testing that it also matched entire feature families
+  // (Events & Live Coaching, 36 functions) that don't exist as real,
+  // working code yet, since the spreadsheet's tier data was filled in
+  // ahead of the actual build. XQUIX_WIRED_FUNCTION_NAMES is the real,
+  // current list of what's actually been gated in this file -- keep it
+  // in sync as more Phase 2 batches land, or newly-built functions
+  // would be invisible here even once they exist.
+  const relevant = allGates.filter(g => g.organization === 'Included' && XQUIX_WIRED_FUNCTION_NAMES.has(g.function_name));
+  if(!relevant.length){ container.innerHTML = '<p style="color:#54605f;font-size:13px;">Nothing available to manage yet.</p>'; return; }
+  const byFamily = {};
+  relevant.forEach(g => { (byFamily[g.license_family || 'Other'] = byFamily[g.license_family || 'Other'] || []).push(g); });
+
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  let html = '';
+  Object.keys(byFamily).sort().forEach(family => {
+    const funcs = byFamily[family].sort((a,b) => a.function_name.localeCompare(b.function_name));
+    const enabledCount = funcs.filter(f => !disabledSet.has(f.function_id)).length;
+    const allEnabled = enabledCount === funcs.length;
+    const someEnabled = enabledCount > 0 && !allEnabled;
+    html += '<div class="featureFamilyGroup" style="border:1px solid #e2e8e8;border-radius:8px;margin-bottom:8px;overflow:hidden;">'
+      + '<div class="featureFamilyHeader" data-family="'+esc(family)+'" style="display:flex;align-items:center;gap:8px;padding:9px 10px;cursor:pointer;background:#f7f9f9;">'
+      + '<input type="checkbox" class="featureFamilyToggle" data-family="'+esc(family)+'"'+(allEnabled?' checked':'')+(someEnabled?' data-indeterminate="1"':'')+'>'
+      + '<span style="font-weight:700;flex:1;font-size:13px;">'+esc(family)+'</span>'
+      + '<span style="font-size:11px;color:#7c8a8a;">'+enabledCount+' / '+funcs.length+' on</span>'
+      + '<span class="familyExpandArrow" style="font-size:11px;color:#7c8a8a;">&#9656;</span>'
+      + '</div>'
+      + '<div class="featureFamilyFunctions" style="display:none;padding:2px 10px 8px 34px;">'
+      + funcs.map(f => '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">'
+          + '<input type="checkbox" class="featureFunctionToggle" data-function-id="'+esc(f.function_id)+'" data-family="'+esc(family)+'"'+(disabledSet.has(f.function_id)?'':' checked')+'>'
+          + '<span style="font-size:13px;">'+esc(f.function_name)+'</span>'
+          + '</div>').join('')
+      + '</div></div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.featureFamilyToggle[data-indeterminate="1"]').forEach(cb => { cb.indeterminate = true; });
+  wireFeatureManagementToggles(orgId);
+}
+
+async function xquixSetOrgFunctionDisabled(orgId, functionId, disabled){
+  const client = XQUIX.Auth.getClient();
+  if(!client) return;
+  try {
+    if(disabled){
+      const { error } = await client.from('organization_function_disables')
+        .insert({ organization_id: orgId, function_id: functionId });
+      if(error) throw error;
+    } else {
+      const { error } = await client.from('organization_function_disables')
+        .delete().eq('organization_id', orgId).eq('function_id', functionId);
+      if(error) throw error;
+    }
+    XQUIX.Entitlements.invalidateOrgFunctionDisables(orgId);
+    await XQUIX.Entitlements.loadOrgFunctionDisables(orgId); // re-warms the cache + fires notify() so any visible gated UI re-checks immediately
+  } catch(err) {
+    console.error('xquixSetOrgFunctionDisabled failed:', { message: err?.message, code: err?.code, hint: err?.hint, raw: err });
+    MizeDialog.alert('That change could not be saved. Please try again.');
+    renderFeatureManagementPanel(); // revert the checkbox to reality rather than leave it showing an unsaved, misleading state
+  }
+}
+
+function wireFeatureManagementToggles(orgId){
+  const container = document.getElementById('featureManagementList');
+  if(!container) return;
+  container.querySelectorAll('.featureFamilyHeader').forEach(header => {
+    header.addEventListener('click', e => {
+      if(e.target.classList.contains('featureFamilyToggle')) return; // the checkbox has its own handler below, don't also toggle expand/collapse
+      const body = header.nextElementSibling;
+      const arrow = header.querySelector('.familyExpandArrow');
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'block';
+      if(arrow) arrow.innerHTML = isOpen ? '&#9656;' : '&#9662;';
+    });
+  });
+  container.querySelectorAll('.featureFamilyToggle').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation()); // don't also trigger the header's expand/collapse click
+    cb.addEventListener('change', async e => {
+      const family = e.target.dataset.family;
+      const wantEnabled = e.target.checked;
+      e.target.disabled = true;
+      const functionIds = Array.from(container.querySelectorAll('.featureFunctionToggle[data-family="'+CSS.escape(family)+'"]')).map(el => el.dataset.functionId);
+      for(const fid of functionIds){ await xquixSetOrgFunctionDisabled(orgId, fid, !wantEnabled); }
+      renderFeatureManagementPanel();
+    });
+  });
+  container.querySelectorAll('.featureFunctionToggle').forEach(cb => {
+    cb.addEventListener('change', async e => {
+      e.target.disabled = true;
+      await xquixSetOrgFunctionDisabled(orgId, e.target.dataset.functionId, !e.target.checked);
+      renderFeatureManagementPanel();
+    });
+  });
+}
 function toggleDeveloperMode(){
   // Silent, deliberately -- unlike every customer-facing gate elsewhere
   // in this app, this one shows no message at all when it blocks
