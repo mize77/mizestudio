@@ -3825,6 +3825,41 @@ XQUIX.Entitlements = (function(){
     return 0; // Individual Coach
   }
 
+  // ===== Org-level function overrides ("Phase 3") =====
+  // Cached per organization_id, not a single flat cache -- unlike
+  // functionGates (one global sheet, fetched once), which org someone
+  // has disabled which functions for is genuinely different per
+  // organization, and a person can switch their active org mid-session.
+  // A Set of disabled function_ids per org; absence of an org's entry
+  // in this map just means "not fetched yet", not "nothing disabled".
+  const orgDisablesCache = new Map(); // orgId -> Set<function_id> | Promise
+  async function loadOrgFunctionDisables(orgId){
+    if(!orgId) return null;
+    const cached = orgDisablesCache.get(orgId);
+    if(cached instanceof Set) return cached;
+    if(cached) return cached; // already in flight
+    const promise = (async () => {
+      const client = XQUIX.Auth.getClient();
+      if(!client){ const empty = new Set(); orgDisablesCache.set(orgId, empty); return empty; }
+      try {
+        const { data, error } = await client.from('organization_function_disables')
+          .select('function_id').eq('organization_id', orgId);
+        if(error) throw error;
+        const disabledSet = new Set((data||[]).map(r => r.function_id));
+        orgDisablesCache.set(orgId, disabledSet);
+        notify(); // same reasoning as loadFunctionGates -- anything that fail-opened before this resolved needs a chance to re-check
+        return disabledSet;
+      } catch(err) {
+        console.error('XQUIX.Entitlements: loadOrgFunctionDisables failed:', { message: err?.message, code: err?.code, hint: err?.hint, raw: err });
+        const empty = new Set();
+        orgDisablesCache.set(orgId, empty);
+        return empty;
+      }
+    })();
+    orgDisablesCache.set(orgId, promise);
+    return promise;
+  }
+
   return {
     onChange(fn){ listeners.push(fn); },
     getPlan(){ return currentPlanId; },
@@ -3864,13 +3899,48 @@ XQUIX.Entitlements = (function(){
       const tier = reachedTier();
       const columns = [row.individual_coach, row.team, row.organization, row.enterprise];
       const value = columns[tier];
-      if(value === 'Included') return true;
-      if(value === 'Admin Only') return tier === 3; // reaching tier 3 already means org_admin or platform_admin
-      return false; // 'Not Included' or 'Future'
+      const baseAllowed = value === 'Included' ? true : (value === 'Admin Only' ? tier === 3 : false);
+      if(!baseAllowed) return false;
+      // Org-level override check -- only matters if the base tier check
+      // already passed. Synchronous, same as the rest of this function:
+      // uses whatever's already cached for the active org, and fails
+      // open (same principle as the tier check above) if that org's
+      // disable list hasn't finished loading yet -- see
+      // loadOrgFunctionDisables's own onChange hook for how the cache
+      // gets warmed and this re-checked once real data arrives.
+      const activeOrgId = (typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getActiveOrgId) ? XQUIX.Org.getActiveOrgId() : null;
+      if(!activeOrgId) return true; // no active org context -- nothing to check against
+      const activeOrgRole = (typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getActiveOrgRole) ? XQUIX.Org.getActiveOrgRole() : null;
+      if(activeOrgRole === 'org_admin') return true; // that org's own admin always keeps access, per the confirmed design
+      const disables = orgDisablesCache.get(activeOrgId);
+      if(!(disables instanceof Set)) return true; // not loaded yet -- fail open
+      return !disables.has(row.function_id);
     },
+    loadOrgFunctionDisables,
   };
 })();
 XQUIX.Auth.onChange(()=>{ XQUIX.Entitlements.refresh(); XQUIX.Entitlements.loadFunctionGates(); });
+// Proactively warms the org-disables cache whenever the active org
+// changes -- canFunction() itself can't trigger an async fetch since
+// it's synchronous by design, so without this, the cache would only
+// ever get populated reactively and randomly, whenever something else
+// happened to call loadOrgFunctionDisables directly.
+if(typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.onChange) XQUIX.Org.onChange((activeOrgId)=>{
+  if(activeOrgId) XQUIX.Entitlements.loadOrgFunctionDisables(activeOrgId);
+});
+// onChange() only fires on FUTURE calls to setActiveOrgId(), not for
+// whatever activeOrgId was already restored from localStorage before
+// this listener was even registered (confirmed by reading XQUIX.Org's
+// own setup -- it reads localStorage directly into activeOrgId but
+// never calls notify() at that point). Someone already in an active
+// org from a previous session would otherwise have a permanently cold
+// cache until they happened to switch orgs. Same "explicit immediate
+// call in addition to the subscription" pattern already used for
+// xquixUpdateBrandingManagerAccess, for the identical reason.
+if(typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getActiveOrgId){
+  const initialActiveOrgId = XQUIX.Org.getActiveOrgId();
+  if(initialActiveOrgId) XQUIX.Entitlements.loadOrgFunctionDisables(initialActiveOrgId);
+}
 
 // ===== Phase 2 gating helper =====
 // One consistent way to gate an action by its real function_gates name --
