@@ -3748,6 +3748,78 @@ XQUIX.Entitlements = (function(){
     notify();
   }
 
+  // ===== Function Gates (Milestone 9A Phase 1) =====
+  // Data-driven lookup against the function_gates table, imported
+  // directly from the Plans & Licensing spreadsheet. This is Phase 1
+  // only: the lookup exists and is correct, but nothing in the UI calls
+  // canFunction() yet -- wiring each of the 183 real gates into actual
+  // buttons/features is separate, later work, done carefully rather
+  // than all at once.
+  //
+  // "Team" / "Organization" / "Enterprise" in the spreadsheet aren't a
+  // separate org-tier system -- confirmed by reading the sheet's own
+  // commercial notes (55 rows explicitly say "included for USAWP coach
+  // seats and organization licenses"). They map onto what's already
+  // built: Team = paid plan OR any org membership; Organization = any
+  // org membership; Enterprise = org_admin. No new architecture needed.
+  let functionGates = null; // null = not yet loaded; else Map<function_name, row>
+  let functionGatesLoading = null; // in-flight promise, so concurrent callers share one fetch
+
+  async function loadFunctionGates(){
+    if(functionGates) return functionGates; // static product config for the session -- load once, not on every refresh()
+    if(functionGatesLoading) return functionGatesLoading;
+    functionGatesLoading = (async () => {
+      const client = XQUIX.Auth.getClient();
+      if(!client){ functionGates = new Map(); functionGatesLoading = null; notify(); return functionGates; }
+      try {
+        const { data, error } = await client.from('function_gates')
+          .select('function_name, function_id, individual_coach, team, organization, enterprise');
+        if(error) throw error;
+        functionGates = new Map((data||[]).map(row => [row.function_name, row]));
+      } catch(err) {
+        // Supabase errors aren't real Error instances -- logging the raw
+        // object gives "[object Object]" in the console, which is
+        // useless for actually diagnosing what went wrong. Pulling out
+        // the fields Supabase/Postgres errors actually carry (message,
+        // code, details, hint) gives something a person can act on --
+        // e.g. a 42P01 code means the function_gates table itself
+        // doesn't exist yet, which is the most likely cause if this
+        // migration hasn't been run against the real project yet.
+        console.error('XQUIX.Entitlements: loadFunctionGates failed:', {
+          message: err?.message, code: err?.code, details: err?.details, hint: err?.hint, raw: err
+        });
+        functionGates = new Map(); // empty cache, not null -- canFunction() below treats an empty/missing entry as "allowed", same fail-open default as can()
+      }
+      functionGatesLoading = null;
+      // Anything already showing UI based on canFunction() before this
+      // resolved (canFunction() fails open with no cache yet, same
+      // principle as can()'s own fail-open default) needs a chance to
+      // re-check now that real data exists -- without this, a gated
+      // element that fail-opened on first paint could stay wrongly
+      // visible until something UNRELATED happens to trigger a
+      // re-check (switching orgs, for instance), which might never
+      // happen in a given session.
+      notify();
+      return functionGates;
+    })();
+    return functionGatesLoading;
+  }
+
+  // The highest tier this user currently reaches. Someone can qualify
+  // for Team via a paid plan AND separately be a plain (non-admin) org
+  // member -- reaching Organization tier that way doesn't require
+  // Team's paid-plan condition too, matching the spreadsheet's own
+  // verified-monotonic tiers (Organization's Included set is always a
+  // superset of Team's).
+  function reachedTier(){
+    if(isPlatformAdmin) return 3;
+    const myOrgs = (typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getMyOrgsSync) ? XQUIX.Org.getMyOrgsSync() : [];
+    if(myOrgs.some(o => o.role === 'org_admin')) return 3; // Enterprise
+    if(myOrgs.length > 0) return 2; // Organization
+    if(currentPlanId === 'pro' || currentPlanId === 'expert') return 1; // Team
+    return 0; // Individual Coach
+  }
+
   return {
     onChange(fn){ listeners.push(fn); },
     getPlan(){ return currentPlanId; },
@@ -3771,9 +3843,46 @@ XQUIX.Entitlements = (function(){
       if(featureName==='maxPersonalAssets') return currentPlanData.maxPersonalAssets;
       return null;
     },
+    loadFunctionGates,
+    // Synchronous by design (matches can()) -- callers building UI need
+    // an immediate answer, not a promise. Call loadFunctionGates() once
+    // at startup so the cache is warm; if it genuinely isn't loaded yet
+    // when this runs, fail open (same "unrecognized defaults to
+    // allowed" principle can() already uses) rather than block or hide
+    // something incorrectly.
+    canFunction(functionName){
+      if(isPlatformAdmin) return true;
+      if(!functionGates) return true;
+      const row = functionGates.get(functionName);
+      if(!row) return true; // not in the sheet -- nothing to restrict
+      const tier = reachedTier();
+      const columns = [row.individual_coach, row.team, row.organization, row.enterprise];
+      const value = columns[tier];
+      if(value === 'Included') return true;
+      if(value === 'Admin Only') return tier === 3; // reaching tier 3 already means org_admin or platform_admin
+      return false; // 'Not Included' or 'Future'
+    },
   };
 })();
-XQUIX.Auth.onChange(()=>{ XQUIX.Entitlements.refresh(); });
+XQUIX.Auth.onChange(()=>{ XQUIX.Entitlements.refresh(); XQUIX.Entitlements.loadFunctionGates(); });
+
+// ===== Phase 2 gating helper =====
+// One consistent way to gate an action by its real function_gates name --
+// used repeatedly as more of the 183 functions get wired up, rather than
+// each gate site inventing its own message/pattern. Returns the allowed
+// boolean so callers write `if(!xquixRequireFunction('X')) return;` at
+// the top of whatever the gate protects. Uses MizeDialog.alert() (not a
+// toast) because that's the actual established messaging system for the
+// main Studio UI -- the toast() function that exists elsewhere in this
+// file is scoped inside the Game Tracker's own IIFE, not available here.
+function xquixRequireFunction(functionName){
+  if(typeof XQUIX==='undefined' || !XQUIX.Entitlements || !XQUIX.Entitlements.canFunction) return true; // module not ready yet -- fail open, same convention as canFunction() itself
+  const allowed = XQUIX.Entitlements.canFunction(functionName);
+  if(!allowed && typeof MizeDialog!=='undefined'){
+    MizeDialog.alert('"'+functionName+'" is not included on your current plan. Upgrading unlocks this along with other coaching tools.', 'Upgrade Required');
+  }
+  return allowed;
+}
 
 // ===== XQUIX.BrandingSync (Milestone 10 -- org-scoped cloud branding) =====
 // Closes a gap flagged (and deliberately deferred) since the original
@@ -6560,7 +6669,26 @@ function applyDeveloperModeVisibility(){
   xquixUpdateBrandingManagerAccess();
 }
 function xquixUpdateBrandingManagerAccess(){
-  const canAccess = devModeActive || (typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getActiveOrgRole()==='org_admin');
+  // Two genuinely different questions, both required together (see the
+  // comment on canFunction if the reasoning here isn't obvious from the
+  // code alone): does this account's plan/tier even include Branding
+  // Manager at all (function_gates, A02 -- "Admin Only" at Organization/
+  // Enterprise), AND is the person specifically an admin of the
+  // currently-ACTIVE organization (getActiveOrgRole) -- since Branding
+  // Manager edits that one org's branding, being an admin of some OTHER
+  // org they belong to doesn't grant that. canFunction() alone would
+  // incorrectly say yes for an org_admin of Org A while Org B (where
+  // they're not admin) is active; getActiveOrgRole() alone would ignore
+  // whatever the spreadsheet actually says this tier requires.
+  // platform_admin bypasses BOTH of those, same as everywhere else in
+  // the system -- it isn't tied to being admin of any specific org, so
+  // requiring isActiveOrgAdmin here too (caught by testing, not assumed)
+  // would incorrectly lock a platform admin out of every org's branding
+  // except the one they personally happen to also administer.
+  const platformAdmin = (typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.isPlatformAdmin && XQUIX.Entitlements.isPlatformAdmin());
+  const gateAllows = (typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.canFunction) ? XQUIX.Entitlements.canFunction('Branding Manager') : true;
+  const isActiveOrgAdmin = (typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getActiveOrgRole()==='org_admin');
+  const canAccess = devModeActive || platformAdmin || (gateAllows && isActiveOrgAdmin);
   const btn = document.getElementById('brandingManagerEntryBtn');
   if(btn) btn.style.display = canAccess ? '' : 'none';
   // The panel itself only needs closing when access is lost -- showing
@@ -6577,6 +6705,12 @@ function xquixUpdateBrandingManagerAccess(){
 }
 applyDeveloperModeVisibility(); // reflect persisted state immediately on load, not only after the next toggle
 if(typeof XQUIX!=='undefined' && XQUIX.Org) XQUIX.Org.onChange(()=>xquixUpdateBrandingManagerAccess());
+// Also re-check once real function_gates data actually loads (see the
+// notify() call added at the end of loadFunctionGates) -- otherwise the
+// canFunction() fail-open default on first paint could leave this
+// button incorrectly visible until an unrelated org-switch happens to
+// trigger a re-check.
+if(typeof XQUIX!=='undefined' && XQUIX.Entitlements) XQUIX.Entitlements.onChange(()=>xquixUpdateBrandingManagerAccess());
 function toggleDeveloperMode(){
   devModeActive = !devModeActive;
   localStorage.setItem(DEV_MODE_KEY, devModeActive ? 'true' : 'false');
@@ -8579,7 +8713,18 @@ function setFrameTransitionMode(newMode){
     else clearSecondGhosts();
   }
 }
-document.getElementById('frameTransitionSelect')?.addEventListener('change', e=>setFrameTransitionMode(e.target.value));
+document.getElementById('frameTransitionSelect')?.addEventListener('change', e=>{
+  // Gated at the two user-facing dropdowns specifically, not inside
+  // setFrameTransitionMode() itself -- that function is also called
+  // internally to reset the mode back to 'animated' on tutorial
+  // restart (see resetTutorialState), which must never be blocked.
+  // The browser already visually updates the <select> before this
+  // event fires, so a blocked change needs its displayed value put
+  // back explicitly, or the dropdown would show a mode that was never
+  // actually applied.
+  if(!xquixRequireFunction('Frame Transition / Display Modes')){ e.target.value = frameTransitionMode; return; }
+  setFrameTransitionMode(e.target.value);
+});
 const PRESENT_SKIP_IDS=['fieldBgRect','goalFrameL1','goalFrameL2','goalFrameR1','goalFrameR2','fieldSideBands','brandRespect','brandFairPlay','brandHaveFun','brandPlaySmart','fieldDimLabel'];
 function buildPresentationFieldGroup(){
   if(document.getElementById('presentationFieldGroup')) return; // build once
@@ -9494,6 +9639,7 @@ function wireFrameStripDrag(){
   if(!strip) return;
   strip.querySelectorAll('.frameBtn').forEach(btn=>{
     btn.addEventListener('pointerdown', e=>{
+      if(!xquixRequireFunction('Reorder frames')) return; // gate at drag START, not after -- a blocked drag that visually snaps back would be more confusing than never starting
       const isVertical = document.getElementById('timelinePanel')?.classList.contains('vertical');
       const startIdx = +btn.dataset.frameIdx;
       const itemRects=[...strip.children].map(el=>{
@@ -9806,6 +9952,7 @@ document.getElementById('deleteFrameBtn').onclick=deleteFrame;
 // then resets undo history like every other frame-navigation path, since
 // snapshots don't carry a "which frame" identity.
 function moveFrame(direction){
+  if(!xquixRequireFunction('Reorder frames')) return;
   const target=currentFrame+direction;
   if(target<0 || target>=frames.length) return;
   if(frames.length) frames[currentFrame]=makeFrameState();
@@ -9827,7 +9974,10 @@ document.getElementById('tcPrevFrameBtn')?.addEventListener('click', ()=>loadFra
 document.getElementById('tcNextFrameBtn')?.addEventListener('click', ()=>loadFrame(currentFrame+1));
 document.getElementById('tcAddFrameBtn')?.addEventListener('click', addFrame);
 document.getElementById('tcDeleteFrameBtn')?.addEventListener('click', deleteFrame);
-document.getElementById('tcTransitionSelect')?.addEventListener('change', e=>setFrameTransitionMode(e.target.value));
+document.getElementById('tcTransitionSelect')?.addEventListener('change', e=>{
+  if(!xquixRequireFunction('Frame Transition / Display Modes')){ e.target.value = frameTransitionMode; return; }
+  setFrameTransitionMode(e.target.value);
+});
 document.getElementById('tcSpeedSelect')?.addEventListener('change', e=>{ playbackSpeed = +e.target.value || 1; });
 document.getElementById('tcDurationInput')?.addEventListener('change', e=>{
   const durEl = document.getElementById('frameDuration');
@@ -14349,6 +14499,11 @@ document.getElementById('timelineQuickAccessSelect')?.addEventListener('change',
   }
   let dragState=null;
   handle.addEventListener('pointerdown', e=>{
+    // Gates the DETACH direction only -- re-docking (dockBtn below) stays
+    // always allowed regardless of entitlement, so nobody who already
+    // detached the panel in a prior session (or whose plan changed
+    // mid-session) can get stuck with no way back to the docked state.
+    if(!xquixRequireFunction('Dock / detach timeline')) return;
     const r=panel.getBoundingClientRect();
     dragState={ sx:e.clientX, sy:e.clientY, startLeft:r.left, startTop:r.top };
     handle.setPointerCapture(e.pointerId);
