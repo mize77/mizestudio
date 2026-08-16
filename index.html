@@ -3722,20 +3722,25 @@ XQUIX.Entitlements = (function(){
   // to something more permissive.
   let currentPlanData = { maxPersonalAssets: 25, canCreateOrganization: false, canViewGameTrackerStats: false };
   let isPlatformAdmin = false;
+  // Deliberately separate from isPlatformAdmin, org roles, and plan
+  // tier -- see the migration's own comment. Nothing about paying more
+  // or administering an Enterprise organization should ever set this.
+  let isPlatformDeveloperFlag = false;
   const listeners = [];
   function notify(){ listeners.forEach(fn => { try { fn(currentPlanId); } catch(err){} }); }
 
   async function refresh(){
     const client = XQUIX.Auth.getClient();
     const user = XQUIX.Auth.getCurrentUser();
-    if(!client || !user){ currentPlanId = 'free'; isPlatformAdmin = false; notify(); return; }
+    if(!client || !user){ currentPlanId = 'free'; isPlatformAdmin = false; isPlatformDeveloperFlag = false; notify(); return; }
     try {
       const { data, error } = await client.from('profiles')
-        .select('plan_id, platform_admin, plans(display_name, max_personal_assets, can_create_organization, can_view_game_tracker_stats)')
+        .select('plan_id, platform_admin, is_platform_developer, plans(display_name, max_personal_assets, can_create_organization, can_view_game_tracker_stats)')
         .eq('id', user.id).single();
       if(error) throw error;
       currentPlanId = data.plan_id || 'free';
       isPlatformAdmin = data.platform_admin === true;
+      isPlatformDeveloperFlag = data.is_platform_developer === true;
       if(data.plans){
         currentPlanData = {
           maxPersonalAssets: data.plans.max_personal_assets,
@@ -3744,7 +3749,7 @@ XQUIX.Entitlements = (function(){
           displayName: data.plans.display_name,
         };
       }
-    } catch(err) { console.error('XQUIX.Entitlements: refresh failed, defaulting to free:', err); currentPlanId = 'free'; isPlatformAdmin = false; }
+    } catch(err) { console.error('XQUIX.Entitlements: refresh failed, defaulting to free:', err); currentPlanId = 'free'; isPlatformAdmin = false; isPlatformDeveloperFlag = false; }
     notify();
   }
 
@@ -3825,6 +3830,7 @@ XQUIX.Entitlements = (function(){
     getPlan(){ return currentPlanId; },
     getPlanDisplayName(){ return currentPlanData.displayName || currentPlanId; },
     isPlatformAdmin(){ return isPlatformAdmin; },
+    isPlatformDeveloper(){ return isPlatformDeveloperFlag; },
     refresh,
     can(featureName, context){
       if(isPlatformAdmin) return true;
@@ -6712,11 +6718,32 @@ if(typeof XQUIX!=='undefined' && XQUIX.Org) XQUIX.Org.onChange(()=>xquixUpdateBr
 // trigger a re-check.
 if(typeof XQUIX!=='undefined' && XQUIX.Entitlements) XQUIX.Entitlements.onChange(()=>xquixUpdateBrandingManagerAccess());
 function toggleDeveloperMode(){
+  // Silent, deliberately -- unlike every customer-facing gate elsewhere
+  // in this app, this one shows no message at all when it blocks
+  // someone. Confirming "yes, this shortcut does something, you're
+  // just not authorized" to an unauthorized person is itself
+  // information leakage for a hidden, undocumented developer tool --
+  // the right response to an unauthorized attempt is for nothing
+  // visible to happen at all, not an upgrade prompt.
+  if(!devModeActive && !(typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.isPlatformDeveloper && XQUIX.Entitlements.isPlatformDeveloper())) return;
   devModeActive = !devModeActive;
   localStorage.setItem(DEV_MODE_KEY, devModeActive ? 'true' : 'false');
   applyDeveloperModeVisibility();
   MizeDialog.alert(devModeActive ? 'Developer Mode enabled.' : 'Developer Mode disabled.');
 }
+// Corrects any pre-existing localStorage state from before this
+// authorization check existed, or from a previously-used shared
+// device -- without this, someone who'd enabled it once (when the
+// toggle checked nothing at all) would keep silently having access
+// indefinitely, never touching the gate above since it only checks
+// the moment of turning ON, not whatever state was already there.
+if(typeof XQUIX!=='undefined' && XQUIX.Entitlements) XQUIX.Entitlements.onChange(()=>{
+  if(devModeActive && !XQUIX.Entitlements.isPlatformDeveloper()){
+    devModeActive = false;
+    localStorage.setItem(DEV_MODE_KEY, 'false');
+    applyDeveloperModeVisibility();
+  }
+});
 // ===== Organization Profiles (curated default Formations & Sequences) =====
 // A single static HTML file has no real backend, so there's no genuine
 // multi-device "sign in" here -- this is a local simulation, stored in
@@ -8008,7 +8035,13 @@ function stateFromPositions(pos, ballPos={x:14.5,y:12}) {
 }
 async function saveFormation() {
   const name=await MizeDialog.prompt('Name this formation:'); if(!name) return;
-  const tagsInput=await MizeDialog.prompt('Coaching DNA tags (comma-separated, optional) — e.g. counterattack, 6-on-5, U16:','');
+  // Tags are the ONLY gated part of this flow (S04) -- Save Formation
+  // itself (S01) is free for everyone. Silently skipping the prompt for
+  // a free user (rather than blocking the whole save, or interrupting
+  // an otherwise-successful save with an "Upgrade Required" alert) is
+  // deliberate: they still get a working save, just without tags.
+  const tagsAllowed = (typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.canFunction) ? XQUIX.Entitlements.canFunction('Formation tags / Coaching DNA') : true;
+  const tagsInput = tagsAllowed ? await MizeDialog.prompt('Coaching DNA tags (comma-separated, optional) — e.g. counterattack, 6-on-5, U16:','') : '';
   const coachingDNA=(tagsInput||'').split(',').map(t=>t.trim()).filter(Boolean);
   try {
     const existing = await XQUIX.Storage.get({ kind:'formation', name, scope:'personal' });
@@ -8284,7 +8317,11 @@ function applyLayers() {
 async function savePackage() {
   if(frames.length) frames[currentFrame]=makeFrameState();
   const name=await MizeDialog.prompt('Name this tactical package:'); if(!name) return;
-  const tagsInput=await MizeDialog.prompt('Coaching DNA tags (comma-separated, optional) — e.g. counterattack, 6-on-5, U16:','');
+  // Same S04 gate as saveFormation() above -- same underlying Coaching
+  // DNA tagging mechanism, just applied to packages/sequences instead
+  // of formations. Save Package itself (S05) stays free either way.
+  const tagsAllowed = (typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.canFunction) ? XQUIX.Entitlements.canFunction('Formation tags / Coaching DNA') : true;
+  const tagsInput = tagsAllowed ? await MizeDialog.prompt('Coaching DNA tags (comma-separated, optional) — e.g. counterattack, 6-on-5, U16:','') : '';
   const coachingDNA=(tagsInput||'').split(',').map(t=>t.trim()).filter(Boolean);
   try {
     const existing = await XQUIX.Storage.get({ kind:'sequence', name, scope:'personal' });
@@ -8953,6 +8990,7 @@ function showMediaError(prefix, message){
   showStudioFrameContent(prefix, el);
 }
 document.getElementById('videoLoadUrlBtn').addEventListener('click', async ()=>{
+  if(!xquixRequireFunction('Load video URL')) return; // gated before the prompt appears, not after -- a blocked user shouldn't type a URL just to be told no afterward
   const url=await MizeDialog.prompt('Video URL (YouTube, Vimeo, or a direct video file link):');
   if(!url) return;
   const parsed=parseVideoUrl(url);
@@ -8962,7 +9000,10 @@ document.getElementById('videoLoadUrlBtn').addEventListener('click', async ()=>{
   if(parsed.type==='video'){ el.controls=true; el.addEventListener('error', ()=>showMediaError('video', 'This video could not be loaded. Double-check the URL and try again.')); } else { el.allow='autoplay; fullscreen; encrypted-media; picture-in-picture'; el.allowFullscreen=true; el.referrerPolicy='strict-origin-when-cross-origin'; }
   showStudioFrameContent('video', el);
 });
-document.getElementById('videoLoadFileBtn').addEventListener('click', ()=>document.getElementById('videoFileInput').click());
+document.getElementById('videoLoadFileBtn').addEventListener('click', ()=>{
+  if(!xquixRequireFunction('Load local video')) return;
+  document.getElementById('videoFileInput').click();
+});
 document.getElementById('videoFileInput').addEventListener('change', e=>{
   const file=e.target.files[0]; if(!file) return;
   const video=document.createElement('video');
@@ -8974,6 +9015,7 @@ document.getElementById('videoClearBtn').addEventListener('click', ()=>clearStud
 
 // ===== Stats frame: load a website or a local image/PDF =====
 document.getElementById('statsLoadUrlBtn').addEventListener('click', async ()=>{
+  if(!xquixRequireFunction('Load image / web content')) return;
   const url=await MizeDialog.prompt('Website URL:');
   if(!url) return;
   let fullUrl=url.trim();
@@ -8990,6 +9032,7 @@ function closeStatsExternalWindow(){
   statsExternalWindow=null;
 }
 document.getElementById('statsOpenWindowBtn').addEventListener('click', async ()=>{
+  if(!xquixRequireFunction('Load image / web content')) return;
   const url=await MizeDialog.prompt('Website URL to open in a synced window (opens in your default browser, address bar stays visible):');
   if(!url) return;
   let fullUrl=url.trim();
@@ -9023,6 +9066,7 @@ function closeVideoExternalWindow(){
   videoExternalWindow=null;
 }
 document.getElementById('videoOpenWindowBtn').addEventListener('click', async ()=>{
+  if(!xquixRequireFunction('Load video URL')) return; // same capability family as the URL loader above -- external content into the media frame
   const url=await MizeDialog.prompt('Website or video page URL to open in a synced window (opens in your default browser, address bar stays visible):');
   if(!url) return;
   let fullUrl=url.trim();
@@ -9047,7 +9091,10 @@ document.getElementById('videoOpenWindowBtn').addEventListener('click', async ()
   vStatus.textContent='Website open in a separate window, kept in sync with this screen.';
   showStudioFrameContent('video', vStatus);
 });
-document.getElementById('statsLoadFileBtn').addEventListener('click', ()=>document.getElementById('statsFileInput').click());
+document.getElementById('statsLoadFileBtn').addEventListener('click', ()=>{
+  if(!xquixRequireFunction('Load image / web content')) return;
+  document.getElementById('statsFileInput').click();
+});
 document.getElementById('statsFileInput').addEventListener('change', e=>{
   const file=e.target.files[0]; if(!file) return;
   const url=URL.createObjectURL(file);
@@ -9221,10 +9268,12 @@ function updateWindowDarkenState(){
   if(blindsBtn) blindsBtn.classList.toggle('active', studioWindowsManuallyDark);
 }
 document.getElementById('studioWindowDarkenBtn').addEventListener('click', ()=>{
+  if(!xquixRequireFunction('Darken / brighten studio windows')) return;
   studioWindowsManuallyDark=!studioWindowsManuallyDark;
   updateWindowDarkenState();
 });
 document.getElementById('studioBlindsControlBtn')?.addEventListener('click', ()=>{
+  if(!xquixRequireFunction('Darken / brighten studio windows')) return;
   studioWindowsManuallyDark=!studioWindowsManuallyDark;
   updateWindowDarkenState();
 });
@@ -9349,7 +9398,7 @@ document.getElementById('screenBtn').onclick=()=>setMode('screen');
 document.getElementById('highlightBtn').onclick=()=>setMode('highlight');
 document.getElementById('noteBtn').onclick=()=>setMode('note');
 document.getElementById('textBoxBtn').onclick=()=>setMode('textBox');
-document.getElementById('measureBtn').onclick=()=>setMode('measure');
+document.getElementById('measureBtn').onclick=()=>{ if(!xquixRequireFunction('Measure')) return; setMode('measure'); };
 document.getElementById('freeDrawBtn').onclick=()=>setMode('freeDraw');
 document.querySelectorAll('#freeDrawColorRow .freeDrawColorSwatch').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -9830,8 +9879,8 @@ function syncPlayPauseUI(){
       miniBtn.innerHTML='<span class="tcPlayPauseIcon">&#9208;</span>';
     } else {
       miniBtn.innerHTML='<span id="tcPlayReverseHalf" class="tcPlayHalf" title="Play in reverse">&#9664;</span><span id="tcPlayForwardHalf" class="tcPlayHalf" title="Play forward (Space)">&#9654;</span>';
-      document.getElementById('tcPlayReverseHalf')?.addEventListener('click', e=>{ e.stopPropagation(); playFrames(-1); });
-      document.getElementById('tcPlayForwardHalf')?.addEventListener('click', e=>{ e.stopPropagation(); playFrames(1); });
+      document.getElementById('tcPlayReverseHalf')?.addEventListener('click', e=>{ e.stopPropagation(); if(!xquixRequireFunction('Play / pause video')) return; playFrames(-1); });
+      document.getElementById('tcPlayForwardHalf')?.addEventListener('click', e=>{ e.stopPropagation(); if(!xquixRequireFunction('Play / pause video')) return; playFrames(1); });
     }
   }
 }
@@ -9967,7 +10016,16 @@ function moveFrame(direction){
 document.getElementById('moveFrameLeftBtn').onclick=()=>moveFrame(-1);
 document.getElementById('moveFrameRightBtn').onclick=()=>moveFrame(1);
 document.getElementById('playFramesBtn').onclick=()=>playFrames();
-document.getElementById('tcPlayPauseBtn')?.addEventListener('click', ()=>playFrames());
+document.getElementById('tcPlayPauseBtn')?.addEventListener('click', ()=>{
+  // Only gates STARTING playback, not stopping it -- when this button is
+  // in its merged/pause-icon state, a click always means "stop", and
+  // stopping something already running should never be blocked (same
+  // principle as timeline re-docking staying unconditionally allowed).
+  // The split reverse/forward halves below only ever exist in the
+  // not-currently-playing state, so those are always a "start" action.
+  if(!playing && !xquixRequireFunction('Play / pause video')) return;
+  playFrames();
+});
 syncPlayPauseUI();
 document.getElementById('tcRewindToStartBtn')?.addEventListener('click', ()=>loadFrame(0));
 document.getElementById('tcPrevFrameBtn')?.addEventListener('click', ()=>loadFrame(currentFrame-1));
@@ -12732,9 +12790,18 @@ document.getElementById('shotClockSecondsInput')?.addEventListener('change', e=>
   e.target.value=v;
   if(!MIZE.State.shotClock.running){ MIZE.State.shotClock.seconds = MIZE.State.shotClock.direction==='down' ? v : 0; updateShotClockDisplay(); }
 });
-document.getElementById('shotClockDirDown')?.addEventListener('change', ()=>{ MIZE.State.shotClock.direction='down'; if(!MIZE.State.shotClock.running) resetShotClock(); });
-document.getElementById('shotClockDirUp')?.addEventListener('change', ()=>{ MIZE.State.shotClock.direction='up'; if(!MIZE.State.shotClock.running) resetShotClock(); });
-document.getElementById('shotClockSyncPackage')?.addEventListener('change', e=>{ MIZE.State.shotClock.syncPackage=e.target.checked; });
+document.getElementById('shotClockDirDown')?.addEventListener('change', e=>{
+  if(!xquixRequireFunction('Count direction')){ e.target.checked=false; document.getElementById('shotClockDirUp').checked = (MIZE.State.shotClock.direction==='up'); return; }
+  MIZE.State.shotClock.direction='down'; if(!MIZE.State.shotClock.running) resetShotClock();
+});
+document.getElementById('shotClockDirUp')?.addEventListener('change', e=>{
+  if(!xquixRequireFunction('Count direction')){ e.target.checked=false; document.getElementById('shotClockDirDown').checked = (MIZE.State.shotClock.direction==='down'); return; }
+  MIZE.State.shotClock.direction='up'; if(!MIZE.State.shotClock.running) resetShotClock();
+});
+document.getElementById('shotClockSyncPackage')?.addEventListener('change', e=>{
+  if(!xquixRequireFunction('Sync with package')){ e.target.checked=MIZE.State.shotClock.syncPackage; return; }
+  MIZE.State.shotClock.syncPackage=e.target.checked;
+});
 function toggleShotClock(){ if(MIZE.State.shotClock.running) stopShotClock(); else startShotClock(); }
 document.querySelectorAll('.scPlayPause').forEach(btn=>btn.addEventListener('pointerdown', e=>{ e.stopPropagation(); e.preventDefault(); toggleShotClock(); }));
 document.querySelectorAll('.scReset').forEach(btn=>btn.addEventListener('pointerdown', e=>{ e.stopPropagation(); e.preventDefault(); resetShotClock(); }));
@@ -13786,8 +13853,12 @@ document.getElementById('fieldZoneBackBtn')?.addEventListener('click', showField
 document.getElementById('fieldZoneOkBtn')?.addEventListener('click', ()=>closeToolPanels());
 document.getElementById('fieldZonesToggleBtn')?.addEventListener('click', ()=>{
   const panel=document.getElementById('fieldZonesPanel');
-  if(panel.classList.contains('open')){ closeToolPanels(); return; }
-  if(MIZE.State.fieldZones.active !== 'none'){ selectFieldZoneSet('none'); return; }
+  if(panel.classList.contains('open')){ closeToolPanels(); return; } // closing is always safe, never gated
+  if(MIZE.State.fieldZones.active !== 'none'){ selectFieldZoneSet('none'); return; } // turning zones OFF is always safe, never gated
+  // Only the actual "turn on" path is gated -- covers both F03 (opening
+  // the panel) and F04 (the template selection shown inside it), since
+  // this single button/panel is the only way to reach either.
+  if(!xquixRequireFunction('Field Zones')) return;
   showFieldZoneListStage();
   openToolPanel('fieldZonesPanel');
 });
@@ -14091,6 +14162,7 @@ document.getElementById('playerSetupOkBtn')?.addEventListener('click', applyPlay
 document.getElementById('playerSetupsToggleBtn')?.addEventListener('click', ()=>{
   const panel = document.getElementById('playerSetupsPanel');
   if(panel.classList.contains('open')){ closeToolPanels(); return; }
+  if(!xquixRequireFunction('Player Setups')) return;
   showPlayerSetupListStage();
   openToolPanel('playerSetupsPanel');
   document.getElementById('playerSetupsToggleBtn')?.classList.add('active');
@@ -15331,6 +15403,12 @@ let currentSessionBlocks=[];
 let targetBlockId=null;
 
 function openPracticeStudio(){
+  // Gated once, here, rather than at each of the two buttons that call
+  // this -- the entire Practice Studio panel (all 14 PR-numbered
+  // functions) requires at least Team tier with no exceptions, so
+  // protecting this single entry point naturally covers everything
+  // inside it, the same pattern used for Branding Manager.
+  if(!xquixRequireFunction('Open / close Practice Studio')) return;
   document.getElementById('practiceStudioView').style.display='block';
   renderDrillLibrary();
   renderSessionBuilder();
@@ -15658,7 +15736,7 @@ function maybeAutoFace(el){
   }
 }
 MIZE.UI = MIZE.UI || {};
-MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange){
+MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange, gateFunctionName){
   const btn=document.getElementById(buttonId);
   function render(){
     if(!btn) return;
@@ -15668,6 +15746,11 @@ MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange){
     if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
   }
   function toggle(){
+    // Gate only applies when turning ON -- turning an active teaching
+    // tool back off should never be blocked, same principle used for
+    // every other reversible toggle gated so far (timeline re-docking,
+    // stopping playback).
+    if(gateFunctionName && !getFn() && !xquixRequireFunction(gateFunctionName)) return;
     setFn(!getFn());
     render();
     if(onChange) onChange(getFn());
@@ -15677,9 +15760,30 @@ MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange){
   return { toggle, render };
 };
 const _smartPositioningUI=MIZE.UI.ToggleButton('smartPositioningToggleBtn', 'Smart Positioning',
-  ()=>smartPositioningActive, v=>{ smartPositioningActive=v; });
+  ()=>smartPositioningActive, v=>{ smartPositioningActive=v; }, null, 'Smart Positioning');
 function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
-document.getElementById('applySmartPositioningBtn')?.addEventListener('click', applySmartPositioningToSelection);
+// Smart Positioning is uniquely on-by-default (smartPositioningActive
+// starts true, unlike every other teaching-tool toggle here, which all
+// start false) -- so gating only the toggle-button's click, as the
+// other four tools do, would never actually fire for a free user who
+// never touches the button: the feature is already active from page
+// load. This corrects that starting state once real entitlement data
+// is available, rather than relying solely on the click gate.
+if(typeof XQUIX!=='undefined' && XQUIX.Entitlements) XQUIX.Entitlements.onChange(()=>{
+  if(smartPositioningActive && !XQUIX.Entitlements.canFunction('Smart Positioning')){
+    smartPositioningActive = false;
+    _smartPositioningUI.render();
+  }
+});
+document.getElementById('applySmartPositioningBtn')?.addEventListener('click', ()=>{
+  // Independently reachable regardless of the smartPositioningToggleBtn
+  // state -- applySmartPositioningToSelection() never checks
+  // smartPositioningActive at all, so gating the toggle alone wouldn't
+  // protect this button. Covers the attacking and mixed-defense
+  // multi-player behavior in one command (P36-P38).
+  if(!xquixRequireFunction('Smart Positioning')) return;
+  applySmartPositioningToSelection();
+});
 function autoFaceGoalForPlayer(el){
   if(!el || isAnyBall(el) || el.dataset.team==='goalie') return;
   recordHistory('Auto-Face Goal: '+displayName(el));
@@ -15817,7 +15921,7 @@ function updateShotBlockDiagnostic(){
 }
 const _shotBlockUI=MIZE.UI.ToggleButton('shotBlockToggleBtn', 'Shot Block Corridors',
   ()=>shotBlockActive, v=>{ shotBlockActive=v; },
-  ()=>{ renderShotBlockCorridors(); renderGoalieVision(); });
+  ()=>{ renderShotBlockCorridors(); renderGoalieVision(); }, 'Shot Blocking');
 function toggleShotBlock(){ _shotBlockUI.toggle(); }
 
 // ===== Goalie Vision Field =====
@@ -15946,11 +16050,11 @@ document.addEventListener('pointerup', ()=>{
 });
 const _goalieVisionUI=MIZE.UI.ToggleButton('goalieVisionToggleBtn', 'Goalie Vision Field',
   ()=>goalieVisionActive, v=>{ goalieVisionActive=v; },
-  ()=>{ renderGoalieVision(); });
+  ()=>{ renderGoalieVision(); }, 'Goalkeeper Vision');
 function toggleGoalieVision(){ _goalieVisionUI.toggle(); }
 const _shootingAngleUI=MIZE.UI.ToggleButton('shootingAngleToggleBtn', 'Shooting Angle',
   ()=>shootingAngleActive, v=>{ shootingAngleActive=v; },
-  ()=>{ renderShootingAngle(); });
+  ()=>{ renderShootingAngle(); }, 'Shooting Angle');
 function toggleShootingAngle(){ _shootingAngleUI.toggle(); }
 
 // ===== Smart Goalie Positioning =====
@@ -16048,6 +16152,7 @@ document.getElementById('smartGoaliePositioningToggleBtn')?.addEventListener('cl
     closeToolPanels();
     return;
   }
+  if(!xquixRequireFunction('Smart Goalie Positioning')) return; // only gates turning ON, matching the OFF-branch's unconditional early return above
   smartGoaliePositioningActive = true;
   updateSmartGoaliePositioningButton();
   const di = document.getElementById('smartGoalieDistanceInput'); if(di) di.value = smartGoalieDistanceToGoal;
@@ -18396,8 +18501,18 @@ function closeToolPanels(){
   renderQuickCommandBar();
   syncPresentationPanelBackdrop(); // re-open the backdrop if the Timeline panel (or header/sidebar) is still shown
 }
+// A small, extensible lookup rather than a special-cased if-check --
+// the vast majority of .toolListBtn panels (Saved Formations, Version
+// History, Inspector, etc.) stay completely ungated by default; only
+// panels explicitly listed here require a gate before opening. Adding
+// a future gated panel means adding one entry, not touching this loop.
+const GATED_TOOL_PANELS = { 'teamManagerPanel': 'Team Manager' };
 document.querySelectorAll('.toolListBtn').forEach(btn=>{
-  btn.addEventListener('click', ()=>openToolPanel(btn.dataset.panel));
+  btn.addEventListener('click', ()=>{
+    const gateFunctionName = GATED_TOOL_PANELS[btn.dataset.panel];
+    if(gateFunctionName && !xquixRequireFunction(gateFunctionName)) return;
+    openToolPanel(btn.dataset.panel);
+  });
 });
 document.querySelectorAll('.closeToolPanelBtn').forEach(btn=>{
   btn.addEventListener('click', ()=>closeToolPanels());
