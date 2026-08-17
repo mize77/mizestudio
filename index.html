@@ -19057,6 +19057,14 @@ function tree() {
 function treeFor(ev) {
   return (ev.context && ev.context.tree === 'gk') ? GOALKEEPER_ACTIONS : FIELD_PLAYER_ACTIONS;
 }
+// Coach+team is the only mode with a real squad -- everything else
+// (parent's own modes, and now coach+field/coach+goalkeeper too) means
+// "track one specific player." Introduced when fixing the setup UI's
+// backwards mapping (field player used to mean squad tracking, team used
+// to mean nothing at all); this is the single shared definition every
+// check below uses, rather than each one re-deriving it slightly
+// differently and risking drift.
+function singlePlayerMode() { return !(S.trackingMode === 'coach' && S.playerRole === 'team'); }
 /* Coach mode: whoever of the designated keepers is currently in the water. */
 function currentKeeper() {
   for (var i = 0; i < S.water.length; i++) if (S.keepers.indexOf(S.water[i]) >= 0) return S.water[i];
@@ -19348,7 +19356,11 @@ function scoreOf() {
   return [h, a];
 }
 function inWater(num) {
-  if (S.trackingMode === 'coach') return S.water.indexOf(num) >= 0;
+  // S.water is only a real, maintained array in team mode -- everywhere
+  // else (single-player focus, including coach+field/goalkeeper now)
+  // presence is tracked by scanning individual in/out events instead,
+  // same as parent mode always did.
+  if (S.trackingMode === 'coach' && S.playerRole === 'team') return S.water.indexOf(num) >= 0;
   var v = false;
   S.events.forEach(function (e) { if (e.context.kind === 'presence' && e.actor.number === num) v = e.context.dir === 'in'; });
   return v;
@@ -19696,7 +19708,6 @@ function buildChrome() {
       '<button id="xgtZoneBtn">Zones</button>' +
       '<button id="xgtFieldViewBtn">Field View</button>' +
       '<button id="xgtEditZoneNumBtn">Edit Numbers</button>' +
-      '<button id="xgtShootoutBtn">Shootout</button>' +
       '<div class="sp"></div>' +
       '<button id="xgtStatsBtn">Stats</button>' +
       '<button id="xgtSessionsBtn">Sessions</button>' +
@@ -19735,7 +19746,6 @@ function buildChrome() {
 
   el('xgtQ').onclick = openClock;
   el('xgtTimeBtn').onclick = openClock;
-  el('xgtShootoutBtn').onclick = openShootout;
   el('xgtT').onclick = toggleClock;
   el('xgtZoneBtn').onclick = function () {
     S.zonesVisible = !S.zonesVisible;
@@ -20001,16 +20011,27 @@ function openZone(zoneId, board) {
       nx: +((board.x - 2) / 25).toFixed(4), ny: +((board.y - 2) / 20).toFixed(4),
       space: 'MIZE.Field', zoneSet: 'offense+outer'
     },
-    actor: S.trackingMode === 'parent'
+    // Field-player/goalkeeper (coach or parent) now both mean "track one
+    // specific player" -- the tracked player IS the actor for every event,
+    // same as parent mode always worked. Only "team" mode has a real squad
+    // to ask "who did this" about. This used to only check
+    // trackingMode==='parent', which was correct back when coach+field
+    // meant squad tracking -- now that coach+field is single-player too,
+    // singlePlayerMode() is what keeps this correct for both cases
+    // without duplicating the actor-setup logic.
+    actor: singlePlayerMode()
       ? { side: S.playerRole === 'goalkeeper' ? 'opp' : 'us', number: S.me.number }
       : null,
-    useGkTree: S.trackingMode === 'parent' && S.playerRole === 'goalkeeper',
-    goalkeeper: (S.trackingMode === 'parent' && S.playerRole === 'goalkeeper') ? S.me.number : null,
-    targetGoal: (S.trackingMode === 'parent' && S.playerRole === 'goalkeeper') ? 'own' : 'opponent',
+    useGkTree: singlePlayerMode() && S.playerRole === 'goalkeeper',
+    goalkeeper: (singlePlayerMode() && S.playerRole === 'goalkeeper') ? S.me.number : null,
+    targetGoal: (singlePlayerMode() && S.playerRole === 'goalkeeper') ? 'own' : 'opponent',
     action: null, outcome: null, dc: 'drawn', goalPlacement: null
   };
   openSheet();
-  if (S.trackingMode === 'coach' && S.playerRole !== 'goalkeeper') stepPlayer(); else stepAction();
+  // Only "team" mode has a real squad to pick from now -- field-player/
+  // goalkeeper (coach or parent) track one specific player, so there's no
+  // "who did this" choice to make; the tracked player IS the actor.
+  if (S.trackingMode === 'coach' && S.playerRole === 'team') stepPlayer(); else stepAction();
 }
 
 function stepPlayer() {
@@ -20040,12 +20061,21 @@ function stepPlayer() {
 
 function stepAction() {
   var gk = S.playerRole === 'goalkeeper', t = tree();
-  var back = (S.trackingMode === 'coach' && !gk) ? stepPlayer : null;
+  // Back only makes sense if stepPlayer() is actually where we came from
+  // -- true only in team mode now (was "any coach mode" back when
+  // coach+field meant squad tracking too).
+  var back = (S.trackingMode === 'coach' && S.playerRole === 'team') ? stepPlayer : null;
   var crumb = gk ? ('Opponent action from here — #' + S.me.number + ' in goal')
     : ((S.draft.actor.side === 'opp' ? 'Opponent'
       : (S.trackingMode === 'parent' ? '#' + S.me.number + (S.me.name ? ' ' + S.me.name : '') : '#' + S.draft.actor.number)) + ' — what happened?');
   var attr = '';
-  if (S.trackingMode === 'parent' && !gk) {
+  // Same Mine/Team-mate/Opponent attribution parent mode always had --
+  // now also offered for coach+field/goalkeeper, since those are the
+  // same "single tracked player, but the rest of the game still
+  // happens" situation parent mode already handles this way. "Team-mate"
+  // is just a generic marker (no squad lookup involved), so this
+  // extends safely to a coach with no roster entered at all.
+  if (singlePlayerMode() && !gk) {
     attr = '<div class="xgtSeg" id="xgtAttr">' +
       '<button data-a="us" aria-pressed="' + (S.draft.actor.side === 'us') + '">#' + S.me.number + ' mine</button>' +
       '<button data-a="team" aria-pressed="' + (S.draft.actor.side === 'team') + '">Team-mate</button>' +
@@ -20242,7 +20272,13 @@ function openClock() {
       '<span class="xgtLbl">Quarter</span><div class="xgtChips" style="margin-bottom:14px">' +
       [1, 2, 3, 4].map(function (n) {
         return '<button class="xgtChip" data-q="' + n + '" aria-pressed="' + (S.q === n) + '" style="flex:1">Q' + n + '</button>';
-      }).join('') + '</div>' +
+      }).join('') +
+      // Shootout lives here, right after Q4, rather than as a separate
+      // persistent button elsewhere -- "what period is it" (including
+      // "we've moved past regulation into the shootout") is exactly the
+      // same kind of decision as picking a quarter, so it belongs where
+      // a coach would naturally look for it.
+      '<button class="xgtChip" id="xgtSoChip" aria-pressed="' + (shootoutAttempts().length > 0) + '" style="flex:1">SO</button></div>' +
       '<span class="xgtLbl">Clock remaining</span><div class="xgtTdisp" id="xgtTd">' + fmt(S.clock) + '</div>' +
       '<div class="xgtTgrid">' +
         '<button class="xgtStep" data-d="60">+1:00</button><button class="xgtStep" data-d="10">+0:10</button>' +
@@ -20256,6 +20292,15 @@ function openClock() {
     Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-q]'), function (b) {
       b.onclick = function () { S.q = +b.dataset.q; draw(); };
     });
+    el('xgtSoChip').onclick = function () {
+      // A genuinely different transition than picking a quarter -- closes
+      // this sheet and opens the shootout panel directly, rather than
+      // treating "SO" as a numeric quarter value. Deliberately does NOT
+      // resume the main clock even if it was running before this sheet
+      // opened: entering the shootout means regulation is over.
+      closeSheet();
+      openShootout();
+    };
     Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-d]'), function (b) {
       b.onclick = function () {
         S.clock = Math.max(0, Math.min(99 * 60, S.clock + (+b.dataset.d)));
@@ -20398,7 +20443,7 @@ function xgtLiveTally(side, num) {
 }
 function renderBar() {
   var bar = el('xgtBar'), gk = S.playerRole === 'goalkeeper';
-  if (S.trackingMode === 'parent') {
+  if (singlePlayerMode()) {
     var iw = inWater(S.me.number);
     bar.innerHTML =
       '<div class="xgtRow" style="margin-bottom:7px"><div class="xgtWho"><span class="num">#' + S.me.number + '</span>' +
@@ -20628,7 +20673,7 @@ function openStats() {
   var box = el('xgtStats');
   var gk = S.playerRole === 'goalkeeper', sc = scoreOf();
   var evs = actionEvents().filter(function (e) {
-    return S.trackingMode === 'parent' ? (gk ? true : e.actor.side === 'us') : true;
+    return singlePlayerMode() ? (gk ? true : e.actor.side === 'us') : true;
   });
   var gkEvents = actionEvents().filter(function (e) { return e.context.tree === 'gk'; });
   var showGk = gk || (S.trackingMode === 'coach' && gkEvents.length > 0);
@@ -20802,7 +20847,7 @@ function openSetup() {
     var notes = {
       field: 'Tap the zone where your player acted → what happened → outcome.',
       goalkeeper: 'Tap the zone the OPPONENT shot from → what happened → outcome. Your keeper stays the tracked player.',
-      team: 'Available architecturally; not the focus of this phase.'
+      team: 'Tap the zone → pick which squad player acted → what happened → outcome. Tracks the whole team\u2019s game, not just one player.'
     };
     sheetEl().innerHTML = head('Game Tracker <span style="font-size:10px;background:#ffcc00;color:#14235c;padding:2px 6px;border-radius:5px;vertical-align:middle">BETA</span>',
         'Records what happened, so Studio can ask why', null) +
@@ -20821,13 +20866,16 @@ function openSetup() {
       '<input class="xgtField" id="xgtLoc" placeholder="Location" value="' + (S.game.loc || '') + '"></div>' +
       '<div class="xgtRow"><input class="xgtField" id="xgtHome" placeholder="My team" value="' + (S.game.home || '') + '">' +
       '<input class="xgtField" id="xgtAway" placeholder="Opponent" value="' + (S.game.away || '') + '"></div>' +
-      (team ? '' :
-        ((S.trackingMode === 'parent' || gk)
-        ? '<span class="xgtLbl">' + (gk ? 'My goalkeeper' : 'My player') + '</span>' +
-          '<div class="xgtRow"><input class="xgtField" id="xgtNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
-          'placeholder="#" style="flex:0 0 90px;text-align:center;font-size:19px;font-weight:700" value="' + (S.me.number || '') + '">' +
-          '<input class="xgtField" id="xgtName" placeholder="Name (optional)" value="' + (S.me.name || '') + '"></div>'
-        : '<span class="xgtLbl">Squad — tap every number dressed today</span><div class="xgtChips" id="xgtSquad">' +
+      (
+        // "Team" (under Coach) now means what it says: full squad, water,
+        // goalies, opponent tracking. Field Player / Goalkeeper (under
+        // either Coach or Parent) mean tracking one specific player's
+        // individual game -- previously it was backwards (Field Player
+        // showed the full squad, Team showed nothing at all and was
+        // completely unusable if ever selected), which is exactly the
+        // confusion this was rebuilt to fix.
+        (S.trackingMode === 'coach' && team)
+        ? '<span class="xgtLbl">Squad — tap every number dressed today</span><div class="xgtChips" id="xgtSquad">' +
           Array.apply(null, { length: 20 }).map(function (_, i) {
             return '<button class="xgtChip" data-n="' + (i + 1) + '" aria-pressed="' + (S.squad.indexOf(i + 1) >= 0) + '">' + (i + 1) + '</button>';
           }).join('') + '</div>' +
@@ -20858,7 +20906,12 @@ function openSetup() {
             (S.oppSquad.length ? S.oppSquad.map(function (n) {
               return '<button class="xgtChip" data-opp-k="' + n + '" aria-pressed="' + (S.oppKeepers.indexOf(n) >= 0) + '">' + n + '</button>';
             }).join('') : '<span class="xgtNote">Pick their squad first.</span>') + '</div>'
-            : ''))) +
+            : '')
+        : '<span class="xgtLbl">' + (gk ? 'My goalkeeper' : 'My player') + '</span>' +
+          '<div class="xgtRow"><input class="xgtField" id="xgtNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
+          'placeholder="#" style="flex:0 0 90px;text-align:center;font-size:19px;font-weight:700" value="' + (S.me.number || '') + '">' +
+          '<input class="xgtField" id="xgtName" placeholder="Name (optional)" value="' + (S.me.name || '') + '"></div>'
+      ) +
       '<div class="xgtErr" id="xgtSetupErr"></div>' +
       '<button class="xgtBtn pri" id="xgtGo" style="margin-top:10px">Start tracking</button>' +
       '<p class="xgtNote">Front Court view switches on automatically.</p>';
@@ -20938,7 +20991,12 @@ function openSetup() {
   function err(m) { var e = el('xgtSetupErr'); e.textContent = m; e.classList.add('on'); }
   function go() {
     grab();
-    var needsPlayer = (S.trackingMode === 'parent' || S.playerRole === 'goalkeeper') && S.playerRole !== 'team';
+    // Matches openZone()'s singlePlayerMode: every combination except
+    // coach+team needs a single tracked player's cap number entered.
+    // This used to only require it for parent mode or coach+goalkeeper --
+    // silently correct back when coach+field meant squad tracking, but
+    // would have left coach+field's new single-player entry unvalidated.
+    var needsPlayer = !(S.trackingMode === 'coach' && S.playerRole === 'team');
     if (needsPlayer && !S.me.number) { err('Enter the cap number first — the box marked #.'); return; }
     if (!S.cloudSessionName) {
       var oppName = (S.game.away || '').trim();
@@ -20946,7 +21004,7 @@ function openSetup() {
       var timeStr = new Date().toTimeString().slice(0, 8); // HH:MM:SS -- genuinely useful (distinguishes a double-header), and guards against same-day-same-opponent sessions colliding on the upsert-by-name key; minute-level granularity alone proved insufficient in testing (two sessions started in the same minute collided)
       S.cloudSessionName = (oppName ? ('vs ' + oppName) : 'Untitled session') + ' \u00b7 ' + dateStr + ' \u00b7 ' + timeStr;
     }
-    if (S.trackingMode === 'coach' && S.playerRole !== 'goalkeeper') {
+    if (S.trackingMode === 'coach' && S.playerRole === 'team') {
       if (S.squad.length < 7) { err('Tap at least 7 squad numbers (you have ' + S.squad.length + ').'); return; }
       if (S.opponentTracked && S.oppSquad.length < 7) { err('Tap at least 7 numbers for the opposing squad too (you have ' + S.oppSquad.length + ').'); return; }
       S.water = S.squad.slice(0, 7);
@@ -21027,7 +21085,11 @@ function xgtStatsBodyParts(evs, playerRole, trackingMode) {
   // renders the saved-session and combined-session views.
   var actionEvs = evs.filter(function (e) { return e.context && e.context.kind === 'action' && !e.context.shootout; });
   var filteredEvs = actionEvs.filter(function (e) {
-    return trackingMode === 'parent' ? (gk ? true : e.actor.side === 'us') : true;
+    // Same singlePlayerMode() logic as the live path, inlined against the
+    // passed-in parameters since this also has to work on saved-session
+    // data where the live S object isn't the source of truth.
+    var singlePlayer = !(trackingMode === 'coach' && playerRole === 'team');
+    return singlePlayer ? (gk ? true : e.actor.side === 'us') : true;
   });
   var gkEvents = actionEvs.filter(function (e) { return e.context.tree === 'gk'; });
   var showGk = gk || (trackingMode === 'coach' && gkEvents.length > 0);
