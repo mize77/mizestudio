@@ -20202,6 +20202,7 @@ function stepOutcome() {
       var c = null, j;
       for (j = 0; j < a.children.length; j++) if (a.children[j].id === b.dataset.s) c = a.children[j];
       S.draft.outcome = c.id; S.draft.outcomeLabel = c.label;
+      S.draft.scores = c.scores || null; // captured here since c (the matched tree node) isn't available later at finish() -- this is the source of truth for "did this represent OUR team scoring" (field-player shot->goal has scores:'us'; goalkeeper shot->goal has scores:'opp', since that's the OPPONENT scoring on our tracked keeper)
       if (!a.dc) S.draft.dc = null;
       if (c.placement) stepPlacement(c); else finish();
     };
@@ -20273,6 +20274,21 @@ function stepPlacement(c) {
 }
 function finish() {
   var d = S.draft;
+  // Paid-tier only, and only for our own team actually scoring -- not the
+  // opponent scoring against our tracked goalkeeper (d.scores==='opp' in
+  // that case, captured in stepOutcome() since that's the only place the
+  // matched tree node with .scores is available). The guard flag prevents
+  // stepAssist()'s own buttons -- which call finish() again once an
+  // assist is picked or skipped -- from re-triggering this same prompt.
+  if (d.outcome === 'goal' && d.scores === 'us' && xgtHasAdvancedActions() && !d.assistStepShown) {
+    d.assistStepShown = true;
+    stepAssist();
+    return;
+  }
+  commitDraft();
+}
+function commitDraft() {
+  var d = S.draft;
   closeSheet();
   commit({
     actor: d.actor, fieldZone: d.fieldZone, fieldZoneName: d.fieldZoneName,
@@ -20281,11 +20297,46 @@ function finish() {
     variant: d.variant || null, variantLabel: d.variantLabel || null,
     outcome: d.outcome, outcomeLabel: d.outcomeLabel,
     goalkeeper: d.goalkeeper || null, targetGoal: d.targetGoal || null,
-    goalPlacement: d.goalPlacement,
+    goalPlacement: d.goalPlacement, assist: d.assist != null ? d.assist : null,
     context: { kind: 'action', trackingMode: S.trackingMode, dc: d.dc || null,
                tree: d.useGkTree ? 'gk' : 'field', note: null }
   });
   if (navigator.vibrate) navigator.vibrate([6, 28, 6]);
+}
+// Team mode (a real, known roster) gets a chip-picker matching this
+// module's established visual language elsewhere; single-player modes
+// (no roster to pick from at all) get a plain manual number entry, same
+// pattern as the shootout panel's shooter-number field. Uses S.water
+// rather than S.squad for the chip list -- an assist can only plausibly
+// have come from someone who was actually in the water at the time.
+function stepAssist() {
+  var d = S.draft;
+  var isTeamMode = S.trackingMode === 'coach' && S.playerRole === 'team';
+  var scorerNum = d.actor && d.actor.number;
+  sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Goal! Who assisted?', null) +
+    (isTeamMode
+      ? '<div class="xgtChips" id="xgtAssistChips">' +
+        S.water.filter(function (n) { return n !== scorerNum; }).map(function (n) {
+          return '<button class="xgtChip" data-assist="' + n + '">' + xgtKeeperLabel(n) + '</button>';
+        }).join('') + '</div>'
+      : '<span class="xgtLbl">Assist\u2019s cap number</span>' +
+        '<div class="xgtRow"><input class="xgtField" id="xgtAssistNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
+        'placeholder="#" style="flex:0 0 90px;text-align:center;font-size:19px;font-weight:700"></div>' +
+        '<button class="xgtBtn pri" id="xgtAssistOk" style="margin-top:8px">Confirm</button>') +
+    '<button class="xgtBtn" id="xgtAssistSkip" style="margin-top:10px">No assist / skip</button>';
+  el('xgtX').onclick = function () { closeSheet(); };
+  if (isTeamMode) {
+    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-assist]'), function (b) {
+      b.onclick = function () { d.assist = +b.dataset.assist; finish(); };
+    });
+  } else {
+    el('xgtAssistOk').onclick = function () {
+      var n = parseInt((el('xgtAssistNum').value || ''), 10);
+      d.assist = n || null;
+      finish();
+    };
+  }
+  el('xgtAssistSkip').onclick = function () { d.assist = null; finish(); };
 }
 
 /* ===================================================================== clock */
@@ -20577,7 +20628,8 @@ function fieldPlayerStats(evs) {
     exDrawn: evs.filter(function (e) { return e.action === 'exclusion' && e.context.dc === 'drawn'; }).length,
     exGiven: evs.filter(function (e) { return e.action === 'exclusion' && e.context.dc === 'committed'; }).length,
     turnovers: evs.filter(function (e) { return e.action === 'turnover'; }).length,
-    steals: evs.filter(function (e) { return e.action === 'steal'; }).length };
+    steals: evs.filter(function (e) { return e.action === 'steal'; }).length,
+    assists: evs.filter(function (e) { return e.assist != null; }).length };
 }
 function goalkeeperStats(evs) {
   var shots = evs.filter(function (e) { return e.action === 'shot'; });
@@ -20736,7 +20788,7 @@ function openStats() {
     var f = fieldPlayerStats(evs);
     tiles = [[f.goals, 'GOALS'], [f.shots, 'SHOTS'], [f.pct + '%', 'SHOOTING'],
              [f.steals, 'STEALS'], [f.turnovers, 'TURNOVERS'], [f.blocked, 'BLOCKED'],
-             [f.exDrawn, 'EXCL. DRAWN'], [f.exGiven, 'EXCL. GIVEN'],
+             [f.exDrawn, 'EXCL. DRAWN'], [f.exGiven, 'EXCL. GIVEN'], [f.assists, 'ASSISTS'],
              [S.me.number != null ? fmt(waterSeconds(S.me.number)) : '—', 'IN WATER']];
     if (showGk) {
       // Coach mode: every opponent action was logged against our own keeper,
@@ -20822,14 +20874,14 @@ function openStats() {
   el('xgtCsv').onclick = function () {
     var rows = [['eventId', 'quarter', 'clock', 'kind', 'role', 'side', 'number', 'zone', 'zoneName',
                  'fieldX_m', 'fieldY_m', 'action', 'shotType', 'outcome', 'drawnCommitted',
-                 'goalPlacement', 'goalkeeper', 'targetGoal', 'timestamp']];
+                 'goalPlacement', 'assist', 'goalkeeper', 'targetGoal', 'timestamp']];
     S.events.forEach(function (e) {
       var fc = e.fieldCoordinates || {};
       rows.push([e.eventId, e.quarter, fmt(e.gameClock), e.context.kind, e.playerRole,
         e.actor ? e.actor.side : '', e.actor && e.actor.number != null ? e.actor.number : '',
         e.fieldZone || '', e.fieldZoneName || '', fc.fx == null ? '' : fc.fx, fc.fy == null ? '' : fc.fy,
         e.actionLabel || e.context.dir || '', e.variantLabel || '', e.outcomeLabel || '', e.context.dc || '',
-        e.goalPlacement ? e.goalPlacement.label : '', e.goalkeeper == null ? '' : e.goalkeeper,
+        e.goalPlacement ? e.goalPlacement.label : '', e.assist == null ? '' : e.assist, e.goalkeeper == null ? '' : e.goalkeeper,
         e.targetGoal || '', e.timestamp]);
     });
     download(fileName() + '.csv', 'text/csv', rows.map(function (r) {
@@ -21164,7 +21216,7 @@ function xgtStatsBodyParts(evs, playerRole, trackingMode) {
     var f = fieldPlayerStats(filteredEvs);
     tiles = [[f.goals, 'GOALS'], [f.shots, 'SHOTS'], [f.pct + '%', 'SHOOTING'],
              [f.steals, 'STEALS'], [f.turnovers, 'TURNOVERS'], [f.blocked, 'BLOCKED'],
-             [f.exDrawn, 'EXCL. DRAWN'], [f.exGiven, 'EXCL. GIVEN']];
+             [f.exDrawn, 'EXCL. DRAWN'], [f.exGiven, 'EXCL. GIVEN'], [f.assists, 'ASSISTS']];
     if (showGk) {
       var kg = goalkeeperStats(gkEvents);
       var keeperNo = null;
