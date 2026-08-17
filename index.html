@@ -17036,6 +17036,14 @@ function renderLibSessionCombineBar(assets){
     // rasterize only exist here, in the DOM this module just rendered --
     // found and passed in by ID/class rather than the export method
     // reaching across module boundaries to find them itself.
+    const combinedCsvBtn = document.getElementById('xgtSessionCsvBtn');
+    if(combinedCsvBtn) combinedCsvBtn.onclick = ()=>{
+      if(window.XquiXGameTracker && typeof window.XquiXGameTracker.exportSessionCsv==='function'){
+        let merged = [];
+        valid.forEach(r => { merged = merged.concat(r.events||[]); });
+        window.XquiXGameTracker.exportSessionCsv(merged, 'xquix-combined-stats-'+valid.length+'-sessions');
+      }
+    };
     const exportBtn = document.getElementById('xgtExportPdfBtn');
     if(exportBtn){
       exportBtn.onclick = async ()=>{
@@ -18378,6 +18386,33 @@ async function openLibraryAssetDetail(assetId){
     body.innerHTML = (window.XquiXGameTracker && typeof window.XquiXGameTracker.renderSessionStatsHtml === 'function')
       ? window.XquiXGameTracker.renderSessionStatsHtml(asset)
       : '<p class="libEmptyState">Session stats aren\u2019t available right now.</p>';
+    // Storage itself already gates whether a free user could ever have a
+    // saved session to reach this screen for in the first place, so CSV
+    // needs no separate check here -- but PDF still gets its own
+    // explicit gate, matching the combined view's identical pattern
+    // below, for consistency rather than relying on that transitively.
+    const csvBtn = document.getElementById('xgtSessionCsvBtn');
+    if(csvBtn) csvBtn.onclick = ()=>{
+      if(window.XquiXGameTracker && typeof window.XquiXGameTracker.exportSessionCsv==='function'){
+        window.XquiXGameTracker.exportSessionCsv(asset.events||[], 'xquix-session-'+(asset.id||'stats'));
+      }
+    };
+    const pdfBtn = document.getElementById('xgtSessionPdfBtn');
+    if(pdfBtn) pdfBtn.onclick = async ()=>{
+      if(!xquixRequireFunction('Session PDF Export')) return;
+      const origLabel = pdfBtn.textContent;
+      pdfBtn.disabled = true; pdfBtn.textContent = 'Exporting\u2026';
+      try {
+        const heatSvg = body.querySelector('svg.xgtHeat');
+        const goalSvg = body.querySelector('svg.xgtGoal');
+        await window.XquiXGameTracker.exportSingleSessionPdf(asset, { heatSvg, goalSvg });
+      } catch(err) {
+        if(typeof MizeDialog!=='undefined') await MizeDialog.alert(err.message || 'Something went wrong exporting the PDF.', 'Export Failed');
+        else console.error('PDF export failed:', err);
+      } finally {
+        pdfBtn.disabled = false; pdfBtn.textContent = origLabel;
+      }
+    };
     return;
   }
   const tagsValue = (asset.tags||[]).join(', ');
@@ -19498,8 +19533,22 @@ function save() {
 // popping up mid-game over a transient network blip would be exactly the
 // interruption the design was meant to avoid), just a console note for
 // debugging, since the underlying system is already queuing a retry.
+// Also gated on plan tier, not just sign-in -- storage was previously
+// available to any signed-in user regardless of plan, which was a real
+// gap: it's meant to be a paid feature. Uses its own gate ("Session
+// Cloud Storage"), separate from Multi-Session Stats/Session PDF Export/
+// Advanced Tracking Actions -- storage is the foundational capability
+// that makes those others possible in the first place (nothing to view
+// or export later if nothing gets saved), distinct enough from any of
+// them individually to warrant its own row rather than piggybacking on
+// one of the existing gates.
+function xgtHasCloudStorage() {
+  return typeof XQUIX === 'undefined' || !XQUIX.Entitlements || typeof XQUIX.Entitlements.canFunction !== 'function'
+    || XQUIX.Entitlements.canFunction('Session Cloud Storage');
+}
 function syncSessionToCloud() {
   if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Storage || typeof XQUIX.Storage.save !== 'function' || !XQUIX.Auth.getCurrentUser()) return;
+  if (!xgtHasCloudStorage()) return;
   if (!S.cloudSessionName) return;
   try {
     var sc = scoreOf();
@@ -19836,6 +19885,10 @@ function buildChrome() {
   el('xgtSessionsBtn').onclick = function () {
     if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Auth.getCurrentUser()) {
       toast('Sign in to save and browse sessions across games — today\u2019s game still tracks and exports locally either way.');
+      return;
+    }
+    if (!xgtHasCloudStorage()) {
+      toast('Session storage is a paid feature — upgrade to save and revisit games across your season. Today\u2019s game still tracks and exports locally either way.');
       return;
     }
     if (typeof openCoachingLibrary !== 'function' || typeof renderLibraryContent !== 'function') return;
@@ -20872,21 +20925,7 @@ function openStats() {
     }, null, 2));
   };
   el('xgtCsv').onclick = function () {
-    var rows = [['eventId', 'quarter', 'clock', 'kind', 'role', 'side', 'number', 'zone', 'zoneName',
-                 'fieldX_m', 'fieldY_m', 'action', 'shotType', 'outcome', 'drawnCommitted',
-                 'goalPlacement', 'assist', 'goalkeeper', 'targetGoal', 'timestamp']];
-    S.events.forEach(function (e) {
-      var fc = e.fieldCoordinates || {};
-      rows.push([e.eventId, e.quarter, fmt(e.gameClock), e.context.kind, e.playerRole,
-        e.actor ? e.actor.side : '', e.actor && e.actor.number != null ? e.actor.number : '',
-        e.fieldZone || '', e.fieldZoneName || '', fc.fx == null ? '' : fc.fx, fc.fy == null ? '' : fc.fy,
-        e.actionLabel || e.context.dir || '', e.variantLabel || '', e.outcomeLabel || '', e.context.dc || '',
-        e.goalPlacement ? e.goalPlacement.label : '', e.assist == null ? '' : e.assist, e.goalkeeper == null ? '' : e.goalkeeper,
-        e.targetGoal || '', e.timestamp]);
-    });
-    download(fileName() + '.csv', 'text/csv', rows.map(function (r) {
-      return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
-    }).join('\n'));
+    download(fileName() + '.csv', 'text/csv', xgtEventsToCsvString(S.events));
   };
   el('xgtNew').onclick = function () {
     if (!window.confirm('Clear this game and start a new one?')) return;
@@ -21306,6 +21345,91 @@ function xgtSvgToPngDataUri(svgEl) {
     } catch (err) { reject(err); }
   });
 }
+// Shared by exportCombinedStatsPdf and exportSingleSessionPdf below --
+// both need identical jsPDF document-building mechanics (title, stats-
+// as-text, rasterized heat/goal images, page-overflow handling),
+// differing only in what header/session-list content sits above the
+// shared stats body. Extracted here rather than duplicated, matching the
+// same reasoning renderSessionStatsHtml/renderCombinedSessionStatsHtml
+// already established for xgtStatsBodyParts() -- Promise.all preserves
+// input-array order regardless of completion timing, so heatImg/goalImg
+// can be read straight off fixed result indices without the kind-
+// tagging the original single-purpose version used.
+// Shared by the live CSV export button (S.events) and the new saved/
+// combined-session CSV export below (a saved or merged events array) --
+// identical column structure and quoting either way, extracted here
+// rather than duplicated for the same reason xgtStatsBodyParts()/
+// xgtBuildStatsPdf() already were.
+function xgtEventsToCsvString(events) {
+  var rows = [['eventId', 'quarter', 'clock', 'kind', 'role', 'side', 'number', 'zone', 'zoneName',
+               'fieldX_m', 'fieldY_m', 'action', 'shotType', 'outcome', 'drawnCommitted',
+               'goalPlacement', 'assist', 'goalkeeper', 'targetGoal', 'timestamp']];
+  (events || []).forEach(function (e) {
+    var fc = e.fieldCoordinates || {};
+    rows.push([e.eventId, e.quarter, fmt(e.gameClock), e.context.kind, e.playerRole,
+      e.actor ? e.actor.side : '', e.actor && e.actor.number != null ? e.actor.number : '',
+      e.fieldZone || '', e.fieldZoneName || '', fc.fx == null ? '' : fc.fx, fc.fy == null ? '' : fc.fy,
+      e.actionLabel || e.context.dir || '', e.variantLabel || '', e.outcomeLabel || '', e.context.dc || '',
+      e.goalPlacement ? e.goalPlacement.label : '', e.assist == null ? '' : e.assist, e.goalkeeper == null ? '' : e.goalkeeper,
+      e.targetGoal || '', e.timestamp]);
+  });
+  return rows.map(function (r) {
+    return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+  }).join('\n');
+}
+function xgtBuildStatsPdf(jsPDFCtor, opts) {
+  var viz = opts.vizElements || {};
+  return Promise.all([
+    viz.heatSvg ? xgtSvgToPngDataUri(viz.heatSvg).catch(function () { return null; }) : Promise.resolve(null),
+    viz.goalSvg ? xgtSvgToPngDataUri(viz.goalSvg).catch(function () { return null; }) : Promise.resolve(null)
+  ]).then(function (results) {
+    var heatImg = results[0], goalImg = results[1];
+    var doc = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'a4' });
+    var pageW = doc.internal.pageSize.getWidth();
+    var pageH = doc.internal.pageSize.getHeight();
+    var margin = 40, y = margin;
+    function ensureSpace(needed) { if (y + needed > pageH - margin) { doc.addPage(); y = margin; } }
+    function addTitle(text) { ensureSpace(24); doc.setFontSize(16); doc.setFont(undefined, 'bold'); doc.text(text, margin, y); y += 20; doc.setFont(undefined, 'normal'); }
+    function addSubheading(text) { ensureSpace(18); doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.text(text, margin, y); y += 16; doc.setFont(undefined, 'normal'); }
+    function addLine(text) { ensureSpace(14); doc.setFontSize(10); doc.text(text, margin, y); y += 14; }
+
+    addTitle(opts.title);
+    addLine(opts.subtitle);
+    y += 6;
+
+    if (opts.sessionLines && opts.sessionLines.length) {
+      addSubheading('Sessions included');
+      opts.sessionLines.forEach(addLine);
+      y += 10;
+    }
+
+    addSubheading('Stats');
+    // Plain text lines rather than trying to replicate the on-screen
+    // tile boxes exactly -- simpler and more reliably legible once
+    // printed than reconstructing a grid layout in jsPDF's own
+    // (non-flow, manually-positioned) drawing model.
+    opts.parts.tiles.forEach(function (t) { addLine(t[1] + ':  ' + t[0]); });
+    y += 10;
+
+    if (heatImg) {
+      addSubheading(opts.parts.gk ? 'Shot origin' : 'Where it happened');
+      var hw = Math.min(pageW - margin * 2, 300), hh = hw * (heatImg.height / heatImg.width);
+      ensureSpace(hh + 10);
+      doc.addImage(heatImg.dataUri, 'PNG', margin, y, hw, hh);
+      y += hh + 14;
+    }
+    if (goalImg) {
+      addSubheading('Goal placement');
+      var gw = Math.min(pageW - margin * 2, 300), gh = gw * (goalImg.height / goalImg.width);
+      ensureSpace(gh + 10);
+      doc.addImage(goalImg.dataUri, 'PNG', margin, y, gw, gh);
+      y += gh + 14;
+    }
+
+    doc.save(opts.filename);
+    return opts.filename;
+  });
+}
 var API = {
   open: function () {
     if (S.active) return;
@@ -21414,9 +21538,16 @@ var API = {
     var sc = d.finalScore || { home: 0, away: 0 };
     var parts = xgtStatsBodyParts(d.events || [], d.playerRole, d.trackingMode);
     var trackedNum = d.trackedPlayer && d.trackedPlayer.number != null ? d.trackedPlayer.number : null;
+    var btnStyle = 'flex:none;border:0;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;font-size:12px;';
     return (
-      '<div style="margin-bottom:10px"><div style="font-weight:700">' + (d.game && d.game.home || 'My team') + ' ' + sc.home + ' – ' + sc.away + ' ' + (d.game && d.game.away || 'Opponent') + '</div>' +
-      '<div style="font-size:11.5px;color:#7c8a8a">' + (parts.gk ? 'Goalkeeper' : 'Field player') + (trackedNum != null ? ' #' + trackedNum : '') + ' · ' + parts.actionCount + ' actions' + (d.game && d.game.date ? ' · ' + d.game.date : '') + '</div></div>' +
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px">' +
+        '<div><div style="font-weight:700">' + (d.game && d.game.home || 'My team') + ' ' + sc.home + ' – ' + sc.away + ' ' + (d.game && d.game.away || 'Opponent') + '</div>' +
+        '<div style="font-size:11.5px;color:#7c8a8a">' + (parts.gk ? 'Goalkeeper' : 'Field player') + (trackedNum != null ? ' #' + trackedNum : '') + ' · ' + parts.actionCount + ' actions' + (d.game && d.game.date ? ' · ' + d.game.date : '') + '</div></div>' +
+        '<div style="display:flex;gap:6px;flex:none">' +
+          '<button type="button" id="xgtSessionCsvBtn" style="' + btnStyle + 'background:#e1e6e6;color:#124d4d;">Export CSV</button>' +
+          '<button type="button" id="xgtSessionPdfBtn" style="' + btnStyle + 'background:#1b7373;color:#fff;">Export PDF</button>' +
+        '</div>' +
+      '</div>' +
       parts.html
     );
   },
@@ -21452,9 +21583,12 @@ var API = {
     var parts = xgtStatsBodyParts(mergedEvents, first.playerRole, first.trackingMode);
     var trackedNum = first.trackedPlayer && first.trackedPlayer.number != null ? first.trackedPlayer.number : null;
     return (
-      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">' +
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">' +
         '<h2 style="margin-top:0">' + recs.length + ' sessions combined</h2>' +
-        '<button type="button" id="xgtExportPdfBtn" style="flex:none;background:#1b7373;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;">Export PDF</button>' +
+        '<div style="display:flex;gap:6px;flex:none">' +
+          '<button type="button" id="xgtSessionCsvBtn" style="flex:none;background:#e1e6e6;color:#124d4d;border:0;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;font-size:12px;">Export CSV</button>' +
+          '<button type="button" id="xgtExportPdfBtn" style="flex:none;background:#1b7373;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;">Export PDF</button>' +
+        '</div>' +
       '</div>' +
       sessionListHtml +
       '<div style="margin-bottom:10px;font-size:11.5px;color:#7c8a8a">' + (parts.gk ? 'Goalkeeper' : 'Field player') + (trackedNum != null ? ' #' + trackedNum : '') + ' · ' + parts.actionCount + ' total actions · Combined score ' + totalHome + '–' + totalAway + '</div>' +
@@ -21471,7 +21605,6 @@ var API = {
   // deliberately avoided everywhere else.
   exportCombinedStatsPdf: function (sessionRecords, vizElements) {
     var recs = (sessionRecords || []).filter(Boolean);
-    vizElements = vizElements || {};
     if (!recs.length) return Promise.reject(new Error('No sessions to export.'));
     var first = recs[0];
     var mergedEvents = [];
@@ -21482,72 +21615,54 @@ var API = {
     var trackedNum = first.trackedPlayer && first.trackedPlayer.number != null ? first.trackedPlayer.number : null;
 
     return loadJsPDF().then(function (jsPDFCtor) {
-      var svgJobs = [];
-      if (vizElements.heatSvg) svgJobs.push(xgtSvgToPngDataUri(vizElements.heatSvg).then(function (img) { return { kind: 'heat', img: img }; }).catch(function () { return null; }));
-      if (vizElements.goalSvg) svgJobs.push(xgtSvgToPngDataUri(vizElements.goalSvg).then(function (img) { return { kind: 'goal', img: img }; }).catch(function () { return null; }));
-
-      return Promise.all(svgJobs).then(function (results) {
-        var heatImg = null, goalImg = null;
-        results.forEach(function (r) { if (r && r.kind === 'heat') heatImg = r.img; if (r && r.kind === 'goal') goalImg = r.img; });
-
-        var doc = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'a4' });
-        var pageW = doc.internal.pageSize.getWidth();
-        var pageH = doc.internal.pageSize.getHeight();
-        var margin = 40;
-        var y = margin;
-
-        function ensureSpace(needed) { if (y + needed > pageH - margin) { doc.addPage(); y = margin; } }
-        function addTitle(text) {
-          ensureSpace(24); doc.setFontSize(16); doc.setFont(undefined, 'bold');
-          doc.text(text, margin, y); y += 20; doc.setFont(undefined, 'normal');
-        }
-        function addSubheading(text) {
-          ensureSpace(18); doc.setFontSize(12); doc.setFont(undefined, 'bold');
-          doc.text(text, margin, y); y += 16; doc.setFont(undefined, 'normal');
-        }
-        function addLine(text) { ensureSpace(14); doc.setFontSize(10); doc.text(text, margin, y); y += 14; }
-
-        addTitle(recs.length + ' Sessions Combined');
-        addLine((parts.gk ? 'Goalkeeper' : 'Field player') + (trackedNum != null ? ' #' + trackedNum : '') +
-          ' \u00b7 ' + parts.actionCount + ' total actions \u00b7 Combined score ' + totalHome + '\u2013' + totalAway);
-        y += 6;
-
-        addSubheading('Sessions included');
-        recs.forEach(function (r) {
+      return xgtBuildStatsPdf(jsPDFCtor, {
+        title: recs.length + ' Sessions Combined',
+        subtitle: (parts.gk ? 'Goalkeeper' : 'Field player') + (trackedNum != null ? ' #' + trackedNum : '') +
+          ' \u00b7 ' + parts.actionCount + ' total actions \u00b7 Combined score ' + totalHome + '\u2013' + totalAway,
+        sessionLines: recs.map(function (r) {
           var sc = r.finalScore || { home: 0, away: 0 };
-          addLine((r.game && r.game.home || 'My team') + ' ' + sc.home + '\u2013' + sc.away + ' ' + (r.game && r.game.away || 'Opponent') +
-            (r.game && r.game.date ? '  \u00b7  ' + r.game.date : ''));
-        });
-        y += 10;
-
-        addSubheading('Stats');
-        // Plain text lines rather than trying to replicate the on-screen
-        // tile boxes exactly -- simpler and more reliably legible once
-        // printed than reconstructing a grid layout in jsPDF's own
-        // (non-flow, manually-positioned) drawing model.
-        parts.tiles.forEach(function (t) { addLine(t[1] + ':  ' + t[0]); });
-        y += 10;
-
-        if (heatImg) {
-          addSubheading(parts.gk ? 'Shot origin' : 'Where it happened');
-          var hw = Math.min(pageW - margin * 2, 300), hh = hw * (heatImg.height / heatImg.width);
-          ensureSpace(hh + 10);
-          doc.addImage(heatImg.dataUri, 'PNG', margin, y, hw, hh);
-          y += hh + 14;
-        }
-        if (goalImg) {
-          addSubheading('Goal placement');
-          var gw = Math.min(pageW - margin * 2, 300), gh = gw * (goalImg.height / goalImg.width);
-          ensureSpace(gh + 10);
-          doc.addImage(goalImg.dataUri, 'PNG', margin, y, gw, gh);
-          y += gh + 14;
-        }
-
-        var filename = 'xquix-combined-stats-' + recs.length + '-sessions.pdf';
-        doc.save(filename);
-        return filename;
+          return (r.game && r.game.home || 'My team') + ' ' + sc.home + '\u2013' + sc.away + ' ' + (r.game && r.game.away || 'Opponent') +
+            (r.game && r.game.date ? '  \u00b7  ' + r.game.date : '');
+        }),
+        parts: parts, vizElements: vizElements,
+        filename: 'xquix-combined-stats-' + recs.length + '-sessions.pdf'
       });
     });
+  },
+  // Single-session equivalent of exportCombinedStatsPdf above -- a
+  // separate function rather than just calling the combined one with a
+  // one-element array, since "1 sessions combined" reads wrong and a
+  // single game's report should use the same natural score-line header
+  // renderSessionStatsHtml already established ("My Team 8 – 5
+  // Opponent"), not a session-count framing that only makes sense once
+  // there's more than one.
+  exportSingleSessionPdf: function (sessionRecord, vizElements) {
+    var d = sessionRecord;
+    if (!d) return Promise.reject(new Error('No session to export.'));
+    var sc = d.finalScore || { home: 0, away: 0 };
+    var parts = xgtStatsBodyParts(d.events || [], d.playerRole, d.trackingMode);
+    var trackedNum = d.trackedPlayer && d.trackedPlayer.number != null ? d.trackedPlayer.number : null;
+
+    return loadJsPDF().then(function (jsPDFCtor) {
+      return xgtBuildStatsPdf(jsPDFCtor, {
+        title: (d.game && d.game.home || 'My team') + ' ' + sc.home + ' \u2013 ' + sc.away + ' ' + (d.game && d.game.away || 'Opponent'),
+        subtitle: (parts.gk ? 'Goalkeeper' : 'Field player') + (trackedNum != null ? ' #' + trackedNum : '') +
+          ' \u00b7 ' + parts.actionCount + ' actions' + (d.game && d.game.date ? ' \u00b7 ' + d.game.date : ''),
+        sessionLines: null, // no "sessions included" list for a single game -- the title line already says everything that section would
+        parts: parts, vizElements: vizElements,
+        filename: 'xquix-session-stats.pdf'
+      });
+    });
+  },
+  // CSV/download() are both module-private -- the Library's own detail
+  // views (single and combined session) live outside this module
+  // entirely, so this is the one exposed entry point they call into,
+  // matching how renderSessionStatsHtml/exportSingleSessionPdf are
+  // already exposed for the same reason. Works for either a single
+  // saved session's events or an already-merged combined array -- the
+  // caller decides which, this just needs the final flat array.
+  exportSessionCsv: function (events, filenameHint) {
+    download((filenameHint || 'xquix-session-stats') + '.csv', 'text/csv', xgtEventsToCsvString(events));
   }
 };
 function askResume(saved) {
