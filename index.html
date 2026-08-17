@@ -6885,7 +6885,7 @@ document.getElementById('featureManagementEntryBtn')?.addEventListener('click', 
 // Keep this in sync as more Phase 2 batches wire up new functions, or
 // Feature Management would never show them even once they exist.
 const XQUIX_WIRED_FUNCTION_NAMES = new Set([
-  'Count direction', 'Darken / brighten studio windows', 'Dock / detach timeline',
+  'Advanced Tracking Actions', 'Count direction', 'Darken / brighten studio windows', 'Dock / detach timeline',
   'Field Zones', 'Frame Transition / Display Modes', 'Load image / web content',
   'Load local video', 'Load video URL', 'Measure', 'Multi-Session Stats',
   'Open / close Practice Studio', 'Play / pause video', 'Player Setups',
@@ -19050,9 +19050,40 @@ var GOALKEEPER_ACTIONS = [
     { id: 'turnover',  label: 'Turnover',  cls: 'c' }
   ]}
 ];
+// Free tier: shot / personal foul (exclusion) / steal only, with shot and
+// exclusion each trimmed to a specific outcome subset -- turnover (and,
+// for goalkeepers, outlet) are excluded entirely. Built as filtered
+// COPIES of the real trees below, never mutating FIELD_PLAYER_ACTIONS/
+// GOALKEEPER_ACTIONS themselves, since other code (sharedChild, treeFor,
+// stats computation checking e.action IDs) depends on those staying
+// exactly as built regardless of which tier is viewing them live.
+var FREE_TIER_ALLOWED_OUTCOMES = { shot: ['goal', 'blocked', 'missed'], exclusion: ['penalty', 'exclusion'] };
+function freeTierActions(full) {
+  return full.filter(function (a) { return a.id === 'steal' || FREE_TIER_ALLOWED_OUTCOMES.hasOwnProperty(a.id); })
+    .map(function (a) {
+      if (a.id === 'steal') return a; // already terminal (no children), nothing to trim
+      var out = Object.assign({}, a);
+      // Goalkeeper's shot has a regular/skip/lob/penalty variant step the
+      // confirmed free-tier spec never mentioned at all -- dropping it
+      // entirely (not just trimming its options) keeps the free flow to
+      // the same number of steps as the field-player version.
+      if (a.variants) out.variants = null;
+      var keep = FREE_TIER_ALLOWED_OUTCOMES[a.id];
+      out.children = a.children.filter(function (c) { return keep.indexOf(c.id) >= 0; });
+      return out;
+    });
+}
+// Fails open (full access) if the entitlements system isn't available for
+// any reason -- matches the fail-open default used everywhere else this
+// module checks a gate, so a misconfigured or not-yet-loaded check can
+// never accidentally lock a paid coach out of their own action tree.
+function xgtHasAdvancedActions() {
+  return typeof XQUIX === 'undefined' || !XQUIX.Entitlements || typeof XQUIX.Entitlements.canFunction !== 'function'
+    || XQUIX.Entitlements.canFunction('Advanced Tracking Actions');
+}
 function tree() {
-  if (S.draft && S.draft.useGkTree) return GOALKEEPER_ACTIONS;
-  return S.playerRole === 'goalkeeper' ? GOALKEEPER_ACTIONS : FIELD_PLAYER_ACTIONS;
+  var full = (S.draft && S.draft.useGkTree) ? GOALKEEPER_ACTIONS : (S.playerRole === 'goalkeeper' ? GOALKEEPER_ACTIONS : FIELD_PLAYER_ACTIONS);
+  return xgtHasAdvancedActions() ? full : freeTierActions(full);
 }
 function treeFor(ev) {
   return (ev.context && ev.context.tree === 'gk') ? GOALKEEPER_ACTIONS : FIELD_PLAYER_ACTIONS;
@@ -19129,6 +19160,7 @@ var S = {
   shieldSuspendedForToolPanel: false, // Phase B: true while #xgtShield's pointer-events are deliberately disabled so the "Sessions" button's Library panel is actually clickable underneath it
   opponentTracked: false, oppSquad: [], oppWater: [], oppKeepers: [], // Phase E: opt-in opposing-team tracking, mirrors squad/water/keepers above
   keeperLabels: {}, // Phase F: number -> optional display label (e.g. {13:'1B'}) for competitions that label backup goalies 1A/1B/1C -- deliberately a SEPARATE map, not a change to S.keepers itself, so every existing sort()/indexOf()/currentKeeper() call touching keeper numbers keeps working on real numbers untouched
+  trackScore: false, // opt-in "game score" display row, shown underneath the clock rather than flanking it -- most sessions are stats-first, not scoreboard-first, per confirmed feedback. A pure live-UI display preference, not game data (scoreOf() always computes the real score regardless of this flag) -- persisted locally so a resumed session keeps the choice, but deliberately NOT part of the cloud-synced record, since saved/combined session views already always show the score in their own header regardless of this toggle
   barShowing: 'us', // Phase E: 'us' | 'them' -- which roster's water status the persistent bar currently shows; only relevant/visible when opponentTracked
   zoneNumberOverrides: {},     // {zoneId: displayNumber} -- per-device via localStorage (loadZoneNumberOverrides), NOT team-wide or database-backed; any coach/parent can set their own, deliberately
   q: 1, clock: QLEN, running: false, tick: null,
@@ -19451,7 +19483,7 @@ function save() {
       me: S.me, squad: S.squad, water: S.water, keepers: S.keepers, keeperLabels: S.keeperLabels,
       opponentTracked: S.opponentTracked, oppSquad: S.oppSquad, oppWater: S.oppWater, oppKeepers: S.oppKeepers,
       q: S.q, clock: S.clock, seq: S.seq, events: S.events,
-      cloudSessionName: S.cloudSessionName
+      cloudSessionName: S.cloudSessionName, trackScore: S.trackScore
     }));
   } catch (err) { /* private mode / quota — tracking continues in memory */ }
   syncSessionToCloud(); // fire-and-forget -- never blocks or delays the local save above
@@ -19516,6 +19548,7 @@ function restore(d) {
   S.oppSquad = d.oppSquad || []; S.oppWater = d.oppWater || []; S.oppKeepers = d.oppKeepers || [];
   S.q = d.q; S.clock = d.clock; S.seq = d.seq || 0; S.events = d.events || []; S.undone = [];
   S.cloudSessionName = d.cloudSessionName || null; // preserved so a resumed session keeps updating the SAME cloud record, not a fresh duplicate
+  S.trackScore = d.trackScore || false;
 }
 
 /* ================================================================== styling */
@@ -19530,7 +19563,8 @@ var CSS = [
 '.xgtPane{pointer-events:auto;background:#fff;border:1px solid #ccd6d6;box-shadow:0 2px 14px rgba(20,35,92,.10)}',
 '#xgtTop{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;gap:6px;',
 '  padding:calc(env(safe-area-inset-top) + 5px) 10px 5px;border-width:0 0 1px}',
-'#xgtScore{display:flex;align-items:center;gap:10px}',
+'#xgtClockRow{display:flex;justify-content:center}', // clock now sits in its own row, centered, independent of whether the score row below it is shown
+'#xgtScore{display:flex;align-items:center;gap:10px}', // visibility toggled in render() based on S.trackScore -- always present in the DOM, never re-templated, so the existing xgtHs/xgtAs update logic needs no null-guarding
 '#xgtClock{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}',
 '#xgtTop .tm{flex:1;min-width:0}',
 '#xgtTop .tm .nm{font-size:11px;color:#7c8a8a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -19708,9 +19742,9 @@ function buildChrome() {
   var root = document.createElement('div'); root.id = 'xgtRoot';
   root.innerHTML =
     '<div class="xgtPane" id="xgtTop">' +
+      '<div id="xgtClockRow"><div id="xgtClock"><button id="xgtQ">Q1 ✎</button><button id="xgtT">8:00</button></div></div>' +
       '<div id="xgtScore">' +
         '<div class="tm"><div class="nm" id="xgtHn">My team</div><div class="sc" id="xgtHs">0</div></div>' +
-        '<div id="xgtClock"><button id="xgtQ">Q1 ✎</button><button id="xgtT">8:00</button></div>' +
         '<div class="tm aw"><div class="nm" id="xgtAn">Opponent</div><div class="sc" id="xgtAs">0</div></div>' +
       '</div>' +
       '<div id="xgtUtil">' +
@@ -20407,6 +20441,7 @@ function render() {
   if (!el('xgtRoot')) return;
   var sc = scoreOf();
   el('xgtHs').textContent = sc[0]; el('xgtAs').textContent = sc[1];
+  el('xgtScore').style.display = S.trackScore ? 'flex' : 'none'; // kept in sync every render, not just at setup, since S.trackScore could in principle change after buildChrome()'s one-time HTML already ran
   el('xgtHn').textContent = S.game.home || 'My team';
   el('xgtAn').textContent = S.game.away || 'Opponent';
   var recent = S.events.slice(-8).reverse();
@@ -20876,6 +20911,13 @@ function openSetup() {
       '<input class="xgtField" id="xgtLoc" placeholder="Location" value="' + (S.game.loc || '') + '"></div>' +
       '<div class="xgtRow"><input class="xgtField" id="xgtHome" placeholder="My team" value="' + (S.game.home || '') + '">' +
       '<input class="xgtField" id="xgtAway" placeholder="Opponent" value="' + (S.game.away || '') + '"></div>' +
+      // General, mode-independent -- most sessions are stats-first, not
+      // scoreboard-first, so this stays off by default and is opt-in
+      // regardless of parent/coach or field/goalkeeper/team, rather than
+      // being scoped only to squad-tracking mode the way opponent
+      // tracking is.
+      '<div class="xgtRow" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:650;flex:1;cursor:pointer">' +
+      '<input type="checkbox" id="xgtTrackScoreToggle" ' + (S.trackScore ? 'checked' : '') + '> Track game score</label></div>' +
       (
         // "Team" (under Coach) now means what it says: full squad, water,
         // goalies, opponent tracking. Field Player / Goalkeeper (under
@@ -20971,6 +21013,11 @@ function openSetup() {
     });
     var oppToggle = el('xgtOppToggle');
     if (oppToggle) oppToggle.onchange = function () { S.opponentTracked = oppToggle.checked; draw(); };
+    var scoreToggle = el('xgtTrackScoreToggle');
+    // No re-draw needed here, unlike oppToggle -- this doesn't reveal any
+    // additional setup UI, it only affects the live tracker's top bar,
+    // which render() keeps in sync independently.
+    if (scoreToggle) scoreToggle.onchange = function () { S.trackScore = scoreToggle.checked; };
     var oppSq = el('xgtOppSquad');
     if (oppSq) Array.prototype.forEach.call(oppSq.querySelectorAll('[data-opp-n]'), function (b) {
       b.onclick = function () {
