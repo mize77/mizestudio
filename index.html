@@ -19077,7 +19077,17 @@ function currentKeeper() {
 function xgtKeeperLabel(n) { return (S.keeperLabels && S.keeperLabels[n]) || n; }
 
 /* --------------------------------------------------------- goal placement */
-var GOALG = { frame: { x: 138, y: 150, w: 324, h: 130 }, mouth: { x: 188, y: 188, w: 224, h: 92 }, waterY: 280 };
+var GOALG = { frame: { x: 130, y: 96, w: 340, h: 110 }, mouth: { x: 150, y: 116, w: 300, h: 90 }, waterY: 206 };
+// Rebuilt to a realistic ratio -- a real water polo goal is 3.0m wide x
+// 0.9m high (3.33:1), and the previous mouth (224x92, 2.43:1) was
+// noticeably too tall/narrow relative to that. Scale here is 100 SVG
+// units per meter, so these numbers read directly as meters x100: mouth
+// 300x90 = 3.0m x 0.9m. Posts/crossbar are 20 units (0.2m) uniformly --
+// the real posts are 0.1m, but 0.2m was the explicitly agreed
+// tap-friendliness compromise, applied to the crossbar too rather than
+// just the posts, since the previous version had non-uniform thickness
+// (50-unit posts vs a 38-unit crossbar) that didn't match a real frame's
+// uniform construction either.
 var IN_TARGETS = (function () {
   var m = GOALG.mouth, cw = m.w / 3, ch = m.h / 3, out = [];
   [['Top', 0], ['Middle', 1], ['Low', 2]].forEach(function (r) {
@@ -19090,15 +19100,15 @@ var IN_TARGETS = (function () {
   return out;
 })();
 var MISS_TARGETS = [
-  { id: 'high_left',  label: 'High left',   svg: 'HIGH LEFT',     x: 40,  y: 48,  w: 98,  h: 102 },
-  { id: 'over',       label: 'Over the bar',svg: 'OVER THE BAR',  x: 138, y: 48,  w: 324, h: 102 },
-  { id: 'high_right', label: 'High right',  svg: 'HIGH RIGHT',    x: 462, y: 48,  w: 98,  h: 102 },
-  { id: 'wide_left',  label: 'Wide left',   svg: 'WIDE LEFT',     x: 40,  y: 150, w: 98,  h: 130 },
-  { id: 'wide_right', label: 'Wide right',  svg: 'WIDE RIGHT',    x: 462, y: 150, w: 98,  h: 130 },
-  { id: 'post_left',  label: 'Left post',   svg: 'POST', x: 138, y: 150, w: 50, h: 130, frame: true, sm: true, rot: true },
-  { id: 'crossbar',   label: 'Crossbar',    svg: 'CROSSBAR',      x: 188, y: 150, w: 224, h: 38, frame: true },
-  { id: 'post_right', label: 'Right post',  svg: 'POST', x: 412, y: 150, w: 50, h: 130, frame: true, sm: true, rot: true },
-  { id: 'short',      label: 'Short, into the water', svg: 'SHORT — INTO THE WATER', x: 40, y: 292, w: 520, h: 64 },
+  { id: 'high_left',  label: 'High left',   svg: 'HIGH LEFT',     x: 30,  y: 6,   w: 100, h: 90 },
+  { id: 'over',       label: 'Over the bar',svg: 'OVER THE BAR',  x: 130, y: 6,   w: 340, h: 90 },
+  { id: 'high_right', label: 'High right',  svg: 'HIGH RIGHT',    x: 470, y: 6,   w: 100, h: 90 },
+  { id: 'wide_left',  label: 'Wide left',   svg: 'WIDE LEFT',     x: 30,  y: 96,  w: 100, h: 110 },
+  { id: 'wide_right', label: 'Wide right',  svg: 'WIDE RIGHT',    x: 470, y: 96,  w: 100, h: 110 },
+  { id: 'post_left',  label: 'Left post',   svg: 'POST', x: 130, y: 96, w: 20, h: 110, frame: true, sm: true, rot: true },
+  { id: 'crossbar',   label: 'Crossbar',    svg: 'CROSSBAR',      x: 150, y: 96,  w: 300, h: 20, frame: true },
+  { id: 'post_right', label: 'Right post',  svg: 'POST', x: 450, y: 96, w: 20, h: 110, frame: true, sm: true, rot: true },
+  { id: 'short',      label: 'Short, into the water', svg: 'SHORT — INTO THE WATER', x: 30, y: 218, w: 540, h: 70 },
   /* On target for the cage, stopped on the way by an opposing FIELD player —
      not the keeper. Sits inside the frame because that is where the ball was
      headed; the block is why it never arrived. */
@@ -20168,7 +20178,7 @@ function buildGoalSvg(mode, noBlock) {
   var G = GOALG, miss = mode === 'miss';
   var targets = miss ? MISS_TARGETS : IN_TARGETS;
   if (miss && noBlock) targets = targets.filter(function (t) { return !t.block; });
-  var box = miss ? '34 42 532 322' : '130 140 340 150';
+  var box = miss ? '24 0 552 294' : '130 86 340 130';
   var cells = targets.map(function (t) {
     var cx = t.x + t.w / 2, cy = t.y + t.h / 2, label;
     if (t.rot) {
@@ -20190,9 +20200,9 @@ function buildGoalSvg(mode, noBlock) {
   for (i = 1; i <= 3; i++) net += '<line x1="' + G.mouth.x + '" y1="' + (G.mouth.y + i * G.mouth.h / 4) + '" x2="' + (G.mouth.x + G.mouth.w) + '" y2="' + (G.mouth.y + i * G.mouth.h / 4) + '"/>';
   net += '</g>';
   var frame = miss ? '' : '<g fill="rgba(255,255,255,.30)" stroke="rgba(255,255,255,.55)" stroke-width="1.5">' +
-    '<rect x="' + G.frame.x + '" y="' + G.frame.y + '" width="50" height="' + G.frame.h + '" rx="4"/>' +
-    '<rect x="' + (G.frame.x + G.frame.w - 50) + '" y="' + G.frame.y + '" width="50" height="' + G.frame.h + '" rx="4"/>' +
-    '<rect x="' + G.mouth.x + '" y="' + G.frame.y + '" width="' + G.mouth.w + '" height="38" rx="4"/></g>';
+    '<rect x="' + G.frame.x + '" y="' + G.frame.y + '" width="20" height="' + G.frame.h + '" rx="4"/>' +
+    '<rect x="' + (G.frame.x + G.frame.w - 20) + '" y="' + G.frame.y + '" width="20" height="' + G.frame.h + '" rx="4"/>' +
+    '<rect x="' + G.mouth.x + '" y="' + G.frame.y + '" width="' + G.mouth.w + '" height="20" rx="4"/></g>';
   // when the in-cage target is suppressed, show the inert panel again so the
   // frame still reads as a cage rather than a hole
   var dead = (miss && noBlock)
@@ -20202,7 +20212,7 @@ function buildGoalSvg(mode, noBlock) {
     : '';
   return '<svg class="xgtGoal" viewBox="' + box + '" preserveAspectRatio="xMidYMid meet">' +
     '<rect x="0" y="0" width="600" height="400" fill="#124d4d"/>' +
-    '<line x1="40" y1="' + G.waterY + '" x2="560" y2="' + G.waterY + '" stroke="rgba(255,255,255,.55)" stroke-width="2.5" opacity=".7"/>' +
+    '<line x1="30" y1="' + G.waterY + '" x2="570" y2="' + G.waterY + '" stroke="rgba(255,255,255,.55)" stroke-width="2.5" opacity=".7"/>' +
     net + frame + dead + cells + '</svg>';
 }
 function stepPlacement(c) {
@@ -20655,12 +20665,12 @@ function goalMapHtml(evs) {
   for (i = 1; i <= 3; i++) net += '<line x1="' + G.mouth.x + '" y1="' + (G.mouth.y + i * G.mouth.h / 4) + '" x2="' + (G.mouth.x + G.mouth.w) + '" y2="' + (G.mouth.y + i * G.mouth.h / 4) + '"/>';
   net += '</g>';
   var frame = '<g fill="#fff" stroke="#54605f" stroke-width="1.5">' +
-    '<rect x="' + G.frame.x + '" y="' + G.frame.y + '" width="50" height="' + G.frame.h + '" rx="4"/>' +
-    '<rect x="' + (G.frame.x + G.frame.w - 50) + '" y="' + G.frame.y + '" width="50" height="' + G.frame.h + '" rx="4"/>' +
-    '<rect x="' + G.mouth.x + '" y="' + G.frame.y + '" width="' + G.mouth.w + '" height="38" rx="4"/></g>';
-  return '<svg class="xgtGoal" viewBox="34 42 532 322" preserveAspectRatio="xMidYMid meet">' +
+    '<rect x="' + G.frame.x + '" y="' + G.frame.y + '" width="20" height="' + G.frame.h + '" rx="4"/>' +
+    '<rect x="' + (G.frame.x + G.frame.w - 20) + '" y="' + G.frame.y + '" width="20" height="' + G.frame.h + '" rx="4"/>' +
+    '<rect x="' + G.mouth.x + '" y="' + G.frame.y + '" width="' + G.mouth.w + '" height="20" rx="4"/></g>';
+  return '<svg class="xgtGoal" viewBox="24 0 552 294" preserveAspectRatio="xMidYMid meet">' +
     '<rect x="0" y="0" width="600" height="400" fill="#e1e6e6"/>' +
-    '<line x1="40" y1="' + G.waterY + '" x2="560" y2="' + G.waterY + '" stroke="#a9c2c2" stroke-width="2.5"/>' +
+    '<line x1="30" y1="' + G.waterY + '" x2="570" y2="' + G.waterY + '" stroke="#a9c2c2" stroke-width="2.5"/>' +
     net + frame + missCells + inCells + '</svg>';
 }
 function fileName() {
