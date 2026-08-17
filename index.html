@@ -2314,6 +2314,7 @@ const MizeDialog = (function(){
         </div>
       </div>
       <div id="libraryBreadcrumb"></div>
+      <div id="libSessionCombineBar" style="display:none;"></div>
       <div class="libAddMenu" id="libraryAddMenu">
         <button type="button" class="libAddMenuToggleBtn" id="libraryAddMenuToggleBtn">+ Add</button>
         <div class="libAddMenuBody" id="libraryAddMenuBody">
@@ -16545,7 +16546,7 @@ const LibraryStorage = (function(){
       // apply the exact same filtering logic as the local path above --
       // the filtering itself doesn't change, only where the rows come
       // from.
-      const kinds = ['formation','sequence','event','practice','note','evaluation','skill','video','document','resource'];
+      const kinds = ['formation','sequence','event','practice','note','evaluation','skill','video','document','resource','gameTrackerSession'];
       const scopesToFetch = filter.orgId
         ? [{ scope: (filter.orgId==='personal') ? 'personal' : 'organization', organizationId: filter.orgId==='personal' ? null : filter.orgId }]
         : [{ scope:'personal', organizationId:null }, ...XQUIX.Org.getMyOrgsSync().map(o=>({ scope:'organization', organizationId:o.id }))];
@@ -16777,14 +16778,14 @@ async function syncLegacyLibraryItems(){
 }
 
 function libEsc(s){ const d=document.createElement('div'); d.textContent=String(s==null?'':s); return d.innerHTML; }
-function libAssetTypeLabel(type){ return { formation:'Formation', sequence:'Sequence', practice:'Practice Session', note:'Coach Note', evaluation:'Evaluation', skill:'Skill Exercise', event:'Event', video:'Video', document:'Document', resource:'Resource' }[type] || type; }
+function libAssetTypeLabel(type){ return { formation:'Formation', sequence:'Sequence', practice:'Practice Session', note:'Coach Note', evaluation:'Evaluation', skill:'Skill Exercise', event:'Event', video:'Video', document:'Document', resource:'Resource', gameTrackerSession:'Game Session' }[type] || type; }
 function libTruncateTitle(title, headChars=20, tailChars=10){
   const t = title || '';
   if(t.length <= headChars + tailChars + 1) return t;
   return t.slice(0, headChars) + '\u2026' + t.slice(-tailChars);
 }
 
-let libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null, viewMode: localStorage.getItem('libViewMode')||'list' };
+let libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null, viewMode: localStorage.getItem('libViewMode')||'list', selectedSessionIds:[] };
 
 function showLibraryListStage(){
   document.getElementById('libraryListStage').style.display = '';
@@ -16806,7 +16807,7 @@ function showLibraryImportStage(){
 
 async function openCoachingLibrary(){
   await syncLegacyLibraryItems();
-  libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null, viewMode: localStorage.getItem('libViewMode')||'list' };
+  libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null, viewMode: localStorage.getItem('libViewMode')||'list', selectedSessionIds:[] };
   const searchInput = document.getElementById('librarySearchInput');
   if(searchInput) searchInput.value = '';
   document.querySelectorAll('.libViewTab').forEach(t=>t.classList.remove('active'));
@@ -16895,22 +16896,25 @@ function renderLibraryAssetGrid(assets, content){
   content.classList.add(libState.viewMode==='list' ? 'libViewList' : 'libViewTiles');
   content.innerHTML = '';
   if(libState.typeFilter) assets = assets.filter(a=>a.type===libState.typeFilter);
-  if(!assets.length){ content.innerHTML = '<div class="libEmptyState">Nothing here yet.</div>'; return; }
+  if(!assets.length){ content.innerHTML = '<div class="libEmptyState">Nothing here yet.</div>'; renderLibSessionCombineBar(assets); return; }
   assets.forEach(asset=>{
     const card = document.createElement('button');
     card.type='button'; card.className='libAssetCard';
     const hasCi = libCiHasContent(asset.coachingIntelligence);
     const fullTitle = asset.title || 'Untitled';
+    const isSession = asset.type==='gameTrackerSession';
+    const isSelected = isSession && libState.selectedSessionIds.includes(asset.id);
     card.innerHTML =
       '<div class="libAssetCardTop">' +
         '<span class="libAssetCardType">'+libAssetTypeLabel(asset.type)+(hasCi?' <span class="libCiDot" title="Includes extended coaching intelligence">&#9679;</span>':'')+'</span>' +
+        (isSession ? '<label class="libSessionSelectLabel" style="margin-left:auto;margin-right:8px;display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#5a6664;"><input type="checkbox" data-select-session="'+asset.id+'" '+(isSelected?'checked':'')+'> Combine</label>' : '') +
         '<button type="button" class="libFavStar '+(asset.favorite?'active':'')+'" data-fav="'+asset.id+'">'+(asset.favorite?'\u2605':'\u2606')+'</button>' +
       '</div>' +
       '<div class="libAssetCardTitle" title="'+libEsc(fullTitle)+'">'+libEsc(libTruncateTitle(fullTitle))+'</div>' +
       ((asset.day!=null||asset.time)?'<div class="libAssetCardDayTime">'+(asset.day!=null?'Day '+libEsc(asset.day):'')+(asset.day!=null&&asset.time?' \u00b7 ':'')+(asset.time?libEsc(asset.time):'')+'</div>':'') +
       (asset.description?'<div class="libAssetCardDesc">'+libEsc(asset.description)+'</div>':'');
     card.addEventListener('click', (e)=>{
-      if(e.target.closest('[data-fav]')) return;
+      if(e.target.closest('[data-fav]') || e.target.closest('[data-select-session]') || e.target.closest('.libSessionSelectLabel')) return;
       openLibraryAssetDetail(asset.id);
     });
     card.querySelector('[data-fav]').addEventListener('click', async (e)=>{
@@ -16918,8 +16922,85 @@ function renderLibraryAssetGrid(assets, content){
       await LibraryStorage.toggleFavorite(asset.id);
       await renderLibraryContent();
     });
+    if(isSession){
+      const checkbox = card.querySelector('[data-select-session]');
+      checkbox.addEventListener('click', e=>e.stopPropagation());
+      checkbox.addEventListener('change', ()=>{
+        if(checkbox.checked){
+          // Combining a field-role session with a goalkeeper-role one, or
+          // two different tracked players' parent-mode sessions, would
+          // silently produce a nonsense combined stat line -- guard
+          // against it here rather than after the fact in the combined
+          // view itself, where a coach would have no way to tell which
+          // session was the mismatch.
+          const alreadySelected = assets.filter(a=>libState.selectedSessionIds.includes(a.id));
+          const mismatch = alreadySelected.find(a =>
+            a.playerRole !== asset.playerRole ||
+            (asset.trackingMode==='parent' && a.trackingMode==='parent' && (a.trackedPlayer||{}).number !== (asset.trackedPlayer||{}).number)
+          );
+          if(mismatch){
+            checkbox.checked = false;
+            if(typeof MizeDialog!=='undefined') MizeDialog.alert('Sessions can only be combined when they track the same role (field player vs. goalkeeper) and, for individually-tracked players, the same player number.', 'Can\u2019t combine these sessions');
+            return;
+          }
+          libState.selectedSessionIds.push(asset.id);
+        } else {
+          libState.selectedSessionIds = libState.selectedSessionIds.filter(id=>id!==asset.id);
+        }
+        renderLibSessionCombineBar(assets);
+      });
+    }
     content.appendChild(card);
   });
+  renderLibSessionCombineBar(assets);
+}
+// The "combine" action bar only ever makes sense while viewing sessions
+// specifically -- for every other asset type (or no sessions selected
+// yet) it just stays hidden, which is simpler and more robust than
+// trying to catch every place libState.typeFilter could change (the
+// existing type-filter pills, search, this module's own "Sessions"
+// button) and clear stale selections there individually.
+function renderLibSessionCombineBar(assets){
+  const bar = document.getElementById('libSessionCombineBar');
+  if(!bar) return;
+  const n = libState.selectedSessionIds.length;
+  if(libState.typeFilter !== 'gameTrackerSession' || n < 2){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = '';
+  bar.innerHTML = '<span>'+n+' sessions selected</span> <button type="button" id="libViewCombinedBtn">View combined stats</button>';
+  document.getElementById('libViewCombinedBtn').onclick = async ()=>{
+    const records = await Promise.all(libState.selectedSessionIds.map(id=>LibraryStorage.getAsset(id)));
+    const valid = records.filter(Boolean);
+    if(!valid.length) return;
+    libState.detailAssetId = null;
+    showLibraryDetailStage();
+    document.getElementById('libraryPanelTitle').textContent = valid.length+' Sessions Combined';
+    const body = document.getElementById('libraryDetailBody');
+    body.innerHTML = (window.XquiXGameTracker && typeof window.XquiXGameTracker.renderCombinedSessionStatsHtml==='function')
+      ? window.XquiXGameTracker.renderCombinedSessionStatsHtml(valid)
+      : '<p class="libEmptyState">Combined stats aren\u2019t available right now.</p>';
+    // Phase D: the actual PDF-building logic lives in the Game Tracker
+    // module (it already owns the stats computation), but the SVGs to
+    // rasterize only exist here, in the DOM this module just rendered --
+    // found and passed in by ID/class rather than the export method
+    // reaching across module boundaries to find them itself.
+    const exportBtn = document.getElementById('xgtExportPdfBtn');
+    if(exportBtn){
+      exportBtn.onclick = async ()=>{
+        const origLabel = exportBtn.textContent;
+        exportBtn.disabled = true; exportBtn.textContent = 'Exporting\u2026';
+        try {
+          const heatSvg = body.querySelector('svg.xgtHeat');
+          const goalSvg = body.querySelector('svg.xgtGoal');
+          await window.XquiXGameTracker.exportCombinedStatsPdf(valid, { heatSvg, goalSvg });
+        } catch(err) {
+          if(typeof MizeDialog!=='undefined') await MizeDialog.alert(err.message || 'Something went wrong exporting the PDF.', 'Export Failed');
+          else console.error('PDF export failed:', err);
+        } finally {
+          exportBtn.disabled = false; exportBtn.textContent = origLabel;
+        }
+      };
+    }
+  };
 }
 
 async function renderLibraryContent(){
@@ -18233,6 +18314,18 @@ async function openLibraryAssetDetail(assetId){
   showLibraryDetailStage();
   document.getElementById('libraryPanelTitle').textContent = asset.title || 'Untitled';
   const body = document.getElementById('libraryDetailBody');
+  // Game sessions get a completely different detail view -- the same
+  // stats a live game already shows, read-only, rendered from the saved
+  // event data via the Game Tracker module's own exposed method rather
+  // than duplicating any stats-computation logic here. No metadata form
+  // (title/description/tags/etc.) for these -- editing "who scored" by
+  // hand doesn't make sense the way editing a formation's title does.
+  if(asset.type === 'gameTrackerSession'){
+    body.innerHTML = (window.XquiXGameTracker && typeof window.XquiXGameTracker.renderSessionStatsHtml === 'function')
+      ? window.XquiXGameTracker.renderSessionStatsHtml(asset)
+      : '<p class="libEmptyState">Session stats aren\u2019t available right now.</p>';
+    return;
+  }
   const tagsValue = (asset.tags||[]).join(', ');
   const isPlanType = asset.type==='practice' || asset.type==='event';
   const isLinkType = asset.type==='video' || asset.type==='document' || asset.type==='resource';
@@ -18955,6 +19048,8 @@ var S = {
   me: { number: null, name: '' },
   squad: [], water: [], keepers: [],
   editingZoneNumbers: false,   // true while the tap-to-relabel flow (zoneNum below) is active; intercepts the normal zone-tap-opens-action-sheet behavior
+  cloudSessionName: null,      // stable per-session name used as the upsert key for cloud sync (Phase A) -- generated once in go(), preserved across resume, cleared on New Game
+  shieldSuspendedForToolPanel: false, // Phase B: true while #xgtShield's pointer-events are deliberately disabled so the "Sessions" button's Library panel is actually clickable underneath it
   zoneNumberOverrides: {},     // {zoneId: displayNumber} -- per-device via localStorage (loadZoneNumberOverrides), NOT team-wide or database-backed; any coach/parent can set their own, deliberately
   q: 1, clock: QLEN, running: false, tick: null,
   events: [], undone: [], seq: 0,
@@ -19262,9 +19357,58 @@ function save() {
       v: 1, savedAt: new Date().toISOString(),
       game: S.game, trackingMode: S.trackingMode, playerRole: S.playerRole,
       me: S.me, squad: S.squad, water: S.water, keepers: S.keepers,
-      q: S.q, clock: S.clock, seq: S.seq, events: S.events
+      q: S.q, clock: S.clock, seq: S.seq, events: S.events,
+      cloudSessionName: S.cloudSessionName
     }));
   } catch (err) { /* private mode / quota — tracking continues in memory */ }
+  syncSessionToCloud(); // fire-and-forget -- never blocks or delays the local save above
+}
+// Cloud sync of the current session, reusing the existing Library/Storage
+// pipeline (Milestone 1's XQUIX.Storage / CloudProvider) rather than
+// building anything new. A no-op when signed out -- guest/free tracking
+// stays fully local, exactly as it always has. CloudProvider.saveItem()
+// already handles offline queuing, retry, and local-backup-before-network
+// entirely on its own, so this deliberately does nothing beyond calling it:
+// no alert on failure (this fires on every commit/undo/redo, and a modal
+// popping up mid-game over a transient network blip would be exactly the
+// interruption the design was meant to avoid), just a console note for
+// debugging, since the underlying system is already queuing a retry.
+function syncSessionToCloud() {
+  if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Storage || typeof XQUIX.Storage.save !== 'function' || !XQUIX.Auth.getCurrentUser()) return;
+  if (!S.cloudSessionName) return;
+  try {
+    var sc = scoreOf();
+    var record = {
+      schemaVersion: 1,
+      trackingMode: S.trackingMode, playerRole: S.playerRole,
+      trackedPlayer: S.me, squad: S.squad, keepers: S.keepers, water: S.water,
+      // Reserved, not yet populated -- Phase E (opponent tracking) and Phase G (shootout)
+      opponentTracked: false, oppSquad: [], oppWater: [], oppKeepers: [],
+      game: S.game, finalScore: { home: sc[0], away: sc[1] },
+      // Read by LibraryStorage.listAssets() specifically as "libraryDescription"
+      // (not a generic "description") -- confirmed by reading that function
+      // directly rather than assuming, since guessing wrong here would have
+      // meant the card silently showing no summary at all.
+      libraryDescription: 'Final ' + sc[0] + '–' + sc[1] + ' · ' + S.events.length + ' actions logged',
+      shootout: null,
+      events: S.events
+    };
+    XQUIX.Storage.save({ kind: 'gameTrackerSession', name: S.cloudSessionName, record: record, scope: 'personal' })
+      .then(function (result) {
+        if (result && result.error) console.error('XquiX Game Tracker: cloud session sync failed (queued for retry by CloudProvider):', result.error.message);
+      })
+      .catch(function (err) { console.error('XquiX Game Tracker: cloud session sync threw:', err); });
+  } catch (err) {
+    // Defense in depth: even a synchronous throw here (e.g. a malformed
+    // or partially-mocked XQUIX.Storage) must never propagate out of
+    // save() -- save() is called from commit(), which is called from
+    // go() itself during setup, so an uncaught throw here could abort
+    // setup entirely and leave the coach stuck mid-flow. Confirmed this
+    // exact failure mode while testing: a save() lacking .save (as a
+    // function) threw synchronously and interrupted go() before it
+    // reached closeSheet()/render() at the end.
+    console.error('XquiX Game Tracker: cloud session sync threw synchronously:', err);
+  }
 }
 function loadSaved() {
   try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (err) { return null; }
@@ -19274,6 +19418,7 @@ function restore(d) {
   S.game = d.game; S.trackingMode = d.trackingMode; S.playerRole = d.playerRole;
   S.me = d.me; S.squad = d.squad || []; S.water = d.water || []; S.keepers = d.keepers || [];
   S.q = d.q; S.clock = d.clock; S.seq = d.seq || 0; S.events = d.events || []; S.undone = [];
+  S.cloudSessionName = d.cloudSessionName || null; // preserved so a resumed session keeps updating the SAME cloud record, not a fresh duplicate
 }
 
 /* ================================================================== styling */
@@ -19464,6 +19609,7 @@ function buildChrome() {
       '<button id="xgtEditZoneNumBtn">Edit Numbers</button>' +
       '<div class="sp"></div>' +
       '<button id="xgtStatsBtn">Stats</button>' +
+      '<button id="xgtSessionsBtn">Sessions</button>' +
       '<button id="xgtExitBtn">Exit</button>' +
       '</div>' +
     '</div>' +
@@ -19532,6 +19678,38 @@ function buildChrome() {
     openStats();
   };
   el('xgtExitBtn').onclick = function () { API.close(); };
+  // Phase B: sessions live in the Coaching Library, not a separate list
+  // built inside this module -- this button is a shortcut into the
+  // existing Library UI, pre-filtered to just game sessions, reusing
+  // openCoachingLibrary()/libState/renderLibraryContent() (all declared
+  // at the top level of the main Studio script, so directly reachable
+  // here) rather than duplicating any browsing UI. openCoachingLibrary()
+  // resets libState (including typeFilter) internally on every call, so
+  // the filter has to be set AFTER it returns, with a second render pass
+  // to apply it -- confirmed by reading that function directly rather
+  // than assuming the filter would just carry through.
+  el('xgtSessionsBtn').onclick = function () {
+    if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Auth.getCurrentUser()) {
+      toast('Sign in to save and browse sessions across games — today\u2019s game still tracks and exports locally either way.');
+      return;
+    }
+    if (typeof openCoachingLibrary !== 'function' || typeof renderLibraryContent !== 'function') return;
+    // See xgtCloseToolPanels() near the public API for why this is needed:
+    // the shield -- and #xgtBlock directly beneath it, found by testing
+    // when disabling the shield alone still didn't let clicks through --
+    // otherwise sit on top of the Library panel and silently swallow
+    // every click on it.
+    var shield = el('xgtShield'), block = el('xgtBlock');
+    if (shield || block) {
+      if (shield) shield.style.pointerEvents = 'none';
+      if (block) block.style.pointerEvents = 'none';
+      S.shieldSuspendedForToolPanel = true;
+    }
+    openCoachingLibrary().then(function () {
+      libState.typeFilter = 'gameTrackerSession';
+      return renderLibraryContent();
+    });
+  };
   scrim.addEventListener('click', function () {
     var f = S.onScrim; if (f) { S.onScrim = null; f(); } else closeSheet();
   });
@@ -20164,7 +20342,7 @@ function heatFieldSvg(evs) {
       '<path d="M8 2 V22" stroke="#1b7373" stroke-width=".05"/>' +
       '<path d="M14.5 2 V22" stroke="#54605f" stroke-width=".05"/>' +
     '</g>';
-  return '<svg viewBox="-2.6 4.9 20 14.2" style="width:100%;height:auto;display:block;background:#e1e6e6;border-radius:8px">' +
+  return '<svg class="xgtHeat" viewBox="-2.6 4.9 20 14.2" style="width:100%;height:auto;display:block;background:#e1e6e6;border-radius:8px">' +
     '<defs><clipPath id="xgtHeatClip" clipPathUnits="userSpaceOnUse">' +
     '<rect x="2" y="2" width="12.5" height="20"/></clipPath></defs>' +
     '<g transform="rotate(-90, 7.4, 12)">' +
@@ -20349,7 +20527,7 @@ function openStats() {
   el('xgtNew').onclick = function () {
     if (!window.confirm('Clear this game and start a new one?')) return;
     clearSaved();
-    S.events = []; S.undone = []; S.seq = 0; S.q = 1; S.clock = QLEN; S.water = [];
+    S.events = []; S.undone = []; S.seq = 0; S.q = 1; S.clock = QLEN; S.water = []; S.cloudSessionName = null;
     box.classList.remove('on');
     render(); openSetup();
   };
@@ -20480,6 +20658,12 @@ function openSetup() {
     grab();
     var needsPlayer = (S.trackingMode === 'parent' || S.playerRole === 'goalkeeper') && S.playerRole !== 'team';
     if (needsPlayer && !S.me.number) { err('Enter the cap number first — the box marked #.'); return; }
+    if (!S.cloudSessionName) {
+      var oppName = (S.game.away || '').trim();
+      var dateStr = S.game.date || new Date().toISOString().slice(0, 10);
+      var timeStr = new Date().toTimeString().slice(0, 8); // HH:MM:SS -- genuinely useful (distinguishes a double-header), and guards against same-day-same-opponent sessions colliding on the upsert-by-name key; minute-level granularity alone proved insufficient in testing (two sessions started in the same minute collided)
+      S.cloudSessionName = (oppName ? ('vs ' + oppName) : 'Untitled session') + ' \u00b7 ' + dateStr + ' \u00b7 ' + timeStr;
+    }
     if (S.trackingMode === 'coach' && S.playerRole !== 'goalkeeper') {
       if (S.squad.length < 7) { err('Tap at least 7 squad numbers (you have ' + S.squad.length + ').'); return; }
       S.water = S.squad.slice(0, 7);
@@ -20514,6 +20698,147 @@ function xgtViewportHeight() {
   var topH = top ? top.getBoundingClientRect().height : 0;
   var botH = bot ? bot.getBoundingClientRect().height : 0;
   return Math.max(220, full - topH - botH);
+}
+// Same wrap-the-one-function-Studio-already-calls pattern as
+// xgtViewportHeight above, for a different problem: #xgtShield is
+// deliberately built with a z-index far above every Studio panel (so no
+// Studio tool can fire while tracking is on), which means it also sits
+// on top of the Coaching Library when the "Sessions" button opens it
+// mid-game -- confirmed directly by testing, not assumed: the panel
+// rendered correctly but every click on it was silently swallowed by
+// the shield underneath. Installed once, globally; the flag check makes
+// it a true no-op for every other closeToolPanels() call throughout the
+// app that has nothing to do with this module.
+var _origCloseToolPanels = (typeof window.closeToolPanels === 'function') ? window.closeToolPanels : null;
+function xgtCloseToolPanels() {
+  if (_origCloseToolPanels) _origCloseToolPanels();
+  if (S.shieldSuspendedForToolPanel) {
+    S.shieldSuspendedForToolPanel = false;
+    var shield = el('xgtShield'), block = el('xgtBlock');
+    if (shield) shield.style.pointerEvents = '';
+    if (block) block.style.pointerEvents = '';
+  }
+}
+if (_origCloseToolPanels) window.closeToolPanels = xgtCloseToolPanels;
+// Shared by renderSessionStatsHtml (one game) and
+// renderCombinedSessionStatsHtml (several games merged) below -- both
+// need the identical tiles/heat-map/goal-map/chain-table body, differing
+// only in what header sits above it. Extracted here rather than
+// duplicated or string-sliced between the two, since an earlier attempt
+// at slicing the single-session header off the combined output turned
+// out to only strip the inner score-line div, leaving the subtitle line
+// behind -- fragile in exactly the way a real shared helper isn't.
+function xgtStatsBodyParts(evs, playerRole, trackingMode) {
+  var gk = playerRole === 'goalkeeper';
+  var actionEvs = evs.filter(function (e) { return e.context && e.context.kind === 'action'; });
+  var filteredEvs = actionEvs.filter(function (e) {
+    return trackingMode === 'parent' ? (gk ? true : e.actor.side === 'us') : true;
+  });
+  var gkEvents = actionEvs.filter(function (e) { return e.context.tree === 'gk'; });
+  var showGk = gk || (trackingMode === 'coach' && gkEvents.length > 0);
+  var tiles, extra = '';
+  if (gk) {
+    var g = goalkeeperStats(filteredEvs);
+    tiles = [[g.faced, 'ON GOAL FACED'], [g.saves, 'SAVES / BLOCKS'], [g.pct + '%', 'SAVE %'],
+             [g.goals, 'GOALS ALLOWED'], [g.missed, 'OFF TARGET'], [g.defBlocks, 'DEFENDER BLOCKS'],
+             [g.postCrossbar, 'POST / CROSSBAR'],
+             [g.penFaced, 'PENALTIES FACED'], [g.penSaves, 'PENALTY SAVES'], [g.attempts, 'TOTAL ATTEMPTS'],
+             [g.steals, 'STEALS'], [g.turnovers, 'TURNOVERS'], [g.exDrawn, 'EXCL. DRAWN'],
+             [g.outletCompleted, 'OUTLETS COMPLETED'], [g.outletTurnovers, 'OUTLET TURNOVERS']];
+    extra = gkTypeTable(g);
+  } else {
+    var f = fieldPlayerStats(filteredEvs);
+    tiles = [[f.goals, 'GOALS'], [f.shots, 'SHOTS'], [f.pct + '%', 'SHOOTING'],
+             [f.steals, 'STEALS'], [f.turnovers, 'TURNOVERS'], [f.blocked, 'BLOCKED'],
+             [f.exDrawn, 'EXCL. DRAWN'], [f.exGiven, 'EXCL. GIVEN']];
+    if (showGk) {
+      var kg = goalkeeperStats(gkEvents);
+      var keeperNo = null;
+      for (var i = 0; i < gkEvents.length && keeperNo == null; i++) keeperNo = gkEvents[i].goalkeeper;
+      extra = '<h2>Our goalkeeper' + (keeperNo != null ? ' · #' + keeperNo : '') + '</h2>' +
+        '<div class="xgtTiles">' +
+        [[kg.faced, 'ON GOAL FACED'], [kg.saves, 'SAVES / BLOCKS'], [kg.pct + '%', 'SAVE %'],
+         [kg.goals, 'GOALS ALLOWED'], [kg.missed, 'OFF TARGET'], [kg.defBlocks, 'DEFENDER BLOCKS']]
+          .map(function (t) { return '<div class="xgtTile"><div class="v">' + t[0] + '</div><div class="k">' + t[1] + '</div></div>'; }).join('') +
+        '</div>' + gkTypeTable(kg);
+    }
+  }
+  var origin = gk ? filteredEvs.filter(function (e) { return e.action === 'shot'; }) : filteredEvs;
+  var chain = filteredEvs.filter(function (e) { return e.fieldZone && e.outcomeLabel; }).slice().reverse().slice(0, 30);
+  var html =
+    '<div class="xgtTiles">' + tiles.map(function (t) {
+      return '<div class="xgtTile"><div class="v">' + t[0] + '</div><div class="k">' + t[1] + '</div></div>';
+    }).join('') + '</div>' + extra +
+    '<h2>' + (gk ? 'Shot origin — where they shot from' : 'Where it happened') + '</h2>' +
+    '<div class="xgtCard" style="padding:8px">' + heatFieldSvg(origin) + '</div>' +
+    '<h2>Goal placement</h2><div class="xgtCard">' + goalMapHtml(filteredEvs) + '</div>' +
+    missBlock(filteredEvs) +
+    '<h2>Origin → outcome → placement</h2><div class="xgtCard">' +
+      (chain.length ? '<table><tr><th>From</th><th>Type</th><th>Outcome</th><th>Placement</th></tr>' + chain.map(function (e) {
+        return '<tr><td>' + e.fieldZoneName + '</td><td>' + (e.variantLabel || '—') + '</td><td>' + e.outcomeLabel + '</td><td>' +
+          (e.goalPlacement ? e.goalPlacement.label : '—') + '</td></tr>';
+      }).join('') + '</table>' : '<p class="xgtNote">Nothing recorded.</p>') +
+      '</div>';
+  return { html: html, actionCount: filteredEvs.length, gk: gk, tiles: tiles };
+}
+// Loaded on demand, only when a coach actually taps "Export PDF" -- not
+// a static <script> tag alongside Supabase's, since that would add load
+// weight for every coach regardless of whether they ever use this paid
+// feature. Pinned to a specific version (matching how Supabase itself is
+// pinned above) rather than @latest, so a future jsPDF release can't
+// silently change behavior underneath an already-shipped export button.
+var _jspdfLoadPromise = null;
+function loadJsPDF() {
+  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if (_jspdfLoadPromise) return _jspdfLoadPromise;
+  _jspdfLoadPromise = new Promise(function (resolve, reject) {
+    var script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js';
+    script.onload = function () {
+      if (window.jspdf && window.jspdf.jsPDF) resolve(window.jspdf.jsPDF);
+      else reject(new Error('The PDF export library loaded but wasn\u2019t in the expected shape.'));
+    };
+    script.onerror = function () { reject(new Error('Could not load the PDF export library \u2014 check your connection and try again.')); };
+    document.head.appendChild(script);
+  }).catch(function (err) {
+    _jspdfLoadPromise = null; // allow a retry on the next click rather than permanently caching one transient failure
+    throw err;
+  });
+  return _jspdfLoadPromise;
+}
+// jsPDF embeds raster images or its own vector primitives, not raw SVG
+// directly -- this rasterizes an already-rendered <svg> DOM element (the
+// same one currently on screen, not a separately regenerated copy) to a
+// PNG data URI via canvas, at 2x scale for print sharpness. A white
+// background fill matters here: heatFieldSvg's own background is opaque
+// already, but goalMapHtml's is not, and an unfilled canvas defaults to
+// transparent black in most PDF viewers rather than the white a printed
+// page needs.
+function xgtSvgToPngDataUri(svgEl) {
+  return new Promise(function (resolve, reject) {
+    if (!svgEl) { reject(new Error('No visualization to export.')); return; }
+    try {
+      var svgString = new XMLSerializer().serializeToString(svgEl);
+      var svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      var url = URL.createObjectURL(svgBlob);
+      var img = new Image();
+      img.onload = function () {
+        var rect = svgEl.getBoundingClientRect();
+        var scale = 2;
+        var w = Math.max(1, Math.round((rect.width || 400) * scale));
+        var h = Math.max(1, Math.round((rect.height || 300) * scale));
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve({ dataUri: canvas.toDataURL('image/png'), width: w, height: h });
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Could not render a visualization for export.')); };
+      img.src = url;
+    } catch (err) { reject(err); }
+  });
 }
 var API = {
   open: function () {
@@ -20575,6 +20900,7 @@ var API = {
     if (!S.active) return;
     S.active = false;
     S.running = false; clearInterval(S.tick);
+    S.shieldSuspendedForToolPanel = false; // no shield left to restore once removeChrome() below runs anyway, but avoids a stale flag if reopened later
     removeChrome(); removeOverlay();
     restoreVenueWidth();
     if (frontCourtOn() !== S.hadFrontCourt && window.MIZE.Field && window.MIZE.Field.toggleFrontCourt) {
@@ -20602,7 +20928,161 @@ var API = {
   boardToClient: boardToClient,
   FIELD_PLAYER_ACTIONS: FIELD_PLAYER_ACTIONS,
   GOALKEEPER_ACTIONS: GOALKEEPER_ACTIONS,
-  events: function () { return S.events.slice(); }
+  events: function () { return S.events.slice(); },
+  // Read-only stats rendering for a SAVED session record (Phase B --
+  // "View Stats" from the Coaching Library), completely separate from
+  // openStats() and never touching the live S object. This matters: a
+  // coach could be mid-game, tap into the Library to check a past
+  // session, and tap back out -- if this shared S.events with the live
+  // tracker even briefly, that would risk corrupting the in-progress
+  // game. Reuses the same stateless computation helpers openStats()
+  // itself calls (goalkeeperStats/fieldPlayerStats/heatFieldSvg/
+  // goalMapHtml/missBlock/gkTypeTable all already take an explicit
+  // events array, not S), just with its own simpler HTML around them --
+  // no add-event/edit-event/new-game affordances, since none of those
+  // make sense for a completed, saved game. Returns an HTML string for
+  // the Library's own detail view to inject; this module never renders
+  // it directly, since #libraryDetailBody lives outside this IIFE.
+  renderSessionStatsHtml: function (sessionRecord) {
+    var d = sessionRecord || {};
+    var sc = d.finalScore || { home: 0, away: 0 };
+    var parts = xgtStatsBodyParts(d.events || [], d.playerRole, d.trackingMode);
+    var trackedNum = d.trackedPlayer && d.trackedPlayer.number != null ? d.trackedPlayer.number : null;
+    return (
+      '<div style="margin-bottom:10px"><div style="font-weight:700">' + (d.game && d.game.home || 'My team') + ' ' + sc.home + ' – ' + sc.away + ' ' + (d.game && d.game.away || 'Opponent') + '</div>' +
+      '<div style="font-size:11.5px;color:#7c8a8a">' + (parts.gk ? 'Goalkeeper' : 'Field player') + (trackedNum != null ? ' #' + trackedNum : '') + ' · ' + parts.actionCount + ' actions' + (d.game && d.game.date ? ' · ' + d.game.date : '') + '</div></div>' +
+      parts.html
+    );
+  },
+  // Phase C: the paid, multi-session view -- combines events from
+  // several saved sessions into one merged array and hands it to the
+  // exact same xgtStatsBodyParts() helper renderSessionStatsHtml() above
+  // uses, rather than any separate aggregation logic of its own. Guarded
+  // UI upstream (the Library's own checkbox handler) already prevents
+  // mismatched playerRole/trackedPlayer combinations from reaching here,
+  // but this re-checks defensively rather than trusting that guard
+  // blindly, since this method could in principle be called from
+  // somewhere else later that doesn't go through it.
+  renderCombinedSessionStatsHtml: function (sessionRecords) {
+    var recs = (sessionRecords || []).filter(Boolean);
+    if (!recs.length) return '<p class="xgtNote">No sessions to combine.</p>';
+    var first = recs[0];
+    var mismatched = recs.some(function (r) {
+      return r.playerRole !== first.playerRole ||
+        (first.trackingMode === 'parent' && r.trackingMode === 'parent' &&
+         (r.trackedPlayer || {}).number !== (first.trackedPlayer || {}).number);
+    });
+    if (mismatched) return '<p class="xgtNote">These sessions can\u2019t be combined — they track different roles or players.</p>';
+    var mergedEvents = [];
+    recs.forEach(function (r) { mergedEvents = mergedEvents.concat(r.events || []); });
+    var totalHome = 0, totalAway = 0;
+    recs.forEach(function (r) { var sc = r.finalScore || { home: 0, away: 0 }; totalHome += sc.home; totalAway += sc.away; });
+    var sessionListHtml = '<ul style="margin:0 0 10px;padding-left:18px;font-size:12px;color:#7c8a8a">' +
+      recs.map(function (r) {
+        var sc = r.finalScore || { home: 0, away: 0 };
+        return '<li>' + (r.game && r.game.home || 'My team') + ' ' + sc.home + '–' + sc.away + ' ' + (r.game && r.game.away || 'Opponent') +
+          (r.game && r.game.date ? ' · ' + r.game.date : '') + '</li>';
+      }).join('') + '</ul>';
+    var parts = xgtStatsBodyParts(mergedEvents, first.playerRole, first.trackingMode);
+    var trackedNum = first.trackedPlayer && first.trackedPlayer.number != null ? first.trackedPlayer.number : null;
+    return (
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">' +
+        '<h2 style="margin-top:0">' + recs.length + ' sessions combined</h2>' +
+        '<button type="button" id="xgtExportPdfBtn" style="flex:none;background:#1b7373;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;">Export PDF</button>' +
+      '</div>' +
+      sessionListHtml +
+      '<div style="margin-bottom:10px;font-size:11.5px;color:#7c8a8a">' + (parts.gk ? 'Goalkeeper' : 'Field player') + (trackedNum != null ? ' #' + trackedNum : '') + ' · ' + parts.actionCount + ' total actions · Combined score ' + totalHome + '–' + totalAway + '</div>' +
+      parts.html
+    );
+  },
+  // The actual PDF-building logic lives here (stats computation is this
+  // module's own responsibility already), but the rendered SVG elements
+  // to rasterize are passed in by the caller rather than queried here --
+  // #libraryDetailBody, where the combined view is actually rendered,
+  // lives in the Library's own DOM, outside this module entirely, and
+  // reaching into another module's specific element IDs directly would
+  // be exactly the tight, fragile coupling this codebase's modules have
+  // deliberately avoided everywhere else.
+  exportCombinedStatsPdf: function (sessionRecords, vizElements) {
+    var recs = (sessionRecords || []).filter(Boolean);
+    vizElements = vizElements || {};
+    if (!recs.length) return Promise.reject(new Error('No sessions to export.'));
+    var first = recs[0];
+    var mergedEvents = [];
+    recs.forEach(function (r) { mergedEvents = mergedEvents.concat(r.events || []); });
+    var totalHome = 0, totalAway = 0;
+    recs.forEach(function (r) { var sc = r.finalScore || { home: 0, away: 0 }; totalHome += sc.home; totalAway += sc.away; });
+    var parts = xgtStatsBodyParts(mergedEvents, first.playerRole, first.trackingMode);
+    var trackedNum = first.trackedPlayer && first.trackedPlayer.number != null ? first.trackedPlayer.number : null;
+
+    return loadJsPDF().then(function (jsPDFCtor) {
+      var svgJobs = [];
+      if (vizElements.heatSvg) svgJobs.push(xgtSvgToPngDataUri(vizElements.heatSvg).then(function (img) { return { kind: 'heat', img: img }; }).catch(function () { return null; }));
+      if (vizElements.goalSvg) svgJobs.push(xgtSvgToPngDataUri(vizElements.goalSvg).then(function (img) { return { kind: 'goal', img: img }; }).catch(function () { return null; }));
+
+      return Promise.all(svgJobs).then(function (results) {
+        var heatImg = null, goalImg = null;
+        results.forEach(function (r) { if (r && r.kind === 'heat') heatImg = r.img; if (r && r.kind === 'goal') goalImg = r.img; });
+
+        var doc = new jsPDFCtor({ orientation: 'p', unit: 'pt', format: 'a4' });
+        var pageW = doc.internal.pageSize.getWidth();
+        var pageH = doc.internal.pageSize.getHeight();
+        var margin = 40;
+        var y = margin;
+
+        function ensureSpace(needed) { if (y + needed > pageH - margin) { doc.addPage(); y = margin; } }
+        function addTitle(text) {
+          ensureSpace(24); doc.setFontSize(16); doc.setFont(undefined, 'bold');
+          doc.text(text, margin, y); y += 20; doc.setFont(undefined, 'normal');
+        }
+        function addSubheading(text) {
+          ensureSpace(18); doc.setFontSize(12); doc.setFont(undefined, 'bold');
+          doc.text(text, margin, y); y += 16; doc.setFont(undefined, 'normal');
+        }
+        function addLine(text) { ensureSpace(14); doc.setFontSize(10); doc.text(text, margin, y); y += 14; }
+
+        addTitle(recs.length + ' Sessions Combined');
+        addLine((parts.gk ? 'Goalkeeper' : 'Field player') + (trackedNum != null ? ' #' + trackedNum : '') +
+          ' \u00b7 ' + parts.actionCount + ' total actions \u00b7 Combined score ' + totalHome + '\u2013' + totalAway);
+        y += 6;
+
+        addSubheading('Sessions included');
+        recs.forEach(function (r) {
+          var sc = r.finalScore || { home: 0, away: 0 };
+          addLine((r.game && r.game.home || 'My team') + ' ' + sc.home + '\u2013' + sc.away + ' ' + (r.game && r.game.away || 'Opponent') +
+            (r.game && r.game.date ? '  \u00b7  ' + r.game.date : ''));
+        });
+        y += 10;
+
+        addSubheading('Stats');
+        // Plain text lines rather than trying to replicate the on-screen
+        // tile boxes exactly -- simpler and more reliably legible once
+        // printed than reconstructing a grid layout in jsPDF's own
+        // (non-flow, manually-positioned) drawing model.
+        parts.tiles.forEach(function (t) { addLine(t[1] + ':  ' + t[0]); });
+        y += 10;
+
+        if (heatImg) {
+          addSubheading(parts.gk ? 'Shot origin' : 'Where it happened');
+          var hw = Math.min(pageW - margin * 2, 300), hh = hw * (heatImg.height / heatImg.width);
+          ensureSpace(hh + 10);
+          doc.addImage(heatImg.dataUri, 'PNG', margin, y, hw, hh);
+          y += hh + 14;
+        }
+        if (goalImg) {
+          addSubheading('Goal placement');
+          var gw = Math.min(pageW - margin * 2, 300), gh = gw * (goalImg.height / goalImg.width);
+          ensureSpace(gh + 10);
+          doc.addImage(goalImg.dataUri, 'PNG', margin, y, gw, gh);
+          y += gh + 14;
+        }
+
+        var filename = 'xquix-combined-stats-' + recs.length + '-sessions.pdf';
+        doc.save(filename);
+        return filename;
+      });
+    });
+  }
 };
 function askResume(saved) {
   openSheet();
