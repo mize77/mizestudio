@@ -6848,8 +6848,9 @@ document.getElementById('featureManagementEntryBtn')?.addEventListener('click', 
 const XQUIX_WIRED_FUNCTION_NAMES = new Set([
   'Count direction', 'Darken / brighten studio windows', 'Dock / detach timeline',
   'Field Zones', 'Frame Transition / Display Modes', 'Load image / web content',
-  'Load local video', 'Load video URL', 'Measure', 'Open / close Practice Studio',
-  'Play / pause video', 'Player Setups', 'Reorder frames', 'Smart Goalie Positioning',
+  'Load local video', 'Load video URL', 'Measure', 'Multi-Session Stats',
+  'Open / close Practice Studio', 'Play / pause video', 'Player Setups',
+  'Reorder frames', 'Session PDF Export', 'Smart Goalie Positioning',
   'Smart Positioning', 'Sync with package', 'Team Manager',
 ]);
 async function renderFeatureManagementPanel(){
@@ -16968,6 +16969,7 @@ function renderLibSessionCombineBar(assets){
   bar.style.display = '';
   bar.innerHTML = '<span>'+n+' sessions selected</span> <button type="button" id="libViewCombinedBtn">View combined stats</button>';
   document.getElementById('libViewCombinedBtn').onclick = async ()=>{
+    if(!xquixRequireFunction('Multi-Session Stats')) return;
     const records = await Promise.all(libState.selectedSessionIds.map(id=>LibraryStorage.getAsset(id)));
     const valid = records.filter(Boolean);
     if(!valid.length) return;
@@ -16986,6 +16988,7 @@ function renderLibSessionCombineBar(assets){
     const exportBtn = document.getElementById('xgtExportPdfBtn');
     if(exportBtn){
       exportBtn.onclick = async ()=>{
+        if(!xquixRequireFunction('Session PDF Export')) return;
         const origLabel = exportBtn.textContent;
         exportBtn.disabled = true; exportBtn.textContent = 'Exporting\u2026';
         try {
