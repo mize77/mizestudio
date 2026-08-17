@@ -19332,7 +19332,7 @@ var CSS = [
 '  border:1px solid #ccd6d6;font-weight:650;font-variant-numeric:tabular-nums;',
 '  display:flex;align-items:center;justify-content:center;color:#124d4d}',
 '#xgtSheet .xgtChip[aria-pressed="true"]{background:#1b7373;color:#fff;border-color:transparent}',
-'#xgtSheet .xgtChip.water{background:#2e7d32;color:#fff;border-color:transparent}',
+'#xgtRoot .xgtChip.water, #xgtSheet .xgtChip.water{background:#2e7d32;color:#fff;border-color:transparent}', /* #xgtSheet alone isn\'t enough: renderBar() renders these chips into #xgtBar, which is inside #xgtRoot (NOT #xgtSheet -- confirmed these are separate containers), and #xgtRoot button{background:none} outranks a plain two-class rule by specificity. Both ID scopes are needed to cover both locations these chips actually render in. */
 /* scrim + sheet */
 '#xgtScrim{position:fixed;inset:0;z-index:999985;background:rgba(13,43,43,.45);opacity:0;pointer-events:none;transition:opacity .18s}',
 '#xgtScrim.on{opacity:1;pointer-events:auto}',
@@ -19523,14 +19523,12 @@ function buildChrome() {
     if (S.editingZoneNumbers) toast('Tap a zone to give it a new number.');
   };
   el('xgtStatsBtn').onclick = function () {
-    // Client-side gate only -- see the migration file's own comment for
-    // why that's the right call here (no server-side data is being
-    // read/written by viewing already-local stats, so there's nothing
-    // for a matching RLS policy to protect).
-    if (typeof XQUIX !== 'undefined' && XQUIX.Entitlements && !XQUIX.Entitlements.can('gameTrackerStats')) {
-      toast('Stats are a paid feature -- upgrade your plan to unlock them.');
-      return;
-    }
+    // Single-game stats, including JSON/CSV export of THIS game's event
+    // log, are free for everyone -- deliberately not gated. The paid
+    // tier is what's built on top of a single game, not the single game
+    // itself: aggregating stats across multiple saved sessions, and PDF
+    // exports of the visual analytics (field-zone heat maps, goal-zone
+    // placement maps). Neither of those exists yet as of this comment.
     openStats();
   };
   el('xgtExitBtn').onclick = function () { API.close(); };
