@@ -18817,6 +18817,35 @@ var ZONES = [
 ];
 function zoneById(id) { for (var i = 0; i < ZONES.length; i++) if (ZONES[i].id === id) return ZONES[i]; return null; }
 
+/* Per-device zone number customization -- any coach/parent can reassign
+   which number displays at each geometric zone position, without needing
+   admin authorization or team-wide coordination (confirmed: this is
+   deliberately personal/local, not a database-backed team setting). */
+var ZONE_NUM_KEY = 'xgtZoneNumbersV1';
+function loadZoneNumberOverrides() { try { return JSON.parse(localStorage.getItem(ZONE_NUM_KEY) || '{}'); } catch (err) { return {}; } }
+function saveZoneNumberOverrides() { try { localStorage.setItem(ZONE_NUM_KEY, JSON.stringify(S.zoneNumberOverrides)); } catch (err) {} }
+/* The single point every display/storage site should read through --
+   swapping z.n for this everywhere it was used keeps the override
+   entirely transparent to the rest of the module. */
+function zoneNum(z) { return (S.zoneNumberOverrides && S.zoneNumberOverrides[z.id] != null) ? S.zoneNumberOverrides[z.id] : z.n; }
+function promptZoneNumberEdit(zoneId) {
+  var z = zoneById(zoneId);
+  if (!z) return;
+  var current = zoneNum(z);
+  // window.prompt matches this module's own existing precedent
+  // (window.alert already appears in API.open) rather than introducing
+  // MizeDialog, which this self-contained module never otherwise uses.
+  var input = window.prompt('New number for this zone (currently ' + current + '):', String(current));
+  if (input === null) return; // cancelled
+  var n = parseInt(input, 10);
+  if (isNaN(n) || String(n) !== input.trim()) { window.alert('Enter a whole number.'); return; }
+  var conflict = ZONES.some(function (other) { return other.id !== zoneId && zoneNum(other) === n; });
+  if (conflict) { window.alert('Zone ' + n + ' is already in use by another zone. Pick a different number.'); return; }
+  S.zoneNumberOverrides[zoneId] = n;
+  saveZoneNumberOverrides();
+  drawOverlay(null);
+}
+
 /* ------------------------------------------------------------ action trees */
 /* Deliberately separate structures. Neither may leak into the other. */
 var FIELD_PLAYER_ACTIONS = [
@@ -18868,8 +18897,11 @@ var GOALKEEPER_ACTIONS = [
     ]},
   { id: 'steal',     label: 'Steal',     cls: 'g', terminal: true },
   { id: 'exclusion', label: 'Exclusion', cls: 'w', dc: true, children: sharedChild('exclusion') },
-  { id: 'turnover',  label: 'Turnover',  cls: 'c', children: sharedChild('turnover') }
-  /* Outlet passing comes later — deliberately not modelled yet. */
+  { id: 'turnover',  label: 'Turnover',  cls: 'c', children: sharedChild('turnover') },
+  { id: 'outlet', label: 'Outlet Pass', cls: 'b', children: [
+    { id: 'completed', label: 'Completed', cls: 'g' },
+    { id: 'turnover',  label: 'Turnover',  cls: 'c' }
+  ]}
 ];
 function tree() {
   if (S.draft && S.draft.useGkTree) return GOALKEEPER_ACTIONS;
@@ -18922,6 +18954,8 @@ var S = {
   game: { date: '', loc: '', home: '', away: '' },
   me: { number: null, name: '' },
   squad: [], water: [], keepers: [],
+  editingZoneNumbers: false,   // true while the tap-to-relabel flow (zoneNum below) is active; intercepts the normal zone-tap-opens-action-sheet behavior
+  zoneNumberOverrides: {},     // {zoneId: displayNumber} -- per-device via localStorage (loadZoneNumberOverrides), NOT team-wide or database-backed; any coach/parent can set their own, deliberately
   q: 1, clock: QLEN, running: false, tick: null,
   events: [], undone: [], seq: 0,
   draft: null, onScrim: null, zonesVisible: true,
@@ -19074,7 +19108,7 @@ function drawOverlay(counts) {
     // this one yet. A dedicated naming option later replaces this single
     // line, rather than un-hiding a second one, so there's no leftover
     // "ZONE N" scaffolding to work around when that's built.
-    txt.textContent = counts ? (counts.map[z.id] || 0) : z.n;
+    txt.textContent = counts ? (counts.map[z.id] || 0) : zoneNum(z);
     clipped.appendChild(txt);
   });
   g.style.display = S.zonesVisible ? '' : 'none';
@@ -19427,6 +19461,7 @@ function buildChrome() {
       '<button id="xgtTimeBtn">✎ Time</button>' +
       '<button id="xgtZoneBtn">Zones</button>' +
       '<button id="xgtFieldViewBtn">Field View</button>' +
+      '<button id="xgtEditZoneNumBtn">Edit Numbers</button>' +
       '<div class="sp"></div>' +
       '<button id="xgtStatsBtn">Stats</button>' +
       '<button id="xgtExitBtn">Exit</button>' +
@@ -19458,6 +19493,7 @@ function buildChrome() {
     if (!z) return;
     flashZone(z);
     if (navigator.vibrate) navigator.vibrate(8);
+    if (S.editingZoneNumbers) { promptZoneNumberEdit(z); return; }
     openZone(z, b);
   }, false);
 
@@ -19479,6 +19515,12 @@ function buildChrome() {
   el('xgtFieldViewBtn').onclick = function () {
     if (window.MIZE.Field && window.MIZE.Field.fitBoardToScreen) { try { window.MIZE.Field.fitBoardToScreen(); } catch (err) {} }
     positionShield();
+  };
+  el('xgtEditZoneNumBtn').onclick = function () {
+    S.editingZoneNumbers = !S.editingZoneNumbers;
+    el('xgtEditZoneNumBtn').textContent = S.editingZoneNumbers ? 'Done Editing' : 'Edit Numbers';
+    el('xgtEditZoneNumBtn').classList.toggle('active', S.editingZoneNumbers);
+    if (S.editingZoneNumbers) toast('Tap a zone to give it a new number.');
   };
   el('xgtStatsBtn').onclick = function () {
     // Client-side gate only -- see the migration file's own comment for
@@ -19685,7 +19727,7 @@ function openZone(zoneId, board) {
   var z = zoneById(zoneId);
   S.draft = {
     fieldZone: z.id,
-    fieldZoneName: z.n, // number only for now -- see the comment on xgtZoneNum
+    fieldZoneName: zoneNum(z), // per-device-overridable display number -- see zoneNum
     fieldCoordinates: {
       bx: +board.x.toFixed(2), by: +board.y.toFixed(2),                 // board metres
       fx: +(board.x - 2).toFixed(2), fy: +(board.y - 2).toFixed(2),     // field-of-play metres
@@ -20058,11 +20100,17 @@ function goalkeeperStats(evs) {
      shot would drag the save percentage around without the keeper touching it. */
   var onTarget = onT(shots).length, saves = o(shots, 'blocked'), goals = o(shots, 'goal');
   var pen = v('penalty');
+  var missedShots = shots.filter(function (e) { return e.outcome === 'missed'; });
+  var postCrossbar = missedShots.filter(function (e) {
+    return e.goalPlacement && ['post_left', 'crossbar', 'post_right'].indexOf(e.goalPlacement.area) >= 0;
+  }).length;
+  var outlets = evs.filter(function (e) { return e.action === 'outlet'; });
   return {
     attempts: shots.length,
     faced: onTarget, saves: saves, goals: goals,
     pct: onTarget ? Math.round(saves / onTarget * 100) : 0,
     missed: o(shots, 'missed'), defBlocks: o(shots, 'def_block'),
+    postCrossbar: postCrossbar,
     penFaced: onT(pen).length, penSaves: o(pen, 'blocked'),
     regular: onT(v('regular')).length, regularSaves: o(v('regular'), 'blocked'), regularOff: o(v('regular'), 'missed'),
     skip: onT(v('skip')).length, skipSaves: o(v('skip'), 'blocked'), skipOff: o(v('skip'), 'missed'),
@@ -20071,7 +20119,9 @@ function goalkeeperStats(evs) {
     steals: evs.filter(function (e) { return e.action === 'steal'; }).length,
     turnovers: evs.filter(function (e) { return e.action === 'turnover'; }).length,
     exDrawn: evs.filter(function (e) { return e.action === 'exclusion' && e.context.dc === 'drawn'; }).length,
-    exGiven: evs.filter(function (e) { return e.action === 'exclusion' && e.context.dc === 'committed'; }).length
+    exGiven: evs.filter(function (e) { return e.action === 'exclusion' && e.context.dc === 'committed'; }).length,
+    outletCompleted: outlets.filter(function (e) { return e.outcome === 'completed'; }).length,
+    outletTurnovers: outlets.filter(function (e) { return e.outcome === 'turnover'; }).length
   };
 }
 function gkRow(label, n, saved, off) {
@@ -20098,7 +20148,7 @@ function heatFieldSvg(evs) {
          as a small secondary label -- no "ZONE" word, matching the live
          overlay's numbers-only display. */
       '<tspan x="' + lp.x + '" dy="-0.15em" font-size="1.05" font-weight="800">' + n + '</tspan>' +
-      '<tspan x="' + lp.x + '" dy="1.1em" font-size=".5" font-weight="600" opacity=".85">' + z.n + '</tspan></text>';
+      '<tspan x="' + lp.x + '" dy="1.1em" font-size=".5" font-weight="600" opacity=".85">' + zoneNum(z) + '</tspan></text>';
   }).join('');
   /* Real field markings, reproduced from Studio's own #fieldGroup at the
      same board coordinates (goal 0.5-2 wide x 1.5 deep, 2m box, 5m line,
@@ -20189,8 +20239,10 @@ function openStats() {
     var g = goalkeeperStats(evs);
     tiles = [[g.faced, 'ON GOAL FACED'], [g.saves, 'SAVES / BLOCKS'], [g.pct + '%', 'SAVE %'],
              [g.goals, 'GOALS ALLOWED'], [g.missed, 'OFF TARGET'], [g.defBlocks, 'DEFENDER BLOCKS'],
+             [g.postCrossbar, 'POST / CROSSBAR'],
              [g.penFaced, 'PENALTIES FACED'], [g.penSaves, 'PENALTY SAVES'], [g.attempts, 'TOTAL ATTEMPTS'],
-             [g.steals, 'STEALS'], [g.turnovers, 'TURNOVERS'], [g.exDrawn, 'EXCL. DRAWN']];
+             [g.steals, 'STEALS'], [g.turnovers, 'TURNOVERS'], [g.exDrawn, 'EXCL. DRAWN'],
+             [g.outletCompleted, 'OUTLETS COMPLETED'], [g.outletTurnovers, 'OUTLET TURNOVERS']];
     extra = gkTypeTable(g);
   } else {
     var f = fieldPlayerStats(evs);
@@ -20473,6 +20525,7 @@ var API = {
       return;
     }
     S.active = true;
+    S.zoneNumberOverrides = loadZoneNumberOverrides();
     injectCss(); buildChrome();
     S.hadFrontCourt = frontCourtOn();
     // Same save-before-modify, restore-on-close pattern as Front Court
