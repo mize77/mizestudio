@@ -3748,6 +3748,31 @@ XQUIX.Org = (function(){
         return { success:true };
       } catch(err) { return { error:{ message: err.message } }; }
     },
+    // Calls the send-org-invite-email Edge Function (a separate
+    // deployment, not part of this app's own code) to send a
+    // custom-branded email for a brand-new invitee. Deliberately a
+    // SEPARATE call from createInvite() above, not folded into it -- the
+    // org_invites row (the actual source of truth for "who's invited")
+    // should still exist even if the email send fails for some reason (a
+    // Resend outage, a typo'd address, the function not being deployed
+    // yet), so a failure here should never block or roll back the invite
+    // itself. Returns { success:true }, { skipped:'existing_account' }
+    // (expected, not an error -- see the function's own comments for why),
+    // or { error } if the function itself isn't reachable/deployed.
+    async sendInviteEmail(orgId, email, role){
+      const client = XQUIX.Auth.getClient();
+      if(!client) return { error:{ message:'Sign in first.' } };
+      try {
+        const { data: { session } } = await client.auth.getSession();
+        if(!session) return { error:{ message:'Sign in first.' } };
+        const { data, error } = await withTimeout(client.functions.invoke('send-org-invite-email', {
+          body: { email: email.trim().toLowerCase(), orgId, role },
+          headers: { Authorization: 'Bearer ' + session.access_token }
+        }), 20);
+        if(error) throw error;
+        return data || { success:true };
+      } catch(err) { return { error:{ message: err.message } }; }
+    },
     async cancelInvite(inviteId){
       const client = XQUIX.Auth.getClient();
       if(!client) return { error:{ message:'Sign in first.' } };
@@ -5426,22 +5451,67 @@ document.getElementById('xquixSendInviteBtn')?.addEventListener('click', async (
   const email = emailInput.value.trim();
   const role = document.getElementById('xquixInviteRoleSelect').value;
   const msgEl = document.getElementById('xquixInviteFormMessage');
-  if(!email || !email.includes('@')){ msgEl.style.display=''; msgEl.textContent='Enter a valid email address.'; return; }
+  if(!email || !email.includes('@')){ msgEl.style.display=''; msgEl.style.color='#b23b3b'; msgEl.textContent='Enter a valid email address.'; return; }
   const result = await XQUIX.Org.createInvite(orgId, email, role);
-  if(result.error){ msgEl.style.display=''; msgEl.textContent='Could not send invite: '+result.error.message; return; }
-  msgEl.style.display='none';
+  if(result.error){ msgEl.style.display=''; msgEl.style.color='#b23b3b'; msgEl.textContent='Could not send invite: '+result.error.message; return; }
   emailInput.value='';
   await xquixRenderOrgMembers(orgId);
+  // The org_invites row above is the actual source of truth for "who's
+  // invited" and already exists regardless of what happens next -- the
+  // email below is a best-effort notification on top of it, so none of
+  // these outcomes should look like the invite itself failed.
+  const emailResult = await XQUIX.Org.sendInviteEmail(orgId, email, role);
+  msgEl.style.display='';
+  if(emailResult.skipped === 'existing_account'){
+    msgEl.style.color='#7c8a8a';
+    msgEl.textContent=email+' already has an account \u2014 they\u2019ll see this invite next time they sign in.';
+  } else if(emailResult.error){
+    msgEl.style.color='#7c8a8a';
+    msgEl.textContent='Invite created, but the email couldn\u2019t be sent: '+emailResult.error.message+'. They\u2019ll still see it if they sign up on their own.';
+  } else {
+    msgEl.style.color='#2e7d32';
+    msgEl.textContent='Invite sent to '+email+'.';
+  }
 });
 // Runs on every sign-in (not just first sign-up) so an invite created
 // while someone was already a member elsewhere still gets offered the
 // next time they're active -- claimed/declined invites simply won't
 // come back, since claiming deletes the row and declining just leaves
 // it to be offered again later rather than lost.
+//
+// The cooldown below exists because "every sign-in" turned out to mean
+// far more often than it sounds: Supabase silently re-fires
+// onAuthStateChange on background token refreshes too (roughly hourly
+// while the app stays open), and setUser() has no dedupe of its own, so
+// every one of those refreshes was re-running this whole check from
+// scratch. A still-pending invite -- declined, or one that failed to
+// claim (e.g. the signed-in person already belongs to that
+// organization) -- was resurfacing the exact same dialog repeatedly
+// within a single sitting, since nothing about it changes between
+// refreshes. A day-long cooldown per invite id keeps a stale invite from
+// becoming a recurring interruption, while still surfacing it again
+// eventually if it's still genuinely sitting there unresolved.
+var XQUIX_INVITE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+function xquixInviteRecentlyPrompted(inviteId){
+  try {
+    var t = localStorage.getItem('xquixInvitePromptedAt_' + inviteId);
+    return !!t && (Date.now() - parseInt(t, 10)) < XQUIX_INVITE_COOLDOWN_MS;
+  } catch(err) { return false; } // private-browsing / storage disabled -- fail open (prompt as before) rather than silently suppressing invites
+}
+function xquixMarkInvitePrompted(inviteId){
+  try { localStorage.setItem('xquixInvitePromptedAt_' + inviteId, String(Date.now())); } catch(err) {}
+}
 XQUIX.Auth.onChange(async (user)=>{
   if(!user) return;
   const invites = await XQUIX.Org.listMyInvites();
   for(const inv of invites){
+    if(xquixInviteRecentlyPrompted(inv.id)) continue;
+    // Marked before the dialog, not after -- a successfully-claimed
+    // invite deletes its own row server-side (see claimInvite()), so the
+    // marker just becomes harmlessly irrelevant in that case; marking
+    // this early is what actually closes the repeat-prompt window rather
+    // than leaving a gap right up until the person responds.
+    xquixMarkInvitePrompted(inv.id);
     const orgName = inv.organizations?.name || 'an organization';
     const accept = await MizeDialog.confirm('You\u2019ve been invited to join \u201c'+orgName+'\u201d as '+inv.role+'. Join now?');
     if(!accept) continue;
