@@ -20559,15 +20559,32 @@ function stepPlacement(c) {
 }
 function finish() {
   var d = S.draft;
-  // Paid-tier only, and only for our own team actually scoring -- not the
-  // opponent scoring against our tracked goalkeeper (d.scores==='opp' in
-  // that case, captured in stepOutcome() since that's the only place the
-  // matched tree node with .scores is available). The guard flag prevents
-  // stepAssist()'s own buttons -- which call finish() again once an
-  // assist is picked or skipped -- from re-triggering this same prompt.
-  if (d.outcome === 'goal' && d.scores === 'us' && xgtHasAdvancedActions() && !d.assistStepShown) {
+  var isTeamMode = S.trackingMode === 'coach' && S.playerRole === 'team';
+  // Paid-tier only. Fires for a goal scored by EITHER side now, not just
+  // "us" -- !d.useGkTree is the correct source of truth here, not
+  // d.scores, since team mode's unified FIELD_PLAYER_ACTIONS tree always
+  // carries scores:'us' on its goal node regardless of which side
+  // actually scored (actor.side is what actually distinguishes them, the
+  // same way scoreOf() already treats it as authoritative). useGkTree
+  // stays true only for single-player goalkeeper-tracking mode's "the
+  // untracked opponent scored on our known keeper" case, where there's
+  // no opponent roster to meaningfully ask about anyway -- excluded here
+  // exactly as before. The guard flag prevents stepAssist()'s own
+  // buttons -- which call finish() again once an assist is picked or
+  // skipped -- from re-triggering this same prompt.
+  if (d.outcome === 'goal' && !d.useGkTree && xgtHasAdvancedActions() && !d.assistStepShown) {
     d.assistStepShown = true;
     stepAssist();
+    return;
+  }
+  // Team mode only, matching this whole redesign's confirmed scope.
+  // Fires for any personal-foul outcome regardless of how it was
+  // reached, including the referee-only bench-exclusion path, since a
+  // bench exclusion still earns a specific opposing player a power play
+  // just the same as one drawn in open play.
+  if (isTeamMode && d.action === 'exclusion' && xgtHasAdvancedActions() && !d.foulCounterpartStepShown) {
+    d.foulCounterpartStepShown = true;
+    stepFoulCounterpart();
     return;
   }
   commitDraft();
@@ -20583,6 +20600,7 @@ function commitDraft() {
     outcome: d.outcome, outcomeLabel: d.outcomeLabel,
     goalkeeper: d.goalkeeper || null, targetGoal: d.targetGoal || null,
     goalPlacement: d.goalPlacement, assist: d.assist != null ? d.assist : null,
+    foulCounterpart: d.foulCounterpart || null,
     context: { kind: 'action', trackingMode: S.trackingMode, dc: d.dc || null,
                tree: d.useGkTree ? 'gk' : 'field', note: null }
   });
@@ -20591,17 +20609,23 @@ function commitDraft() {
 // Team mode (a real, known roster) gets a chip-picker matching this
 // module's established visual language elsewhere; single-player modes
 // (no roster to pick from at all) get a plain manual number entry, same
-// pattern as the shootout panel's shooter-number field. Uses S.water
-// rather than S.squad for the chip list -- an assist can only plausibly
-// have come from someone who was actually in the water at the time.
+// pattern as the shootout panel's shooter-number field. Which roster to
+// draw from -- ours or the opponent's -- now depends on which side
+// actually scored (d.actor.side), not unconditionally S.water, since an
+// assist can only ever come from the SCORER's own teammates. Falls back
+// to manual entry if the scoring side is the opponent and detailed
+// opponent tracking isn't enabled (no roster to pick from there either).
 function stepAssist() {
   var d = S.draft;
   var isTeamMode = S.trackingMode === 'coach' && S.playerRole === 'team';
+  var scorerSide = d.actor && d.actor.side;
   var scorerNum = d.actor && d.actor.number;
+  var rosterWater = (isTeamMode && scorerSide === 'opp') ? S.oppWater : S.water;
+  var hasRoster = isTeamMode && (scorerSide === 'opp' ? S.opponentTracked : true);
   sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Goal! Who assisted?', null) +
-    (isTeamMode
+    (hasRoster
       ? '<div class="xgtChips" id="xgtAssistChips">' +
-        S.water.filter(function (n) { return n !== scorerNum; }).map(function (n) {
+        rosterWater.filter(function (n) { return n !== scorerNum; }).map(function (n) {
           return '<button class="xgtChip" data-assist="' + n + '">' + xgtKeeperLabel(n) + '</button>';
         }).join('') + '</div>'
       : '<span class="xgtLbl">Assist\u2019s cap number</span>' +
@@ -20610,7 +20634,7 @@ function stepAssist() {
         '<button class="xgtBtn pri" id="xgtAssistOk" style="margin-top:8px">Confirm</button>') +
     '<button class="xgtBtn" id="xgtAssistSkip" style="margin-top:10px">No assist / skip</button>';
   el('xgtX').onclick = function () { closeSheet(); };
-  if (isTeamMode) {
+  if (hasRoster) {
     Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-assist]'), function (b) {
       b.onclick = function () { d.assist = +b.dataset.assist; finish(); };
     });
@@ -20622,6 +20646,43 @@ function stepAssist() {
     };
   }
   el('xgtAssistSkip').onclick = function () { d.assist = null; finish(); };
+}
+// Team mode only. After a personal-foul outcome, asks which specific
+// player on the OTHER team was the counterpart to the actor already
+// selected -- whichever role (drawing it / committing it) the actor
+// DIDN'T already fill, per d.dc. Same roster-or-manual-entry pattern as
+// stepAssist() above: chips from the other side's water when a real
+// roster exists for them, otherwise a manual number entry.
+function stepFoulCounterpart() {
+  var d = S.draft;
+  var otherSide = d.actor.side === 'us' ? 'opp' : 'us';
+  var otherWater = otherSide === 'opp' ? S.oppWater : S.water;
+  var hasRoster = otherSide === 'opp' ? S.opponentTracked : true;
+  var question = d.dc === 'committed' ? 'Who drew this?' : 'Who committed this?';
+  sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, question, null) +
+    (hasRoster
+      ? '<div class="xgtChips" id="xgtFoulChips">' +
+        otherWater.map(function (n) {
+          return '<button class="xgtChip" data-fc="' + n + '">' + xgtKeeperLabel(n) + '</button>';
+        }).join('') + '</div>'
+      : '<span class="xgtLbl">' + (otherSide === 'us' ? 'Our' : 'Their') + ' cap number</span>' +
+        '<div class="xgtRow"><input class="xgtField" id="xgtFoulNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
+        'placeholder="#" style="flex:0 0 90px;text-align:center;font-size:19px;font-weight:700"></div>' +
+        '<button class="xgtBtn pri" id="xgtFoulOk" style="margin-top:8px">Confirm</button>') +
+    '<button class="xgtBtn" id="xgtFoulSkip" style="margin-top:10px">Unknown / skip</button>';
+  el('xgtX').onclick = function () { closeSheet(); };
+  if (hasRoster) {
+    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-fc]'), function (b) {
+      b.onclick = function () { d.foulCounterpart = { side: otherSide, number: +b.dataset.fc }; finish(); };
+    });
+  } else {
+    el('xgtFoulOk').onclick = function () {
+      var n = parseInt((el('xgtFoulNum').value || ''), 10);
+      d.foulCounterpart = n ? { side: otherSide, number: n } : null;
+      finish();
+    };
+  }
+  el('xgtFoulSkip').onclick = function () { d.foulCounterpart = null; finish(); };
 }
 
 /* ===================================================================== clock */
@@ -21595,14 +21656,16 @@ function xgtSvgToPngDataUri(svgEl) {
 function xgtEventsToCsvString(events) {
   var rows = [['eventId', 'quarter', 'clock', 'kind', 'role', 'side', 'number', 'zone', 'zoneName',
                'fieldX_m', 'fieldY_m', 'action', 'shotType', 'outcome', 'drawnCommitted',
-               'goalPlacement', 'assist', 'goalkeeper', 'targetGoal', 'timestamp']];
+               'goalPlacement', 'assist', 'foulCounterpartSide', 'foulCounterpartNumber', 'goalkeeper', 'targetGoal', 'timestamp']];
   (events || []).forEach(function (e) {
     var fc = e.fieldCoordinates || {};
+    var fcp = e.foulCounterpart || {};
     rows.push([e.eventId, e.quarter, fmt(e.gameClock), e.context.kind, e.playerRole,
       e.actor ? e.actor.side : '', e.actor && e.actor.number != null ? e.actor.number : '',
       e.fieldZone || '', e.fieldZoneName || '', fc.fx == null ? '' : fc.fx, fc.fy == null ? '' : fc.fy,
       e.actionLabel || e.context.dir || '', e.variantLabel || '', e.outcomeLabel || '', e.context.dc || '',
-      e.goalPlacement ? e.goalPlacement.label : '', e.assist == null ? '' : e.assist, e.goalkeeper == null ? '' : e.goalkeeper,
+      e.goalPlacement ? e.goalPlacement.label : '', e.assist == null ? '' : e.assist,
+      fcp.side || '', fcp.number == null ? '' : fcp.number, e.goalkeeper == null ? '' : e.goalkeeper,
       e.targetGoal || '', e.timestamp]);
   });
   return rows.map(function (r) {
