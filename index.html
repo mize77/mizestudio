@@ -21112,14 +21112,40 @@ function fileName() {
     sc[0] + '-' + sc[1], S.playerRole === 'goalkeeper' ? 'GK' : 'FP',
     S.me.number != null ? ('no' + S.me.number) : ''].filter(Boolean).join('_').replace(/[^\w\-.]/g, '_');
 }
+// Shared by openStats() (live) and xgtStatsBodyParts() (saved/combined) --
+// builds one goalkeeper-facing-shots block (title + tiles + type table)
+// from an already-filtered, side-specific event array. Returns '' for an
+// empty array so callers can unconditionally concatenate this in without
+// their own length check first.
+function xgtOpposingKeeperBlockHtml(label, gkEvents) {
+  if (!gkEvents.length) return '';
+  var kg = goalkeeperStats(gkEvents);
+  var keeperNo = null;
+  for (var i = 0; i < gkEvents.length && keeperNo == null; i++) keeperNo = gkEvents[i].goalkeeper;
+  return '<h2>' + label + (keeperNo != null ? ' \u00b7 #' + xgtKeeperLabel(keeperNo) : '') + '</h2>' +
+    '<div class="xgtTiles">' +
+    [[kg.faced, 'ON GOAL FACED'], [kg.saves, 'SAVES / BLOCKS'], [kg.pct + '%', 'SAVE %'],
+     [kg.goals, 'GOALS ALLOWED'], [kg.missed, 'OFF TARGET'], [kg.defBlocks, 'DEFENDER BLOCKS']]
+      .map(function (t) { return '<div class="xgtTile"><div class="v">' + t[0] + '</div><div class="k">' + t[1] + '</div></div>'; }).join('') +
+    '</div>' + gkTypeTable(kg);
+}
 function openStats() {
   var box = el('xgtStats');
   var gk = S.playerRole === 'goalkeeper', sc = scoreOf();
   var evs = actionEvents().filter(function (e) {
     return singlePlayerMode() ? (gk ? true : e.actor.side === 'us') : true;
   });
-  var gkEvents = actionEvents().filter(function (e) { return e.context.tree === 'gk'; });
-  var showGk = gk || (S.trackingMode === 'coach' && gkEvents.length > 0);
+  // Shots faced by OUR keeper (opponent shot, our goalkeeper attributed)
+  // and shots faced by THEIR keeper (our shot, their goalkeeper
+  // attributed) -- e.goalkeeper is the reliable, side-agnostic marker
+  // now (set on every team-mode event regardless of which action type
+  // was eventually picked), replacing the old e.context.tree==='gk'
+  // check. That check only ever matched events recorded against the
+  // pre-unification GOALKEEPER_ACTIONS tree, and has been silently
+  // empty for team mode ever since team mode stopped using that tree.
+  var ourGkEvents = actionEvents().filter(function (e) { return e.action === 'shot' && e.actor && e.actor.side === 'opp' && e.goalkeeper != null; });
+  var oppGkEvents = actionEvents().filter(function (e) { return e.action === 'shot' && e.actor && e.actor.side === 'us' && e.goalkeeper != null; });
+  var showGk = gk || (S.trackingMode === 'coach' && ourGkEvents.length > 0);
   var tiles, extra = '';
   if (gk) {
     var g = goalkeeperStats(evs);
@@ -21137,17 +21163,12 @@ function openStats() {
              [f.exDrawn, 'EXCL. DRAWN'], [f.exGiven, 'EXCL. GIVEN'], [f.assists, 'ASSISTS'],
              [S.me.number != null ? fmt(waterSeconds(S.me.number)) : '—', 'IN WATER']];
     if (showGk) {
-      // Coach mode: every opponent action was logged against our own keeper,
-      // so the keeper's game falls out of the same event stream.
-      var kg = goalkeeperStats(gkEvents);
-      var keeperNo = null;
-      for (var i = 0; i < gkEvents.length && keeperNo == null; i++) keeperNo = gkEvents[i].goalkeeper;
-      extra = '<h2>Our goalkeeper' + (keeperNo != null ? ' · #' + keeperNo : '') + '</h2>' +
-        '<div class="xgtTiles">' +
-        [[kg.faced, 'ON GOAL FACED'], [kg.saves, 'SAVES / BLOCKS'], [kg.pct + '%', 'SAVE %'],
-         [kg.goals, 'GOALS ALLOWED'], [kg.missed, 'OFF TARGET'], [kg.defBlocks, 'DEFENDER BLOCKS']]
-          .map(function (t) { return '<div class="xgtTile"><div class="v">' + t[0] + '</div><div class="k">' + t[1] + '</div></div>'; }).join('') +
-        '</div>' + gkTypeTable(kg);
+      extra += xgtOpposingKeeperBlockHtml('Our goalkeeper', ourGkEvents);
+      // Symmetric -- our own shots' outcomes against their keeper, same
+      // data already captured, shown only if there's actually anything
+      // to show (e.g. suppressed entirely if opponent tracking isn't on
+      // and no opposing keeper was ever attributed).
+      extra += xgtOpposingKeeperBlockHtml('Their goalkeeper', oppGkEvents);
     }
   }
   var origin = gk ? evs.filter(function (e) { return e.action === 'shot'; })
@@ -21532,8 +21553,9 @@ function xgtStatsBodyParts(evs, playerRole, trackingMode) {
     var singlePlayer = !(trackingMode === 'coach' && playerRole === 'team');
     return singlePlayer ? (gk ? true : e.actor.side === 'us') : true;
   });
-  var gkEvents = actionEvs.filter(function (e) { return e.context.tree === 'gk'; });
-  var showGk = gk || (trackingMode === 'coach' && gkEvents.length > 0);
+  var ourGkEvents = actionEvs.filter(function (e) { return e.action === 'shot' && e.actor && e.actor.side === 'opp' && e.goalkeeper != null; });
+  var oppGkEvents = actionEvs.filter(function (e) { return e.action === 'shot' && e.actor && e.actor.side === 'us' && e.goalkeeper != null; });
+  var showGk = gk || (trackingMode === 'coach' && ourGkEvents.length > 0);
   var tiles, extra = '';
   if (gk) {
     var g = goalkeeperStats(filteredEvs);
@@ -21550,15 +21572,8 @@ function xgtStatsBodyParts(evs, playerRole, trackingMode) {
              [f.steals, 'STEALS'], [f.turnovers, 'TURNOVERS'], [f.blocked, 'BLOCKED'],
              [f.exDrawn, 'EXCL. DRAWN'], [f.exGiven, 'EXCL. GIVEN'], [f.assists, 'ASSISTS']];
     if (showGk) {
-      var kg = goalkeeperStats(gkEvents);
-      var keeperNo = null;
-      for (var i = 0; i < gkEvents.length && keeperNo == null; i++) keeperNo = gkEvents[i].goalkeeper;
-      extra = '<h2>Our goalkeeper' + (keeperNo != null ? ' · #' + keeperNo : '') + '</h2>' +
-        '<div class="xgtTiles">' +
-        [[kg.faced, 'ON GOAL FACED'], [kg.saves, 'SAVES / BLOCKS'], [kg.pct + '%', 'SAVE %'],
-         [kg.goals, 'GOALS ALLOWED'], [kg.missed, 'OFF TARGET'], [kg.defBlocks, 'DEFENDER BLOCKS']]
-          .map(function (t) { return '<div class="xgtTile"><div class="v">' + t[0] + '</div><div class="k">' + t[1] + '</div></div>'; }).join('') +
-        '</div>' + gkTypeTable(kg);
+      extra += xgtOpposingKeeperBlockHtml('Our goalkeeper', ourGkEvents);
+      extra += xgtOpposingKeeperBlockHtml('Their goalkeeper', oppGkEvents);
     }
   }
   var origin = gk ? filteredEvs.filter(function (e) { return e.action === 'shot'; }) : filteredEvs;
