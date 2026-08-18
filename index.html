@@ -19143,7 +19143,13 @@ var ZONES = [
   { id: 'z5',  n: 5,  name: 'Right Wing',       r1: 4, r2: 9,  a1:  54, a2:  90 },
   { id: 'z12', n: 12, name: 'Left Back',        r1: 9, r2: 30, a1: -90, a2: -18, outer: true },
   { id: 'z13', n: 13, name: 'Mid Back',         r1: 9, r2: 30, a1: -18, a2:  18, outer: true },
-  { id: 'z14', n: 14, name: 'Right Back',       r1: 9, r2: 30, a1:  18, a2:  90, outer: true }
+  { id: 'z14', n: 14, name: 'Right Back',       r1: 9, r2: 30, a1:  18, a2:  90, outer: true },
+  // Not part of the polar system at all -- represents "somewhere in the
+  // far, unrendered half of the pool" rather than a specific position,
+  // so it deliberately carries no r1/r2/a1/a2 (openZone()/zoneNum() never
+  // read those; only hitZone()'s polar loop does, and OPPO is matched by
+  // its own dedicated check there instead, before that loop even runs).
+  { id: 'oppo', n: 'OPPO', name: 'Opposite Half' }
 ];
 function zoneById(id) { for (var i = 0; i < ZONES.length; i++) if (ZONES[i].id === id) return ZONES[i]; return null; }
 
@@ -19760,6 +19766,23 @@ var CSS = [
 '#xgtBlock{position:fixed;inset:0;z-index:999980;background:transparent;touch-action:manipulation}',
 '#xgtShield{position:fixed;z-index:999981;background:transparent;touch-action:manipulation;',
 '  box-shadow:0 0 0 9999px rgba(13,43,43,.45);border-radius:4px}',
+// A 3m-radius dome positioned at the far edge of the visible half (a
+// real water-polo pool's halfway boundary), for logging actions that
+// happened somewhere in the unrendered other half rather than a
+// specific tracked position there. Screen-space CSS positioning rather
+// than an SVG shape drawn in the board's own rotated/translated
+// coordinate space -- positionOppoZone() computes its left/top via the
+// exact same boardToClient() math the rest of this module already
+// trusts for that, so this stays correct across every board orientation
+// without needing its own copy of that transform logic. z-index sits
+// above the shield (999981) since it needs its own direct tap handling,
+// not the shield's board-coordinate hit-testing.
+'#xgtOppoZone{position:fixed;width:130px;height:65px;z-index:999982;',
+'  background:rgba(255,255,255,.30);border:1.5px solid rgba(255,255,255,.7);border-top:0;',
+'  border-radius:0 0 65px 65px;color:#fff;font-weight:800;font-size:11.5px;letter-spacing:.05em;',
+'  cursor:pointer;padding:9px 0 0;display:flex;justify-content:center;text-shadow:0 1px 3px rgba(0,0,0,.5);',
+'  touch-action:manipulation}',
+'#xgtOppoZone.flash{background:rgba(255,255,255,.55)}',
 '#xgtRoot{position:fixed;inset:0;z-index:999983;pointer-events:none;',
 '  font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#14235c;-webkit-user-select:none;user-select:none}',
 '#xgtRoot *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}',
@@ -19943,6 +19966,9 @@ function buildChrome() {
   if (el('xgtRoot')) return;
   var block = document.createElement('div'); block.id = 'xgtBlock';
   var shield = document.createElement('div'); shield.id = 'xgtShield';
+  var oppoZone = document.createElement('button'); oppoZone.id = 'xgtOppoZone';
+  oppoZone.type = 'button'; oppoZone.textContent = 'OPPO';
+  oppoZone.setAttribute('aria-label', 'Action happened in the opposite half of the pool');
   var root = document.createElement('div'); root.id = 'xgtRoot';
   root.innerHTML =
     '<div class="xgtPane" id="xgtTop">' +
@@ -19971,7 +19997,7 @@ function buildChrome() {
   var sheet = document.createElement('div'); sheet.id = 'xgtSheet';
   var toastEl = document.createElement('div'); toastEl.id = 'xgtToast';
   var stats = document.createElement('div'); stats.id = 'xgtStats';
-  document.body.appendChild(block); document.body.appendChild(shield); document.body.appendChild(root);
+  document.body.appendChild(block); document.body.appendChild(shield); document.body.appendChild(oppoZone); document.body.appendChild(root);
   block.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); }, false);
   block.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); }, false);
   document.body.appendChild(scrim); document.body.appendChild(sheet);
@@ -19990,6 +20016,31 @@ function buildChrome() {
     if (navigator.vibrate) navigator.vibrate(8);
     if (S.editingZoneNumbers) { promptZoneNumberEdit(z); return; }
     openZone(z, b);
+  }, false);
+  // Direct tap handling rather than routing through the shield's own
+  // board-coordinate hit-testing -- this element is positioned in plain
+  // screen-space (see positionOppoZone()), not the board's own rotated/
+  // translated coordinate system, so its own native click event is the
+  // simpler, more robust source of truth for "was this tapped" than
+  // trying to replicate that transform math a second time just to
+  // detect hits inside its shape.
+  oppoZone.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); }, false);
+  oppoZone.addEventListener('click', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    // Renumbering doesn't map cleanly onto OPPO's non-numeric label, and
+    // the coach is unlikely to want to rename it anyway -- a no-op here
+    // rather than trying to fold it into promptZoneNumberEdit()'s
+    // numeric-renumbering flow.
+    if (S.editingZoneNumbers) return;
+    oppoZone.classList.add('flash');
+    setTimeout(function () { oppoZone.classList.remove('flash'); }, 220);
+    if (navigator.vibrate) navigator.vibrate(8);
+    // Nominal board position only, for openZone()'s existing
+    // fieldCoordinates computation to run unchanged -- the fieldZone id
+    // ('oppo') itself is what marks this as "position not meaningfully
+    // known," not these numbers, so nothing downstream should ever treat
+    // them as a real, precise shot location.
+    openZone('oppo', { x: 14.5, y: 12 });
   }, false);
 
   el('xgtQ').onclick = openClock;
@@ -20051,11 +20102,15 @@ function buildChrome() {
     // the shield -- and #xgtBlock directly beneath it, found by testing
     // when disabling the shield alone still didn't let clicks through --
     // otherwise sit on top of the Library panel and silently swallow
-    // every click on it.
-    var shield = el('xgtShield'), block = el('xgtBlock');
+    // every click on it. #xgtOppoZone is a separate element, not a child
+    // of the shield, so it needs the identical treatment or it keeps
+    // sitting on top of (and blocking taps to) whatever the Library
+    // renders underneath its fixed screen position.
+    var shield = el('xgtShield'), block = el('xgtBlock'), oppoZone = el('xgtOppoZone');
     if (shield || block) {
       if (shield) shield.style.pointerEvents = 'none';
       if (block) block.style.pointerEvents = 'none';
+      if (oppoZone) oppoZone.style.pointerEvents = 'none';
       S.shieldSuspendedForToolPanel = true;
     }
     openCoachingLibrary().then(function () {
@@ -20185,6 +20240,23 @@ function positionShield() {
   // on its own even with the shield's own hole already in place.
   var block = el('xgtBlock');
   if (block) block.style.clipPath = sh.style.clipPath;
+  positionOppoZone();
+}
+// Screen-space positioning for the OPPO dome, computed via the exact
+// same board->screen math boardToClient() already uses elsewhere in this
+// module -- verified empirically against the live rotate/translate
+// transform before this was written, rather than derived from the
+// transform algebra by inspection, since getting this wrong would put
+// the marker somewhere visually nonsensical without necessarily causing
+// any error to surface.
+function positionOppoZone() {
+  var oz = el('xgtOppoZone');
+  if (!oz) return;
+  var c = boardToClient(14.5, 12); // the far edge, centred on the visible half's width
+  if (!c) { oz.style.display = 'none'; return; }
+  oz.style.display = S.active ? 'flex' : 'none';
+  oz.style.left = (c.x - 65) + 'px'; // 130px wide, centred on c.x
+  oz.style.top = c.y + 'px'; // flat top edge sits at the boundary; the dome bulges downward into the visible half
 }
 function onViewportChange() {
   // A real resize/orientation change re-runs Studio's own sizing (via
@@ -20223,7 +20295,7 @@ function watchShield(on) {
 }
 function removeChrome() {
   watchShield(false);
-  ['xgtBlock', 'xgtShield', 'xgtRoot', 'xgtScrim', 'xgtSheet', 'xgtToast', 'xgtStats'].forEach(function (id) {
+  ['xgtBlock', 'xgtShield', 'xgtOppoZone', 'xgtRoot', 'xgtScrim', 'xgtSheet', 'xgtToast', 'xgtStats'].forEach(function (id) {
     var n = el(id); if (n) n.remove();
   });
 }
@@ -21526,9 +21598,10 @@ function xgtCloseToolPanels() {
   if (_origCloseToolPanels) _origCloseToolPanels();
   if (S.shieldSuspendedForToolPanel) {
     S.shieldSuspendedForToolPanel = false;
-    var shield = el('xgtShield'), block = el('xgtBlock');
+    var shield = el('xgtShield'), block = el('xgtBlock'), oppoZone = el('xgtOppoZone');
     if (shield) shield.style.pointerEvents = '';
     if (block) block.style.pointerEvents = '';
+    if (oppoZone) oppoZone.style.pointerEvents = '';
   }
 }
 if (_origCloseToolPanels) window.closeToolPanels = xgtCloseToolPanels;
