@@ -948,6 +948,24 @@
   .guestOverlayButtons { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:20px; }
   .guestOverlayButtons button { padding:11px 22px; border-radius:10px; font-size:14px; font-weight:600; border:1.5px solid #1b7373; background:#fff; color:#1b7373; cursor:pointer; }
   .guestOverlayButtons button:first-child { background:#1b7373; color:#fff; }
+  /* Free Access Gate (main Studio, not the separate Guest Experience
+     deployment) -- deliberately its own class names rather than reusing
+     .guestOverlay, even though the visual styling is identical right
+     now. These are two genuinely separate UI systems (one gates a
+     specific tutorial deployment, one gates the Studio itself), and
+     .guestOverlay's own name is semantically tied to that other context
+     -- reusing it here would create confusing coupling if either one's
+     styling needs to diverge later. */
+  .freeAccessOverlay { display:none; position:fixed; inset:0; z-index:5000; background:rgba(8,20,20,.92); align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }
+  .freeAccessOverlay.open { display:flex; }
+  .freeAccessOverlayBox { max-width:min(480px,92vw); max-height:90vh; overflow-y:auto; background:#fff; border-radius:16px; box-shadow:0 30px 90px rgba(0,0,0,.5); padding:32px 28px; text-align:center; }
+  .freeAccessOverlayBox .brand { font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:700; letter-spacing:.06em; color:#1b7373; text-transform:uppercase; margin:0 0 6px; }
+  .freeAccessOverlayBox h1 { font-family:'Space Grotesk',sans-serif; font-size:24px; color:#124d4d; margin:0 0 14px; }
+  .freeAccessOverlayBox p { font-size:14.5px; line-height:1.55; color:#26302f; margin:0 0 12px; }
+  .freeAccessOverlayButtons { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:16px; }
+  .freeAccessOverlayButtons button { padding:11px 22px; border-radius:10px; font-size:14px; font-weight:600; border:1.5px solid #1b7373; background:#fff; color:#1b7373; cursor:pointer; }
+  .freeAccessOverlayButtons button:first-child { background:#1b7373; color:#fff; }
+  .freeAccessOverlayBox .footer { font-size:11.5px; color:#9aa5a5; letter-spacing:.04em; margin:22px 0 0; }
   /* Add-to-Home-Screen guide: reuses the tutorial's own ring
      (positionTutorialSpotlight) and dim-overlay-with-hole
      (positionTutorialDimOverlay) to point at the approximate on-screen
@@ -2081,6 +2099,32 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
     </div>
   </div>
 </div>
+<div id="freeAccessEmailScreen" class="freeAccessOverlay">
+  <div class="freeAccessOverlayBox">
+    <div class="brand">XquiX Studio</div>
+    <h1>Enter XquiX Studio</h1>
+    <p>Enter your email address to access XquiX Studio.<br>No account or password is required for free access.</p>
+    <input type="email" id="freeAccessEmailInput" placeholder="Email address" autocomplete="email" style="width:100%;box-sizing:border-box;padding:11px 13px;border-radius:8px;border:1px solid #ccc;font-size:15px;margin:10px 0;">
+    <div id="freeAccessEmailError" style="display:none;color:#c0392b;font-size:13px;margin-bottom:8px;"></div>
+    <div class="freeAccessOverlayButtons">
+      <button type="button" id="freeAccessSubmitBtn">Continue</button>
+    </div>
+    <p style="font-size:12.5px;color:#7c8a8a;margin-top:14px;">We will send you a secure confirmation link.</p>
+    <div class="footer">Do. Things. Right.</div>
+  </div>
+</div>
+<div id="freeAccessSentScreen" class="freeAccessOverlay">
+  <div class="freeAccessOverlayBox">
+    <div class="brand">XquiX Studio</div>
+    <h1>Check your email</h1>
+    <p>We sent a confirmation link to<br><strong id="freeAccessSentAddress"></strong></p>
+    <p>Click the link in the email to enter XquiX Studio.</p>
+    <div class="freeAccessOverlayButtons">
+      <button type="button" id="freeAccessBackBtn">Use another email</button>
+    </div>
+    <div class="footer">Do. Things. Right.</div>
+  </div>
+</div>
 <div id="guestEmailGateScreen" class="guestOverlay">
   <div class="guestOverlayBox">
     <h1>Before You Begin</h1>
@@ -2539,6 +2583,14 @@ document.addEventListener('touchmove', e=>{ if(e.touches && e.touches.length>1) 
 // See "Guest Experience Mode" further down for the startup sequence,
 // permissions layer, and completion/exit UI this flag activates.
 let GUEST_EXPERIENCE_MODE = false;
+// Shown immediately -- before Supabase's session check even resolves --
+// rather than waiting to decide whether to show it. The Studio's own
+// initialization is completely untouched by this: it boots normally,
+// unchanged, in the background, just visually covered until auth
+// resolves. Scoped to the main Studio only; the separate Guest
+// Experience deployment already has its own, different gate further
+// down and must never show this one too.
+if(!GUEST_EXPERIENCE_MODE) showFreeAccessOverlay('freeAccessEmailScreen');
 // Viewer Mode ("USA WP Experience"): a restricted, tutorial-guided build
 // for sharing specific drill(s) with someone who shouldn't have full
 // studio access and has no access to the coach's own library (which is
@@ -3450,6 +3502,38 @@ XQUIX.Auth = (function(){
         return error ? { error } : { success: true };
       } catch(err) { return { error: { message: err.message } }; }
     },
+    // Distinct from sendMagicLink() above -- that one calls Supabase's
+    // own signInWithOtp() directly, using Supabase's default (unbranded)
+    // email template, and is what the Guest Experience tutorial gate
+    // already uses. This one calls the Cloudflare Worker instead, which
+    // generates the identical underlying Supabase magic link but sends
+    // it through Resend with XquiX branding. Per the locked
+    // architecture, Cloudflare/Resend exist ONLY as an email-delivery
+    // layer here, never as a second source of session truth -- the
+    // actual session, once the link is clicked, is established entirely
+    // by Supabase's own client-side handling (the same mechanism
+    // init()/onAuthStateChange already use). This method's only job is
+    // triggering that email to go out. No credentials/cookie handling
+    // here at all -- unlike the original D1-session design, this call
+    // never needs to set or read a cookie, which also simplifies the
+    // Worker's CORS requirements down to a plain cross-origin POST.
+    async requestVerification(email){
+      try {
+        const res = await fetch('https://auth.xquix.com/auth/request-verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        let data = {};
+        try { data = await res.json(); } catch(parseErr) {}
+        if(!res.ok || data.error || data.success !== true){
+          return { error: { message: (data && data.error) || 'Something went wrong sending the verification email. Please try again.' } };
+        }
+        return { success: true };
+      } catch(err) {
+        return { error: { message: 'Could not reach the verification service. Check your connection and try again.' } };
+      }
+    },
     async getProfileDetails(){
       if(!client || !currentUser) return null;
       try {
@@ -3468,6 +3552,71 @@ XQUIX.Auth = (function(){
     },
   };
 })();
+// ===== Free Access Gate (main Studio) =====
+// UI and submission logic only, for now -- deliberately not yet wired
+// into the Studio's actual startup sequence (deciding WHEN to show this
+// gate, versus letting the Studio open normally, is a separate step).
+// Mirrors the Guest Experience gate's own structure (submit -> show
+// "check your email" -> optional "use another email" back), but calls
+// XQUIX.Auth.requestVerification() -- the Cloudflare-Worker-routed,
+// custom-branded path -- rather than sendMagicLink()'s direct,
+// unbranded one.
+function showFreeAccessOverlay(id){
+  ['freeAccessEmailScreen','freeAccessSentScreen'].forEach(other=>{
+    document.getElementById(other)?.classList.toggle('open', other===id);
+  });
+}
+function hideFreeAccessOverlays(){
+  ['freeAccessEmailScreen','freeAccessSentScreen'].forEach(id=>{
+    document.getElementById(id)?.classList.remove('open');
+  });
+}
+function freeAccessShowError(msg){
+  const el = document.getElementById('freeAccessEmailError');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? '' : 'none';
+}
+async function submitFreeAccessEmail(){
+  const input = document.getElementById('freeAccessEmailInput');
+  const btn = document.getElementById('freeAccessSubmitBtn');
+  const email = (input?.value || '').trim();
+  freeAccessShowError('');
+  // Format check only, same reasoning as every other email-gate this
+  // project has built -- real validation is the email actually arriving
+  // and the link being clickable.
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    freeAccessShowError('Enter a valid email address.');
+    return;
+  }
+  const origLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Sending\u2026';
+  try {
+    const result = await XQUIX.Auth.requestVerification(email);
+    if(result.error){
+      freeAccessShowError(result.error.message || 'Something went wrong. Please try again.');
+      return;
+    }
+    const addrEl = document.getElementById('freeAccessSentAddress');
+    if(addrEl) addrEl.textContent = email;
+    showFreeAccessOverlay('freeAccessSentScreen');
+  } catch(err) {
+    freeAccessShowError('Something went wrong. Please try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = origLabel;
+  }
+}
+document.getElementById('freeAccessSubmitBtn')?.addEventListener('click', submitFreeAccessEmail);
+document.getElementById('freeAccessEmailInput')?.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') submitFreeAccessEmail();
+});
+// Goes back to the entry screen with whatever was typed still in place,
+// in case it was just a typo rather than a genuinely different address.
+document.getElementById('freeAccessBackBtn')?.addEventListener('click', ()=>{
+  showFreeAccessOverlay('freeAccessEmailScreen');
+  const input = document.getElementById('freeAccessEmailInput');
+  if(input) setTimeout(()=>input.focus(), 50);
+});
 // ===== Account UI (Milestone 4) =====
 // Plain array rather than a <select> hardcoded into the static HTML --
 // keeps the list in one place if it's ever needed for the organization-
@@ -3581,7 +3730,25 @@ document.getElementById('accountForgotBtn')?.addEventListener('click', async ()=
 XQUIX.Auth.onChange(renderAccountUI);
 // Fire-and-forget: restores any existing session without blocking the
 // rest of the app's own initialization below.
-XQUIX.Auth.init().then(renderAccountUI);
+// Hides the gate (revealing the already-fully-initialized Studio
+// underneath it) once either: a real Supabase session is confirmed, OR
+// Supabase itself is unavailable entirely. That second condition is
+// deliberate, not an oversight -- consistent with how every other part
+// of this app treats a Supabase outage (sign-in becomes unavailable,
+// but core Studio use is never blocked by it), a client-init failure
+// here fails OPEN rather than trapping every single user, including
+// already-legitimate ones, behind a gate that can never resolve.
+// Wired into BOTH init() and onChange(): init() covers the normal
+// "check once at load" case, onChange() covers a session appearing
+// later in this same tab (Supabase's own cross-tab session sync, or --
+// less commonly, since the usual path is a full reload after clicking
+// the emailed link -- a session established without a reload).
+function xquixResolveFreeAccessGate(){
+  if(GUEST_EXPERIENCE_MODE) return; // never applies here; that deployment owns its own, separate gate entirely
+  if(!XQUIX.Auth.isAvailable() || XQUIX.Auth.getCurrentUser()) hideFreeAccessOverlays();
+}
+XQUIX.Auth.init().then(()=>{ renderAccountUI(); xquixResolveFreeAccessGate(); });
+XQUIX.Auth.onChange(xquixResolveFreeAccessGate);
 
 // ===== XQUIX.Org (Milestone 8 -- Organization / Authorization Model) =====
 XQUIX.Org = (function(){
