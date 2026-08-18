@@ -1836,8 +1836,8 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
       <div style="font-size:14px;margin-bottom:4px;">Signed in as</div>
       <div id="accountSignedInEmail" style="font-size:15px;font-weight:600;margin-bottom:14px;word-break:break-all;"></div>
       <div style="font-size:11px;color:#7c8a8a;font-weight:600;margin-bottom:6px;">YOUR LOCATION <span style="font-weight:400;">(optional, internal only)</span></div>
-      <div class="smallRow full"><label>Country<input type="text" id="accountCountryInput" placeholder="e.g. Hungary"></label></div>
-      <div class="smallRow full"><label>Postal/ZIP code<input type="text" id="accountPostalInput" placeholder="e.g. 1146"></label></div>
+      <div class="smallRow full"><label>Country<select id="accountCountryInput"><option value="">Select a country</option></select></label></div>
+      <div class="smallRow full"><label>Postal/ZIP code<input type="text" id="accountPostalInput" inputmode="numeric" placeholder="e.g. 1146"></label></div>
       <button type="button" id="accountSaveLocationBtn" style="width:100%;margin-bottom:14px;">Save</button>
       <button type="button" class="toolListBtn" data-panel="organizationsPanel" style="width:100%;margin-bottom:8px;" id="openOrganizationsBtn">Organizations</button>
       <button type="button" class="toolListBtn" data-panel="orgLibraryPanel" style="width:100%;margin-bottom:8px;display:none;" id="openOrgLibraryBtn">Organization Library</button>
@@ -2078,6 +2078,26 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
       <button type="button" id="guestExitContinueBtn">Continue</button>
       <button type="button" id="guestExitRestartBtn">Restart Experience</button>
       <button type="button" id="guestExitConfirmBtn">Exit</button>
+    </div>
+  </div>
+</div>
+<div id="guestEmailGateScreen" class="guestOverlay">
+  <div class="guestOverlayBox">
+    <h1>Before You Begin</h1>
+    <p>Enter your email and we&rsquo;ll send you a link to continue — no password, no account setup.</p>
+    <input type="email" id="guestEmailGateInput" placeholder="you@example.com" autocomplete="email" style="width:100%;box-sizing:border-box;padding:11px 13px;border-radius:8px;border:1px solid #ccc;font-size:15px;margin:10px 0;">
+    <div id="guestEmailGateError" style="display:none;color:#c0392b;font-size:13px;margin-bottom:8px;"></div>
+    <div class="guestOverlayButtons">
+      <button type="button" id="guestEmailGateSubmitBtn">Send Me the Link</button>
+    </div>
+  </div>
+</div>
+<div id="guestEmailSentScreen" class="guestOverlay">
+  <div class="guestOverlayBox">
+    <h1>Check Your Email</h1>
+    <p>We sent a link to <strong id="guestEmailSentAddress"></strong>. Open it on this device to continue — no need to come back to this tab.</p>
+    <div class="guestOverlayButtons">
+      <button type="button" id="guestEmailSentBackBtn">Use a Different Email</button>
     </div>
   </div>
 </div>
@@ -3413,6 +3433,23 @@ XQUIX.Auth = (function(){
         return error ? { error } : { success: true };
       } catch(err) { return { error: { message: err.message } }; }
     },
+    // Sends a magic-link email and returns once it's on its way -- does
+    // NOT wait for the person to actually click it, since that happens
+    // on a future, separate page load (possibly a different tab or
+    // device entirely), not within this call. signInWithOtp() creates a
+    // new lightweight (passwordless) user automatically if this email
+    // hasn't been seen before, which is the desired behavior here, so
+    // shouldCreateUser is deliberately left at its default (true) rather
+    // than set explicitly.
+    async sendMagicLink(email){
+      if(!client) return UNAVAILABLE;
+      try {
+        const { error } = await withTimeout(client.auth.signInWithOtp({
+          email, options: { emailRedirectTo: window.location.origin + window.location.pathname }
+        }), 15);
+        return error ? { error } : { success: true };
+      } catch(err) { return { error: { message: err.message } }; }
+    },
     async getProfileDetails(){
       if(!client || !currentUser) return null;
       try {
@@ -3432,22 +3469,57 @@ XQUIX.Auth = (function(){
   };
 })();
 // ===== Account UI (Milestone 4) =====
+// Plain array rather than a <select> hardcoded into the static HTML --
+// keeps the list in one place if it's ever needed for the organization-
+// level country field too, and lets an existing user's already-stored
+// free-text value (from before this was a dropdown) get preserved as an
+// extra option rather than silently disappearing from view.
+const XQUIX_COUNTRY_LIST = ["Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo (Congo-Brazzaville)","Costa Rica","Croatia","Cuba","Cyprus","Czechia","Democratic Republic of the Congo","Denmark","Djibouti","Dominica","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kosovo","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"];
+function populateCountrySelect(selectEl, existingValue){
+  if(!selectEl) return;
+  if(!selectEl.dataset.populated){
+    XQUIX_COUNTRY_LIST.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      selectEl.appendChild(opt);
+    });
+    selectEl.dataset.populated = '1';
+  }
+  // Preserve an existing free-text value (from before this was a
+  // dropdown) that doesn't match any standard option, rather than
+  // silently reverting the field to "Select a country" and losing what
+  // the person already had saved.
+  if(existingValue && !XQUIX_COUNTRY_LIST.includes(existingValue)){
+    let customOpt = selectEl.querySelector('option[data-custom]');
+    if(!customOpt){
+      customOpt = document.createElement('option');
+      customOpt.dataset.custom = '1';
+      selectEl.insertBefore(customOpt, selectEl.options[1] || null);
+    }
+    customOpt.value = existingValue; customOpt.textContent = existingValue;
+  }
+  selectEl.value = existingValue || '';
+}
 async function renderAccountUI(){
   const user = XQUIX.Auth.getCurrentUser();
   const sidebarBtn = document.getElementById('accountSidebarBtn');
   const signedOutView = document.getElementById('accountSignedOutView');
   const signedInView = document.getElementById('accountSignedInView');
-  if(user){
+if(user){
     if(sidebarBtn) sidebarBtn.textContent = XQUIX.Auth.getDisplayName();
     if(signedOutView) signedOutView.style.display = 'none';
     if(signedInView) signedInView.style.display = '';
     const emailEl = document.getElementById('accountSignedInEmail');
     if(emailEl) emailEl.textContent = user.email || '';
+    // Populated regardless of whether a saved profile exists yet -- a
+    // brand-new user with no profile row at all still needs the dropdown
+    // usable to pick a country for the first time, not just once they
+    // already have one saved.
+    const countryEl = document.getElementById('accountCountryInput');
     const details = await XQUIX.Auth.getProfileDetails();
+    if(countryEl) populateCountrySelect(countryEl, (details && details.country) || '');
     if(details){
-      const countryEl = document.getElementById('accountCountryInput');
       const postalEl = document.getElementById('accountPostalInput');
-      if(countryEl) countryEl.value = details.country||'';
       if(postalEl) postalEl.value = details.postal_code||'';
     }
   } else {
@@ -12058,12 +12130,12 @@ document.getElementById('devPreviewRealTutorialBtn')?.addEventListener('click', 
 function guestOverlayEl(id){ return document.getElementById(id); }
 
 function showGuestOverlay(id){
-  ['guestWelcomeScreen','guestA2HSGuideScreen','guestExitConfirmOverlay','guestCompletionScreen','guestErrorScreen'].forEach(other=>{
+  ['guestEmailGateScreen','guestEmailSentScreen','guestWelcomeScreen','guestA2HSGuideScreen','guestExitConfirmOverlay','guestCompletionScreen','guestErrorScreen'].forEach(other=>{
     guestOverlayEl(other)?.classList.toggle('open', other===id);
   });
 }
 function hideGuestOverlays(){
-  ['guestWelcomeScreen','guestA2HSGuideScreen','guestExitConfirmOverlay','guestCompletionScreen','guestErrorScreen'].forEach(id=>{
+  ['guestEmailGateScreen','guestEmailSentScreen','guestWelcomeScreen','guestA2HSGuideScreen','guestExitConfirmOverlay','guestCompletionScreen','guestErrorScreen'].forEach(id=>{
     guestOverlayEl(id)?.classList.remove('open');
   });
 }
@@ -12194,6 +12266,8 @@ async function startGuestExperience(){
     await waitForStudioInitialization();
     await waitForIntroAnimation();
     if(!verifyTutorialAssets()) throw new Error('XquiX Studio Experience: required tutorial assets are missing.');
+    const verified = await ensureEmailVerified();
+    if(!verified) return; // gate UI is now showing -- the rest of this flow resumes on a future page load, once the emailed link is clicked
     prepareGuestInterface();
     await showGuestWelcomeScreenIfNeeded();
     launchTutorial();
@@ -12202,6 +12276,80 @@ async function startGuestExperience(){
     showGuestExperienceErrorScreen();
   }
 }
+
+// ===== Email Gate =====
+// Required before any tutorial content is reachable, per product
+// decision: capture and verify an email address even for guests who
+// never create a traditional account. Reuses Supabase's own passwordless
+// sign-in (signInWithOtp) rather than a separate verification system --
+// the magic link IS the confirmation click, and clicking it creates a
+// lightweight, passwordless account automatically (the explicitly
+// confirmed trade-off: not fully account-free, but no password, no
+// signup form, and it gives this person an upgrade path later).
+//
+// Returns true if already verified (nothing to show, caller proceeds
+// immediately), false if it had to show the gate UI and stop. The rest
+// of startGuestExperience() must not proceed when this returns false --
+// the next step happens on a FUTURE, separate page load (when the
+// emailed link is clicked, possibly in a different tab or on a
+// different device entirely), not by anything resolving within this
+// same call or even this same tab.
+async function ensureEmailVerified(){
+  await XQUIX.Auth.init(); // idempotent -- safe even if init() already ran elsewhere; guarantees a fully resolved auth state (including a just-completed magic-link sign-in from returning via the emailed link) before checking
+  if(XQUIX.Auth.getCurrentUser()) return true;
+  if(!XQUIX.Auth.isAvailable()) throw new Error('XquiX Studio Experience: sign-in is unavailable right now.');
+  showGuestOverlay('guestEmailGateScreen');
+  const input = document.getElementById('guestEmailGateInput');
+  if(input) setTimeout(()=>input.focus(), 50);
+  return false;
+}
+function guestEmailGateShowError(msg){
+  const el = document.getElementById('guestEmailGateError');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? '' : 'none';
+}
+async function submitGuestEmailGate(){
+  const input = document.getElementById('guestEmailGateInput');
+  const btn = document.getElementById('guestEmailGateSubmitBtn');
+  const email = (input?.value || '').trim();
+  guestEmailGateShowError('');
+  // Simple format check only -- real validation is the email actually
+  // arriving and the link being clickable; no point second-guessing
+  // beyond catching obvious typos before making a network call.
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    guestEmailGateShowError('Enter a valid email address.');
+    return;
+  }
+  const origLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Sending\u2026';
+  try {
+    const result = await XQUIX.Auth.sendMagicLink(email);
+    if(result.error){
+      guestEmailGateShowError(result.error.message || 'Something went wrong sending the link. Please try again.');
+      return;
+    }
+    const addrEl = document.getElementById('guestEmailSentAddress');
+    if(addrEl) addrEl.textContent = email;
+    showGuestOverlay('guestEmailSentScreen');
+  } catch(err) {
+    guestEmailGateShowError('Something went wrong sending the link. Please try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = origLabel;
+  }
+}
+document.getElementById('guestEmailGateSubmitBtn')?.addEventListener('click', submitGuestEmailGate);
+document.getElementById('guestEmailGateInput')?.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') submitGuestEmailGate();
+});
+// Goes back to the entry screen with whatever was typed still in
+// place, in case it was just a typo rather than a genuinely different
+// address they want to try.
+document.getElementById('guestEmailSentBackBtn')?.addEventListener('click', ()=>{
+  showGuestOverlay('guestEmailGateScreen');
+  const input = document.getElementById('guestEmailGateInput');
+  if(input) setTimeout(()=>input.focus(), 50);
+});
 
 // ===== Welcome Screen =====
 // Purely an extra onboarding step ahead of the tutorial -- inserted
@@ -19036,7 +19184,7 @@ var FIELD_PLAYER_ACTIONS = [
     { id: 'blocked', label: 'Blocked Shot', cls: 'w', placement: 'in' },
     { id: 'missed',  label: 'Missed Shot',  cls: 's', placement: 'miss' }
   ]},
-  { id: 'exclusion', label: 'Exclusion', cls: 'w', dc: true, children: [
+  { id: 'exclusion', label: 'Personal Foul', cls: 'w', dc: true, children: [
     { id: 'penalty',   label: 'Penalty (5 m)',        cls: 'c' },
     { id: 'exclusion', label: 'Exclusion (20 s)',     cls: 'w' },
     { id: 'excl_sub',  label: 'Excl. + Substitution', cls: 'w' },
@@ -19078,7 +19226,7 @@ var GOALKEEPER_ACTIONS = [
       { id: 'def_block', label: 'Defender Block', cls: 'w', sub: 'stopped by our field player' }
     ]},
   { id: 'steal',     label: 'Steal',     cls: 'g', terminal: true },
-  { id: 'exclusion', label: 'Exclusion', cls: 'w', dc: true, children: sharedChild('exclusion') },
+  { id: 'exclusion', label: 'Personal Foul', cls: 'w', dc: true, children: sharedChild('exclusion') },
   { id: 'turnover',  label: 'Turnover',  cls: 'c', children: sharedChild('turnover') },
   { id: 'outlet', label: 'Outlet Pass', cls: 'b', children: [
     { id: 'completed', label: 'Completed', cls: 'g' },
@@ -19132,9 +19280,16 @@ function treeFor(ev) {
 // differently and risking drift.
 function singlePlayerMode() { return !(S.trackingMode === 'coach' && S.playerRole === 'team'); }
 /* Coach mode: whoever of the designated keepers is currently in the water. */
-function currentKeeper() {
-  for (var i = 0; i < S.water.length; i++) if (S.keepers.indexOf(S.water[i]) >= 0) return S.water[i];
-  return S.keepers.length ? S.keepers[0] : null;
+// side-parameterized so bidirectional (team-mode) tracking can ask
+// "who's currently between the posts for the OTHER side" just as easily
+// as for our own -- defaults to 'us' so the one pre-existing caller (now
+// rewritten anyway) and any future single-player-mode callers keep
+// working without needing to pass anything.
+function currentKeeper(side) {
+  var water = side === 'opp' ? S.oppWater : S.water;
+  var keepers = side === 'opp' ? S.oppKeepers : S.keepers;
+  for (var i = 0; i < water.length; i++) if (keepers.indexOf(water[i]) >= 0) return water[i];
+  return keepers.length ? keepers[0] : null;
 }
 // Phase F: pure display lookup -- S.keepers/currentKeeper() above are
 // completely untouched by this, so sorting/indexOf/water-init logic that
@@ -20132,28 +20287,104 @@ function openZone(zoneId, board) {
 }
 
 function stepPlayer() {
-  var nums = S.water.length ? S.water : S.squad;
+  var oppTracked = S.opponentTracked;
+  var ourNums = S.water;
+  var oppNums = oppTracked ? S.oppWater : [];
   sheetEl().innerHTML = head('Zone ' + S.draft.fieldZoneName, 'Who?', null) +
-    '<div class="xgtNums">' + nums.map(function (n) { return '<button class="xgtNum" data-n="' + n + '">' + n + '</button>'; }).join('') + '</div>' +
+    '<span class="xgtLbl">Us</span>' +
+    '<div class="xgtNums">' + (ourNums.length
+      ? ourNums.map(function (n) { return '<button class="xgtNum" data-us-n="' + n + '">' + xgtKeeperLabel(n) + '</button>'; }).join('')
+      : '<p class="xgtNote" style="margin:2px 0">No players currently in the water.</p>') + '</div>' +
+    '<span class="xgtLbl" style="margin-top:10px;display:block">Them</span>' +
+    (oppTracked
+      ? '<div class="xgtNums">' + (oppNums.length
+          ? oppNums.map(function (n) { return '<button class="xgtNum" data-opp-n="' + n + '">' + n + '</button>'; }).join('')
+          : '<p class="xgtNote" style="margin:2px 0">No opponent players currently in the water.</p>') + '</div>'
+      : '<button class="xgtOpt c" id="xgtOpp" style="width:100%"><span class="dot"></span>Opponent</button>') +
     '<div style="height:9px"></div>' +
-    '<button class="xgtOpt c" id="xgtOpp" style="width:100%"><span class="dot"></span>Opponent</button>';
+    '<button class="xgtBtn" id="xgtBenchExclusionBtn" style="width:100%">Bench exclusion (referee only)</button>';
   wire(null);
-  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-n]'), function (b) {
-    b.onclick = function () {
-      S.draft.actor = { side: 'us', number: +b.dataset.n };
-      S.draft.useGkTree = false; S.draft.targetGoal = 'opponent';
-      stepAction();
-    };
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-us-n]'), function (b) {
+    b.onclick = function () { selectTeamActor('us', +b.dataset.usN); };
   });
-  el('xgtOpp').onclick = function () {
-    // An opponent action at our end is what OUR keeper faces — so the coach
-    // gets goalkeeper stats without running a second tracking session.
-    S.draft.actor = { side: 'opp', number: null };
-    S.draft.useGkTree = true;
-    S.draft.goalkeeper = currentKeeper();
-    S.draft.targetGoal = 'own';
-    stepAction();
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-opp-n]'), function (b) {
+    b.onclick = function () { selectTeamActor('opp', +b.dataset.oppN); };
+  });
+  var oppBtn = el('xgtOpp');
+  if (oppBtn) oppBtn.onclick = function () { selectTeamActor('opp', null); };
+  el('xgtBenchExclusionBtn').onclick = stepBenchExclusion;
+}
+
+// Single point where a team-mode actor gets fully set up, regardless of
+// which side or whether they were tapped from the water grid or the
+// generic Opponent fallback (used when detailed opponent tracking isn't
+// enabled). Team mode always uses the unified FIELD_PLAYER_ACTIONS tree
+// now, for either side -- useGkTree stays false here deliberately, so
+// stepAction()'s existing useGkTree actor-overwrite (still needed,
+// untouched, for single-player goalkeeper-tracking mode) never fires for
+// team-mode events and doesn't fight with the actor already set here.
+function selectTeamActor(side, number) {
+  S.draft.actor = { side: side, number: number };
+  S.draft.useGkTree = false;
+  // Whichever side is acting, the OTHER side's current keeper is the one
+  // actually facing this action -- e.g. our player shooting faces their
+  // keeper, not ours -- so shot outcomes attribute to the right
+  // goalkeeper's stats automatically.
+  S.draft.goalkeeper = currentKeeper(side === 'us' ? 'opp' : 'us');
+  S.draft.targetGoal = side === 'us' ? 'opponent' : 'own';
+  stepAction();
+}
+
+// Referee-only edge case: a player can be excluded from the bench
+// (unsportsmanlike conduct, bench-area misconduct) without having been
+// in the water for this play at all. Deliberately its own path rather
+// than folded into the water-only grids above -- a bench player can only
+// ever be committing a foul, never drawing one, and isn't a valid actor
+// for shot/steal/turnover in the first place. Skips straight to the
+// existing outcome step (stepOutcome) rather than through stepAction()'s
+// action-type picker, since which action type applies here is never in
+// question.
+function stepBenchExclusion() {
+  var ourBench = S.squad.filter(function (n) { return S.water.indexOf(n) < 0; });
+  var oppBench = S.opponentTracked ? S.oppSquad.filter(function (n) { return S.oppWater.indexOf(n) < 0; }) : [];
+  sheetEl().innerHTML = head('Zone ' + S.draft.fieldZoneName, 'Bench exclusion \u2014 who?', stepPlayer) +
+    '<p class="xgtNote" style="margin:0 0 8px">For referee-issued exclusions on a player who wasn\u2019t in the water for this play.</p>' +
+    '<span class="xgtLbl">Us</span>' +
+    '<div class="xgtNums">' + (ourBench.length
+      ? ourBench.map(function (n) { return '<button class="xgtNum" data-bench-us="' + n + '">' + xgtKeeperLabel(n) + '</button>'; }).join('')
+      : '<p class="xgtNote" style="margin:2px 0">No bench players.</p>') + '</div>' +
+    '<span class="xgtLbl" style="margin-top:10px;display:block">Them</span>' +
+    (S.opponentTracked
+      ? '<div class="xgtNums">' + (oppBench.length
+          ? oppBench.map(function (n) { return '<button class="xgtNum" data-bench-opp="' + n + '">' + n + '</button>'; }).join('')
+          : '<p class="xgtNote" style="margin:2px 0">No opponent bench players.</p>') + '</div>'
+      // No opponent roster entered at all -- fall back to a manual
+      // number entry, the same pattern used elsewhere in this module
+      // when there's no known squad to pick from (assist entry,
+      // shootout shooter number).
+      : '<div class="xgtRow"><input class="xgtField" id="xgtBenchOppNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="#" style="flex:0 0 90px;text-align:center;font-size:19px;font-weight:700"></div>' +
+        '<button class="xgtBtn pri" id="xgtBenchOppOk" style="margin-top:8px">Confirm</button>');
+  wire(stepPlayer);
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-bench-us]'), function (b) {
+    b.onclick = function () { commitBenchExclusion('us', +b.dataset.benchUs); };
+  });
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-bench-opp]'), function (b) {
+    b.onclick = function () { commitBenchExclusion('opp', +b.dataset.benchOpp); };
+  });
+  var oppOk = el('xgtBenchOppOk');
+  if (oppOk) oppOk.onclick = function () {
+    var n = parseInt((el('xgtBenchOppNum').value || ''), 10);
+    commitBenchExclusion('opp', n || null);
   };
+}
+function commitBenchExclusion(side, number) {
+  S.draft.actor = { side: side, number: number };
+  S.draft.useGkTree = false;
+  S.draft.goalkeeper = currentKeeper(side === 'us' ? 'opp' : 'us');
+  S.draft.targetGoal = side === 'us' ? 'opponent' : 'own';
+  S.draft.action = 'exclusion'; S.draft.actionLabel = 'Personal Foul';
+  S.draft.dc = 'committed'; // a bench player can only ever be committing the foul, never drawing one -- pre-set as the sensible default, though still visible/changeable on the outcome screen's own dc toggle like any other exclusion
+  stepOutcome();
 }
 
 function stepAction() {
@@ -20163,7 +20394,8 @@ function stepAction() {
   // coach+field meant squad tracking too).
   var back = (S.trackingMode === 'coach' && S.playerRole === 'team') ? stepPlayer : null;
   var crumb = gk ? ('Opponent action from here — #' + S.me.number + ' in goal')
-    : ((S.draft.actor.side === 'opp' ? 'Opponent'
+    : ((S.draft.actor.side === 'opp'
+        ? (S.draft.actor.number != null ? 'Opponent #' + S.draft.actor.number : 'Opponent')
       : (S.trackingMode === 'parent' ? '#' + S.me.number + (S.me.name ? ' ' + S.me.name : '') : '#' + S.draft.actor.number)) + ' — what happened?');
   var attr = '';
   // Same Mine/Team-mate/Opponent attribution parent mode always had --
