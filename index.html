@@ -20659,7 +20659,35 @@ function finish() {
     stepFoulCounterpart();
     return;
   }
+  // Team mode only, and only for a block by OUR OWN keeper -- d.actor is
+  // whoever took the shot, so actor.side==='opp' means an opponent shot
+  // that OUR keeper faced and blocked (per selectTeamActor(), the
+  // opposing side's current keeper is always the one attributed to a
+  // shot). Outlet-pass tracking is explicitly own-team-only per the
+  // confirmed scope, so this deliberately never fires for actor.side
+  // ==='us' (our own shot blocked by their side) -- there'd be no
+  // opponent-keeper outlet pass to track even if it fired.
+  if (isTeamMode && d.outcome === 'blocked' && d.actor.side === 'opp' && xgtHasAdvancedActions() && !d.possessionStepShown) {
+    d.possessionStepShown = true;
+    stepPossession();
+    return;
+  }
+  if (isTeamMode && d.possession === 'rebound_own' && !d.reboundFollowupShown) {
+    d.reboundFollowupShown = true;
+    stepReboundFollowup();
+    return;
+  }
+  var goalieHasBall = d.possession === 'goalie' || (d.possession === 'rebound_own' && d.reboundFollowup === 'pass_back');
+  var zone = d.fieldZone, zoneName = d.fieldZoneName;
   commitDraft();
+  // Chained AFTER the blocked-shot event above has already committed,
+  // not folded into it -- opens a fresh, independent draft/commit cycle
+  // for the outlet pass itself, so it gets its own real timestamp at
+  // whatever moment the coach actually finishes selecting it, rather
+  // than inheriting the block's. See openOutletPass() for why this
+  // matters (the eventual 3-second-window analysis this is captured
+  // for).
+  if (goalieHasBall) openOutletPass(zone, zoneName);
 }
 function commitDraft() {
   var d = S.draft;
@@ -20673,8 +20701,113 @@ function commitDraft() {
     goalkeeper: d.goalkeeper || null, targetGoal: d.targetGoal || null,
     goalPlacement: d.goalPlacement, assist: d.assist != null ? d.assist : null,
     foulCounterpart: d.foulCounterpart || null,
+    possession: d.possession || null, reboundFollowup: d.reboundFollowup || null,
     context: { kind: 'action', trackingMode: S.trackingMode, dc: d.dc || null,
                tree: d.useGkTree ? 'gk' : 'field', note: null }
+  });
+  if (navigator.vibrate) navigator.vibrate([6, 28, 6]);
+}
+// ============================================================= outlet pass
+// Own-team-only, per confirmed scope: this whole sequence only fires
+// after a block by OUR keeper (see finish()'s trigger condition). Asks
+// what happens to the ball right after the block; if it ends up back
+// with the goalie -- directly, or via a rebound that gets passed back --
+// finish() chains into openOutletPass() below as a genuinely separate,
+// later-committed event.
+function stepPossession() {
+  var d = S.draft;
+  sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Blocked! What happens to the ball?', null) +
+    '<div class="xgtOpts one">' +
+      '<button class="xgtOpt g" data-poss="goalie"><span class="dot"></span>Goalie keeps possession</button>' +
+      '<button class="xgtOpt c" data-poss="rebound_opp"><span class="dot"></span>Rebound \u2014 to the other team</button>' +
+      '<button class="xgtOpt w" data-poss="rebound_own"><span class="dot"></span>Rebound \u2014 to our team</button>' +
+    '</div>';
+  el('xgtX').onclick = function () { closeSheet(); };
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-poss]'), function (b) {
+    b.onclick = function () { d.possession = b.dataset.poss; finish(); };
+  });
+}
+function stepReboundFollowup() {
+  var d = S.draft;
+  sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Rebound to our team \u2014 then what?', null) +
+    '<div class="xgtOpts one">' +
+      '<button class="xgtOpt g" data-rf="pass_back"><span class="dot"></span>Passed back to the goalie</button>' +
+      '<button class="xgtOpt c" data-rf="player_keeps"><span class="dot"></span>Player keeps possession</button>' +
+    '</div>';
+  el('xgtX').onclick = function () { closeSheet(); };
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-rf]'), function (b) {
+    b.onclick = function () { d.reboundFollowup = b.dataset.rf; finish(); };
+  });
+}
+// A fresh, independent draft cycle -- NOT a continuation of the
+// just-committed blocked-shot draft, which is already gone (closeSheet()
+// cleared it inside commitDraft() before this runs). This is what lets
+// the outlet-pass event get its own, separate, real timestamp at
+// whatever moment the coach actually finishes selecting it -- makeEvent()
+// always stamps quarter/gameClock/timestamp from the CURRENT S.q/S.clock
+// at commit time, so a genuinely later, separate commit() call here
+// naturally reflects however much real time has passed since the block,
+// which is exactly what the eventual "did the next exclusion/goal land
+// within 3 seconds of this outlet pass" analysis needs to work from.
+// goalkeeper is re-derived fresh via currentKeeper('us') rather than
+// copied from the block's own d.goalkeeper -- if a sub happened between
+// the block and this moment (however unlikely mid-play), this reflects
+// whoever is actually in goal right now.
+function openOutletPass(fieldZone, fieldZoneName) {
+  S.draft = {
+    fieldZone: fieldZone, fieldZoneName: fieldZoneName,
+    goalkeeper: currentKeeper('us'),
+    outletType: null, outletTypeLabel: null,
+    outletOutcome: null, outletOutcomeLabel: null
+  };
+  openSheet();
+  stepOutletType();
+}
+var OUTLET_TYPES = { lead: 'Lead Pass', dry: 'Dry Pass', wet: 'Wet Pass' };
+var OUTLET_OUTCOMES = { advantage_goal: 'Advantage / Goal', regular: 'Regular Possession', turnover: 'Turnover' };
+function stepOutletType() {
+  var d = S.draft;
+  sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Outlet pass \u2014 what kind?', null) +
+    '<div class="xgtOpts">' +
+      '<button class="xgtOpt b" data-ot="lead"><span class="dot"></span>Lead Pass</button>' +
+      '<button class="xgtOpt b" data-ot="dry"><span class="dot"></span>Dry Pass</button>' +
+      '<button class="xgtOpt b" data-ot="wet"><span class="dot"></span>Wet Pass</button>' +
+    '</div>';
+  el('xgtX').onclick = function () { closeSheet(); };
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-ot]'), function (b) {
+    b.onclick = function () {
+      d.outletType = b.dataset.ot; d.outletTypeLabel = OUTLET_TYPES[b.dataset.ot];
+      stepOutletOutcome();
+    };
+  });
+}
+function stepOutletOutcome() {
+  var d = S.draft;
+  sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, d.outletTypeLabel + ' \u2014 outcome', stepOutletType) +
+    '<div class="xgtOpts">' +
+      '<button class="xgtOpt g" data-oo="advantage_goal"><span class="dot"></span>Advantage / Goal</button>' +
+      '<button class="xgtOpt b" data-oo="regular"><span class="dot"></span>Regular Possession</button>' +
+      '<button class="xgtOpt c" data-oo="turnover"><span class="dot"></span>Turnover</button>' +
+    '</div>';
+  wire(stepOutletType);
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-oo]'), function (b) {
+    b.onclick = function () {
+      d.outletOutcome = b.dataset.oo; d.outletOutcomeLabel = OUTLET_OUTCOMES[b.dataset.oo];
+      finishOutletPass();
+    };
+  });
+}
+function finishOutletPass() {
+  var d = S.draft;
+  closeSheet();
+  commit({
+    actor: { side: 'us', number: d.goalkeeper },
+    fieldZone: d.fieldZone, fieldZoneName: d.fieldZoneName,
+    action: 'outlet_pass', actionLabel: 'Outlet Pass', // deliberately distinct from the older, simpler 'outlet' action (single-player goalkeeper mode's own completed/turnover pair) -- different outcome vocabulary entirely, so reusing that id would silently misattribute or drop these events in any stats code keyed to the old outcome set
+    variant: d.outletType, variantLabel: d.outletTypeLabel,
+    outcome: d.outletOutcome, outcomeLabel: d.outletOutcomeLabel,
+    goalkeeper: d.goalkeeper,
+    context: { kind: 'action', trackingMode: S.trackingMode, dc: null, note: null }
   });
   if (navigator.vibrate) navigator.vibrate([6, 28, 6]);
 }
@@ -21744,7 +21877,7 @@ function xgtSvgToPngDataUri(svgEl) {
 function xgtEventsToCsvString(events) {
   var rows = [['eventId', 'quarter', 'clock', 'kind', 'role', 'side', 'number', 'zone', 'zoneName',
                'fieldX_m', 'fieldY_m', 'action', 'shotType', 'outcome', 'drawnCommitted',
-               'goalPlacement', 'assist', 'foulCounterpartSide', 'foulCounterpartNumber', 'goalkeeper', 'targetGoal', 'timestamp']];
+               'goalPlacement', 'assist', 'foulCounterpartSide', 'foulCounterpartNumber', 'possession', 'reboundFollowup', 'goalkeeper', 'targetGoal', 'timestamp']];
   (events || []).forEach(function (e) {
     var fc = e.fieldCoordinates || {};
     var fcp = e.foulCounterpart || {};
@@ -21753,8 +21886,8 @@ function xgtEventsToCsvString(events) {
       e.fieldZone || '', e.fieldZoneName || '', fc.fx == null ? '' : fc.fx, fc.fy == null ? '' : fc.fy,
       e.actionLabel || e.context.dir || '', e.variantLabel || '', e.outcomeLabel || '', e.context.dc || '',
       e.goalPlacement ? e.goalPlacement.label : '', e.assist == null ? '' : e.assist,
-      fcp.side || '', fcp.number == null ? '' : fcp.number, e.goalkeeper == null ? '' : e.goalkeeper,
-      e.targetGoal || '', e.timestamp]);
+      fcp.side || '', fcp.number == null ? '' : fcp.number, e.possession || '', e.reboundFollowup || '',
+      e.goalkeeper == null ? '' : e.goalkeeper, e.targetGoal || '', e.timestamp]);
   });
   return rows.map(function (r) {
     return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
