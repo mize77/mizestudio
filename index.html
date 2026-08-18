@@ -956,10 +956,22 @@
      .guestOverlay's own name is semantically tied to that other context
      -- reusing it here would create confusing coupling if either one's
      styling needs to diverge later. */
-  .freeAccessOverlay { display:none; position:fixed; inset:0; z-index:5000; background:rgba(8,20,20,.92); align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }
+  /* z-index deliberately far above everything else in this app,
+     including MizeDialog's own 99999990/99999991 (previously the
+     highest value anywhere in this file) -- discovered this needed
+     fixing when the Studio's own splash screen (z-index:99999) rendered
+     visually on top of this gate despite the gate still being
+     functionally interactive underneath it (the splash screen has
+     pointer-events:none, so hit-testing correctly reached the gate, but
+     z-index alone governs what's actually painted on top). This gate's
+     whole purpose is to be the unconditional first thing visible, before
+     anything else in the Studio, including any dialog that could in
+     principle ever appear -- so it needs to outrank all of it, not just
+     the specific layer that happened to surface this. */
+  .freeAccessOverlay { display:none; position:fixed; inset:0; z-index:999999999; background:rgba(8,20,20,.92); align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }
   .freeAccessOverlay.open { display:flex; }
   .freeAccessOverlayBox { max-width:min(480px,92vw); max-height:90vh; overflow-y:auto; background:#fff; border-radius:16px; box-shadow:0 30px 90px rgba(0,0,0,.5); padding:32px 28px; text-align:center; }
-  .freeAccessOverlayBox .brand { font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:700; letter-spacing:.06em; color:#1b7373; text-transform:uppercase; margin:0 0 6px; }
+  .freeAccessOverlayBox .brand { display:block; width:220px; max-width:78%; height:auto; margin:0 auto 14px; }
   .freeAccessOverlayBox h1 { font-family:'Space Grotesk',sans-serif; font-size:24px; color:#124d4d; margin:0 0 14px; }
   .freeAccessOverlayBox p { font-size:14.5px; line-height:1.55; color:#26302f; margin:0 0 12px; }
   .freeAccessOverlayButtons { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:16px; }
@@ -3533,6 +3545,32 @@ XQUIX.Auth = (function(){
       } catch(err) {
         return { error: { message: 'Could not reach the verification service. Check your connection and try again.' } };
       }
+    },
+    // Verifies the same email/code the Worker sent -- entirely
+    // client-side, direct to Supabase, no Worker round-trip needed here
+    // (no secret key required for this direction, unlike generating the
+    // link/code in the first place). This is specifically what makes it
+    // solve the standalone-app and cross-browser problems: the session
+    // gets created in whichever context this function is actually
+    // called from, with no redirect or cross-process handoff involved
+    // at all. 'email' is the correct, current, non-deprecated type for
+    // this exact case per Supabase's own docs (their older 'signup'/
+    // 'magiclink' type values are legacy). Code length isn't hardcoded
+    // to 6 -- it's a server-side setting (GOTRUE_MAILER_OTP_LENGTH),
+    // not a constant this client should assume; validation here is
+    // deliberately loose (a reasonable digit range, whitespace/dashes
+    // stripped) since verifyOtp() itself is the real authority on
+    // whether a code is valid, not this client-side shape check.
+    async verifyCode(email, code){
+      if(!client) return UNAVAILABLE;
+      const cleaned = String(code||'').replace(/[^0-9]/g,'');
+      if(!/^\d{4,10}$/.test(cleaned)) return { error: { message: 'Enter the code exactly as it appears in the email.' } };
+      try {
+        const { data, error } = await withTimeout(client.auth.verifyOtp({ email, token: cleaned, type: 'email' }), 15);
+        if(error) return { error };
+        setUser(data.user);
+        return { user: data.user };
+      } catch(err) { return { error: { message: err.message } }; }
     },
     async getProfileDetails(){
       if(!client || !currentUser) return null;
