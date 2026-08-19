@@ -1772,6 +1772,7 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
   <button type="button" id="soMenuOpenSequence">Open Sequence</button>
   <button type="button" id="soMenuSaveFormation">Save Formation</button>
   <button type="button" id="soMenuSaveSequence">Save Sequence</button>
+  <button type="button" id="soMenuExportImport">Export / Import</button>
 </div>
 <div id="openItemBox">
   <div class="efaTitle" id="openItemTitle">Open</div>
@@ -2485,6 +2486,7 @@ const MizeDialog = (function(){
           <button type="button" id="libraryNewDocumentBtn">+ Document</button>
           <button type="button" id="libraryNewResourceBtn">+ Resource</button>
           <button type="button" id="libraryImportBtn">Import Curriculum&hellip;</button>
+          <button type="button" id="libraryOpenExportImportBtn">Export / Import Files&hellip;</button>
         </div>
       </div>
       <div id="libraryContent"></div>
@@ -2616,15 +2618,20 @@ const MizeDialog = (function(){
     <div id="sessionHistoryList"></div>
   </div>
 </div>
-<div class="toolPanel" id="packagePanel">
-  <div class="toolPanelHeader"><h3>Tactical Packages</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+<div class="toolPanel" id="exportImportPanel">
+  <div class="toolPanelHeader"><h3>Export / Import</h3><button class="closeToolPanelBtn">&#10005;</button></div>
   <div class="toolPanelBody">
-<div style="display:flex;gap:6px;margin-bottom:4px;">
+    <div style="display:flex;gap:6px;margin-bottom:4px;">
       <button id="exportLibraryBtn" style="flex:1;">Export Everything</button>
       <button id="importLibraryBtn" style="flex:1;">Import</button>
     </div>
-    <div style="font-size:11px;color:#54605f;margin-bottom:8px;">"Export Everything" downloads every saved formation, tactical package, and practice session into one file. Each saved formation and package below also has its own \u2913 Export button, for sharing just that one item -- Import accepts either kind of file. To use this on another device: save the exported file into a folder synced by iCloud Drive or Google Drive, then open this app on the other device and use Import to pick that same file.</div>
+    <div style="font-size:11px;color:#54605f;margin-bottom:8px;">"Export Everything" downloads every saved formation, tactical package, and practice session into one file. Each saved formation and package also has its own \u2913 Export button next to it (in Save/Open or the Coaching Library), for sharing just that one item -- Import accepts either kind of file. To use this on another device: save the exported file into a folder synced by iCloud Drive or Google Drive, then open this app on the other device and use Import to pick that same file.</div>
     <input type="file" id="importLibraryFile" accept="application/json" style="display:none;">
+  </div>
+</div>
+<div class="toolPanel" id="packagePanel">
+  <div class="toolPanelHeader"><h3>Tactical Packages</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelBody">
     <input type="text" id="packageTagFilter" placeholder="Filter by tag (e.g. counterattack, U16)" style="width:100%;margin-bottom:8px;padding:6px 8px;font-size:12px;box-sizing:border-box;">
     <div id="packageList"></div>
   </div>
@@ -16000,6 +16007,20 @@ function exportLibrary(){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
 }
+// Applies the same "<active user's name> <item name>" convention every
+// formation/sequence saved through the normal Save box already uses --
+// soUserItemNames() (the function behind the Open list) only shows keys
+// starting with exactly this prefix, so an imported item stored under
+// any other name is real, successfully-written data that can never
+// appear there. Idempotent (won't double-prefix an already-correctly-
+// named file, e.g. re-importing your own earlier export). Deliberately
+// NOT applied to practice sessions -- renderSavedSessions() shows every
+// session regardless of name, no prefix filtering exists for that kind,
+// so prefixing there would be a change in behavior nobody asked for.
+function libImportOwnedName(name){
+  const prefix = getActiveUserName()+' ';
+  return String(name||'').startsWith(prefix) ? name : prefix+name;
+}
 function importLibraryFromFile(file){
   const reader=new FileReader();
   reader.onload=()=>{
@@ -16015,13 +16036,16 @@ function importLibraryFromFile(file){
       // one Import button/flow handles both without the person needing to
       // know or care which kind of file they're picking.
       const singleTypeToTarget = { formation: existingFormations, tacticalPackage: existingPackages, practiceSession: existingSessions };
+      const singleTypeNeedsOwnerPrefix = { formation: true, tacticalPackage: true, practiceSession: false };
       let imported = false, importedLabel = '';
       if(data.type && singleTypeToTarget[data.type] && data.name){
-        singleTypeToTarget[data.type][data.name] = data;
-        imported = true; importedLabel = 'Imported "'+data.name+'".';
+        const ownedName = singleTypeNeedsOwnerPrefix[data.type] ? libImportOwnedName(data.name) : data.name;
+        data.name = ownedName;
+        singleTypeToTarget[data.type][ownedName] = data;
+        imported = true; importedLabel = 'Imported "'+ownedName+'".';
       } else if(data.formations || data.packages || data.sessions){
-        if(data.formations) Object.assign(existingFormations, data.formations);
-        if(data.packages) Object.assign(existingPackages, data.packages);
+        if(data.formations) Object.entries(data.formations).forEach(([n,rec])=>{ const owned=libImportOwnedName(n); rec.name=owned; existingFormations[owned]=rec; });
+        if(data.packages) Object.entries(data.packages).forEach(([n,rec])=>{ const owned=libImportOwnedName(n); rec.name=owned; existingPackages[owned]=rec; });
         if(data.sessions) Object.assign(existingSessions, data.sessions);
         imported = true; importedLabel = 'Import complete. Formations, packages, and practice sessions merged into your library.';
       } else if(data.name && (data.frames || data.current) && !data.state){
@@ -16029,14 +16053,19 @@ function importLibraryFromFile(file){
         // stamping existed -- frames/current without state is the same
         // structural shape package-loading code elsewhere already relies
         // on (frames=pkg.frames||[pkg.current]), so it's safe to trust here.
-        existingPackages[data.name] = data;
-        imported = true; importedLabel = 'Imported "'+data.name+'".';
+        const ownedName = libImportOwnedName(data.name);
+        data.name = ownedName;
+        existingPackages[ownedName] = data;
+        imported = true; importedLabel = 'Imported "'+ownedName+'".';
       } else if(data.name && data.state && !data.frames){
         // Same idea for a legacy formation export.
-        existingFormations[data.name] = data;
-        imported = true; importedLabel = 'Imported "'+data.name+'".';
+        const ownedName = libImportOwnedName(data.name);
+        data.name = ownedName;
+        existingFormations[ownedName] = data;
+        imported = true; importedLabel = 'Imported "'+ownedName+'".';
       } else if(data.name && Array.isArray(data.blocks)){
-        // Same idea for a legacy practice session export.
+        // Same idea for a legacy practice session export -- no owner
+        // prefix, matching sessions' existing unprefixed convention.
         existingSessions[data.name] = data;
         imported = true; importedLabel = 'Imported "'+data.name+'".';
       }
@@ -16188,6 +16217,7 @@ document.getElementById('soMenuOpenFormation')?.addEventListener('click', ()=>op
 document.getElementById('soMenuOpenSequence')?.addEventListener('click', ()=>openOpenItemBox('sequence'));
 document.getElementById('soMenuSaveFormation')?.addEventListener('click', ()=>openSaveItemBox('formation'));
 document.getElementById('soMenuSaveSequence')?.addEventListener('click', ()=>openSaveItemBox('sequence'));
+document.getElementById('soMenuExportImport')?.addEventListener('click', ()=>{ closeSaveOpenMenu(); openToolPanel('exportImportPanel'); });
 document.addEventListener('pointerdown', e=>{
   const btn=document.getElementById('saveOpenBtn');
   if(!anySaveOpenBoxOpen() || e.target===btn) return;
@@ -19428,6 +19458,9 @@ document.getElementById('libraryImportBtn')?.addEventListener('click', ()=>{
   document.getElementById('libImportConfirmBtn').classList.remove('libImportReady');
   document.getElementById('libImportDiag').textContent = '';
   showLibraryImportStage();
+});
+document.getElementById('libraryOpenExportImportBtn')?.addEventListener('click', ()=>{
+  openToolPanel('exportImportPanel');
 });
 document.getElementById('libraryImportBackBtn')?.addEventListener('click', ()=>{
   showLibraryListStage();
