@@ -189,6 +189,14 @@
   #hideQuickCommandBarBtn { padding:3px 6px; color:#7c8a8a; }
   h1 { font-size:18px; margin:0 12px 0 0; }
   button { border:1px solid #b7c4c4; background:white; border-radius:8px; padding:8px 10px; cursor:pointer; font-weight:700; touch-action:manipulation; }
+  /* Shared "prominent confirm" styling -- the same dark teal + white
+     text already used consistently for OK inside MizeDialog and inside
+     Game Tracker's own sheets (.xgtBtn.pri), now available as one
+     reusable class for the handful of standalone OK buttons elsewhere
+     (Shot Clock, Smart Goalie Positioning, Field Zones, Player Setups)
+     that were still using the plain, low-contrast default button style. */
+  .primaryConfirmBtn { background:#1b7373; color:#fff; border-color:#1b7373; }
+  .primaryConfirmBtn:hover, .primaryConfirmBtn:active { background:#155c5c; border-color:#155c5c; }
   button.active { background:var(--teal); color:white; border-color:var(--teal); }
   .hint { font-size:13px; color:#5d6868; }
   @media (pointer:coarse) {
@@ -2434,7 +2442,7 @@ const MizeDialog = (function(){
     <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Position</div>
     <label style="display:block;margin-bottom:6px;"><input type="radio" name="shotClockPosition" id="shotClockPosCorners" checked> Corners (left &amp; right, on the board)</label>
     <label style="display:block;margin-bottom:14px;"><input type="radio" name="shotClockPosition" id="shotClockPosCenter"> Center (top of screen, always visible)</label>
-    <button id="shotClockOkBtn" style="width:100%;font-weight:700;">OK</button>
+    <button id="shotClockOkBtn" class="primaryConfirmBtn" style="width:100%;font-weight:700;">OK</button>
   </div>
 </div>
 <div class="toolPanel" id="smartGoaliePositioningPanel">
@@ -2443,7 +2451,7 @@ const MizeDialog = (function(){
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">Distance to goal-line, central position (m): <input id="smartGoalieDistanceInput" type="number" min="0.1" max="5" step="0.1" value="0.9" style="width:70px;"></label>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">Maximum turning angle (±°, from squared to the other goal): <input id="smartGoalieMaxAngleInput" type="number" min="0" max="90" step="1" value="45" style="width:70px;"></label>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">Lateral reach of the arc (±m, together with Distance to Goal this shapes the arc -- circle if equal, oval if not; fully reached only at a 90° max angle): <input id="smartGoalieMaxLateralInput" type="number" min="0.1" max="5" step="0.1" value="1.2" style="width:70px;"></label>
-    <button id="smartGoalieOkBtn" style="width:100%;font-weight:700;">OK</button>
+    <button id="smartGoalieOkBtn" class="primaryConfirmBtn" style="width:100%;font-weight:700;">OK</button>
   </div>
 </div>
 <div class="toolPanel toolPanelLarge" id="coachingLibraryPanel">
@@ -2537,7 +2545,7 @@ const MizeDialog = (function(){
     <div id="fieldZoneDetail" style="display:none;">
       <button type="button" id="fieldZoneBackBtn" class="setupBackBtn">&#8249; Back to zone sets</button>
       <div id="fieldZoneLabelEditor" class="setupDetailList"></div>
-      <div class="smallRow full"><button type="button" id="fieldZoneOkBtn">OK</button></div>
+      <div class="smallRow full"><button type="button" id="fieldZoneOkBtn" class="primaryConfirmBtn">OK</button></div>
     </div>
   </div>
 </div>
@@ -2559,7 +2567,7 @@ const MizeDialog = (function(){
     <div id="playerSetupDetail" style="display:none;">
       <button type="button" id="playerSetupBackBtn" class="setupBackBtn">&#8249; Back to setups</button>
       <div id="playerSetupSpec" class="setupDetailList"></div>
-      <div class="smallRow full"><button type="button" id="playerSetupOkBtn">OK</button></div>
+      <div class="smallRow full"><button type="button" id="playerSetupOkBtn" class="primaryConfirmBtn">OK</button></div>
     </div>
   </div>
 </div>
@@ -19288,9 +19296,32 @@ document.getElementById('coachingModeEndBtn')?.addEventListener('click', endLive
 
 async function libOpenAssetInStudio(asset){
   if((asset.type==='formation' || asset.type==='sequence') && asset.contentRef){
-    let store = {};
-    try { store = JSON.parse(localStorage.getItem(asset.contentRef.storeKey)||'{}'); } catch(err){ store = {}; }
-    const record = store[asset.contentRef.itemKey];
+    // Reads through the same storage abstraction (XQUIX.StorageProvider)
+    // every other lookup in this file already uses -- this previously
+    // read raw localStorage directly, which is simply the wrong place to
+    // look for a signed-in user on the cloud-backed path, regardless of
+    // any renaming.
+    const store = XQUIX.StorageProvider.listStoreSync(asset.type);
+    let record = store[asset.contentRef.itemKey];
+    if(!record){
+      // contentRef.itemKey is a point-in-time snapshot of the name taken
+      // when this Library wrapper was created -- not a live link. If the
+      // underlying formation/sequence has since been renamed (e.g. by
+      // "Restore Classic-Named Items", which moves items from the old
+      // "XquiX " prefix to whoever's actually signed in), the exact key
+      // above stops resolving even though the real data is still there
+      // under its new name. Try the same base name under the CURRENT
+      // user's prefix before concluding it's genuinely gone.
+      const prefixMatch = asset.contentRef.itemKey.match(/^\S+ (.+)$/);
+      if(prefixMatch){
+        const healedKey = getActiveUserName()+' '+prefixMatch[1];
+        if(store[healedKey]){
+          record = store[healedKey];
+          asset.contentRef.itemKey = healedKey; // heal the reference so this fallback isn't needed again next time
+          try { await LibraryStorage.saveAsset(asset); } catch(err) { console.error('Could not heal Library contentRef:', err); }
+        }
+      }
+    }
     if(!record){
       if(typeof MizeDialog!=='undefined') MizeDialog.alert('The original saved '+(asset.type==='formation'?'formation':'sequence')+' could not be found -- it may have been deleted or renamed outside the Library.');
       return;
