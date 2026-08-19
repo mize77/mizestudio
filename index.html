@@ -823,6 +823,13 @@
   /* ===== Coaching Library ===== */
   .toolPanelLarge { width:min(900px,95vw); }
   #librarySearchInput { width:100%; box-sizing:border-box; padding:10px 12px; font-size:14px; border:1.5px solid #d5dede; border-radius:10px; margin-bottom:12px; }
+  /* ===== Export Selected Items ===== */
+  .exportSelectGroupHeader { font-size:11px; font-weight:700; color:#7c8a8a; text-transform:uppercase; letter-spacing:.03em; margin:8px 0 4px; }
+  .exportSelectGroupHeader:first-child { margin-top:0; }
+  .exportSelectItem { display:flex; align-items:center; gap:8px; padding:5px 4px; font-size:12.5px; cursor:pointer; border-radius:6px; }
+  .exportSelectItem:hover { background:#f2f5f5; }
+  .exportSelectItem input { flex-shrink:0; }
+  .exportSelectEmpty { font-size:12px; color:#7c8a8a; padding:4px; }
   #libraryViewTabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
   .libViewTab, #libraryNewButtons button, .libTypeFilterPill { height:26px; box-sizing:border-box; display:inline-flex; align-items:center; padding:0 11px; border-radius:16px; border:1.5px solid #d5dede; background:#fff; color:#26302f; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
   .libViewTab.active { background:#124d4d; border-color:#124d4d; color:#fff; }
@@ -2627,6 +2634,21 @@ const MizeDialog = (function(){
     </div>
     <div style="font-size:11px;color:#54605f;margin-bottom:8px;">"Export Everything" downloads every saved formation, tactical package, and practice session into one file. Each saved formation and package also has its own \u2913 Export button next to it (in Save/Open or the Coaching Library), for sharing just that one item -- Import accepts either kind of file. To use this on another device: save the exported file into a folder synced by iCloud Drive or Google Drive, then open this app on the other device and use Import to pick that same file.</div>
     <input type="file" id="importLibraryFile" accept="application/json" style="display:none;">
+    <div style="border-top:1.5px solid #d5dede;margin:16px 0 10px;padding-top:12px;">
+      <div style="font-weight:700;font-size:12.5px;margin-bottom:2px;">Export Selected Items</div>
+      <div style="font-size:11px;color:#54605f;margin-bottom:8px;">Check the formations, sequences, and practice sessions you want, then export just those together in one file.</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <button type="button" id="exportSelectAllBtn" style="flex:1;font-size:11.5px;">Select All</button>
+        <button type="button" id="exportSelectNoneBtn" style="flex:1;font-size:11.5px;">Select None</button>
+      </div>
+      <div id="exportSelectList" style="max-height:260px;overflow-y:auto;border:1.5px solid #d5dede;border-radius:8px;padding:8px;margin-bottom:8px;"></div>
+      <button type="button" id="exportSelectedBtn" style="width:100%;" disabled>Export Selected (0)</button>
+    </div>
+    <div style="border-top:1.5px solid #d5dede;margin:16px 0 10px;padding-top:12px;">
+      <div style="font-weight:700;font-size:12.5px;margin-bottom:2px;">Restore Classic-Named Items</div>
+      <div style="font-size:11px;color:#54605f;margin-bottom:8px;">Before real sign-in existed, everything saved through this app was filed under the name "XquiX". If you're now signed in under your real account and don't see formations or sequences you know you saved, they're very likely still there under that old name -- this moves them to your current account's name so they show up normally again. Safe to run any time; never overwrites anything you've already saved under your current name.</div>
+      <button type="button" id="restoreClassicItemsBtn" style="width:100%;">Restore Classic-Named Items</button>
+    </div>
   </div>
 </div>
 <div class="toolPanel" id="packagePanel">
@@ -16098,6 +16120,136 @@ function importLibraryFromFile(file){
   reader.readAsText(file);
 }
 document.getElementById('exportLibraryBtn').addEventListener('click', exportLibrary);
+// ===== Export Selected Items =====
+// A middle ground between exportSingleRecord() (exactly one item) and
+// exportLibrary() (everything, no choice) -- lets a coach pick a
+// specific handful across formations/sequences/sessions and get them
+// as one file, same combined shape importLibraryFromFile() already
+// knows how to read back in. Sessions listed unprefixed/unfiltered,
+// matching renderSavedSessions()'s own convention (see the naming-
+// prefix fix elsewhere in this file) -- formations/sequences use
+// soUserItemNames(), so only the current user's own items are offered,
+// consistent with what they'd see in Save/Open or the Library.
+function renderExportSelectList(){
+  const box = document.getElementById('exportSelectList');
+  if(!box) return;
+  box.innerHTML = '';
+  const groups = [
+    { label:'Formations', kind:'formation', names: soUserItemNames('formation') },
+    { label:'Sequences', kind:'sequence', names: soUserItemNames('sequence') },
+    { label:'Practice Sessions', kind:'session', names: Object.keys(JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}')) },
+  ];
+  let anyItems = false;
+  groups.forEach(g=>{
+    if(!g.names.length) return;
+    anyItems = true;
+    const header = document.createElement('div');
+    header.className = 'exportSelectGroupHeader';
+    header.textContent = g.label;
+    box.appendChild(header);
+    g.names.sort((a,b)=>a.localeCompare(b)).forEach(name=>{
+      const label = document.createElement('label');
+      label.className = 'exportSelectItem';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.dataset.kind = g.kind; cb.dataset.name = name;
+      cb.addEventListener('change', updateExportSelectedButton);
+      const span = document.createElement('span');
+      span.textContent = name;
+      label.appendChild(cb); label.appendChild(span);
+      box.appendChild(label);
+    });
+  });
+  if(!anyItems) box.innerHTML = '<div class="exportSelectEmpty">Nothing saved yet to select from.</div>';
+  updateExportSelectedButton();
+}
+function updateExportSelectedButton(){
+  const btn = document.getElementById('exportSelectedBtn');
+  if(!btn) return;
+  const checked = document.querySelectorAll('#exportSelectList input[type="checkbox"]:checked');
+  btn.textContent = 'Export Selected ('+checked.length+')';
+  btn.disabled = checked.length===0;
+}
+function exportSelectedItems(){
+  const checked = [...document.querySelectorAll('#exportSelectList input[type="checkbox"]:checked')];
+  if(!checked.length) return;
+  const formationStore = XQUIX.StorageProvider.listStoreSync('formation');
+  const packageStore = XQUIX.StorageProvider.listStoreSync('sequence');
+  const sessionStore = JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}');
+  const kindToStore = { formation: formationStore, sequence: packageStore, session: sessionStore };
+  const data = { ...MIZE.Storage.stampRecord({ exportedAt: new Date().toISOString() }), formations:{}, packages:{}, sessions:{} };
+  const kindToDataKey = { formation:'formations', sequence:'packages', session:'sessions' };
+  checked.forEach(cb=>{
+    const { kind, name } = cb.dataset;
+    const rec = kindToStore[kind]?.[name];
+    if(rec) data[kindToDataKey[kind]][name] = rec;
+  });
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='tpg-selected-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+document.getElementById('exportSelectAllBtn')?.addEventListener('click', ()=>{
+  document.querySelectorAll('#exportSelectList input[type="checkbox"]').forEach(cb=>cb.checked=true);
+  updateExportSelectedButton();
+});
+document.getElementById('exportSelectNoneBtn')?.addEventListener('click', ()=>{
+  document.querySelectorAll('#exportSelectList input[type="checkbox"]').forEach(cb=>cb.checked=false);
+  updateExportSelectedButton();
+});
+document.getElementById('exportSelectedBtn')?.addEventListener('click', exportSelectedItems);
+// ===== Restore Classic-Named Items =====
+// Root cause: every formation/sequence is keyed "<active user name>
+// <item name>", and before real sign-in existed, getActiveUserName()
+// always fell back to the literal string "XquiX" (see its own
+// definition above). A genuinely signed-in user's name now resolves to
+// something real (their display name, or their email's local part) --
+// so anything saved back when "XquiX" was the only name in play is
+// still sitting there, just under a name nothing looks for anymore.
+// This renames those items to the CURRENT user's real prefix, through
+// the same soGetStore/soSetStore (XQUIX.StorageProvider) abstraction
+// everything else here already uses -- so it works correctly whether
+// the active backend is local or cloud, without this code needing to
+// know or care which. Never overwrites: if the target name already
+// exists (the user genuinely already has something saved under their
+// real name with that same base title), that specific item is skipped
+// and counted separately, not silently clobbered.
+function restoreClassicNamedItems(){
+  const legacyPrefix = 'XquiX ';
+  const currentPrefix = getActiveUserName()+' ';
+  if(currentPrefix === legacyPrefix){
+    MizeDialog.alert('You\u2019re currently using the classic "XquiX" name yourself, so there\u2019s nothing to restore -- your items are already filed under the name this app is looking for.');
+    return;
+  }
+  let restored = 0, skipped = 0;
+  ['formation','sequence'].forEach(kind=>{
+    const store = soGetStore(kind);
+    let changed = false;
+    Object.keys(store).forEach(key=>{
+      if(!key.startsWith(legacyPrefix)) return;
+      const baseName = key.slice(legacyPrefix.length);
+      const targetKey = currentPrefix+baseName;
+      if(store[targetKey]){ skipped++; return; } // already have one under the real name -- never overwrite
+      const rec = store[key];
+      if(rec && typeof rec==='object' && 'name' in rec) rec.name = targetKey;
+      store[targetKey] = rec;
+      delete store[key];
+      restored++; changed = true;
+    });
+    if(changed) soSetStore(kind, store);
+  });
+  if(restored===0 && skipped===0){
+    MizeDialog.alert('No classic-named items were found -- nothing to restore.');
+  } else {
+    let msg = 'Restored '+restored+' item'+(restored===1?'':'s')+' to your account.';
+    if(skipped>0) msg += ' Skipped '+skipped+' that already existed under your current name (left untouched, nothing overwritten).';
+    MizeDialog.alert(msg);
+  }
+  renderCustomSystems(); renderPackages();
+  if(document.getElementById('exportSelectList')) renderExportSelectList();
+}
+document.getElementById('restoreClassicItemsBtn')?.addEventListener('click', restoreClassicNamedItems);
 document.getElementById('importLibraryBtn').addEventListener('click', ()=>document.getElementById('importLibraryFile').click());
 document.getElementById('importLibraryFile').addEventListener('change', e=>{
   if(e.target.files && e.target.files[0]) importLibraryFromFile(e.target.files[0]);
@@ -16235,7 +16387,7 @@ document.getElementById('soMenuOpenFormation')?.addEventListener('click', ()=>op
 document.getElementById('soMenuOpenSequence')?.addEventListener('click', ()=>openOpenItemBox('sequence'));
 document.getElementById('soMenuSaveFormation')?.addEventListener('click', ()=>openSaveItemBox('formation'));
 document.getElementById('soMenuSaveSequence')?.addEventListener('click', ()=>openSaveItemBox('sequence'));
-document.getElementById('soMenuExportImport')?.addEventListener('click', ()=>{ closeSaveOpenMenu(); openToolPanel('exportImportPanel'); });
+document.getElementById('soMenuExportImport')?.addEventListener('click', ()=>{ closeSaveOpenMenu(); openToolPanel('exportImportPanel'); renderExportSelectList(); });
 document.addEventListener('pointerdown', e=>{
   const btn=document.getElementById('saveOpenBtn');
   if(!anySaveOpenBoxOpen() || e.target===btn) return;
@@ -19479,6 +19631,7 @@ document.getElementById('libraryImportBtn')?.addEventListener('click', ()=>{
 });
 document.getElementById('libraryOpenExportImportBtn')?.addEventListener('click', ()=>{
   openToolPanel('exportImportPanel');
+  renderExportSelectList();
 });
 document.getElementById('libraryImportBackBtn')?.addEventListener('click', ()=>{
   showLibraryListStage();
