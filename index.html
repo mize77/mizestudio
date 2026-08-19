@@ -3977,21 +3977,26 @@ function xquixHomeShowToast(msg){
   clearTimeout(xquixHomeToastTimer);
   xquixHomeToastTimer = setTimeout(()=> el.classList.remove('shown'), 3200);
 }
-// Mode routing. Coaching and Game Tracker map to real, already-built
-// destinations. Studio Mode and Practice Mode do NOT have their own
-// restricted/curated environments built yet (the simplified
-// presentation-only controls, and the premade-plan quick-access view,
-// are both separate, later work) -- rather than silently pretend
-// otherwise, they fall back to the regular Studio, which is functional
-// but explicitly not the final intended experience for those two modes.
+// Mode routing. All four now map to real, already-built destinations --
+// "studio" and "practice" were initially thought to need new,
+// not-yet-built environments, but they turned out to already exist:
+// Studio Mode is this app's existing Presentation Mode (togglePresentation),
+// and Practice Mode is the existing Organization Library panel (premade
+// formations/sequences shared at the org level). Nothing here needed
+// building from scratch, just correctly wiring to what's already there.
 document.addEventListener('xquixHomeModeSelected', (e) => {
   const mode = e.detail.mode;
   xquixHideHome();
   if(mode === 'gametracker'){
     if(window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function') window.XquiXGameTracker.open();
+  } else if(mode === 'studio'){
+    if(!document.body.classList.contains('presentation')) togglePresentation('fit');
+  } else if(mode === 'practice'){
+    openToolPanel('orgLibraryPanel');
+    xquixRenderOrgLibrary();
   }
-  // 'coaching', 'studio', 'practice': all currently just reveal the
-  // Studio as-is, already handled by xquixHideHome() uncovering it.
+  // 'coaching': just reveals the Studio as-is, already handled by
+  // xquixHideHome() uncovering it -- that IS the coaching environment.
 });
 // Tutorial routing. Only "studio" (XquiX Studio quick guide) maps to
 // real, existing content -- buildFirstCoachingSessionSteps(), the same
