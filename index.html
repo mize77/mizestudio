@@ -4141,6 +4141,7 @@ document.addEventListener('xquixHomeTutorialSelected', (e) => {
     xquixHideHome();
     closeToolPanels();
     startTutorial(buildFirstCoachingSessionSteps(), {
+      needsIntroSequenceSeeded: true,
       onComplete: ()=> MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.')
     });
   } else {
@@ -11233,7 +11234,7 @@ let tutorialTrackHandle = null; // requestAnimationFrame handle -- drives both s
 let tutorialAdvancing = false;  // guards against double-advance while the success flash/delay is showing
 let activeTutorialSequenceName = null; // set by whatever loads a sequence before calling startTutorial(), so the 'sequenceLoaded' validator can confirm the RIGHT package was opened, not just any package
 
-function startTutorial(steps, { onComplete, completionMessage } = {}){
+function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenceSeeded } = {}){
   tutorialCompletionMessage = completionMessage || 'Congratulations! You\u2019ve completed your first coaching session.';
   if(!steps || !steps.length) return;
   // Whatever menu/panel the tutorial was launched from must not be left
@@ -11312,16 +11313,22 @@ function startTutorial(steps, { onComplete, completionMessage } = {}){
   // that list only reads localStorage, so the embedded-data fallback used
   // internally elsewhere isn't enough for this one specific item. Only
   // seeded if genuinely absent, so it never overwrites a real saved copy.
-  // Guest Experience Mode specific -- this exact intro sequence has no
-  // relevance to any other tutorial built on this same engine (e.g.
-  // Viewer Mode's own USA WP Experience tutorial), so seeding it
-  // unconditionally would leave an unrelated demo item cluttering that
-  // guest's Open Sequence list too.
-  if(GUEST_EXPERIENCE_MODE){
+  // Gated on the needsIntroSequenceSeeded option (passed explicitly by
+  // every call site that starts this specific tutorial), NOT on
+  // GUEST_EXPERIENCE_MODE -- that was the actual bug. Guest Experience
+  // only ever runs this one tutorial, so gating by deployment mode
+  // happened to work there, but it meant this was never seeded at all
+  // for a signed-in user in the main Studio, since GUEST_EXPERIENCE_MODE
+  // is false there -- Step 3 had nothing to find for them. The seeded
+  // key is also now built from getActiveUserName() dynamically, matching
+  // the exact prefix soUserItemNames() expects for whoever is actually
+  // signed in, rather than a hardcoded "XquiX " that only ever matched
+  // the anonymous/fallback case.
+  if(needsIntroSequenceSeeded && TUTORIAL_EMBEDDED_DATA.sequences['Tutorial - First Coaching Session']){
     try {
       const seqStore = soGetStore('sequence');
-      const introKey = 'XquiX Tutorial - First Coaching Session';
-      if(!seqStore[introKey] && TUTORIAL_EMBEDDED_DATA.sequences['Tutorial - First Coaching Session']){
+      const introKey = getActiveUserName()+' Tutorial - First Coaching Session';
+      if(!seqStore[introKey]){
         seqStore[introKey] = TUTORIAL_EMBEDDED_DATA.sequences['Tutorial - First Coaching Session'];
         soSetStore('sequence', seqStore);
       }
@@ -12425,9 +12432,13 @@ function buildFirstCoachingSessionSteps(){
       }}
     },
     { // Step 3 -- tap the specific sequence in the resulting list
-      instruction: 'In the list, tap the highlighted "XquiX Tutorial - First Coaching Session" to load it.',
+      // Built dynamically from getActiveUserName() -- must match exactly
+      // what startTutorial() actually seeded into this user's real Open
+      // Sequence list (see needsIntroSequenceSeeded above), not a fixed
+      // "XquiX " prefix that only ever matched the anonymous fallback.
+      instruction: 'In the list, tap the highlighted "'+getActiveUserName()+' Tutorial - First Coaching Session" to load it.',
       bannerSide: 'left',
-      highlight: ()=> [...document.querySelectorAll('#openItemList button')].find(b=>b.textContent==='XquiX Tutorial - First Coaching Session'),
+      highlight: ()=> [...document.querySelectorAll('#openItemList button')].find(b=>b.textContent===getActiveUserName()+' Tutorial - First Coaching Session'),
       allowedSelectors: '#openItemBox', // same reasoning as Step 2 -- the list itself needs to be scrollable to reach an item that's off-screen in landscape
       useShadeHighlight: true,
       validate: { type:'custom', fn: ()=>{
@@ -12730,6 +12741,7 @@ document.getElementById('devPreviewRealTutorialBtn')?.addEventListener('click', 
   if(missing.length){ MizeDialog.alert('Something is wrong with the tutorial\u2019s built-in reference data: '+missing.join(', ')+' could not be read. This shouldn\u2019t normally happen since it\u2019s embedded in the app itself.'); return; }
   closeToolPanels();
   startTutorial(buildFirstCoachingSessionSteps(), {
+    needsIntroSequenceSeeded: true,
     onComplete: ()=> MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.')
   });
 });
@@ -12881,6 +12893,7 @@ function showGuestExperienceErrorScreen(){
 function launchTutorial(){
   document.body.classList.remove('guestFreePlayActive');
   startTutorial(buildFirstCoachingSessionSteps(), {
+    needsIntroSequenceSeeded: true,
     onComplete: ()=>endGuestSessionWithScreen(true)
   });
 }
@@ -16104,8 +16117,13 @@ function soUserItemNames(kind){
   if(GUEST_EXPERIENCE_MODE){
     // Guest Experience: the only visible item, ever, regardless of what
     // might already be sitting in this browser's localStorage from a
-    // prior session -- no saved formations, no other sequences.
-    return kind==='sequence' ? ['XquiX Tutorial - First Coaching Session'] : [];
+    // prior session -- no saved formations, no other sequences. Built
+    // from getActiveUserName() to stay consistent with whatever
+    // startTutorial() actually seeded (see needsIntroSequenceSeeded) --
+    // a hardcoded "XquiX " prefix here would silently show nothing for
+    // a guest signed in under any other display name, even though the
+    // correct item genuinely exists in their store.
+    return kind==='sequence' ? [getActiveUserName()+' Tutorial - First Coaching Session'] : [];
   }
   const prefix=getActiveUserName()+' ';
   return Object.keys(soGetStore(kind)).filter(k=>k.startsWith(prefix)).sort((a,b)=>a.localeCompare(b));
