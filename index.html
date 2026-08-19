@@ -3772,7 +3772,14 @@ function freeAccessShowError(msg){
 async function submitFreeAccessEmail(){
   const input = document.getElementById('freeAccessEmailInput');
   const btn = document.getElementById('freeAccessSubmitBtn');
-  const email = (input?.value || '').trim();
+  // Normalized here, once, at the earliest point -- this exact value is
+  // what gets sent to the Worker (which independently normalizes
+  // server-side before generating the OTP), stored for display, and
+  // later read back out for verifyCode(). Keeping normalization at this
+  // single entry point, rather than re-deriving it in multiple places,
+  // is what guarantees the email used to request the code and the
+  // email used to verify it can never silently diverge in casing.
+  const email = (input?.value || '').trim().toLowerCase();
   freeAccessShowError('');
   // Format check only, same reasoning as every other email-gate this
   // project has built -- real validation is the email actually arriving
@@ -3792,6 +3799,7 @@ async function submitFreeAccessEmail(){
     const addrEl = document.getElementById('freeAccessSentAddress');
     if(addrEl) addrEl.textContent = email;
     freeAccessClearCodeState();
+    freeAccessCodeSentAt = Date.now();
     showFreeAccessOverlay('freeAccessSentScreen');
   } catch(err) {
     freeAccessShowError('Something went wrong. Please try again.');
@@ -3820,19 +3828,34 @@ function freeAccessClearCodeState(){
   if(input) input.value = '';
   freeAccessCodeShowError('');
   freeAccessCodeShowResendMsg('');
+  freeAccessCodeSentAt = null;
 }
 // Supabase's own error text for this call isn't guaranteed to cleanly
 // distinguish "wrong code" from "expired code" -- verifyOtp() has been
 // observed returning the same ambiguous message ("Token has expired or
-// is invalid") for both. This checks for the word "expired" as a
-// best-effort signal and defaults to the "not correct" framing
-// otherwise, which is the more broadly-actionable message when the
-// exact cause can't be determined client-side. Never surfaces
-// Supabase's raw message directly, per the requirement not to expose
-// server error objects to users.
+// is invalid") for both, and Supabase's own docs describe cases (email
+// link-scanners prefetching and consuming a shared token, or a second
+// generateLink() call invalidating an earlier one) where a code can
+// report as "expired" within seconds of being sent, nowhere near any
+// real expiry window. So elapsed time, which this code fully controls
+// and can trust, is the actual signal for whether "expired" is even
+// plausible -- not Supabase's text. Below XQUIX_CODE_MIN_EXPIRY_MS
+// (a conservative floor well under any realistic OTP expiry setting,
+// which defaults to at least an hour), "expired" is never shown
+// regardless of what Supabase's message says, since it genuinely can't
+// be true yet -- the ambiguous message is treated as a wrong code
+// instead. Past that floor, "expired" becomes plausible and the text
+// check applies. Raw Supabase error text is intentionally logged to
+// the console (not shown in the UI) so the actual cause is visible
+// during debugging, since the UI itself must never expose server error
+// objects to users.
+const XQUIX_CODE_MIN_EXPIRY_MS = 60 * 1000; // 1 minute -- far below any realistic OTP expiry
+let freeAccessCodeSentAt = null;
 function xquixFreeAccessCodeErrorMessage(error){
+  console.error('XquiX free-access code verification failed:', error);
   const msg = ((error && error.message) || '').toLowerCase();
-  if(msg.includes('expired')) return 'This verification code has expired. Please request a new code.';
+  const elapsed = freeAccessCodeSentAt ? (Date.now() - freeAccessCodeSentAt) : Infinity;
+  if(msg.includes('expired') && elapsed >= XQUIX_CODE_MIN_EXPIRY_MS) return 'This verification code has expired. Please request a new code.';
   if(msg.includes('network') || msg.includes('fetch') || msg.includes('connection')) return 'XquiX could not verify your code. Please try again.';
   return 'The verification code is not correct. Please try again.';
 }
@@ -3879,6 +3902,7 @@ async function xquixFreeAccessResendCode(){
       freeAccessCodeShowError(result.error.message || 'Could not resend the code. Please try again.');
       return;
     }
+    freeAccessCodeSentAt = Date.now();
     freeAccessCodeShowResendMsg('A new verification code was sent.');
   } finally {
     btn.disabled = false; btn.textContent = origLabel;
