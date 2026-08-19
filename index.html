@@ -1015,6 +1015,8 @@
     .xquixHomeCircles { gap:20px; }
     .xquixHomeTutorialsWrap { width:110px; }
   }
+  .xquixHomeToast { display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#0d2422; border:1px solid #234745; border-radius:10px; padding:12px 22px; font-size:13.5px; color:#cfe7e4; z-index:9001; box-shadow:0 10px 30px rgba(0,0,0,.5); max-width:min(320px,86vw); text-align:center; }
+  .xquixHomeToast.shown { display:block; }
   /* Add-to-Home-Screen guide: reuses the tutorial's own ring
      (positionTutorialSpotlight) and dim-overlay-with-hole
      (positionTutorialDimOverlay) to point at the approximate on-screen
@@ -2186,6 +2188,7 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
     </button>
   </div>
 </div>
+<div id="xquixHomeToast" class="xquixHomeToast"></div>
 <div id="freeAccessEmailScreen" class="freeAccessOverlay">
   <div class="freeAccessOverlayBox">
     <div class="brand">XquiX Studio</div>
@@ -3928,12 +3931,92 @@ XQUIX.Auth.onChange(renderAccountUI);
 // later in this same tab (Supabase's own cross-tab session sync, or --
 // less commonly, since the usual path is a full reload after clicking
 // the emailed link -- a session established without a reload).
+//
+// xquixHomeHasBeenResolvedOnce exists because of a real, separately
+// documented issue elsewhere in this file (see the invite-cooldown
+// comment above): onAuthStateChange re-fires on background token
+// refreshes roughly hourly, not just on genuine sign-in. Without this
+// guard, showing Home here unconditionally would mean a coach actively
+// working in Coaching or Studio mode gets silently yanked back to Home
+// every hour, mid-session. hideFreeAccessOverlays() stays unconditional
+// since it's already idempotent (hiding something already hidden is
+// harmless) -- only the Home-showing part needs the one-time guard.
+let xquixHomeHasBeenResolvedOnce = false;
 function xquixResolveFreeAccessGate(){
   if(GUEST_EXPERIENCE_MODE) return; // never applies here; that deployment owns its own, separate gate entirely
-  if(!XQUIX.Auth.isAvailable() || XQUIX.Auth.getCurrentUser()) hideFreeAccessOverlays();
+  if(!XQUIX.Auth.isAvailable()){
+    // Auth itself unavailable -- fail open straight to the Studio, same
+    // as the original pre-Home behavior. Showing Home here would add a
+    // mode-selection step on top of an already-degraded experience for
+    // no real benefit, and would incorrectly show Home in any context
+    // where auth simply isn't configured (including every existing
+    // test in this file that runs without a real Supabase connection).
+    hideFreeAccessOverlays();
+    return;
+  }
+  if(XQUIX.Auth.getCurrentUser()){
+    hideFreeAccessOverlays();
+    if(!xquixHomeHasBeenResolvedOnce){
+      xquixHomeHasBeenResolvedOnce = true;
+      xquixShowHome();
+    }
+  }
 }
 XQUIX.Auth.init().then(()=>{ renderAccountUI(); xquixResolveFreeAccessGate(); });
 XQUIX.Auth.onChange(xquixResolveFreeAccessGate);
+
+// Brief, auto-dismissing message -- used for the honest "not built yet"
+// cases below rather than either silently doing nothing (feels broken)
+// or launching the wrong content (actively misleading).
+let xquixHomeToastTimer = null;
+function xquixHomeShowToast(msg){
+  const el = document.getElementById('xquixHomeToast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('shown');
+  clearTimeout(xquixHomeToastTimer);
+  xquixHomeToastTimer = setTimeout(()=> el.classList.remove('shown'), 3200);
+}
+// Mode routing. Coaching and Game Tracker map to real, already-built
+// destinations. Studio Mode and Practice Mode do NOT have their own
+// restricted/curated environments built yet (the simplified
+// presentation-only controls, and the premade-plan quick-access view,
+// are both separate, later work) -- rather than silently pretend
+// otherwise, they fall back to the regular Studio, which is functional
+// but explicitly not the final intended experience for those two modes.
+document.addEventListener('xquixHomeModeSelected', (e) => {
+  const mode = e.detail.mode;
+  xquixHideHome();
+  if(mode === 'gametracker'){
+    if(window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function') window.XquiXGameTracker.open();
+  }
+  // 'coaching', 'studio', 'practice': all currently just reveal the
+  // Studio as-is, already handled by xquixHideHome() uncovering it.
+});
+// Tutorial routing. Only "studio" (XquiX Studio quick guide) maps to
+// real, existing content -- buildFirstCoachingSessionSteps(), the same
+// tutorial already used by the dev-preview button elsewhere in this
+// file. "waterpolo" and "gametracker" have no tutorial content written
+// yet; rather than launch the wrong one or do nothing silently, they
+// show an honest, specific toast.
+document.addEventListener('xquixHomeTutorialSelected', (e) => {
+  const tutorial = e.detail.tutorial;
+  if(tutorial === 'studio'){
+    if(!verifyTutorialAssets()){
+      xquixHideHome();
+      MizeDialog.alert('Something is wrong with the tutorial\u2019s built-in reference data. This shouldn\u2019t normally happen since it\u2019s embedded in the app itself.');
+      return;
+    }
+    xquixHideHome();
+    closeToolPanels();
+    startTutorial(buildFirstCoachingSessionSteps(), {
+      onComplete: ()=> MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.')
+    });
+  } else {
+    xquixHomeShowToast('This tutorial isn\u2019t built yet \u2014 check back soon.');
+  }
+});
+
 
 // ===== XQUIX.Org (Milestone 8 -- Organization / Authorization Model) =====
 XQUIX.Org = (function(){
