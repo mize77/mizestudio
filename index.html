@@ -817,7 +817,8 @@
   .toolPanel.open { display:block; }
   .toolPanelHeader { position:sticky; top:0; background:#fff; display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid #e1e6e6; border-radius:14px 14px 0 0; }
   .toolPanelHeader h3 { margin:0; font-size:16px; }
-  .closeToolPanelBtn { padding:6px 12px; }
+  .closeToolPanelBtn { padding:0; width:32px; height:32px; min-width:32px; border-radius:50%; background:#e1e9e9; border:1.5px solid #b7c4c4; color:#1a2424; font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .closeToolPanelBtn:hover, .closeToolPanelBtn:active { background:#cfdcdc; }
   .toolPanelBody { padding:16px 18px 20px; }
 
   /* ===== Coaching Library ===== */
@@ -22311,8 +22312,9 @@ function openStats() {
   el('xgtCsv').onclick = function () {
     download(fileName() + '.csv', 'text/csv', xgtEventsToCsvString(S.events));
   };
-  el('xgtNew').onclick = function () {
-    if (!window.confirm('Clear this game and start a new one?')) return;
+  el('xgtNew').onclick = async function () {
+    const ok = await MizeDialog.confirm('Clear this game and start a new one?');
+    if (!ok) return;
     clearSaved();
     S.events = []; S.undone = []; S.seq = 0; S.q = 1; S.clock = QLEN; S.water = []; S.cloudSessionName = null;
     box.classList.remove('on');
