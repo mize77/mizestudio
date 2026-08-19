@@ -17832,34 +17832,50 @@ function showLibraryImportStage(){
   document.getElementById('libraryPanelTitle').textContent = 'Import Curriculum';
 }
 
+// Guards against a second tap landing while the first is still working
+// -- previously a slow network call (see below) with no guard meant a
+// second, overlapping call to this same function was entirely possible
+// if someone tapped again while waiting, which is exactly what an
+// unresponsive-feeling first tap invites someone to do.
+let libraryOpenInProgress = false;
 async function openCoachingLibrary(){
-  // Both awaited steps below used to have nothing catching a failure --
-  // if either threw (a network hiccup, a malformed record, anything),
-  // openToolPanel() at the end would simply never run, and the whole
-  // click would appear to do nothing at all, with no visible error and
-  // nothing in the way of a clue. Each step now fails open instead: the
-  // panel opens regardless, the specific failure is logged to the
-  // console for diagnosis, and the person sees a clear, brief message
-  // rather than silence.
+  if(libraryOpenInProgress) return;
+  libraryOpenInProgress = true;
   try {
-    await syncLegacyLibraryItems();
-  } catch(err) {
-    console.error('Coaching Library: could not sync legacy items:', err);
-  }
-  libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null, viewMode: localStorage.getItem('libViewMode')||'list', selectedSessionIds:[] };
-  const searchInput = document.getElementById('librarySearchInput');
-  if(searchInput) searchInput.value = '';
-  document.querySelectorAll('.libViewTab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.libTypeFilterPill').forEach(t=>t.classList.toggle('active', t.dataset.type===''));
-  showLibraryListStage();
-  try {
-    await renderLibraryContent();
-  } catch(err) {
-    console.error('Coaching Library: could not render content:', err);
+    // The panel now opens immediately, synchronously, before either
+    // await below -- previously this waited invisibly on
+    // syncLegacyLibraryItems() (a real Supabase round-trip for a
+    // signed-in user, not instant) before showing anything at all. That
+    // read as an unresponsive tap and invited a second one while the
+    // first was still quietly working underneath. Now the tap has an
+    // immediate, visible result no matter how long the network call
+    // takes, with a loading message in place until real content is
+    // ready. Each awaited step keeps its own try/catch (from the
+    // earlier fail-open fix) so a failure in either still can't leave
+    // the panel silently closed.
+    libState = { view:'all', orgId:null, collectionId:null, tag:null, search:'', detailAssetId:null, typeFilter:null, viewMode: localStorage.getItem('libViewMode')||'list', selectedSessionIds:[] };
+    const searchInput = document.getElementById('librarySearchInput');
+    if(searchInput) searchInput.value = '';
+    document.querySelectorAll('.libViewTab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.libTypeFilterPill').forEach(t=>t.classList.toggle('active', t.dataset.type===''));
+    showLibraryListStage();
     const content = document.getElementById('libraryContent');
-    if(content) content.innerHTML = '<div class="efaEmpty">Something went wrong loading your Library. Please try again, and let MIZE know if this keeps happening.</div>';
+    if(content) content.innerHTML = '<div class="efaEmpty">Loading your Library&hellip;</div>';
+    openToolPanel('coachingLibraryPanel');
+    try {
+      await syncLegacyLibraryItems();
+    } catch(err) {
+      console.error('Coaching Library: could not sync legacy items:', err);
+    }
+    try {
+      await renderLibraryContent();
+    } catch(err) {
+      console.error('Coaching Library: could not render content:', err);
+      if(content) content.innerHTML = '<div class="efaEmpty">Something went wrong loading your Library. Please try again, and let MIZE know if this keeps happening.</div>';
+    }
+  } finally {
+    libraryOpenInProgress = false;
   }
-  openToolPanel('coachingLibraryPanel');
 }
 document.getElementById('openCoachingLibraryBtn')?.addEventListener('click', openCoachingLibrary);
 document.getElementById('libraryToggleTab')?.addEventListener('click', openCoachingLibrary);
