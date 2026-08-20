@@ -20305,6 +20305,12 @@ var S = {
   // specifically for this is real and expected.
   shootoutStartSide: null,
   shootoutGoalkeepers: { us: null, them: null },
+  // Only populated for a side whose water roster is unknown at shootout
+  // time (opponent tracking wasn't enabled) -- a one-time, tap-declared
+  // stand-in for S.water/S.oppWater so the shooter grid in the shootout
+  // never has to fall back to typing a cap number. Left empty when the
+  // real roster is known; drawMain() prefers S.water/S.oppWater first.
+  shootoutRoster: { us: [], them: [] },
   // Set once, automatically, the moment the clock reaches 0:00 during
   // Q4 (see toggleClock()) -- sticky, never auto-clears itself even if
   // the coach later edits the clock/quarter, since that's a correction
@@ -20500,9 +20506,86 @@ function makeEvent(partial) {
   for (var k in partial) if (Object.prototype.hasOwnProperty.call(partial, k)) ev[k] = partial[k];
   return ev;
 }
+// e.actor.side / e.foulCounterpart.side use 'us' | 'opp' almost
+// everywhere (the main tracking flow's convention), but the water
+// bar's quick-tap foul button stores 'us' | 'them' instead -- this
+// normalizes either down to the same 'us' | 'opp' pair, so a set built
+// from events logged either way lines up correctly.
+function xgtDqSide(side) { return side === 'them' ? 'opp' : side; }
+// Whichever role the primary actor DIDN'T fill (per e.context.dc) is
+// the counterpart's -- these two read that consistently in either
+// direction, rather than re-deriving it ad hoc at each call site.
+function xgtWhoCommittedFoul(e) {
+  if (!e.actor) return null;
+  if (e.context && e.context.dc === 'committed') return e.actor;
+  if (e.context && e.context.dc === 'drawn') return e.foulCounterpart || null;
+  return e.actor; // no dc recorded at all -- treat the tapped player as the one who committed it
+}
+function xgtWhoDrewFoul(e) {
+  if (!e.actor) return null;
+  if (e.context && e.context.dc === 'drawn') return e.actor;
+  if (e.context && e.context.dc === 'committed') return e.foulCounterpart || null;
+  return null;
+}
+// Derived fresh from S.events on every call -- same "nothing stored to
+// drift" principle as shootoutCurrentSide(): undoing the event that
+// triggered a disqualification correctly un-disqualifies the player on
+// the very next render, with no separate flag to keep in sync. Takes
+// an explicit events list (defaulting to the live S.events) so
+// xgtCheckDisqualification below can also ask "was this already true
+// BEFORE the event just committed", to fire its toast exactly once.
+// Exclusion (the ordinary 20s kickout) accumulates -- three of them
+// disqualifies; Excl.+Substitution and Brutality disqualify on their
+// own, the first time either happens. An ordinary Penalty foul does
+// neither, per confirmed scope.
+function xgtDisqualifiedSet(side, eventsList) {
+  var normSide = xgtDqSide(side);
+  var counts = {}, dq = {};
+  (eventsList || S.events).forEach(function (e) {
+    if (e.action !== 'exclusion' || !e.outcome) return;
+    var who = xgtWhoCommittedFoul(e);
+    if (!who || xgtDqSide(who.side) !== normSide) return;
+    if (e.outcome === 'excl_sub' || e.outcome === 'brutality') { dq[who.number] = true; return; }
+    if (e.outcome === 'exclusion') {
+      counts[who.number] = (counts[who.number] || 0) + 1;
+      if (counts[who.number] >= 3) dq[who.number] = true;
+    }
+  });
+  return dq;
+}
+function xgtDqClass(dqSet, number) { return dqSet[number] ? ' dqPlayer' : ''; }
+// Runs after every commit(). The only thing that ever needs doing here
+// -- the derived set above needs nothing done to it at all -- is the
+// mandatory removal from the water: a disqualified player has to leave
+// the pool immediately, and without this, their own chip (now
+// non-interactive per xgtDqClass/.dqPlayer) would have been the only
+// way left to log that removal, stranding them showing "in the water"
+// with no tap left that could fix it.
+function xgtCheckDisqualification(ev) {
+  if (ev.action !== 'exclusion' || !ev.outcome) return;
+  var who = xgtWhoCommittedFoul(ev);
+  if (!who) return;
+  var normSide = xgtDqSide(who.side);
+  // Already flagged by an earlier event -- nothing new to announce or
+  // remove. Checked against everything EXCEPT the event just pushed,
+  // so this only ever fires on the actual crossing, not on every
+  // subsequent foul this same player commits afterward.
+  if (xgtDisqualifiedSet(normSide, S.events.slice(0, -1))[who.number]) return;
+  if (!xgtDisqualifiedSet(normSide)[who.number]) return;
+  var waterArr = normSide === 'opp' ? S.oppWater : S.water;
+  var i = waterArr.indexOf(who.number);
+  if (i >= 0) {
+    waterArr.splice(i, 1);
+    commit({ actor: { side: normSide, number: who.number },
+             context: { kind: 'presence', dir: 'out', trackingMode: S.trackingMode, dc: null,
+                        note: 'auto-removed \u2014 disqualified' } });
+  }
+  toast('#' + who.number + ' disqualified \u2014 no longer eligible');
+}
 function commit(partial) {
   var ev = makeEvent(partial);
   S.events.push(ev); S.undone.length = 0;
+  xgtCheckDisqualification(ev);
   save(); render();
   return ev;
 }
@@ -20767,6 +20850,7 @@ function resetGameState() {
   S.cloudSessionName = null;
   S.shootoutStartSide = null;
   S.shootoutGoalkeepers = { us: null, them: null };
+  S.shootoutRoster = { us: [], them: [] };
   S.regulationEnded = false;
   clearSaved();
 }
@@ -20943,6 +21027,18 @@ var CSS = [
 '.xgtNum.soShot1{background:#a9c2c2;border-color:#8fb0b0}',
 '.xgtNum.soShot2{background:#4f7a7a;color:#fff;border-color:#3f6363}',
 '.xgtNum.soShot3{background:#0d3838;color:#fff;border-color:#092a2a}',
+// Same color language as #xgtGameOverBanner.decided (a settled, no-
+// longer-live state) -- kept as its own class rather than reusing that
+// ID-scoped rule, since this banner lives inside the shootout sheet
+// itself, not the main tracker screen behind it.
+'.soDecidedBanner{border-radius:10px;padding:9px 12px;margin:0 0 12px;text-align:center;font-weight:700;font-size:14px;background:#e1e6e6;color:#124d4d}',
+// One class, applied to whatever element (a single button, or a wrap
+// containing several -- e.g. the water bar's chip plus its adjacent
+// +G/+F quick buttons) needs to stop being a tap target once a player
+// is disqualified. pointer-events:none blocks every descendant too, so
+// this never needs touching each render site's own click-wiring loop
+// to keep it non-interactive -- the loop can stay exactly as it was.
+'.dqPlayer{opacity:.5;pointer-events:none}',
 '.xgtBtn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 16px;border-radius:12px;',
 '  background:#e1e6e6;border:1px solid #ccd6d6;font-weight:600;width:100%;color:#124d4d}',
 '#xgtSheet .xgtBtn.pri{background:#1b7373;border-color:transparent;color:#fff}',
@@ -21418,15 +21514,21 @@ function stepPlayer() {
   var oppTracked = S.opponentTracked;
   var ourNums = S.water;
   var oppNums = oppTracked ? S.oppWater : [];
+  // A disqualified player is auto-removed from the water the instant
+  // it happens (see xgtCheckDisqualification), so in practice they
+  // wouldn't appear in these lists at all -- this stays purely as a
+  // defensive backstop for whatever edge case might leave a number
+  // here anyway.
+  var ourDq = xgtDisqualifiedSet('us'), oppDq = xgtDisqualifiedSet('opp');
   sheetEl().innerHTML = head('Zone ' + S.draft.fieldZoneName, 'Who?', null) +
     '<span class="xgtLbl">Us</span>' +
     '<div class="xgtNums">' + (ourNums.length
-      ? ourNums.map(function (n) { return '<button class="xgtNum" data-us-n="' + n + '">' + xgtKeeperLabel(n) + '</button>'; }).join('')
+      ? ourNums.map(function (n) { return '<button class="xgtNum' + xgtDqClass(ourDq, n) + '" data-us-n="' + n + '">' + xgtKeeperLabel(n) + '</button>'; }).join('')
       : '<p class="xgtNote" style="margin:2px 0">No players currently in the water.</p>') + '</div>' +
     '<span class="xgtLbl" style="margin-top:10px;display:block">Them</span>' +
     (oppTracked
       ? '<div class="xgtNums">' + (oppNums.length
-          ? oppNums.map(function (n) { return '<button class="xgtNum" data-opp-n="' + n + '">' + n + '</button>'; }).join('')
+          ? oppNums.map(function (n) { return '<button class="xgtNum' + xgtDqClass(oppDq, n) + '" data-opp-n="' + n + '">' + n + '</button>'; }).join('')
           : '<p class="xgtNote" style="margin:2px 0">No opponent players currently in the water.</p>') + '</div>'
       : '<button class="xgtOpt c" id="xgtOpp" style="width:100%"><span class="dot"></span>Opponent</button>') +
     '<div style="height:9px"></div>' +
@@ -21475,16 +21577,17 @@ function selectTeamActor(side, number) {
 function stepBenchExclusion() {
   var ourBench = S.squad.filter(function (n) { return S.water.indexOf(n) < 0; });
   var oppBench = S.opponentTracked ? S.oppSquad.filter(function (n) { return S.oppWater.indexOf(n) < 0; }) : [];
+  var ourDq = xgtDisqualifiedSet('us'), oppDq = xgtDisqualifiedSet('opp');
   sheetEl().innerHTML = head('Zone ' + S.draft.fieldZoneName, 'Bench exclusion \u2014 who?', stepPlayer) +
     '<p class="xgtNote" style="margin:0 0 8px">For referee-issued exclusions on a player who wasn\u2019t in the water for this play.</p>' +
     '<span class="xgtLbl">Us</span>' +
     '<div class="xgtNums">' + (ourBench.length
-      ? ourBench.map(function (n) { return '<button class="xgtNum" data-bench-us="' + n + '">' + xgtKeeperLabel(n) + '</button>'; }).join('')
+      ? ourBench.map(function (n) { return '<button class="xgtNum' + xgtDqClass(ourDq, n) + '" data-bench-us="' + n + '">' + xgtKeeperLabel(n) + '</button>'; }).join('')
       : '<p class="xgtNote" style="margin:2px 0">No bench players.</p>') + '</div>' +
     '<span class="xgtLbl" style="margin-top:10px;display:block">Them</span>' +
     (S.opponentTracked
       ? '<div class="xgtNums">' + (oppBench.length
-          ? oppBench.map(function (n) { return '<button class="xgtNum" data-bench-opp="' + n + '">' + n + '</button>'; }).join('')
+          ? oppBench.map(function (n) { return '<button class="xgtNum' + xgtDqClass(oppDq, n) + '" data-bench-opp="' + n + '">' + n + '</button>'; }).join('')
           : '<p class="xgtNote" style="margin:2px 0">No opponent bench players.</p>') + '</div>'
       // No opponent roster entered at all -- fall back to a manual
       // number entry, the same pattern used elsewhere in this module
@@ -21783,7 +21886,7 @@ function commitDraft() {
     if (S.running) { S.running = false; clearInterval(S.tick); }
     paintClock();
   }
-  commit({
+  var ev = commit({
     actor: d.actor, fieldZone: d.fieldZone, fieldZoneName: d.fieldZoneName,
     fieldCoordinates: d.fieldCoordinates,
     action: d.action, actionLabel: d.actionLabel,
@@ -21798,6 +21901,101 @@ function commitDraft() {
                tree: d.useGkTree ? 'gk' : 'field', note: null }
   });
   if (navigator.vibrate) navigator.vibrate([6, 28, 6]);
+  // A Penalty or a Brutality foul both guarantee a penalty shot as the
+  // very next action -- opens straight into logging it rather than
+  // leaving the coach to find their own way there, since it's not
+  // actually optional what happens next.
+  if (ev.action === 'exclusion' && (ev.outcome === 'penalty' || ev.outcome === 'brutality')) {
+    var fouledSide = xgtFouledSide(ev);
+    if (fouledSide) openRegularPenalty(fouledSide);
+  }
+}
+// Which side actually gets the resulting penalty shot: the side that
+// DREW the foul. Only the side itself is needed here, not the specific
+// drawing player -- any player from that side's water roster may
+// legally take the shot, and the foul-counterpart step can be skipped
+// entirely (leaving the specific player unknown) without that mattering.
+function xgtFouledSide(ev) {
+  if (!ev.actor) return null;
+  if (ev.context && ev.context.dc === 'drawn') return ev.actor.side;
+  if (ev.context && ev.context.dc === 'committed') return ev.actor.side === 'us' ? 'opp' : 'us';
+  return null;
+}
+// Deliberately its own small flow rather than a rerun of the
+// shootout's openShootout() -- there's no alternating side, no running
+// shootout tally, and no "who's up" state to manage here, just one
+// specific shot for the side that just drew the foul. Reuses
+// buildGoalSvg() for placement, same as the shootout does, and skips a
+// block-result sub-step entirely: a penalty shot is strictly
+// one-on-one by rule, so "a field defender blocked it" never applies.
+function openRegularPenalty(side) {
+  var roster = side === 'us' ? S.water : (S.opponentTracked ? S.oppWater : []);
+  // Genuinely can happen for the opponent's side if opponent tracking
+  // was never turned on -- same tap-a-number-instead-of-typing-one
+  // fallback the shootout uses in the identical situation, just without
+  // a persistent declared-roster step, since this is one single shot,
+  // not a whole repeating sequence worth asking about just once upfront.
+  var fallback = !roster.length;
+  var dq = xgtDisqualifiedSet(side === 'us' ? 'us' : 'opp');
+  drawShooter();
+
+  function drawShooter() {
+    sheetEl().innerHTML = head('Penalty (5 m)', (side === 'us' ? 'Our' : 'Their') + ' penalty \u2014 who\u2019s shooting?', null) +
+      '<div class="xgtNums" id="xgtRegPenShooters">' + (fallback
+        ? Array.apply(null, { length: 20 }).map(function (_, i) { return i + 1; }).map(function (n) {
+            return '<button class="xgtNum" data-reg-pen-shooter="' + n + '">' + n + '</button>';
+          }).join('')
+        : roster.map(function (n) {
+            return '<button class="xgtNum' + xgtDqClass(dq, n) + '" data-reg-pen-shooter="' + n + '">' + xgtKeeperLabel(n) + '</button>';
+          }).join('')) + '</div>';
+    el('xgtX').onclick = function () { closeSheet(); };
+    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-reg-pen-shooter]'), function (b) {
+      b.onclick = function () { drawOutcome(+b.dataset.regPenShooter); };
+    });
+  }
+
+  function drawOutcome(number) {
+    sheetEl().innerHTML = head('Penalty (5 m)', '#' + xgtKeeperLabel(number) + ' \u2014 outcome', drawShooter) +
+      '<div class="xgtRow" style="margin-top:10px">' +
+        '<button class="xgtBtn pri" id="xgtRegPenGoal" style="flex:1">Goal</button>' +
+        '<button class="xgtBtn" id="xgtRegPenMiss" style="flex:1">Miss</button>' +
+        '<button class="xgtBtn" id="xgtRegPenSave" style="flex:1">Saved</button></div>';
+    wire(drawShooter);
+    el('xgtRegPenGoal').onclick = function () { drawPlacement(number, 'goal', 'Goal', false); };
+    el('xgtRegPenMiss').onclick = function () { drawPlacement(number, 'missed', 'Missed', true); };
+    el('xgtRegPenSave').onclick = function () { drawPlacement(number, 'blocked', 'Saved', false); };
+  }
+
+  function drawPlacement(number, outcome, outcomeLabel, miss) {
+    sheetEl().innerHTML = head('Penalty (5 m)', outcomeLabel + ' \u2014 where?', function () { drawOutcome(number); }) +
+      '<p class="xgtNote" style="margin:0 0 6px">Roughly where in the goal? Skip if you are not sure.</p>' +
+      buildGoalSvg(miss ? 'miss' : 'in', true) +
+      '<button class="xgtBtn" id="xgtRegPenSkip">Skip placement</button>';
+    wire(function () { drawOutcome(number); });
+    Array.prototype.forEach.call(sheetEl().querySelectorAll('.gz'), function (g) {
+      g.addEventListener('click', function () {
+        g.classList.add('flash');
+        if (navigator.vibrate) navigator.vibrate(8);
+        var placement = { grid: miss ? 'miss' : '3x3', area: g.dataset.p, label: g.dataset.l };
+        setTimeout(function () { logRegularPenalty(number, outcome, outcomeLabel, placement); }, 90);
+      });
+    });
+    el('xgtRegPenSkip').onclick = function () { logRegularPenalty(number, outcome, outcomeLabel, null); };
+  }
+
+  function logRegularPenalty(number, outcome, outcomeLabel, placement) {
+    commit({
+      actor: { side: side, number: number },
+      action: 'shot', actionLabel: 'Shot',
+      variant: 'penalty', variantLabel: 'Penalty',
+      outcome: outcome, outcomeLabel: outcomeLabel,
+      goalPlacement: placement,
+      goalkeeper: currentKeeper(side === 'us' ? 'opp' : 'us'),
+      targetGoal: side === 'us' ? 'opponent' : 'own',
+      context: { kind: 'action', trackingMode: S.trackingMode, dc: null, note: null, tree: 'field' }
+    });
+    closeSheet();
+  }
 }
 // ============================================================= outlet pass
 // Own-team-only, per confirmed scope: this whole sequence only fires
@@ -21960,11 +22158,12 @@ function stepAssist() {
   var scorerNum = d.actor && d.actor.number;
   var rosterWater = (isTeamMode && scorerSide === 'opp') ? S.oppWater : S.water;
   var hasRoster = isTeamMode && (scorerSide === 'opp' ? S.opponentTracked : true);
+  var assistDq = xgtDisqualifiedSet(scorerSide === 'opp' ? 'opp' : 'us');
   sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Goal! Who assisted?', null) +
     (hasRoster
       ? '<div class="xgtChips" id="xgtAssistChips">' +
         rosterWater.filter(function (n) { return n !== scorerNum; }).map(function (n) {
-          return '<button class="xgtChip" data-assist="' + n + '">' + xgtKeeperLabel(n) + '</button>';
+          return '<button class="xgtChip' + xgtDqClass(assistDq, n) + '" data-assist="' + n + '">' + xgtKeeperLabel(n) + '</button>';
         }).join('') + '</div>'
       : '<span class="xgtLbl">Assist\u2019s cap number</span>' +
         '<div class="xgtRow"><input class="xgtField" id="xgtAssistNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
@@ -21997,11 +22196,12 @@ function stepFoulCounterpart() {
   var otherWater = otherSide === 'opp' ? S.oppWater : S.water;
   var hasRoster = otherSide === 'opp' ? S.opponentTracked : true;
   var question = d.dc === 'committed' ? 'Who drew this?' : 'Who committed this?';
+  var fcDq = xgtDisqualifiedSet(otherSide);
   sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, question, null) +
     (hasRoster
       ? '<div class="xgtChips" id="xgtFoulChips">' +
         otherWater.map(function (n) {
-          return '<button class="xgtChip" data-fc="' + n + '">' + xgtKeeperLabel(n) + '</button>';
+          return '<button class="xgtChip' + xgtDqClass(fcDq, n) + '" data-fc="' + n + '">' + xgtKeeperLabel(n) + '</button>';
         }).join('') + '</div>'
       : '<span class="xgtLbl">' + (otherSide === 'us' ? 'Our' : 'Their') + ' cap number</span>' +
         '<div class="xgtRow"><input class="xgtField" id="xgtFoulNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
@@ -22151,16 +22351,91 @@ function shootoutShotCount(side, number) {
 function shootoutHighlightClass(count) {
   return count ? ('soShot' + (((count - 1) % 3) + 1)) : '';
 }
+// Standard shootout math: 5 shooters per side to start (the official
+// number -- not configurable here, matching the confirmed rule), then
+// sudden death one shot each, same order, repeating. Decided as soon as
+// the trailing side can no longer catch up given only what's left in
+// the CURRENT phase -- this is what lets it resolve early, mid-round,
+// the instant enough misses make the rest moot, not only once a full
+// round of 5-a-side (or a full sudden-death pair) has actually played
+// out.
+function shootoutIsDecided() {
+  var ROUND = 5;
+  var attempts = shootoutAttempts();
+  var n = attempts.length;
+  if (!n) return { decided: false, winner: null };
+  var tally = shootoutTally();
+  if (n <= ROUND * 2) {
+    // Still inside (or exactly finishing) the initial round -- compare
+    // each side's actual best-possible final tally, using only the
+    // attempts each one has genuinely got left in this round, against
+    // the other side's CURRENT score. No assumption that both sides
+    // have taken an equal number of shots yet.
+    var usTaken = attempts.filter(function (e) { return e.actor && e.actor.side === 'us'; }).length;
+    var themTaken = n - usTaken;
+    var usMax = tally.us + (ROUND - usTaken);
+    var themMax = tally.them + (ROUND - themTaken);
+    if (tally.us > themMax) return { decided: true, winner: 'us' };
+    if (tally.them > usMax) return { decided: true, winner: 'them' };
+    return { decided: false, winner: null };
+  }
+  // Sudden death: exactly one shot each per round. A single shot from
+  // just one side never resolves anything on its own -- only checked
+  // once both sides have taken their attempt for this round (an even
+  // count of attempts beyond the initial 10), same as the real rule
+  // ("if not, the second shooters shoot again and THEN the outcome
+  // gets checked").
+  var beyond = n - ROUND * 2;
+  if (beyond % 2 !== 0) return { decided: false, winner: null };
+  if (tally.us === tally.them) return { decided: false, winner: null };
+  return { decided: true, winner: tally.us > tally.them ? 'us' : 'them' };
+}
 function openShootout() {
   // Asked once, the very first time -- never again after that. Everyone
   // after this alternates automatically per shootoutCurrentSide() above.
   if (!S.shootoutStartSide) { drawStart(); openSheet(); return; }
+  // A side with no water roster (opponent tracking wasn't enabled,
+  // most likely) has no chips to offer as shooters at all -- rather
+  // than falling back to typing a cap number every single attempt,
+  // this is asked once, tap-only, right here, and reused as that
+  // side's shooter grid for the rest of the shootout.
+  if (needsRosterDeclare('us')) { drawDeclareRoster('us'); openSheet(); return; }
+  if (needsRosterDeclare('them')) { drawDeclareRoster('them'); openSheet(); return; }
   // Defaults to each side's primary declared keeper the first time this
   // actually renders -- freely changeable afterward, per shot, since a
   // backup keeper subbing in specifically for this is real and expected.
   if (S.shootoutGoalkeepers.us == null) S.shootoutGoalkeepers.us = (S.keepers && S.keepers[0]) != null ? S.keepers[0] : null;
   if (S.shootoutGoalkeepers.them == null) S.shootoutGoalkeepers.them = (S.oppKeepers && S.oppKeepers[0]) != null ? S.oppKeepers[0] : null;
   drawMain(); openSheet();
+
+  function needsRosterDeclare(side) {
+    var known = side === 'us' ? S.water : S.oppWater;
+    return known.length === 0 && S.shootoutRoster[side].length === 0;
+  }
+
+  function drawDeclareRoster(side) {
+    var chosen = S.shootoutRoster[side];
+    sheetEl().innerHTML = head('Penalty Shootout', (side === 'us' ? 'Our' : 'Their') + ' shootout lineup', null) +
+      '<p class="xgtNote" style="margin-top:0">No roster was tracked for ' + (side === 'us' ? 'us' : 'them') +
+      ' during the game -- tap every cap number who could shoot, just this once. Five is typical; the same list is reused for the whole shootout, including any repeat rounds.</p>' +
+      '<div class="xgtChips" id="xgtSoDeclare">' + Array.apply(null, { length: 20 }).map(function (_, i) {
+        var n = i + 1;
+        return '<button class="xgtChip" data-so-declare="' + n + '" aria-pressed="' + (chosen.indexOf(n) >= 0) + '">' + n + '</button>';
+      }).join('') + '</div>' +
+      '<button class="xgtBtn pri" id="xgtSoDeclareGo" style="margin-top:14px"' + (chosen.length ? '' : ' disabled') + '>Continue</button>';
+    sheetEl().scrollTop = 0;
+    el('xgtX').onclick = function () { closeSheet(); };
+    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-declare]'), function (b) {
+      b.onclick = function () {
+        var n = +b.dataset.soDeclare, i = chosen.indexOf(n);
+        if (i >= 0) chosen.splice(i, 1); else chosen.push(n);
+        chosen.sort(function (a, b2) { return a - b2; });
+        drawDeclareRoster(side);
+      };
+    });
+    var go = el('xgtSoDeclareGo');
+    if (go) go.onclick = function () { openShootout(); };
+  }
 
   function drawStart() {
     sheetEl().innerHTML = head('Penalty Shootout', 'Who shoots first?', null) +
@@ -22177,8 +22452,34 @@ function openShootout() {
     var tally = shootoutTally();
     var attempts = shootoutAttempts().slice().reverse();
     var side = shootoutCurrentSide();
-    var roster = side === 'us' ? S.water : S.oppWater;
-    var ourKeepers = S.keepers || [], theirKeepers = S.oppKeepers || [];
+    var decided = shootoutIsDecided();
+    // The side currently in goal for this attempt -- always the
+    // opposite of whoever's shooting. Only this side's goalkeeper has
+    // any bearing on the attempt about to be logged, so it's the only
+    // one shown; no need to look at or set the shooting side's own
+    // keeper right now.
+    var defSide = side === 'us' ? 'them' : 'us';
+    // openShootout()'s needsRosterDeclare() gate guarantees one of
+    // these two is always non-empty by the time drawMain() ever runs,
+    // so there is no third "nothing to tap" case left to handle here.
+    var roster = side === 'us' ? (S.water.length ? S.water : S.shootoutRoster.us) : (S.oppWater.length ? S.oppWater : S.shootoutRoster.them);
+    var defKnownKeepers = defSide === 'us' ? (S.keepers || []) : (S.oppKeepers || []);
+    // Same reasoning as the shooter roster fallback above -- if this
+    // side's goalkeeper was never declared (no roster tracked, or a
+    // roster tracked with no keeper marked), offer every cap number as
+    // a tap target rather than typing one in. Unlike the shooter
+    // roster, this isn't asked once upfront -- a keeper substitution
+    // mid-shootout is real, so it stays a plain tap here, re-offered
+    // fresh on every attempt.
+    var defGkOptions = defKnownKeepers.length ? defKnownKeepers : Array.apply(null, { length: 20 }).map(function (_, i) { return i + 1; });
+    // Genuinely needed here, not just a defensive backstop -- roster
+    // can come from S.shootoutRoster (a manually tap-declared stand-in,
+    // see needsRosterDeclare()) rather than the live S.water/oppWater,
+    // and that declared list isn't automatically kept in sync with a
+    // disqualification that happened earlier in regulation the way the
+    // real water arrays are.
+    var shootDq = xgtDisqualifiedSet(side === 'us' ? 'us' : 'them');
+    var defGkDq = xgtDisqualifiedSet(defSide === 'us' ? 'us' : 'them');
     // Shooter chips moved up, right after the tally -- this is the one
     // thing actually needed to move on to the next attempt, and it was
     // previously buried below both goalkeeper selectors, which change
@@ -22188,37 +22489,21 @@ function openShootout() {
     // reach the placement tap zones a moment before.
     sheetEl().innerHTML = head('Penalty Shootout', 'Log each attempt as it happens', null) +
       '<div style="text-align:center;font-size:22px;font-weight:800;margin:6px 0 14px">Us ' + tally.us + ' \u2013 ' + tally.them + ' Them</div>' +
+      // Flagged, not forced -- the shooter grid and everything else
+      // below stays fully available even once this fires, since a
+      // league or referee may still want the remaining scheduled
+      // shooters to go regardless of the math already being settled.
+      (decided.decided
+        ? '<div class="soDecidedBanner">Shootout decided \u2014 ' + (decided.winner === 'us' ? 'Us win' : 'Them win') + '</div>'
+        : '') +
       '<span class="xgtLbl" style="display:block;font-size:15px;font-weight:800">' + (side === 'us' ? 'Us' : 'Them') + ' shooting \u2014 tap the cap number</span>' +
-      (roster.length
-        ? '<div class="xgtNums" id="xgtSoShooters">' + roster.map(function (n) {
-            return '<button class="xgtNum ' + shootoutHighlightClass(shootoutShotCount(side, n)) + '" data-so-shooter="' + n + '">' + xgtKeeperLabel(n) + '</button>';
-          }).join('') + '</div>'
-        // No roster known for this side (opponent tracking wasn't
-        // enabled during setup, most likely) -- without this, the
-        // shootout had no way at all to offer a shooter once it became
-        // that side's turn, effectively dead-ending here. Same manual-
-        // entry fallback stepAssist()/stepFoulCounterpart() already use
-        // for the identical "no roster to pick from" situation.
-        : '<p class="xgtNote" style="margin:2px 0 8px">No roster declared for ' + (side === 'us' ? 'us' : 'them') + ' -- enter the shooter\u2019s cap number directly.</p>' +
-          '<div class="xgtRow"><input class="xgtField" id="xgtSoManualShooter" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
-          'placeholder="#" style="flex:0 0 90px;text-align:center;font-size:19px;font-weight:700">' +
-          '<button class="xgtBtn pri" id="xgtSoManualShooterGo" style="flex:1">Shoot</button></div>') +
-      '<span class="xgtLbl" style="margin-top:14px">Our goalkeeper</span>' +
-      (ourKeepers.length
-        ? '<div class="xgtChips" id="xgtSoOurGk">' + ourKeepers.map(function (n) {
-            return '<button class="xgtChip" data-so-our-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers.us === n) + '">' + xgtKeeperLabel(n) + '</button>';
-          }).join('') + '</div>'
-        : '<div class="xgtRow"><input class="xgtField" id="xgtSoOurGkManual" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
-          'placeholder="#" value="' + (S.shootoutGoalkeepers.us || '') + '" style="flex:0 0 90px;text-align:center;font-size:16px;font-weight:700">' +
-          '<span class="xgtNote" style="align-self:center;margin-left:8px">No goalkeeper declared \u2014 enter cap number</span></div>') +
-      '<span class="xgtLbl" style="margin-top:8px">Their goalkeeper</span>' +
-      (theirKeepers.length
-        ? '<div class="xgtChips" id="xgtSoTheirGk">' + theirKeepers.map(function (n) {
-            return '<button class="xgtChip" data-so-their-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers.them === n) + '">' + n + '</button>';
-          }).join('') + '</div>'
-        : '<div class="xgtRow"><input class="xgtField" id="xgtSoTheirGkManual" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
-          'placeholder="#" value="' + (S.shootoutGoalkeepers.them || '') + '" style="flex:0 0 90px;text-align:center;font-size:16px;font-weight:700">' +
-          '<span class="xgtNote" style="align-self:center;margin-left:8px">No opposing goalkeeper declared \u2014 enter cap number</span></div>') +
+      '<div class="xgtNums" id="xgtSoShooters">' + roster.map(function (n) {
+        return '<button class="xgtNum ' + shootoutHighlightClass(shootoutShotCount(side, n)) + xgtDqClass(shootDq, n) + '" data-so-shooter="' + n + '">' + xgtKeeperLabel(n) + '</button>';
+      }).join('') + '</div>' +
+      '<span class="xgtLbl" style="margin-top:14px">' + (defSide === 'us' ? 'Our' : 'Their') + ' goalkeeper</span>' +
+      '<div class="xgtChips" id="xgtSoDefGk">' + defGkOptions.map(function (n) {
+        return '<button class="xgtChip' + xgtDqClass(defGkDq, n) + '" data-so-def-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers[defSide] === n) + '">' + xgtKeeperLabel(n) + '</button>';
+      }).join('') + '</div>' +
       (attempts.length
         ? '<span class="xgtLbl" style="margin-top:16px">Attempts so far</span>' +
           '<div class="xgtCard"><table>' + attempts.map(function (e) {
@@ -22231,8 +22516,12 @@ function openShootout() {
       // whole shootout screen (the shootout itself isn't finished by
       // this -- attempts and the running tally are preserved, and it
       // can be reopened from the Time editor's SO chip or the game-over
-      // banner at any point to keep going).
-      '<button class="xgtBtn" id="xgtSoDone" style="margin-top:14px">Close Shootout</button>';
+      // banner at any point to keep going). Switches to a primary-
+      // styled "End Shootout" once the outcome is settled, as the
+      // clearer next step, without removing the option to keep going.
+      (decided.decided
+        ? '<button class="xgtBtn pri" id="xgtSoDone" style="margin-top:14px">End Shootout</button>'
+        : '<button class="xgtBtn" id="xgtSoDone" style="margin-top:14px">Close Shootout</button>');
     // Explicit reset, every render -- #xgtSheet's own scroll position
     // otherwise carries over verbatim across a full innerHTML swap, so
     // without this, returning here right after scrolling down to reach
@@ -22240,25 +22529,12 @@ function openShootout() {
     // instead of at the top, with the actual next action easy to miss.
     sheetEl().scrollTop = 0;
     el('xgtX').onclick = function () { closeSheet(); };
-    var ourGkManual = el('xgtSoOurGkManual');
-    if (ourGkManual) ourGkManual.oninput = function () { var n = parseInt(ourGkManual.value, 10); S.shootoutGoalkeepers.us = n || null; };
-    var theirGkManual = el('xgtSoTheirGkManual');
-    if (theirGkManual) theirGkManual.oninput = function () { var n = parseInt(theirGkManual.value, 10); S.shootoutGoalkeepers.them = n || null; };
-    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-our-gk]'), function (b) {
-      b.onclick = function () { S.shootoutGoalkeepers.us = +b.dataset.soOurGk; drawMain(); };
-    });
-    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-their-gk]'), function (b) {
-      b.onclick = function () { S.shootoutGoalkeepers.them = +b.dataset.soTheirGk; drawMain(); };
+    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-def-gk]'), function (b) {
+      b.onclick = function () { S.shootoutGoalkeepers[defSide] = +b.dataset.soDefGk; drawMain(); };
     });
     Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-shooter]'), function (b) {
       b.onclick = function () { drawOutcome(side, +b.dataset.soShooter); };
     });
-    var manualShooterGo = el('xgtSoManualShooterGo');
-    if (manualShooterGo) manualShooterGo.onclick = function () {
-      var n = parseInt((el('xgtSoManualShooter').value || ''), 10);
-      if (!n) { toast('Enter the shooter\u2019s cap number first.'); return; }
-      drawOutcome(side, n);
-    };
     el('xgtSoDone').onclick = function () { closeSheet(); };
   }
 
@@ -22307,6 +22583,7 @@ function openShootout() {
   }
 
   function logAttempt(side, number, outcome, outcomeLabel, placement) {
+    var wasDecided = shootoutIsDecided().decided;
     commit({
       actor: { side: side, number: number },
       action: 'shot', actionLabel: 'Shot',
@@ -22316,6 +22593,13 @@ function openShootout() {
       goalkeeper: side === 'us' ? S.shootoutGoalkeepers.them : S.shootoutGoalkeepers.us,
       context: { kind: 'action', trackingMode: S.trackingMode, dc: null, note: null, shootout: true }
     });
+    // Fires exactly once -- the attempt that actually tips the outcome
+    // from still-open to mathematically settled -- not on every render
+    // afterward if the coach keeps logging further, ceremonial shots.
+    var nowDecided = shootoutIsDecided();
+    if (nowDecided.decided && !wasDecided) {
+      toast('Shootout decided \u2014 ' + (nowDecided.winner === 'us' ? 'Us win' : 'Them win'));
+    }
     drawMain();
   }
 }
@@ -22443,6 +22727,7 @@ function renderBar() {
     bar.innerHTML = toggleHtml +
       '<span class="xgtLbl">In the water · ' + rosterWater.length + '/7</span><div class="xgtChips">' +
       rosterSquad.map(function (n) {
+        var dq = xgtDisqualifiedSet(side)[n];
         var t = xgtLiveTally(side, n);
         var badges = (t.goals || t.fouls)
           ? '<span class="xgtChipBadges">' + (t.goals ? '<span class="xgtBadgeGoal">' + t.goals + '</span>' : '') +
@@ -22455,7 +22740,11 @@ function renderBar() {
               : '');
         var isGoalie = !showingThem && S.keepers.indexOf(n) >= 0;
         var displayText = isGoalie ? xgtKeeperLabel(n) : n;
-        return '<div class="xgtChipWrap"><button class="xgtChip ' + (rosterWater.indexOf(n) >= 0 ? 'water' : '') + (isGoalie ? ' goalie' : '') + '" data-n="' + n + '">' +
+        // dqPlayer goes on the WRAP, not just the inner chip -- the
+        // adjacent +G/+F quick buttons are siblings of the chip, not
+        // its descendants, so putting it only on the chip itself would
+        // leave those still tappable for a disqualified player.
+        return '<div class="xgtChipWrap' + (dq ? ' dqPlayer' : '') + '"><button class="xgtChip ' + (rosterWater.indexOf(n) >= 0 ? 'water' : '') + (isGoalie ? ' goalie' : '') + '" data-n="' + n + '">' +
           displayText + badges + '</button>' + quick + '</div>';
       }).join('') + '</div>';
 
