@@ -21051,16 +21051,37 @@ var CSS = [
 '  background:rgba(229,57,53,.10);border:1px solid #e53935}',
 '.xgtErr.on{display:block}',
 '.xgtGoal{width:100%;height:auto;display:block;margin:2px 0 10px;touch-action:manipulation}',
-'.gz .gh{fill:rgba(27,115,115,.06);stroke:rgba(20,35,92,.30);stroke-width:1.5}',
+// Default (non-frame) tap zones -- a light, visible boundary and a
+// pale fill against the dark teal background, replacing the previous
+// dark-navy-on-dark-teal stroke that read as almost no boundary at
+// all. Kept as its own distinct treatment from the frame zones below
+// (lighter fill here) so "inside the cage" and "the frame itself"
+// read as two different kinds of area, not just two shapes of the
+// same thing.
+'.gz .gh{fill:rgba(255,255,255,.16);stroke:rgba(255,255,255,.5);stroke-width:1.5}',
 '.gz:active .gh,.gz.flash .gh{fill:#1b7373;opacity:.9}',
 '.gz:active text,.gz.flash text{fill:#fff}',
-'.gz.frame .gh{fill:rgba(27,115,115,.16);stroke:rgba(20,35,92,.45);stroke-width:1.5}',
-'.gz.frame:active .gh{fill:#e53935}',
-'.gz text{pointer-events:none;font-size:12px;font-weight:700;fill:#124d4d;opacity:.92}',
+// Frame (post/crossbar) sub-zones carry no fill or stroke of their
+// own at rest -- the single continuous outline drawn separately in
+// buildGoalSvg() (see .gzFrameOutline) is what actually reads as the
+// goal frame, so the three tap targets underneath it (left post,
+// crossbar, right post) never show a seam between each other. Only
+// which one was actually tapped shows through, via the active state
+// below.
+'.gz.frame .gh{fill:transparent;stroke:none}',
+'.gz.frame:active .gh,.gz.frame.flash .gh{fill:#e53935}',
+// Same light color as the boundaries above, per confirmed direction --
+// this was previously #124d4d, the exact same color as the SVG's own
+// background fill, which is why the labels were never actually
+// readable rather than merely low-contrast.
+'.gz text{pointer-events:none;font-size:12px;font-weight:700;fill:rgba(255,255,255,.92);opacity:1}',
 '.gz.sm text{font-size:10px}',
-'.xgtDead{fill:rgba(124,138,138,.20);stroke:rgba(20,35,92,.45);stroke-width:1.5;stroke-dasharray:5 5}',
+// Sharp corners, matching the new frame outline -- rx removed so
+// nothing in the goal reads as round-edged.
+'.gzFrameOutline{fill:rgba(255,255,255,.08);stroke:rgba(255,255,255,.65);stroke-width:1.5}',
+'.xgtDead{fill:rgba(124,138,138,.20);stroke:rgba(255,255,255,.5);stroke-width:1.5;stroke-dasharray:5 5}',
 '.gz.block .gh{fill:rgba(255,204,0,.22);stroke:#c99700;stroke-width:2;stroke-dasharray:6 5}',
-'.gz.block text{font-size:11px;fill:#8a6d00}',
+'.gz.block text{font-size:11px;fill:#ffe9a8}',
 '.gz.block:active .gh{fill:#ffcc00;stroke:#c99700}',
 '.gz.block:active text{fill:#14235c}',
 '.xgtTdisp{font-size:42px;font-weight:750;font-variant-numeric:tabular-nums;text-align:center;margin:2px 0 10px;color:#14235c}',
@@ -21746,25 +21767,38 @@ function buildGoalSvg(mode, noBlock) {
       '" data-p="' + t.id + '" data-l="' + t.label + '">' +
       '<rect class="gh" x="' + (t.x + 1.5) + '" y="' + (t.y + 1.5) + '" width="' + (t.w - 3) + '" height="' + (t.h - 3) + '" rx="5"/>' + label + '</g>';
   }).join('');
+  // Finer mesh -- 16 columns x 8 rows, previously 8x4 -- a visually
+  // smaller net weave, per confirmed direction.
   var net = '<g opacity="' + (miss ? '.3' : '.45') + '" stroke="rgba(255,255,255,.55)" stroke-width=".8">';
-  for (var i = 1; i <= 7; i++) net += '<line x1="' + (G.mouth.x + i * G.mouth.w / 8) + '" y1="' + G.mouth.y + '" x2="' + (G.mouth.x + i * G.mouth.w / 8) + '" y2="' + (G.mouth.y + G.mouth.h) + '"/>';
-  for (i = 1; i <= 3; i++) net += '<line x1="' + G.mouth.x + '" y1="' + (G.mouth.y + i * G.mouth.h / 4) + '" x2="' + (G.mouth.x + G.mouth.w) + '" y2="' + (G.mouth.y + i * G.mouth.h / 4) + '"/>';
+  for (var i = 1; i <= 15; i++) net += '<line x1="' + (G.mouth.x + i * G.mouth.w / 16) + '" y1="' + G.mouth.y + '" x2="' + (G.mouth.x + i * G.mouth.w / 16) + '" y2="' + (G.mouth.y + G.mouth.h) + '"/>';
+  for (i = 1; i <= 7; i++) net += '<line x1="' + G.mouth.x + '" y1="' + (G.mouth.y + i * G.mouth.h / 8) + '" x2="' + (G.mouth.x + G.mouth.w) + '" y2="' + (G.mouth.y + i * G.mouth.h / 8) + '"/>';
   net += '</g>';
-  var frame = miss ? '' : '<g fill="rgba(255,255,255,.30)" stroke="rgba(255,255,255,.55)" stroke-width="1.5">' +
-    '<rect x="' + G.frame.x + '" y="' + G.frame.y + '" width="20" height="' + G.frame.h + '" rx="4"/>' +
-    '<rect x="' + (G.frame.x + G.frame.w - 20) + '" y="' + G.frame.y + '" width="20" height="' + G.frame.h + '" rx="4"/>' +
-    '<rect x="' + G.mouth.x + '" y="' + G.frame.y + '" width="' + G.mouth.w + '" height="20" rx="4"/></g>';
+  // One continuous ring -- the outer frame rectangle minus the inner
+  // mouth rectangle, evenodd -- rather than three separate rounded
+  // rects (left post/crossbar/right post) each with their own border.
+  // Both rects share the same bottom edge (a goal has no bottom bar),
+  // so this naturally comes out U-shaped with no extra logic needed.
+  // Used for both modes: in "miss" mode it sits UNDER the three
+  // (now invisible-by-default, see .gz.frame .gh) post/crossbar tap
+  // targets, so the frame reads as one rectangular, sharp-edged shape
+  // with no seam between them -- only the active/flash state on tap
+  // reveals which specific zone was actually hit. In "in" mode it's
+  // still purely decorative, same as before, just sharp-cornered now
+  // instead of three separately rounded pieces.
+  var frameOutline = '<path class="gzFrameOutline" fill-rule="evenodd" d="M' +
+    G.frame.x + ',' + G.frame.y + ' H' + (G.frame.x + G.frame.w) + ' V' + (G.frame.y + G.frame.h) + ' H' + G.frame.x + ' Z M' +
+    G.mouth.x + ',' + G.mouth.y + ' H' + (G.mouth.x + G.mouth.w) + ' V' + (G.mouth.y + G.mouth.h) + ' H' + G.mouth.x + ' Z"/>';
   // when the in-cage target is suppressed, show the inert panel again so the
   // frame still reads as a cage rather than a hole
   var dead = (miss && noBlock)
     ? '<rect class="xgtDead" x="' + G.mouth.x + '" y="' + G.mouth.y + '" width="' + G.mouth.w +
-      '" height="' + G.mouth.h + '" rx="3"/><text x="300" y="' + (G.mouth.y + G.mouth.h / 2 + 4) +
+      '" height="' + G.mouth.h + '"/><text x="300" y="' + (G.mouth.y + G.mouth.h / 2 + 4) +
       '" text-anchor="middle" font-size="11" font-weight="700" fill="#d5dede" opacity=".7">CAGE</text>'
     : '';
   return '<svg class="xgtGoal" viewBox="' + box + '" preserveAspectRatio="xMidYMid meet">' +
     '<rect x="0" y="0" width="600" height="400" fill="#124d4d"/>' +
     '<line x1="30" y1="' + G.waterY + '" x2="570" y2="' + G.waterY + '" stroke="rgba(255,255,255,.55)" stroke-width="2.5" opacity=".7"/>' +
-    net + frame + dead + cells + '</svg>';
+    net + frameOutline + dead + cells + '</svg>';
 }
 function stepPlacement(c) {
   var miss = c.placement === 'miss';
