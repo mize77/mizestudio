@@ -22109,20 +22109,46 @@ function openShootout() {
     var side = shootoutCurrentSide();
     var roster = side === 'us' ? S.water : S.oppWater;
     var ourKeepers = S.keepers || [], theirKeepers = S.oppKeepers || [];
+    // Shooter chips moved up, right after the tally -- this is the one
+    // thing actually needed to move on to the next attempt, and it was
+    // previously buried below both goalkeeper selectors, which change
+    // far less often. Combined with the scroll reset just below, this
+    // makes sure the very next thing visible after committing an
+    // attempt is the actual next action, not whatever was scrolled to
+    // reach the placement tap zones a moment before.
     sheetEl().innerHTML = head('Penalty Shootout', 'Log each attempt as it happens', null) +
       '<div style="text-align:center;font-size:22px;font-weight:800;margin:6px 0 14px">Us ' + tally.us + ' \u2013 ' + tally.them + ' Them</div>' +
-      '<span class="xgtLbl">Our goalkeeper</span>' +
-      '<div class="xgtChips" id="xgtSoOurGk">' + (ourKeepers.length ? ourKeepers.map(function (n) {
-        return '<button class="xgtChip" data-so-our-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers.us === n) + '">' + xgtKeeperLabel(n) + '</button>';
-      }).join('') : '<span class="xgtNote">No goalkeeper declared for our side.</span>') + '</div>' +
+      '<span class="xgtLbl" style="display:block;font-size:15px;font-weight:800">' + (side === 'us' ? 'Us' : 'Them') + ' shooting \u2014 tap the cap number</span>' +
+      (roster.length
+        ? '<div class="xgtNums" id="xgtSoShooters">' + roster.map(function (n) {
+            return '<button class="xgtNum ' + shootoutHighlightClass(shootoutShotCount(side, n)) + '" data-so-shooter="' + n + '">' + xgtKeeperLabel(n) + '</button>';
+          }).join('') + '</div>'
+        // No roster known for this side (opponent tracking wasn't
+        // enabled during setup, most likely) -- without this, the
+        // shootout had no way at all to offer a shooter once it became
+        // that side's turn, effectively dead-ending here. Same manual-
+        // entry fallback stepAssist()/stepFoulCounterpart() already use
+        // for the identical "no roster to pick from" situation.
+        : '<p class="xgtNote" style="margin:2px 0 8px">No roster declared for ' + (side === 'us' ? 'us' : 'them') + ' -- enter the shooter\u2019s cap number directly.</p>' +
+          '<div class="xgtRow"><input class="xgtField" id="xgtSoManualShooter" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
+          'placeholder="#" style="flex:0 0 90px;text-align:center;font-size:19px;font-weight:700">' +
+          '<button class="xgtBtn pri" id="xgtSoManualShooterGo" style="flex:1">Shoot</button></div>') +
+      '<span class="xgtLbl" style="margin-top:14px">Our goalkeeper</span>' +
+      (ourKeepers.length
+        ? '<div class="xgtChips" id="xgtSoOurGk">' + ourKeepers.map(function (n) {
+            return '<button class="xgtChip" data-so-our-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers.us === n) + '">' + xgtKeeperLabel(n) + '</button>';
+          }).join('') + '</div>'
+        : '<div class="xgtRow"><input class="xgtField" id="xgtSoOurGkManual" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
+          'placeholder="#" value="' + (S.shootoutGoalkeepers.us || '') + '" style="flex:0 0 90px;text-align:center;font-size:16px;font-weight:700">' +
+          '<span class="xgtNote" style="align-self:center;margin-left:8px">No goalkeeper declared \u2014 enter cap number</span></div>') +
       '<span class="xgtLbl" style="margin-top:8px">Their goalkeeper</span>' +
-      '<div class="xgtChips" id="xgtSoTheirGk">' + (theirKeepers.length ? theirKeepers.map(function (n) {
-        return '<button class="xgtChip" data-so-their-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers.them === n) + '">' + n + '</button>';
-      }).join('') : '<span class="xgtNote">No opposing goalkeeper declared.</span>') + '</div>' +
-      '<span class="xgtLbl" style="margin-top:14px;display:block;font-size:15px;font-weight:800">' + (side === 'us' ? 'Us' : 'Them') + ' shooting</span>' +
-      '<div class="xgtNums" id="xgtSoShooters">' + (roster.length ? roster.map(function (n) {
-        return '<button class="xgtNum ' + shootoutHighlightClass(shootoutShotCount(side, n)) + '" data-so-shooter="' + n + '">' + xgtKeeperLabel(n) + '</button>';
-      }).join('') : '<p class="xgtNote">No players in the water for this side.</p>') + '</div>' +
+      (theirKeepers.length
+        ? '<div class="xgtChips" id="xgtSoTheirGk">' + theirKeepers.map(function (n) {
+            return '<button class="xgtChip" data-so-their-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers.them === n) + '">' + n + '</button>';
+          }).join('') + '</div>'
+        : '<div class="xgtRow"><input class="xgtField" id="xgtSoTheirGkManual" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
+          'placeholder="#" value="' + (S.shootoutGoalkeepers.them || '') + '" style="flex:0 0 90px;text-align:center;font-size:16px;font-weight:700">' +
+          '<span class="xgtNote" style="align-self:center;margin-left:8px">No opposing goalkeeper declared \u2014 enter cap number</span></div>') +
       (attempts.length
         ? '<span class="xgtLbl" style="margin-top:16px">Attempts so far</span>' +
           '<div class="xgtCard"><table>' + attempts.map(function (e) {
@@ -22130,8 +22156,24 @@ function openShootout() {
             return '<tr><td>' + sideLabel + '</td><td>#' + (e.actor ? e.actor.number : '?') + '</td><td>' + (e.outcomeLabel || '') + '</td></tr>';
           }).join('') + '</table></div>'
         : '') +
-      '<button class="xgtBtn" id="xgtSoDone" style="margin-top:14px">Done</button>';
+      // Relabeled from "Done" -- that read as "done with this attempt,
+      // continue" rather than what it actually does, which is close the
+      // whole shootout screen (the shootout itself isn't finished by
+      // this -- attempts and the running tally are preserved, and it
+      // can be reopened from the Time editor's SO chip or the game-over
+      // banner at any point to keep going).
+      '<button class="xgtBtn" id="xgtSoDone" style="margin-top:14px">Close Shootout</button>';
+    // Explicit reset, every render -- #xgtSheet's own scroll position
+    // otherwise carries over verbatim across a full innerHTML swap, so
+    // without this, returning here right after scrolling down to reach
+    // the goal-placement tap zones could land the coach mid-screen
+    // instead of at the top, with the actual next action easy to miss.
+    sheetEl().scrollTop = 0;
     el('xgtX').onclick = function () { closeSheet(); };
+    var ourGkManual = el('xgtSoOurGkManual');
+    if (ourGkManual) ourGkManual.oninput = function () { var n = parseInt(ourGkManual.value, 10); S.shootoutGoalkeepers.us = n || null; };
+    var theirGkManual = el('xgtSoTheirGkManual');
+    if (theirGkManual) theirGkManual.oninput = function () { var n = parseInt(theirGkManual.value, 10); S.shootoutGoalkeepers.them = n || null; };
     Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-our-gk]'), function (b) {
       b.onclick = function () { S.shootoutGoalkeepers.us = +b.dataset.soOurGk; drawMain(); };
     });
@@ -22141,6 +22183,12 @@ function openShootout() {
     Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-shooter]'), function (b) {
       b.onclick = function () { drawOutcome(side, +b.dataset.soShooter); };
     });
+    var manualShooterGo = el('xgtSoManualShooterGo');
+    if (manualShooterGo) manualShooterGo.onclick = function () {
+      var n = parseInt((el('xgtSoManualShooter').value || ''), 10);
+      if (!n) { toast('Enter the shooter\u2019s cap number first.'); return; }
+      drawOutcome(side, n);
+    };
     el('xgtSoDone').onclick = function () { closeSheet(); };
   }
 
@@ -22150,6 +22198,7 @@ function openShootout() {
         '<button class="xgtBtn pri" id="xgtSoGoal" style="flex:1">Goal</button>' +
         '<button class="xgtBtn" id="xgtSoMiss" style="flex:1">Miss</button>' +
         '<button class="xgtBtn" id="xgtSoSave" style="flex:1">Saved</button></div>';
+    sheetEl().scrollTop = 0;
     wire(drawMain);
     el('xgtSoGoal').onclick = function () { drawPlacement(side, number, 'goal', 'Goal', false); };
     el('xgtSoMiss').onclick = function () { drawPlacement(side, number, 'missed', 'Missed', true); };
@@ -22166,8 +22215,15 @@ function openShootout() {
   function drawPlacement(side, number, outcome, outcomeLabel, miss) {
     sheetEl().innerHTML = head('Penalty Shootout', outcomeLabel + ' \u2014 where?', function () { drawOutcome(side, number); }) +
       '<p class="xgtNote" style="margin:0 0 6px">Roughly where in the goal? Skip if you are not sure.</p>' +
-      buildGoalSvg(miss ? 'miss' : 'in', false) +
+      // noBlock=true always -- a penalty shot is strictly one-on-one by
+      // rule, no field defender is legally involved, so the "field
+      // player blocked it" miss option (which buildGoalSvg would
+      // otherwise include) never makes sense here regardless of
+      // tracking mode, unlike the regular in-play flow where it's
+      // conditional on useGkTree.
+      buildGoalSvg(miss ? 'miss' : 'in', true) +
       '<button class="xgtBtn" id="xgtSkip">Skip placement</button>';
+    sheetEl().scrollTop = 0;
     wire(function () { drawOutcome(side, number); });
     Array.prototype.forEach.call(sheetEl().querySelectorAll('.gz'), function (g) {
       g.addEventListener('click', function () {
