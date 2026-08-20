@@ -1,0 +1,9 @@
+# Everything in this repo is published to the web except the following.
+# Same syntax as .gitignore. Cloudflare excludes nothing by default, so
+# repository plumbing has to be named here or it becomes publicly fetchable.
+.git
+.gitignore
+.assetsignore
+wrangler.jsonc
+.DS_Store
+Archive

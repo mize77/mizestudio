@@ -1,0 +1,16 @@
+{
+  // XquiX Studio — served as static assets from the repo root.
+  //
+  // No "main" entry point: the Studio is a self-contained index.html, so
+  // Cloudflare serves it straight from the edge with no Worker in the request
+  // path. Nothing here is built — the repo IS the site — so there is no build
+  // command and the assets directory is the repo root.
+  //
+  // Because the root is the assets directory, .assetsignore next to this file
+  // keeps repository plumbing from being published.
+  "name": "xquix-studio",
+  "compatibility_date": "2026-08-20",
+  "assets": {
+    "directory": "."
+  }
+}
