@@ -20283,7 +20283,17 @@ var S = {
   q: 1, clock: QLEN, running: false, tick: null,
   events: [], undone: [], seq: 0,
   draft: null, onScrim: null, zonesVisible: true,
-  hadFrontCourt: false
+  hadFrontCourt: false,
+  // Shootout: startSide is chosen once, at the very first attempt, and
+  // never changes after -- who shoots next is always derived from it
+  // plus how many attempts exist so far, never tracked as its own
+  // separate "whose turn" flag that could drift out of sync. Goalkeeper
+  // numbers default to null (resolved to each side's primary declared
+  // keeper the first time the shootout screen actually renders) and are
+  // freely changeable shot to shot, since a backup keeper subbing in
+  // specifically for this is real and expected.
+  shootoutStartSide: null,
+  shootoutGoalkeepers: { us: null, them: null }
 };
 function fmt(s) { return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'); }
 function el(id) { return document.getElementById(id); }
@@ -20810,6 +20820,14 @@ var CSS = [
 '.xgtNum{min-height:60px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:750;color:#124d4d;',
 '  font-variant-numeric:tabular-nums;border-radius:14px;background:#e1e6e6;border:1px solid #ccd6d6}',
 '#xgtSheet .xgtNum:active{background:#1b7373;color:#fff}',
+// Shootout shooter chips: three progressively darker shades marking how
+// many times THIS specific player has already shot in the current
+// shootout, cycling back to shade 1 past a 4th shot (round 4 -- 15
+// total attempts across 5 shooters -- reuses shade 1 rather than
+// needing a 4th color, per confirmed scope).
+'.xgtNum.soShot1{background:#a9c2c2;border-color:#8fb0b0}',
+'.xgtNum.soShot2{background:#4f7a7a;color:#fff;border-color:#3f6363}',
+'.xgtNum.soShot3{background:#0d3838;color:#fff;border-color:#092a2a}',
 '.xgtBtn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 16px;border-radius:12px;',
 '  background:#e1e6e6;border:1px solid #ccd6d6;font-weight:600;width:100%;color:#124d4d}',
 '#xgtSheet .xgtBtn.pri{background:#1b7373;border-color:transparent;color:#fff}',
@@ -22009,25 +22027,68 @@ function shootoutTally() {
 function shootoutAttempts() {
   return S.events.filter(function (e) { return e.context && e.context.shootout; });
 }
+// Whose turn it is is always derived, never its own separate flag --
+// even count of attempts so far means the side that started is up
+// again, odd means the other side. Nothing to keep in sync, nothing
+// that can drift.
+function shootoutCurrentSide() {
+  if (!S.shootoutStartSide) return null;
+  var n = shootoutAttempts().length;
+  return (n % 2 === 0) ? S.shootoutStartSide : (S.shootoutStartSide === 'us' ? 'them' : 'us');
+}
+// How many times THIS specific player has already shot -- the source
+// for the three-shade highlight below. Naturally handles "the same 5
+// shooters repeat in round 2, 3..." without any explicit round-tracking
+// state of its own, since it's just a per-player count derived from the
+// events already logged.
+function shootoutShotCount(side, number) {
+  return shootoutAttempts().filter(function (e) { return e.actor && e.actor.side === side && e.actor.number === number; }).length;
+}
+function shootoutHighlightClass(count) {
+  return count ? ('soShot' + (((count - 1) % 3) + 1)) : '';
+}
 function openShootout() {
-  var side = 'us';
-  draw(); openSheet();
-  function draw() {
+  // Asked once, the very first time -- never again after that. Everyone
+  // after this alternates automatically per shootoutCurrentSide() above.
+  if (!S.shootoutStartSide) { drawStart(); openSheet(); return; }
+  // Defaults to each side's primary declared keeper the first time this
+  // actually renders -- freely changeable afterward, per shot, since a
+  // backup keeper subbing in specifically for this is real and expected.
+  if (S.shootoutGoalkeepers.us == null) S.shootoutGoalkeepers.us = (S.keepers && S.keepers[0]) != null ? S.keepers[0] : null;
+  if (S.shootoutGoalkeepers.them == null) S.shootoutGoalkeepers.them = (S.oppKeepers && S.oppKeepers[0]) != null ? S.oppKeepers[0] : null;
+  drawMain(); openSheet();
+
+  function drawStart() {
+    sheetEl().innerHTML = head('Penalty Shootout', 'Who shoots first?', null) +
+      '<p class="xgtNote" style="margin-top:0">Decided once, right now -- every attempt after this alternates automatically, no need to pick a side each time.</p>' +
+      '<div class="xgtRow" style="margin-top:10px">' +
+        '<button class="xgtBtn pri" id="xgtSoStartUs" style="flex:1">Us</button>' +
+        '<button class="xgtBtn" id="xgtSoStartThem" style="flex:1">Them</button></div>';
+    el('xgtX').onclick = function () { closeSheet(); };
+    el('xgtSoStartUs').onclick = function () { S.shootoutStartSide = 'us'; openShootout(); };
+    el('xgtSoStartThem').onclick = function () { S.shootoutStartSide = 'them'; openShootout(); };
+  }
+
+  function drawMain() {
     var tally = shootoutTally();
     var attempts = shootoutAttempts().slice().reverse();
+    var side = shootoutCurrentSide();
+    var roster = side === 'us' ? S.water : S.oppWater;
+    var ourKeepers = S.keepers || [], theirKeepers = S.oppKeepers || [];
     sheetEl().innerHTML = head('Penalty Shootout', 'Log each attempt as it happens', null) +
-      '<div style="text-align:center;font-size:22px;font-weight:800;margin:6px 0 14px">Us ' + tally.us + ' – ' + tally.them + ' Them</div>' +
-      '<span class="xgtLbl">Who\u2019s shooting</span>' +
-      '<div class="xgtSeg" id="xgtSoSide">' +
-        '<button data-side="us" aria-pressed="' + (side === 'us') + '">Us</button>' +
-        '<button data-side="them" aria-pressed="' + (side === 'them') + '">Them</button></div>' +
-      '<span class="xgtLbl" style="margin-top:10px">Shooter\u2019s cap number</span>' +
-      '<div class="xgtRow"><input class="xgtField" id="xgtSoNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
-        'placeholder="#" style="flex:0 0 90px;text-align:center;font-size:19px;font-weight:700"></div>' +
-      '<div class="xgtRow" style="margin-top:10px">' +
-        '<button class="xgtBtn pri" id="xgtSoGoal" style="flex:1">Goal</button>' +
-        '<button class="xgtBtn" id="xgtSoMiss" style="flex:1">Miss</button>' +
-        '<button class="xgtBtn" id="xgtSoSave" style="flex:1">Saved</button></div>' +
+      '<div style="text-align:center;font-size:22px;font-weight:800;margin:6px 0 14px">Us ' + tally.us + ' \u2013 ' + tally.them + ' Them</div>' +
+      '<span class="xgtLbl">Our goalkeeper</span>' +
+      '<div class="xgtChips" id="xgtSoOurGk">' + (ourKeepers.length ? ourKeepers.map(function (n) {
+        return '<button class="xgtChip" data-so-our-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers.us === n) + '">' + xgtKeeperLabel(n) + '</button>';
+      }).join('') : '<span class="xgtNote">No goalkeeper declared for our side.</span>') + '</div>' +
+      '<span class="xgtLbl" style="margin-top:8px">Their goalkeeper</span>' +
+      '<div class="xgtChips" id="xgtSoTheirGk">' + (theirKeepers.length ? theirKeepers.map(function (n) {
+        return '<button class="xgtChip" data-so-their-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers.them === n) + '">' + n + '</button>';
+      }).join('') : '<span class="xgtNote">No opposing goalkeeper declared.</span>') + '</div>' +
+      '<span class="xgtLbl" style="margin-top:14px;display:block;font-size:15px;font-weight:800">' + (side === 'us' ? 'Us' : 'Them') + ' shooting</span>' +
+      '<div class="xgtNums" id="xgtSoShooters">' + (roster.length ? roster.map(function (n) {
+        return '<button class="xgtNum ' + shootoutHighlightClass(shootoutShotCount(side, n)) + '" data-so-shooter="' + n + '">' + xgtKeeperLabel(n) + '</button>';
+      }).join('') : '<p class="xgtNote">No players in the water for this side.</p>') + '</div>' +
       (attempts.length
         ? '<span class="xgtLbl" style="margin-top:16px">Attempts so far</span>' +
           '<div class="xgtCard"><table>' + attempts.map(function (e) {
@@ -22037,25 +22098,65 @@ function openShootout() {
         : '') +
       '<button class="xgtBtn" id="xgtSoDone" style="margin-top:14px">Done</button>';
     el('xgtX').onclick = function () { closeSheet(); };
-    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-side]'), function (b) {
-      b.onclick = function () { side = b.dataset.side; draw(); };
+    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-our-gk]'), function (b) {
+      b.onclick = function () { S.shootoutGoalkeepers.us = +b.dataset.soOurGk; drawMain(); };
     });
-    el('xgtSoGoal').onclick = function () { logAttempt('goal', 'Goal'); };
-    el('xgtSoMiss').onclick = function () { logAttempt('missed', 'Missed'); };
-    el('xgtSoSave').onclick = function () { logAttempt('blocked', 'Saved'); };
+    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-their-gk]'), function (b) {
+      b.onclick = function () { S.shootoutGoalkeepers.them = +b.dataset.soTheirGk; drawMain(); };
+    });
+    Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-shooter]'), function (b) {
+      b.onclick = function () { drawOutcome(side, +b.dataset.soShooter); };
+    });
     el('xgtSoDone').onclick = function () { closeSheet(); };
   }
-  function logAttempt(outcome, outcomeLabel) {
-    var n = parseInt((el('xgtSoNum').value || ''), 10);
-    if (!n) { toast('Enter the shooter\u2019s cap number first.'); return; }
+
+  function drawOutcome(side, number) {
+    sheetEl().innerHTML = head('Penalty Shootout', '#' + xgtKeeperLabel(number) + ' \u2014 outcome', drawMain) +
+      '<div class="xgtRow" style="margin-top:10px">' +
+        '<button class="xgtBtn pri" id="xgtSoGoal" style="flex:1">Goal</button>' +
+        '<button class="xgtBtn" id="xgtSoMiss" style="flex:1">Miss</button>' +
+        '<button class="xgtBtn" id="xgtSoSave" style="flex:1">Saved</button></div>';
+    wire(drawMain);
+    el('xgtSoGoal').onclick = function () { drawPlacement(side, number, 'goal', 'Goal', false); };
+    el('xgtSoMiss').onclick = function () { drawPlacement(side, number, 'missed', 'Missed', true); };
+    el('xgtSoSave').onclick = function () { drawPlacement(side, number, 'blocked', 'Saved', false); };
+  }
+
+  // Reuses buildGoalSvg() -- the same rendering the regular in-game shot
+  // flow uses -- but deliberately does NOT route through S.draft/
+  // finish()/commitDraft(). Those carry a lot of regular-game-only
+  // branching (assist steps, foul-counterpart, the block-result step)
+  // that has no meaning for a shootout attempt; keeping this path
+  // separate, with its own simple commit at the bottom, avoids
+  // entangling the two.
+  function drawPlacement(side, number, outcome, outcomeLabel, miss) {
+    sheetEl().innerHTML = head('Penalty Shootout', outcomeLabel + ' \u2014 where?', function () { drawOutcome(side, number); }) +
+      '<p class="xgtNote" style="margin:0 0 6px">Roughly where in the goal? Skip if you are not sure.</p>' +
+      buildGoalSvg(miss ? 'miss' : 'in', false) +
+      '<button class="xgtBtn" id="xgtSkip">Skip placement</button>';
+    wire(function () { drawOutcome(side, number); });
+    Array.prototype.forEach.call(sheetEl().querySelectorAll('.gz'), function (g) {
+      g.addEventListener('click', function () {
+        g.classList.add('flash');
+        if (navigator.vibrate) navigator.vibrate(8);
+        var placement = { grid: miss ? 'miss' : '3x3', area: g.dataset.p, label: g.dataset.l };
+        setTimeout(function () { logAttempt(side, number, outcome, outcomeLabel, placement); }, 90);
+      });
+    });
+    el('xgtSkip').onclick = function () { logAttempt(side, number, outcome, outcomeLabel, null); };
+  }
+
+  function logAttempt(side, number, outcome, outcomeLabel, placement) {
     commit({
-      actor: { side: side, number: n },
+      actor: { side: side, number: number },
       action: 'shot', actionLabel: 'Shot',
       variant: 'penalty', variantLabel: 'Penalty',
       outcome: outcome, outcomeLabel: outcomeLabel,
+      goalPlacement: placement,
+      goalkeeper: side === 'us' ? S.shootoutGoalkeepers.them : S.shootoutGoalkeepers.us,
       context: { kind: 'action', trackingMode: S.trackingMode, dc: null, note: null, shootout: true }
     });
-    draw();
+    drawMain();
   }
 }
 
