@@ -4676,6 +4676,26 @@ XQUIX.Entitlements = (function(){
   };
 })();
 XQUIX.Auth.onChange(()=>{ XQUIX.Entitlements.refresh(); XQUIX.Entitlements.loadFunctionGates(); });
+// Real root cause of "every test user sees all 5 modes": Home rendered
+// its availability exactly once, at the moment it first shows -- which
+// happens immediately on sign-in, almost certainly before
+// loadFunctionGates()'s own Supabase round-trip (triggered by the line
+// just above) has actually finished. canFunction() correctly fails
+// open while functionGates is still unset (same principle used
+// everywhere else in this app), so that first paint shows everything
+// unlocked -- but with nothing re-rendering once the real gate data
+// arrives moments later, that fail-open state never got corrected.
+// Other features in this file already subscribe to
+// XQUIX.Entitlements.onChange() to re-render once real data loads;
+// Home's own render was simply never wired the same way. (An earlier
+// version of this exact fix was placed up near xquixShowHome()'s own
+// definition, hundreds of lines above where XQUIX.Entitlements is
+// actually assigned -- it silently never registered at all, since the
+// object it was trying to call a method on didn't exist yet at that
+// point in the script.)
+XQUIX.Entitlements.onChange(()=>{
+  if(document.getElementById('xquixHomeScreen')?.classList.contains('open')) xquixRenderHomeAvailability();
+});
 // Proactively warms the org-disables cache whenever the active org
 // changes -- canFunction() itself can't trigger an async fetch since
 // it's synchronous by design, so without this, the cache would only
@@ -5735,12 +5755,13 @@ async function xquixMigrateLibraryToCloud(){
       localStorage.setItem(LIBRARY_CLOUD_MIGRATION_KEY, '1');
       return; // nothing to migrate, don't bother asking
     }
-    const proceed = await MizeDialog.confirm(
-      'Bring your '+localAssets.length+' library item(s) and '+localCollections.length+' folder(s) into your account, so they sync across devices? Your existing local copies stay exactly where they are either way.',
-      'Bring Library to your account?'
-    );
-    if(!proceed) return; // don't set the flag -- ask again next sign-in rather than silently skip forever
-
+    // No confirmation dialog here by design -- this used to ask
+    // permission via a popup before proceeding, which is exactly the
+    // kind of boot-time interruption that needs to go, per direct
+    // feedback. The migration itself is safe and non-destructive
+    // (local copies are left untouched either way, see below), so it
+    // now just proceeds -- consent for this lives in the Terms of
+    // Service rather than an interactive dialog every time.
     const client = XQUIX.Auth.getClient();
     const collectionIdMap = {}; // local id -> cloud id
     for(const col of localCollections){
@@ -5800,9 +5821,12 @@ async function xquixMigrateLibraryToCloud(){
     for(const rec of localRecent){ if(assetIdMap[rec.id]) await XQUIX.Storage.recordUsage(assetIdMap[rec.id]); }
 
     localStorage.setItem(LIBRARY_CLOUD_MIGRATION_KEY, '1');
-    await MizeDialog.alert(failed>0
-      ? 'Brought '+migrated+' item(s) to your account. '+failed+' didn\u2019t make it -- your local copies are untouched, try again by signing out and back in.'
-      : 'Brought '+migrated+' item(s) and '+localCollections.length+' folder(s) to your account.', 'Library migrated');
+    // No result popup either, for the same reason -- logged instead, so
+    // the outcome is still fully diagnosable without interrupting
+    // anyone's actual session to announce it.
+    console.info('XQUIX: library migration to account complete.', failed>0
+      ? migrated+' item(s) migrated, '+failed+' failed (local copies untouched, retry by signing out and back in).'
+      : migrated+' item(s) and '+localCollections.length+' folder(s) migrated.');
   } catch(err) {
     console.error('XQUIX: library-to-cloud migration failed entirely:', err);
     // Don't set the flag -- leave it to retry on next sign-in rather
@@ -20687,17 +20711,18 @@ var CSS = [
 '.xgtPane{pointer-events:auto;background:#fff;border:1px solid #ccd6d6;box-shadow:0 2px 14px rgba(20,35,92,.10)}',
 '#xgtTop{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;gap:6px;',
 '  padding:calc(env(safe-area-inset-top) + 5px) 10px 5px;border-width:0 0 1px}',
-'#xgtClockRow{display:flex;justify-content:center}', // clock now sits in its own row, centered, independent of whether the score row below it is shown
-'#xgtScore{display:flex;align-items:center;gap:10px}', // visibility toggled in render() based on S.trackScore -- always present in the DOM, never re-templated, so the existing xgtHs/xgtAs update logic needs no null-guarding
-'#xgtClock{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}',
-'#xgtTop .tm{flex:1;min-width:0}',
+'#xgtClockRow{display:flex;align-items:center;justify-content:center;gap:16px}', // now a 3-part row (home score / clock / away score) rather than the clock alone -- see xgtScore below for how the score elements join this same row without a second visibility toggle to keep in sync
+'#xgtScore{display:contents}', // deliberately not a real box -- its two .tm children become direct flex items of xgtClockRow above when shown (positioned via order, not DOM position, so xgtClock can stay in the middle), and the existing single S.trackScore toggle in render() still shows/hides both at once by switching this to 'none'
+'#xgtClock{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none;order:2}', // middle position, between the two scores
+'#xgtTop .tm{flex:1;min-width:0;order:1}',
 '#xgtTop .tm .nm{font-size:11px;color:#7c8a8a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-'#xgtTop .tm .sc{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1;color:#14235c}',
-'#xgtTop .tm.aw{text-align:right}',
+'#xgtTop .tm .sc{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;color:#14235c}', // sized to roughly match the combined height of the stacked quarter+clock beside it, per direct request
+'#xgtTop .tm.aw{text-align:right;order:3}',
 
 '#xgtQ{display:block;width:100%;font-size:10px;letter-spacing:.07em;color:#7c8a8a;font-weight:700;padding:1px 6px 2px}',
-'#xgtT{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.05;color:#14235c}',
-'#xgtT.run{color:#2e7d32}',
+'#xgtT{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.05}', // color intentionally NOT set here -- #xgtRoot button{color:inherit} outranks a lone #xgtT selector on specificity (ID+element beats ID alone), so the actual color rules live below, qualified the same way
+'#xgtRoot #xgtT{color:#c0392b}', // red while stopped -- ID+ID beats #xgtRoot button's ID+element
+'#xgtRoot #xgtT.run{color:#2e7d32}', // green while running -- needs the same #xgtRoot qualifier as the rule above, or its extra class alone isn't enough to outrank it
 '#xgtUtil{display:flex;gap:6px}',
 '#xgtUtil button{padding:6px 8px;border-radius:9px;font-size:11.5px;font-weight:650;',
 '  background:#e1e6e6;border:1px solid #ccd6d6;color:#124d4d}',
@@ -20869,10 +20894,12 @@ function buildChrome() {
   var root = document.createElement('div'); root.id = 'xgtRoot';
   root.innerHTML =
     '<div class="xgtPane" id="xgtTop">' +
-      '<div id="xgtClockRow"><div id="xgtClock"><button id="xgtQ">Q1 ✎</button><button id="xgtT">8:00</button></div></div>' +
-      '<div id="xgtScore">' +
-        '<div class="tm"><div class="nm" id="xgtHn">My team</div><div class="sc" id="xgtHs">0</div></div>' +
-        '<div class="tm aw"><div class="nm" id="xgtAn">Opponent</div><div class="sc" id="xgtAs">0</div></div>' +
+      '<div id="xgtClockRow">' +
+        '<div id="xgtScore">' +
+          '<div class="tm"><div class="nm" id="xgtHn">My team</div><div class="sc" id="xgtHs">0</div></div>' +
+          '<div class="tm aw"><div class="nm" id="xgtAn">Opponent</div><div class="sc" id="xgtAs">0</div></div>' +
+        '</div>' +
+        '<div id="xgtClock"><button id="xgtQ">Q1 ✎</button><button id="xgtT">8:00</button></div>' +
       '</div>' +
       '<div id="xgtUtil">' +
       '<button id="xgtTimeBtn">✎ Time</button>' +
@@ -21221,9 +21248,29 @@ function wire(backFn) {
   el('xgtX').onclick = closeSheet;
 }
 
+// Personal Foul (any variant -- regular exclusion, exclusion+substitution,
+// penalty, or brutality all share the same action:'exclusion', per real
+// water polo rules where all of these are sub-types of one foul category)
+// and Goal both genuinely stop play; everything else doesn't.
+function xgtStopsPlay(action, outcome, blockResult) { return action === 'exclusion' || outcome === 'goal' || blockResult === 'gk_out' || blockResult === 'fp_out'; }
 function openZone(zoneId, board) {
   var z = zoneById(zoneId);
+  // The clock is deliberately NOT paused here. An earlier version of
+  // this paused immediately on every tap and resumed once logging
+  // finished -- correct for a goal or foul, but it meant something like
+  // a blocked shot (which never actually stops play) still lost however
+  // many real seconds the coach spent picking "Shot" then "Blocked",
+  // however brief. Instead, just the clock value AT this exact moment
+  // is remembered on the draft; the clock itself keeps running,
+  // untouched, for the entire selection sequence, however long it
+  // takes. Once the outcome is actually known, commitDraft() below
+  // decides: for a stopping outcome, the displayed clock jumps back to
+  // this remembered value and stops there -- an accurate correction for
+  // the moment the goal/foul actually happened, not whenever the coach
+  // finished entering the details. For anything else, nothing happens
+  // at all -- the clock was already right the whole time.
   S.draft = {
+    clockAtTapTime: S.clock,
     fieldZone: z.id,
     fieldZoneName: zoneNum(z), // per-device-overridable display number -- see zoneNum
     fieldCoordinates: {
@@ -21556,6 +21603,24 @@ function finish() {
     stepFoulCounterpart();
     return;
   }
+  // Universal -- any blocked shot or field-defender deflection, either
+  // side, either tracking mode. Deliberately fires BEFORE the
+  // goalkeeper-possession step below, which only makes sense once it's
+  // known the ball actually stayed with our own keeper -- if it went
+  // out, or a field defender (not the keeper) made the block, there's
+  // no possession/outlet-pass question to ask at all. Covers both
+  // 'blocked' and 'def_block' -- the goalkeeper-tracking tree already
+  // distinguishes which one made the save via those two separate
+  // outcome values, so stepBlockResult() only asks "did it go out"
+  // there; the field-player/team-mode tree has no such distinction
+  // (only 'blocked' exists), so it asks both "who" and "did it go out"
+  // together. See stepBlockResult() itself for exactly which question
+  // gets shown, and why.
+  if (d.action === 'shot' && (d.outcome === 'blocked' || d.outcome === 'def_block') && xgtHasAdvancedActions() && !d.blockResultStepShown) {
+    d.blockResultStepShown = true;
+    stepBlockResult();
+    return;
+  }
   // Team mode only, and only for a block by OUR OWN keeper -- d.actor is
   // whoever took the shot, so actor.side==='opp' means an opponent shot
   // that OUR keeper faced and blocked (per selectTeamActor(), the
@@ -21563,8 +21628,12 @@ function finish() {
   // shot). Outlet-pass tracking is explicitly own-team-only per the
   // confirmed scope, so this deliberately never fires for actor.side
   // ==='us' (our own shot blocked by their side) -- there'd be no
-  // opponent-keeper outlet pass to track even if it fired.
-  if (isTeamMode && d.outcome === 'blocked' && d.actor.side === 'opp' && xgtHasAdvancedActions() && !d.possessionStepShown) {
+  // opponent-keeper outlet pass to track even if it fired. Also requires
+  // blockResult==='gk_in' -- if the block sent the ball out (corner
+  // throw) or was made by a field defender rather than the keeper,
+  // there's no live possession for our goalkeeper to actually have, so
+  // this step (and the outlet-pass chain beyond it) has nothing to ask.
+  if (isTeamMode && d.outcome === 'blocked' && d.actor.side === 'opp' && d.blockResult === 'gk_in' && xgtHasAdvancedActions() && !d.possessionStepShown) {
     d.possessionStepShown = true;
     stepPossession();
     return;
@@ -21589,6 +21658,19 @@ function finish() {
 function commitDraft() {
   var d = S.draft;
   closeSheet();
+  // Rewind BEFORE commit(), not after -- commit() stamps the event with
+  // whatever S.clock currently holds, so the correction has to happen
+  // first for the event itself to carry the right time, not just the
+  // display. For a stopping outcome, this jumps the clock back to
+  // whatever it was the instant the coach first tapped the zone (see
+  // openZone()) and stops it there; for anything else, S.clock is left
+  // exactly as it is, since it's already been ticking accurately the
+  // whole time and never needed touching at all.
+  if (xgtStopsPlay(d.action, d.outcome, d.blockResult)) {
+    S.clock = d.clockAtTapTime;
+    if (S.running) { S.running = false; clearInterval(S.tick); }
+    paintClock();
+  }
   commit({
     actor: d.actor, fieldZone: d.fieldZone, fieldZoneName: d.fieldZoneName,
     fieldCoordinates: d.fieldCoordinates,
@@ -21599,6 +21681,7 @@ function commitDraft() {
     goalPlacement: d.goalPlacement, assist: d.assist != null ? d.assist : null,
     foulCounterpart: d.foulCounterpart || null,
     possession: d.possession || null, reboundFollowup: d.reboundFollowup || null,
+    blockResult: d.blockResult || null,
     context: { kind: 'action', trackingMode: S.trackingMode, dc: d.dc || null,
                tree: d.useGkTree ? 'gk' : 'field', note: null }
   });
@@ -21611,6 +21694,47 @@ function commitDraft() {
 // with the goalie -- directly, or via a rebound that gets passed back --
 // finish() chains into openOutletPass() below as a genuinely separate,
 // later-committed event.
+// Two genuinely different questions depending on which tree produced
+// this block, not one question with a context-dependent label -- the
+// field-player/team-mode tree (FIELD_PLAYER_ACTIONS) has a single
+// 'blocked' outcome with no idea who actually made the stop, so it has
+// to ask both who and what happened. The goalkeeper-tracking tree
+// (GOALKEEPER_ACTIONS) already knows -- 'blocked' only ever means the
+// keeper, 'def_block' only ever means a field defender -- so asking who
+// again there would just be redundant. Either path lands on the same
+// four possible d.blockResult values (gk_in/gk_out/fp_in/fp_out), so
+// everything downstream (xgtStopsPlay, commitDraft's rewind check)
+// never needs to know or care which question was actually shown.
+// Per confirmed water polo rules: the goalkeeper stopping a shot that
+// then goes out is a corner throw for the attacking team; a field
+// defender doing the same is a change of possession (a "goalie ball")
+// to the defending team instead -- not the same outcome, and not a
+// judgment call to leave to the coach.
+function stepBlockResult() {
+  var d = S.draft;
+  var knownBlocker = d.outcome === 'def_block' ? 'fp' : (d.useGkTree ? 'gk' : null);
+  if (knownBlocker) {
+    var label = knownBlocker === 'gk' ? 'Save' : 'Defender block';
+    var outLabel = knownBlocker === 'gk' ? 'Went out \u2014 Corner throw' : 'Went out \u2014 Goalie ball';
+    sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, label + ' \u2014 did it go out, or stay in play?', null) +
+      '<div class="xgtOpts one">' +
+        '<button class="xgtOpt g" data-br="' + knownBlocker + '_in"><span class="dot"></span>Stayed in play</button>' +
+        '<button class="xgtOpt c" data-br="' + knownBlocker + '_out"><span class="dot"></span>' + outLabel + '</button>' +
+      '</div>';
+  } else {
+    sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Blocked \u2014 who, and did it go out?', null) +
+      '<div class="xgtOpts one">' +
+        '<button class="xgtOpt g" data-br="gk_in"><span class="dot"></span>Goalkeeper \u2014 stayed in play</button>' +
+        '<button class="xgtOpt c" data-br="gk_out"><span class="dot"></span>Goalkeeper \u2014 went out (Corner throw)</button>' +
+        '<button class="xgtOpt w" data-br="fp_in"><span class="dot"></span>Field defender \u2014 stayed in play</button>' +
+        '<button class="xgtOpt c" data-br="fp_out"><span class="dot"></span>Field defender \u2014 went out (Goalie ball)</button>' +
+      '</div>';
+  }
+  el('xgtX').onclick = function () { closeSheet(); };
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-br]'), function (b) {
+    b.onclick = function () { d.blockResult = b.dataset.br; finish(); };
+  });
+}
 function stepPossession() {
   var d = S.draft;
   sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Blocked! What happens to the ball?', null) +
@@ -21940,7 +22064,7 @@ function render() {
   if (!el('xgtRoot')) return;
   var sc = scoreOf();
   el('xgtHs').textContent = sc[0]; el('xgtAs').textContent = sc[1];
-  el('xgtScore').style.display = S.trackScore ? 'flex' : 'none'; // kept in sync every render, not just at setup, since S.trackScore could in principle change after buildChrome()'s one-time HTML already ran
+  el('xgtScore').style.display = S.trackScore ? 'contents' : 'none'; // kept in sync every render, not just at setup, since S.trackScore could in principle change after buildChrome()'s one-time HTML already ran. 'contents' (not 'flex') so the two .tm children lay out as direct members of xgtClockRow's own flex row, not as a nested box within it
   el('xgtHn').textContent = S.game.home || 'My team';
   el('xgtAn').textContent = S.game.away || 'Opponent';
   var recent = S.events.slice(-8).reverse();
@@ -22053,12 +22177,14 @@ function renderBar() {
         b.onclick = function () {
           commit({ actor: { side: 'them', number: +b.dataset.quickGoal }, action: 'shot', outcome: 'goal', outcomeLabel: 'Goal',
                    context: { kind: 'action', dir: null, dc: null, note: 'quick-tap opponent goal' } });
+          if (S.running) toggleClock(); // instant commit, no openZone()/commitDraft() pause-and-decide cycle to go through -- a goal stops play the moment it happens either way
         };
       });
       Array.prototype.forEach.call(bar.querySelectorAll('[data-quick-foul]'), function (b) {
         b.onclick = function () {
           commit({ actor: { side: 'them', number: +b.dataset.quickFoul }, action: 'exclusion',
                    context: { kind: 'action', dir: null, dc: 'committed', note: 'quick-tap opponent personal foul' } });
+          if (S.running) toggleClock(); // same as the quick goal button above -- a personal foul stops play immediately, regardless of how it got logged
         };
       });
     }
@@ -22775,7 +22901,7 @@ function xgtSvgToPngDataUri(svgEl) {
 function xgtEventsToCsvString(events) {
   var rows = [['eventId', 'quarter', 'clock', 'kind', 'role', 'side', 'number', 'zone', 'zoneName',
                'fieldX_m', 'fieldY_m', 'action', 'shotType', 'outcome', 'drawnCommitted',
-               'goalPlacement', 'assist', 'foulCounterpartSide', 'foulCounterpartNumber', 'possession', 'reboundFollowup', 'goalkeeper', 'targetGoal', 'timestamp']];
+               'goalPlacement', 'assist', 'foulCounterpartSide', 'foulCounterpartNumber', 'possession', 'reboundFollowup', 'blockResult', 'goalkeeper', 'targetGoal', 'timestamp']];
   (events || []).forEach(function (e) {
     var fc = e.fieldCoordinates || {};
     var fcp = e.foulCounterpart || {};
@@ -22784,7 +22910,7 @@ function xgtEventsToCsvString(events) {
       e.fieldZone || '', e.fieldZoneName || '', fc.fx == null ? '' : fc.fx, fc.fy == null ? '' : fc.fy,
       e.actionLabel || e.context.dir || '', e.variantLabel || '', e.outcomeLabel || '', e.context.dc || '',
       e.goalPlacement ? e.goalPlacement.label : '', e.assist == null ? '' : e.assist,
-      fcp.side || '', fcp.number == null ? '' : fcp.number, e.possession || '', e.reboundFollowup || '',
+      fcp.side || '', fcp.number == null ? '' : fcp.number, e.possession || '', e.reboundFollowup || '', e.blockResult || '',
       e.goalkeeper == null ? '' : e.goalkeeper, e.targetGoal || '', e.timestamp]);
   });
   return rows.map(function (r) {
