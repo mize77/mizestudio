@@ -20512,6 +20512,35 @@ function redoLast() {
   var e = S.undone.pop(); applyPresence(e, true); S.events.push(e);
   save(); render(); toast('Restored — ' + describe(e));
 }
+// Called right as a player is tapped back "in" -- checks whether their
+// own most recent presence change (going backward through S.events) was
+// an "out" for this exact same player, with nobody else on the same
+// side having subbed IN since. If so, this reads as a mis-tap being
+// corrected, not a real substitution, per direct feedback ("a user
+// might hit the wrong cap number every once in a while") -- explicitly
+// covers a flying substitution too, where real time (and other events)
+// can pass in between without another player ever having entered the
+// water. Rather than logging both events, which cancel out to nothing
+// real happening, the prior "out" is removed entirely -- the caller
+// should NOT also commit a fresh "in" when this returns true, since
+// there's nothing left to log. Deliberately does NOT disqualify on
+// another player going OUT in between (only IN matters, per the exact
+// wording of the request), and does NOT walk past the first
+// presence event found for a DIFFERENT player -- this only asks "did
+// the water genuinely change since this player left", not attempt to
+// reconstruct the fuller history.
+function xgtUndoAccidentalResub(side, number) {
+  for (var i = S.events.length - 1; i >= 0; i--) {
+    var e = S.events[i];
+    if (!e.context || e.context.kind !== 'presence' || !e.actor || e.actor.side !== side) continue;
+    if (e.actor.number === number) {
+      if (e.context.dir === 'out') { S.events.splice(i, 1); return true; }
+      return false; // this player's own most recent presence change wasn't an "out" -- not the pattern described
+    }
+    if (e.context.dir === 'in') return false; // a different player genuinely subbed in since -- a real substitution happened, leave both events alone
+  }
+  return false;
+}
 // Deliberately excludes shootout-tagged events (context.shootout===true)
 // -- this feeds BOTH the live stats panel AND scoreOf() (the main
 // 4-quarter score, including what gets cloud-synced as finalScore), so
@@ -20690,6 +20719,46 @@ function loadSaved() {
   try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (err) { return null; }
 }
 function clearSaved() { try { localStorage.removeItem(KEY); } catch (err) {} }
+// Single source of truth for "start a completely fresh game" -- every
+// entry point that starts a new game (the Stats screen's New Game
+// button, and the resume prompt's Start a new game instead) calls this,
+// rather than each maintaining its own partial reset list. That's
+// exactly how this bug happened: the resume prompt's own version reset
+// nothing beyond the persisted localStorage copy, and the Stats
+// screen's version reset some fields but missed others (the opponent
+// roster, the shootout state, and the Q4-ended flag among them) -- a
+// coach starting a genuinely new game could still be looking at the
+// previous one's score, events, and even mid-shootout state.
+// Deliberately leaves alone what genuinely isn't game data: device-
+// level display preferences (zoneNumberOverrides), persistent UI
+// choices (trackScore), and the tracking-mode/role selection, which a
+// coach starting a new game most likely wants to keep rather than
+// re-pick every time.
+function resetGameState() {
+  // One last sync of whatever's about to be discarded, in case the very
+  // final events of the old game (right up to this moment) hadn't
+  // already been individually synced -- syncSessionToCloud() already
+  // runs after every commit() during play, so this is a safety net for
+  // the last moment, not the primary save mechanism. Only bothers if
+  // there's actually something to save; a session with no events yet
+  // has nothing worth writing.
+  if (S.events.length) syncSessionToCloud();
+  S.game = { date: '', loc: '', home: '', away: '' };
+  S.me = { number: null, name: '' };
+  S.squad = []; S.water = []; S.keepers = [];
+  S.opponentTracked = false; S.oppSquad = []; S.oppWater = []; S.oppKeepers = [];
+  S.keeperLabels = {};
+  S.barShowing = 'us';
+  S.q = 1; S.clock = QLEN; S.running = false;
+  if (S.tick) { clearInterval(S.tick); S.tick = null; }
+  S.events = []; S.undone = []; S.seq = 0;
+  S.draft = null;
+  S.cloudSessionName = null;
+  S.shootoutStartSide = null;
+  S.shootoutGoalkeepers = { us: null, them: null };
+  S.regulationEnded = false;
+  clearSaved();
+}
 function restore(d) {
   S.game = d.game; S.trackingMode = d.trackingMode; S.playerRole = d.playerRole;
   S.me = d.me; S.squad = d.squad || []; S.water = d.water || []; S.keepers = d.keepers || [];
@@ -20782,6 +20851,13 @@ var CSS = [
 '.xgtChip{min-width:40px;height:40px;padding:0 10px;border-radius:10px;background:#e1e6e6;',
 '  border:1px solid #ccd6d6;font-weight:650;font-variant-numeric:tabular-nums;',
 '  display:flex;align-items:center;justify-content:center;color:#124d4d}',
+// Live "in the water" roster bar specifically, not the one-time setup
+// screens (squad/goalkeeper selection), where the larger, easier-to-hit
+// size stays exactly as it was. During live tracking, per direct
+// feedback, the field itself is the priority -- these chips are
+// tapped often but only need to be legible, not prominent, and the
+// smaller footprint leaves more room for the field above them.
+'#xgtRoot .xgtChip{min-width:28px;height:28px;padding:0 6px;font-size:13px}',
 '#xgtSheet .xgtChip[aria-pressed="true"]{background:#1b7373;color:#fff;border-color:transparent}',
 '#xgtRoot .xgtChip.water, #xgtSheet .xgtChip.water{background:#2e7d32;color:#fff;border-color:transparent}', /* #xgtSheet alone isn\'t enough: renderBar() renders these chips into #xgtBar, which is inside #xgtRoot (NOT #xgtSheet -- confirmed these are separate containers), and #xgtRoot button{background:none} outranks a plain two-class rule by specificity. Both ID scopes are needed to cover both locations these chips actually render in. */
 // Phase F: goalie designation -- solid fill in the setup sheet (nothing
@@ -20907,7 +20983,23 @@ var CSS = [
 /* launcher */
 '#xgtLaunch{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom) + 10px);z-index:8000;',
 '  padding:11px 14px;border-radius:12px;background:#1b7373;color:#fff;border:1px solid #124d4d;',
-'  font:600 13px system-ui,sans-serif;box-shadow:0 6px 20px rgba(20,35,92,.30);cursor:pointer}'
+'  font:600 13px system-ui,sans-serif;box-shadow:0 6px 20px rgba(20,35,92,.30);cursor:pointer}',
+// Phone landscape specifically (max-height, not max-width -- a tablet or
+// desktop turned sideways still has plenty of vertical room and doesn't
+// need this). Total chrome height (top clock/score/util row + bottom
+// log/undo/roster) measured at ~308px against a real phone's ~390px
+// landscape viewport -- xgtViewportHeight()'s own 220px floor then kept
+// the field's computed area larger than what was actually left over,
+// so the bottom chrome panel physically overlapped the field's own
+// space instead of sitting cleanly below it. The log strip is the
+// single most compactable piece here: purely informational, not
+// interactive, and its content (what just happened) is already
+// available via the undo button's own label right next to it -- hiding
+// it recovers real vertical room without losing any actual capability.
+'@media (orientation: landscape) and (max-height: 500px) {',
+'  #xgtLog{display:none}',
+'  #xgtBottom{padding-top:5px;padding-bottom:calc(env(safe-area-inset-bottom) + 5px);gap:4px}',
+'}'
 ].join('\n');
 
 function injectCss() {
@@ -21019,6 +21111,7 @@ function buildChrome() {
   // far end.
   el('xgtFieldViewBtn').onclick = function () {
     if (window.MIZE.Field && window.MIZE.Field.fitBoardToScreen) { try { window.MIZE.Field.fitBoardToScreen(); } catch (err) {} }
+    xgtCorrectStageWrapOverlap();
     positionShield();
   };
   el('xgtEditZoneNumBtn').onclick = function () {
@@ -21226,6 +21319,18 @@ function onViewportChange() {
     try { window.MIZE.Field.fitBoardToScreen(); } catch (err) {}
     _fieldViewWidened = false;
     showFullVenueWidth();
+    xgtCorrectStageWrapOverlap();
+    // Studio's own general resize handler (unrelated to this module,
+    // fires on the same 'resize' event) debounces its own
+    // fitBoardToScreen() call by 150ms -- that later call re-applies
+    // Studio's internal 220px floor and silently overwrites the
+    // correction just above. Confirmed directly: without this, the
+    // correction visibly took effect for a moment and then reverted a
+    // beat later. Re-applying once more after that debounce window has
+    // had time to settle makes this correction the one that's actually
+    // still in effect once everything's done moving, rather than a
+    // race that depends on exactly which handler happens to run last.
+    setTimeout(xgtCorrectStageWrapOverlap, 220);
   }
   positionShield();
 }
@@ -22306,12 +22411,37 @@ function render() {
 // action==='exclusion'&&context.dc==='committed') -- so the quick-tap
 // opponent events below feed the exact same computation path a live
 // player's own actions already do, no separate counting logic needed.
+// A foul this player actually COMMITTED can live in either of two
+// places on the event, depending on which player the coach happened to
+// tap first when logging it -- the first-tapped player is always the
+// one attributed as the primary actor, but which role (drawn/committed)
+// THEY played is a separate choice, so the actual committer isn't
+// always e.actor. If this player was tapped first and marked as having
+// committed it, they're e.actor with dc==='committed'; if a different
+// player was tapped first and marked as having drawn it, THIS player is
+// instead recorded as e.foulCounterpart with dc==='drawn' on that same
+// event. Previously only the first of these two cases was ever counted,
+// so a player who committed a foul without being the one the coach
+// happened to tap first never showed up on their own record at all.
 function xgtLiveTally(side, num) {
+  // Normalized to the event data's own convention -- team-mode events
+  // store the opposing side as 'opp' (per selectTeamActor()), but
+  // renderBar()'s own display-layer toggle (below, and its caller)
+  // tracks which roster tab is showing as 'us'/'them' instead. Without
+  // this, the opponent roster's own badges could never match any real
+  // event at all -- a broader version of the same underlying "which
+  // side string means what" gap, not just the drawn/committed case
+  // below.
+  var normSide = side === 'them' ? 'opp' : side;
   var goals = 0, fouls = 0;
   S.events.forEach(function (e) {
-    if (!e.actor || e.actor.side !== side || e.actor.number !== num) return;
-    if (e.action === 'shot' && e.outcome === 'goal') goals++;
-    if (e.action === 'exclusion' && e.context && e.context.dc === 'committed') fouls++;
+    if (e.actor && e.actor.side === normSide && e.actor.number === num) {
+      if (e.action === 'shot' && e.outcome === 'goal') goals++;
+      if (e.action === 'exclusion' && e.context && e.context.dc === 'committed') fouls++;
+    } else if (e.action === 'exclusion' && e.context && e.context.dc === 'drawn' &&
+               e.foulCounterpart && e.foulCounterpart.side === normSide && e.foulCounterpart.number === num) {
+      fouls++;
+    }
   });
   return { goals: goals, fouls: fouls };
 }
@@ -22376,7 +22506,11 @@ function renderBar() {
         else {
           if (waterArr.length >= 7) { toast('7 in the water already — sub someone out first.'); return; }
           waterArr.push(n); waterArr.sort(function (a, b2) { return a - b2; });
-          commit({ actor: { side: side, number: n }, context: { kind: 'presence', dir: 'in', trackingMode: 'coach', dc: null, note: null } });
+          if (xgtUndoAccidentalResub(side, n)) {
+            save(); render(); toast('Looked like a mis-tap \u2014 the earlier sub-out was removed, nothing logged.');
+          } else {
+            commit({ actor: { side: side, number: n }, context: { kind: 'presence', dir: 'in', trackingMode: 'coach', dc: null, note: null } });
+          }
         }
       };
     });
@@ -22453,6 +22587,71 @@ function goalkeeperStats(evs) {
     outletCompleted: outlets.filter(function (e) { return e.outcome === 'completed'; }).length,
     outletTurnovers: outlets.filter(function (e) { return e.outcome === 'turnover'; }).length
   };
+}
+// A given side's exclusions given/drawn needs BOTH halves of every foul
+// event to be checked, not just the primary-actor half -- same
+// reasoning as xgtLiveTally's own comment above. Shared here so the
+// live per-player badge, a single player's full stats, and a whole
+// team's aggregate stats all stay consistent with each other rather
+// than three separate implementations of the same rule drifting apart.
+// scopeNum omitted (undefined) computes for the whole side; provided,
+// scopes to that one player specifically.
+function xgtExclusionCounts(side, scopeNum) {
+  var given = 0, drawn = 0;
+  actionEvents().forEach(function (e) {
+    if (e.action !== 'exclusion' || !e.context) return;
+    var actorMatch = e.actor && e.actor.side === side && (scopeNum == null || e.actor.number === scopeNum);
+    var counterpartMatch = e.foulCounterpart && e.foulCounterpart.side === side && (scopeNum == null || e.foulCounterpart.number === scopeNum);
+    if (actorMatch) {
+      if (e.context.dc === 'committed') given++;
+      if (e.context.dc === 'drawn') drawn++;
+    } else if (counterpartMatch) {
+      if (e.context.dc === 'drawn') given++; // the primary actor drew it, so this side/player (the counterpart) committed it
+      if (e.context.dc === 'committed') drawn++; // the primary actor committed it, so this side/player (the counterpart) drew it
+    }
+  });
+  return { given: given, drawn: drawn };
+}
+// Every action event where this exact player is the primary actor --
+// correct for a field player's shots/goals/steals/turnovers/assists.
+// Exclusion counts are handled separately (xgtExclusionCounts, above)
+// since those need the counterpart half too, which this alone can't see.
+function xgtFieldPlayerEvents(side, num) {
+  return actionEvents().filter(function (e) { return e.actor && e.actor.side === side && e.actor.number === num; });
+}
+// A goalkeeper is never the primary actor on a shot they face -- the
+// shooter is (e.actor), and this keeper is instead recorded separately
+// via e.goalkeeper (set on every team-mode shot regardless of outcome).
+// goalkeeperStats() expects ONE combined array covering both shots
+// faced AND this keeper's own other actions (steals, turnovers, outlet
+// passes), which is exactly what it already reads shots/steals/etc from
+// within a single evs param -- so both halves are merged here rather
+// than calling it twice.
+function xgtGoalkeeperEvents(side, num) {
+  return actionEvents().filter(function (e) {
+    if (e.action === 'shot') return e.goalkeeper === num && e.actor && e.actor.side !== side;
+    return e.actor && e.actor.side === side && e.actor.number === num;
+  });
+}
+// One player's complete stats, correctly attributed regardless of
+// whether they're a field player or a designated goalkeeper, and with
+// exclusions correctly counting both halves of the drawn/committed
+// relationship rather than just whichever half happened to name them
+// as the primary actor.
+function xgtPlayerStats(side, num, isGk) {
+  var stats = isGk ? goalkeeperStats(xgtGoalkeeperEvents(side, num)) : fieldPlayerStats(xgtFieldPlayerEvents(side, num));
+  var ex = xgtExclusionCounts(side, num);
+  stats.exGiven = ex.given; stats.exDrawn = ex.drawn;
+  return stats;
+}
+// A whole side's aggregate stats -- same field-player computation as a
+// single player's, just scoped to every actor on that side rather than
+// one number, with the same corrected exclusion counting.
+function xgtTeamStats(side) {
+  var stats = fieldPlayerStats(actionEvents().filter(function (e) { return e.actor && e.actor.side === side; }));
+  var ex = xgtExclusionCounts(side);
+  stats.exGiven = ex.given; stats.exDrawn = ex.drawn;
+  return stats;
 }
 function gkRow(label, n, saved, off) {
   return '<tr><td>' + label + '</td><td style="text-align:right">' + n + '</td>' +
@@ -22574,6 +22773,13 @@ function xgtOpposingKeeperBlockHtml(label, gkEvents) {
     '</div>' + gkTypeTable(kg);
 }
 function openStats() {
+  // Team mode gets a genuinely different structure -- a whole-team view
+  // by side, with per-player drill-down -- rather than this function's
+  // existing single-tracked-player layout, which has no real concept of
+  // "which of several players" at all. Every other mode (parent, or
+  // coach tracking one specific field player/goalkeeper) keeps exactly
+  // the behavior below, unchanged.
+  if (S.trackingMode === 'coach' && S.playerRole === 'team') { openTeamStats('us'); return; }
   var box = el('xgtStats');
   var gk = S.playerRole === 'goalkeeper', sc = scoreOf();
   var evs = actionEvents().filter(function (e) {
@@ -22688,11 +22894,100 @@ function openStats() {
   el('xgtNew').onclick = async function () {
     const ok = await MizeDialog.confirm('Clear this game and start a new one?');
     if (!ok) return;
-    clearSaved();
-    S.events = []; S.undone = []; S.seq = 0; S.q = 1; S.clock = QLEN; S.water = []; S.cloudSessionName = null;
+    resetGameState();
     box.classList.remove('on');
     render(); openSetup();
   };
+}
+// Team mode's own stats entry point. Shows one side's aggregate numbers
+// plus every one of its players, each tappable through to their own
+// full detail view (openPlayerStats below) -- reusing the same
+// heatFieldSvg/goalMapHtml/missBlock detail-rendering helpers the
+// single-player path already uses, rather than a second, separately
+// maintained copy of that rendering.
+function openTeamStats(side) {
+  var box = el('xgtStats');
+  var sc = scoreOf();
+  var squad = side === 'us' ? S.squad : S.oppSquad;
+  var keepers = side === 'us' ? S.keepers : S.oppKeepers;
+  var t = xgtTeamStats(side);
+  var teamName = side === 'us' ? (S.game.home || 'My team') : (S.game.away || 'Opponent');
+  box.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
+      '<button class="xgtIcon" id="xgtSb">‹ Back</button>' +
+      '<div style="flex:1;min-width:0"><div style="font-weight:700">' + teamName + '</div>' +
+      '<div style="font-size:11.5px;color:#7c8a8a">' + (S.game.home || 'My team') + ' ' + sc[0] + ' \u2013 ' + sc[1] + ' ' + (S.game.away || 'Opponent') + '</div></div></div>' +
+    (S.opponentTracked
+      ? '<div class="xgtSeg" id="xgtStatsSide" style="margin-bottom:10px">' +
+        '<button data-stats-side="us" aria-pressed="' + (side === 'us') + '">' + (S.game.home || 'My Team') + '</button>' +
+        '<button data-stats-side="opp" aria-pressed="' + (side === 'opp') + '">' + (S.game.away || 'Opponent') + '</button></div>'
+      : '') +
+    '<div class="xgtTiles">' + [[t.goals, 'GOALS'], [t.shots, 'SHOTS'], [t.pct + '%', 'SHOOTING'],
+      [t.exDrawn, 'EXCL. DRAWN'], [t.exGiven, 'EXCL. GIVEN'], [t.steals, 'STEALS'],
+      [t.turnovers, 'TURNOVERS'], [t.assists, 'ASSISTS']].map(function (x) {
+        return '<div class="xgtTile"><div class="v">' + x[0] + '</div><div class="k">' + x[1] + '</div></div>';
+      }).join('') + '</div>' +
+    '<h2>Players \u2014 tap a number for their own stats</h2>' +
+    '<div class="xgtCard"><table><tr><th>#</th><th style="text-align:right">Goals</th><th style="text-align:right">Fouls</th></tr>' +
+      squad.slice().sort(function (a, b) { return a - b; }).map(function (n) {
+        var isGk = keepers.indexOf(n) >= 0;
+        var ps = xgtPlayerStats(side, n, isGk);
+        var goalsOrSaves = isGk ? ps.saves : ps.goals;
+        return '<tr class="xgtStatsPlayerRow" data-player-n="' + n + '" style="cursor:pointer">' +
+          '<td>' + xgtKeeperLabel(n) + (isGk ? ' \uD83E\uDDE4' : '') + '</td>' +
+          '<td style="text-align:right">' + goalsOrSaves + '</td>' +
+          '<td style="text-align:right">' + (ps.exGiven || 0) + '</td></tr>';
+      }).join('') + '</table></div>';
+  box.classList.add('on');
+  el('xgtSb').onclick = function () { box.classList.remove('on'); };
+  var sideToggle = el('xgtStatsSide');
+  if (sideToggle) Array.prototype.forEach.call(sideToggle.querySelectorAll('[data-stats-side]'), function (b) {
+    b.onclick = function () { openTeamStats(b.dataset.statsSide); };
+  });
+  Array.prototype.forEach.call(box.querySelectorAll('.xgtStatsPlayerRow'), function (row) {
+    row.onclick = function () { openPlayerStats(side, +row.dataset.playerN, function () { openTeamStats(side); }); };
+  });
+}
+// One player's full detail view, reachable only from openTeamStats
+// above -- reuses the exact same detail-rendering helpers (heat map,
+// goal placement, misses, origin/outcome/placement chain) the
+// single-player path in openStats() already relies on, just scoped to
+// this one player's own events via xgtPlayerStats/xgtFieldPlayerEvents/
+// xgtGoalkeeperEvents instead of the whole side.
+function openPlayerStats(side, num, backFn) {
+  var box = el('xgtStats');
+  var isGk = (side === 'us' ? S.keepers : S.oppKeepers).indexOf(num) >= 0;
+  var stats = xgtPlayerStats(side, num, isGk);
+  var evs = isGk ? xgtGoalkeeperEvents(side, num) : xgtFieldPlayerEvents(side, num);
+  var teamName = side === 'us' ? (S.game.home || 'My team') : (S.game.away || 'Opponent');
+  var tiles = isGk
+    ? [[stats.faced, 'ON GOAL FACED'], [stats.saves, 'SAVES / BLOCKS'], [stats.pct + '%', 'SAVE %'],
+       [stats.goals, 'GOALS ALLOWED'], [stats.missed, 'OFF TARGET'], [stats.steals, 'STEALS'],
+       [stats.turnovers, 'TURNOVERS'], [stats.exDrawn, 'EXCL. DRAWN'], [stats.exGiven, 'EXCL. GIVEN']]
+    : [[stats.goals, 'GOALS'], [stats.shots, 'SHOTS'], [stats.pct + '%', 'SHOOTING'],
+       [stats.steals, 'STEALS'], [stats.turnovers, 'TURNOVERS'], [stats.blocked, 'BLOCKED'],
+       [stats.exDrawn, 'EXCL. DRAWN'], [stats.exGiven, 'EXCL. GIVEN'], [stats.assists, 'ASSISTS']];
+  var origin = isGk ? evs.filter(function (e) { return e.action === 'shot'; }) : evs;
+  var chain = evs.filter(function (e) { return e.fieldZone && e.outcomeLabel; }).slice().reverse().slice(0, 30);
+  box.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
+      '<button class="xgtIcon" id="xgtSb">‹ Back</button>' +
+      '<div style="flex:1;min-width:0"><div style="font-weight:700">' + teamName + ' #' + xgtKeeperLabel(num) + (isGk ? ' \u2014 Goalkeeper' : '') + '</div>' +
+      '<div style="font-size:11.5px;color:#7c8a8a">' + evs.length + ' actions</div></div></div>' +
+    '<div class="xgtTiles">' + tiles.map(function (x) {
+      return '<div class="xgtTile"><div class="v">' + x[0] + '</div><div class="k">' + x[1] + '</div></div>';
+    }).join('') + '</div>' + (isGk ? gkTypeTable(stats) : '') +
+    '<h2>' + (isGk ? 'Shot origin \u2014 where they shot from' : 'Where it happened') + '</h2>' +
+    '<div class="xgtCard" style="padding:8px">' + heatFieldSvg(origin) + '</div>' +
+    '<h2>Goal placement</h2><div class="xgtCard">' + goalMapHtml(evs) + '</div>' +
+    missBlock(evs) +
+    '<h2>Origin \u2192 outcome \u2192 placement</h2><div class="xgtCard">' +
+      (chain.length ? '<table><tr><th>From</th><th>Type</th><th>Outcome</th><th>Placement</th></tr>' + chain.map(function (e) {
+        return '<tr><td>' + e.fieldZoneName + '</td><td>' + (e.variantLabel || '\u2014') + '</td><td>' + e.outcomeLabel + '</td><td>' +
+          (e.goalPlacement ? e.goalPlacement.label : '\u2014') + '</td></tr>';
+      }).join('') + '</table>' : '<p class="xgtNote">Nothing recorded yet.</p>') + '</div>';
+  box.classList.add('on');
+  el('xgtSb').onclick = backFn;
 }
 function gkTypeTable(g) {
   return '<div class="xgtCard"><table><tr><th>Type</th><th style="text-align:right">On goal</th>' +
@@ -22933,6 +23228,17 @@ function openSetup() {
                context: { kind: 'presence', dir: 'in', trackingMode: S.trackingMode, dc: null, note: null } });
     }
     closeSheet(); render();
+    // The one settle-in pass in open() ran BEFORE this point -- against
+    // whatever #xgtBottom looked like right after that initial render(),
+    // not against its real, final content. Team mode's presence commits
+    // just above can add several lines to the log strip, genuinely
+    // growing the chrome's height beyond what that earlier pass
+    // measured -- without a fresh fit here, the field's scrollable area
+    // stays sized against the smaller, stale measurement, leaving the
+    // true bottom of the field covered by chrome that grew after the
+    // fact.
+    if (window.MIZE.Field && window.MIZE.Field.fitBoardToScreen) { try { window.MIZE.Field.fitBoardToScreen(); } catch (err) {} }
+    xgtCorrectStageWrapOverlap();
   }
 }
 
@@ -22954,7 +23260,48 @@ function xgtViewportHeight() {
   var top = el('xgtTop'), bot = el('xgtBottom');
   var topH = top ? top.getBoundingClientRect().height : 0;
   var botH = bot ? bot.getBoundingClientRect().height : 0;
-  return Math.max(220, full - topH - botH);
+  // Lowered from 220 -- on a real phone in landscape, top+bottom chrome
+  // can genuinely add up to more than (viewport height - 220), even
+  // after the log strip is hidden there (see the landscape media query
+  // above). A 220px floor in that situation didn't protect against a
+  // too-small field -- it caused the opposite problem: the computed
+  // area stayed LARGER than what was actually left over, so the
+  // scrollable field's own box physically overlapped the chrome below
+  // it, which is what made the field appear to vanish entirely rather
+  // than just be a bit cramped. A smaller but correctly-non-overlapping
+  // field is a real improvement over a larger one that's covered by
+  // its own chrome.
+  return Math.max(130, full - topH - botH);
+}
+// fitBoardToScreen() itself ALSO applies its own, separate,
+// hardcoded 220px floor internally (Math.max(220, viewportHeight()-
+// margin)) -- that's shared Studio code, used by every mode, not
+// something to change just for this one case. So lowering this
+// wrapper's own floor above wasn't enough on its own: Studio's
+// function still clamps #stageWrap back up to 220px regardless of
+// what this wrapper returns, whenever the true available space is
+// less than that -- which is routinely true in phone landscape.
+// This runs immediately after every fitBoardToScreen() call the
+// tracker itself triggers (open()'s settle-in pass, onViewportChange,
+// and go()'s post-setup re-fit) and, only when the true, correctly-
+// computed height is smaller than what Studio's own floor already
+// clamped #stageWrap to, corrects it down to the honest value. Never
+// makes the field bigger than Studio already sized it -- only ever
+// shrinks it further, and only when necessary to stop it from
+// overlapping the chrome below it. #board's own height/scale is
+// untouched here; only #stageWrap's visible-window height changes,
+// which is safe since the two are otherwise independent (the field's
+// own geometry doesn't depend on how much of it happens to be
+// visible at once).
+function xgtCorrectStageWrapOverlap() {
+  if (!S.active) return;
+  var wrap = el('stageWrap');
+  if (!wrap) return;
+  var honestH = xgtViewportHeight() - 20; // matches fitBoardToScreen()'s own margin subtraction for non-presentation contexts
+  var currentH = parseFloat(wrap.style.height) || wrap.getBoundingClientRect().height;
+  if (honestH > 0 && honestH < currentH) {
+    wrap.style.height = honestH + 'px';
+  }
 }
 // Same wrap-the-one-function-Studio-already-calls pattern as
 // xgtViewportHeight above, for a different problem: #xgtShield is
@@ -23231,6 +23578,7 @@ var API = {
     // comment there) -- just this one settle-in pass right after open.
     setTimeout(function () {
       if (window.MIZE.Field && window.MIZE.Field.fitBoardToScreen) { try { window.MIZE.Field.fitBoardToScreen(); } catch (err) {} }
+      xgtCorrectStageWrapOverlap();
       showFullVenueWidth();
       positionShield();
     }, 60);
@@ -23239,6 +23587,18 @@ var API = {
     if (saved && saved.events && saved.events.length) {
       askResume(saved);
     } else {
+      // No saved game to resume from -- but S itself is a page-lifetime
+      // variable, not something that re-initializes on its own just
+      // because the tracker closed and reopened. Without this, a coach
+      // who closed the tracker after a game without explicitly starting
+      // a new one (or hit some edge case where the autosave didn't
+      // persist) could reopen it later in the same browser session and
+      // land straight in setup while S still silently held the
+      // previous game's score and events underneath. Safe either way:
+      // a no-op if S was already clean, corrective if it wasn't, and
+      // still saves first via resetGameState() if there's anything
+      // there worth keeping.
+      resetGameState();
       render(); openSetup();
     }
   },
@@ -23433,7 +23793,7 @@ function askResume(saved) {
     '<button class="xgtBtn" id="xgtFresh">Start a new game instead</button>';
   el('xgtX').onclick = function () { closeSheet(); API.close(); };
   el('xgtRes').onclick = function () { restore(saved); closeSheet(); render(); };
-  el('xgtFresh').onclick = function () { clearSaved(); closeSheet(); render(); openSetup(); };
+  el('xgtFresh').onclick = function () { resetGameState(); closeSheet(); render(); openSetup(); };
 }
 
 /* ------------------------------------------------------------- boot / launch */
