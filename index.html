@@ -20293,7 +20293,16 @@ var S = {
   // freely changeable shot to shot, since a backup keeper subbing in
   // specifically for this is real and expected.
   shootoutStartSide: null,
-  shootoutGoalkeepers: { us: null, them: null }
+  shootoutGoalkeepers: { us: null, them: null },
+  // Set once, automatically, the moment the clock reaches 0:00 during
+  // Q4 (see toggleClock()) -- sticky, never auto-clears itself even if
+  // the coach later edits the clock/quarter, since that's a correction
+  // to the record, not a real return to live play. Field-zone tapping
+  // is blocked once this is true (openZone()), but roster-based foul
+  // logging deliberately stays available on both sides -- misconduct
+  // penalties can genuinely happen after the buzzer, and still need a
+  // real record.
+  regulationEnded: false
 };
 function fmt(s) { return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'); }
 function el(id) { return document.getElementById(id); }
@@ -20734,6 +20743,13 @@ var CSS = [
 '#xgtRoot #xgtT{color:#c0392b}', // red while stopped -- ID+ID beats #xgtRoot button's ID+element
 '#xgtRoot #xgtT.run{color:#2e7d32}', // green while running -- needs the same #xgtRoot qualifier as the rule above, or its extra class alone isn't enough to outrank it
 '#xgtUtil{display:flex;gap:6px}',
+// Shown only once regulation actually ends (S.regulationEnded) --
+// content is filled in by render(), not baked into this rule, since it
+// differs depending on whether the score is tied.
+'#xgtGameOverBanner{border-radius:10px;padding:9px 12px;margin:8px 0;text-align:center;font-weight:700;font-size:13px}',
+'#xgtGameOverBanner.tied{background:#fff3cd;color:#7a5b00}',
+'#xgtGameOverBanner.decided{background:#e1e6e6;color:#124d4d}',
+'#xgtGameOverBanner button{margin-top:6px;width:100%}',
 '#xgtUtil button{padding:6px 8px;border-radius:9px;font-size:11.5px;font-weight:650;',
 '  background:#e1e6e6;border:1px solid #ccd6d6;color:#124d4d}',
 '#xgtUtil .sp{flex:1}',
@@ -20919,6 +20935,7 @@ function buildChrome() {
         '</div>' +
         '<div id="xgtClock"><button id="xgtQ">Q1 ✎</button><button id="xgtT">8:00</button></div>' +
       '</div>' +
+      '<div id="xgtGameOverBanner" style="display:none"></div>' +
       '<div id="xgtUtil">' +
       '<button id="xgtTimeBtn">✎ Time</button>' +
       '<button id="xgtZoneBtn">Zones</button>' +
@@ -21272,6 +21289,13 @@ function wire(backFn) {
 // and Goal both genuinely stop play; everything else doesn't.
 function xgtStopsPlay(action, outcome, blockResult) { return action === 'exclusion' || outcome === 'goal' || blockResult === 'gk_out' || blockResult === 'fp_out'; }
 function openZone(zoneId, board) {
+  // Blocks the one entry point both the main shield and the OPPO zone
+  // funnel through -- covers both without needing the same guard
+  // duplicated at each call site. Roster-based foul logging (renderBar)
+  // deliberately stays available even here; only field-position
+  // tracking is blocked, since there's no meaningful "where on the
+  // field" once regulation is over.
+  if (S.regulationEnded) { toast('Regulation is over \u2014 log any post-game fouls from the roster below, or continue to the shootout.'); return; }
   var z = zoneById(zoneId);
   // The clock is deliberately NOT paused here. An earlier version of
   // this paused immediately on every tap and resumed once logging
@@ -21935,7 +21959,17 @@ function toggleClock() {
   clearInterval(S.tick);
   if (S.running) S.tick = setInterval(function () {
     S.clock = Math.max(0, S.clock - 1);
-    if (!S.clock) { S.running = false; clearInterval(S.tick); }
+    if (!S.clock) {
+      S.running = false; clearInterval(S.tick);
+      // Automatic, per confirmed scope -- the exact moment Q4's clock
+      // reaches 0:00 is when regulation is considered over. Sticky
+      // (only ever set here, on this specific transition) and does a
+      // full render() immediately so the game-over banner and the
+      // field-blocking guard in openZone() both take effect the instant
+      // this happens, not on whatever the next unrelated render was
+      // going to be.
+      if (S.q >= 4 && !S.regulationEnded) { S.regulationEnded = true; render(); }
+    }
     paintClock();
   }, 1000);
   paintClock();
@@ -22168,6 +22202,21 @@ function render() {
   el('xgtScore').style.display = S.trackScore ? 'contents' : 'none'; // kept in sync every render, not just at setup, since S.trackScore could in principle change after buildChrome()'s one-time HTML already ran. 'contents' (not 'flex') so the two .tm children lay out as direct members of xgtClockRow's own flex row, not as a nested box within it
   el('xgtHn').textContent = S.game.home || 'My team';
   el('xgtAn').textContent = S.game.away || 'Opponent';
+  var banner = el('xgtGameOverBanner');
+  if (S.regulationEnded) {
+    var tied = sc[0] === sc[1];
+    banner.style.display = '';
+    banner.className = tied ? 'tied' : 'decided';
+    banner.innerHTML = tied
+      ? (S.shootoutStartSide
+          ? 'Game tied \u2014 penalty shootout in progress<br><button class="xgtBtn pri" id="xgtGameOverSoBtn">Continue shootout</button>'
+          : 'Regulation over, game tied ' + sc[0] + '\u2013' + sc[1] + '<br><button class="xgtBtn pri" id="xgtGameOverSoBtn">Continue with Penalty Shootout</button>')
+      : ('Game Over \u2014 ' + sc[0] + '\u2013' + sc[1]);
+    var soBtn = el('xgtGameOverSoBtn');
+    if (soBtn) soBtn.onclick = openShootout;
+  } else {
+    banner.style.display = 'none';
+  }
   var recent = S.events.slice(-8).reverse();
   el('xgtLog').innerHTML = recent.length
     ? recent.map(function (e) {
@@ -22248,9 +22297,11 @@ function renderBar() {
           ? '<span class="xgtChipBadges">' + (t.goals ? '<span class="xgtBadgeGoal">' + t.goals + '</span>' : '') +
             (t.fouls ? '<span class="xgtBadgeFoul">' + t.fouls + '</span>' : '') + '</span>'
           : '';
-        var quick = showingThem
-          ? '<span class="xgtQuick"><button data-quick-goal="' + n + '">+G</button><button data-quick-foul="' + n + '">+F</button></span>'
-          : '';
+        var quick = S.regulationEnded
+          ? '<span class="xgtQuick"><button data-quick-foul="' + n + '">+F</button></span>' // post-regulation misconduct: foul logging only, for whichever side is currently showing -- no more goals possible once the clock has expired
+          : (showingThem
+              ? '<span class="xgtQuick"><button data-quick-goal="' + n + '">+G</button><button data-quick-foul="' + n + '">+F</button></span>'
+              : '');
         var isGoalie = !showingThem && S.keepers.indexOf(n) >= 0;
         var displayText = isGoalie ? xgtKeeperLabel(n) : n;
         return '<div class="xgtChipWrap"><button class="xgtChip ' + (rosterWater.indexOf(n) >= 0 ? 'water' : '') + (isGoalie ? ' goalie' : '') + '" data-n="' + n + '">' +
@@ -22281,10 +22332,18 @@ function renderBar() {
           if (S.running) toggleClock(); // instant commit, no openZone()/commitDraft() pause-and-decide cycle to go through -- a goal stops play the moment it happens either way
         };
       });
+    }
+    if (showingThem || S.regulationEnded) {
+      // side (already computed above as showingThem ? 'them' : 'us') is
+      // what actually decides who this is logged against -- previously
+      // hardcoded to 'them' here, which was harmless while this only
+      // ever rendered for the opponent view, but would have silently
+      // mis-attributed every post-regulation foul logged against our
+      // own side once this button started appearing there too.
       Array.prototype.forEach.call(bar.querySelectorAll('[data-quick-foul]'), function (b) {
         b.onclick = function () {
-          commit({ actor: { side: 'them', number: +b.dataset.quickFoul }, action: 'exclusion',
-                   context: { kind: 'action', dir: null, dc: 'committed', note: 'quick-tap opponent personal foul' } });
+          commit({ actor: { side: side, number: +b.dataset.quickFoul }, action: 'exclusion',
+                   context: { kind: 'action', dir: null, dc: 'committed', note: 'quick-tap ' + (side === 'them' ? 'opponent' : 'own-side') + ' personal foul' } });
           if (S.running) toggleClock(); // same as the quick goal button above -- a personal foul stops play immediately, regardless of how it got logged
         };
       });
