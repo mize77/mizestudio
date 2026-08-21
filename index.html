@@ -20621,10 +20621,16 @@ function xgtWhoDrewFoul(e) {
 // an explicit events list (defaulting to the live S.events) so
 // xgtCheckDisqualification below can also ask "was this already true
 // BEFORE the event just committed", to fire its toast exactly once.
-// Exclusion (the ordinary 20s kickout) accumulates -- three of them
-// disqualifies; Excl.+Substitution and Brutality disqualify on their
-// own, the first time either happens. An ordinary Penalty foul does
-// neither, per confirmed scope.
+// Exclusion and Penalty both eject the offending player for the same
+// 20s kickout -- Penalty additionally gives the other team a penalty
+// shot, but the ejection itself is identical, so both accumulate
+// together toward the same three-strikes count. Excl.+Substitution
+// and Brutality disqualify on their own, the first time either
+// happens, and are tagged with their own specific reason rather than
+// the generic 'fouls' reason, so the chip can show a distinct marker
+// for those two even when the plain 3-foul count hasn't separately
+// been reached. A more specific reason is never overwritten by the
+// generic one if both would technically apply to the same player.
 function xgtDisqualifiedSet(side, eventsList) {
   var normSide = xgtDqSide(side);
   var counts = {}, dq = {};
@@ -20632,15 +20638,24 @@ function xgtDisqualifiedSet(side, eventsList) {
     if (e.action !== 'exclusion' || !e.outcome) return;
     var who = xgtWhoCommittedFoul(e);
     if (!who || xgtDqSide(who.side) !== normSide) return;
-    if (e.outcome === 'excl_sub' || e.outcome === 'brutality') { dq[who.number] = true; return; }
-    if (e.outcome === 'exclusion') {
+    if (e.outcome === 'excl_sub') { dq[who.number] = 'excl_sub'; return; }
+    if (e.outcome === 'brutality') { dq[who.number] = 'brutality'; return; }
+    if (e.outcome === 'exclusion' || e.outcome === 'penalty') {
       counts[who.number] = (counts[who.number] || 0) + 1;
-      if (counts[who.number] >= 3) dq[who.number] = true;
+      if (counts[who.number] >= 3 && !dq[who.number]) dq[who.number] = 'fouls';
     }
   });
   return dq;
 }
-function xgtDqClass(dqSet, number) { return dqSet[number] ? ' dqPlayer' : ''; }
+// Returns the disqualification reason itself (not just a boolean) so
+// callers can apply a reason-specific marker class -- dqExclSub /
+// dqBrutality get their own distinct visual mark (S / X), while the
+// plain 3-foul case just gets the shared dqPlayer treatment alone.
+function xgtDqClass(dqSet, number) {
+  var reason = dqSet[number];
+  if (!reason) return '';
+  return ' dqPlayer' + (reason === 'excl_sub' ? ' dqExclSub' : reason === 'brutality' ? ' dqBrutality' : '');
+}
 // Runs after every commit(). The only thing that ever needs doing here
 // -- the derived set above needs nothing done to it at all -- is the
 // mandatory removal from the water: a disqualified player has to leave
@@ -21137,6 +21152,17 @@ var CSS = [
 // this never needs touching each render site's own click-wiring loop
 // to keep it non-interactive -- the loop can stay exactly as it was.
 '.dqPlayer{opacity:.5;pointer-events:none}',
+// Distinct marker for the two disqualification reasons specific
+// enough to call out on their own (Excl.+Substitution / Brutality),
+// on top of the shared 50% opacity every disqualified player already
+// gets -- top-left corner, opposite the goal/foul count badges
+// (top-right), so the two never collide on the same chip.
+'.xgtChip.dqExclSub,.xgtChip.dqBrutality,.xgtNum.dqExclSub,.xgtNum.dqBrutality{position:relative}',
+'.xgtChip.dqExclSub::after,.xgtChip.dqBrutality::after,.xgtNum.dqExclSub::after,.xgtNum.dqBrutality::after{position:absolute;top:-6px;left:-6px;width:15px;height:15px;',
+'  border-radius:50%;background:#c0392b;color:#fff;font-size:9.5px;font-weight:800;display:flex;',
+'  align-items:center;justify-content:center;line-height:1}',
+'.xgtChip.dqExclSub::after,.xgtNum.dqExclSub::after{content:"S"}',
+'.xgtChip.dqBrutality::after,.xgtNum.dqBrutality::after{content:"X"}',
 '.xgtBtn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 16px;border-radius:12px;',
 '  background:#e1e6e6;border:1px solid #ccd6d6;font-weight:600;width:100%;color:#124d4d}',
 '#xgtSheet .xgtBtn.pri{background:#1b7373;border-color:transparent;color:#fff}',
@@ -21950,19 +21976,17 @@ function finish() {
   // Fires for any personal-foul outcome regardless of how it was
   // reached, including the referee-only bench-exclusion path, since a
   // bench exclusion still earns a specific opposing player a power play
-  // just the same as one drawn in open play.
-  //
-  // Skipped entirely for a Penalty or Brutality -- who committed it is
-  // already fully known (the tapped actor, always, now that there's no
-  // drawn/committed choice left to make), and who drew it is about to
-  // be settled by the guaranteed next step (the penalty shot's own
-  // shooter selection) anyway, so asking again here would just be one
-  // more required tap before that automatic hand-off, defeating the
-  // entire point of it being automatic. d.dc==='committed' check kept
-  // as a defensive safeguard even though it's now always true for an
-  // exclusion reaching this point in team mode.
-  var skipForAutoPenalty = (d.outcome === 'penalty' || d.outcome === 'brutality') && d.dc === 'committed';
-  if (isTeamMode && d.action === 'exclusion' && xgtHasAdvancedActions() && !d.foulCounterpartStepShown && !skipForAutoPenalty) {
+  // just the same as one drawn in open play. This includes Penalty and
+  // Brutality -- who EARNED the penalty (their own personal-foul stats,
+  // who drew it) and who actually SHOOTS the resulting penalty are two
+  // separate facts, not one: the shooter isn't necessarily the player
+  // who was fouled. A prior version of this skipped this step for
+  // Penalty/Brutality on the mistaken assumption that the shooter
+  // screen made it redundant -- it doesn't. What actually makes this
+  // "automatic" is that finish() still auto-continues straight into
+  // the penalty shot flow the moment this step is done, rather than
+  // requiring the coach to separately go find and open that screen.
+  if (isTeamMode && d.action === 'exclusion' && xgtHasAdvancedActions() && !d.foulCounterpartStepShown) {
     d.foulCounterpartStepShown = true;
     stepFoulCounterpart();
     return;
@@ -22917,8 +22941,15 @@ function renderBar() {
           // dqPlayer goes on the WRAP, not just the inner chip -- the
           // adjacent +G/+F quick buttons are siblings of the chip, not
           // its descendants, so putting it only on the chip itself would
-          // leave those still tappable for a disqualified player.
-          return '<div class="xgtChipWrap' + (dq ? ' dqPlayer' : '') + '"><button class="xgtChip ' + (rosterWater.indexOf(n) >= 0 ? 'water' : '') + (isGoalie ? ' goalie' : '') + '" data-n="' + n + '" data-side="' + side + '">' +
+          // leave those still tappable for a disqualified player. The
+          // reason-specific marker (dqExclSub/dqBrutality) goes on the
+          // chip itself instead, alongside its other classes -- that's
+          // where the CSS ::after marker is actually anchored, and
+          // wrapping it in this same variable was previously silently
+          // dropping it, since this render site built its own inline
+          // 'dqPlayer' string rather than calling xgtDqClass() at all.
+          var dqReasonClass = dq === 'excl_sub' ? ' dqExclSub' : dq === 'brutality' ? ' dqBrutality' : '';
+          return '<div class="xgtChipWrap' + (dq ? ' dqPlayer' : '') + '"><button class="xgtChip ' + (rosterWater.indexOf(n) >= 0 ? 'water' : '') + (isGoalie ? ' goalie' : '') + dqReasonClass + '" data-n="' + n + '" data-side="' + side + '">' +
             displayText + badges + '</button>' + quick + '</div>';
         }).join('') + '</div></div>';
     }
