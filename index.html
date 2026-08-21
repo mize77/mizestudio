@@ -21927,7 +21927,20 @@ function finish() {
   // reached, including the referee-only bench-exclusion path, since a
   // bench exclusion still earns a specific opposing player a power play
   // just the same as one drawn in open play.
-  if (isTeamMode && d.action === 'exclusion' && xgtHasAdvancedActions() && !d.foulCounterpartStepShown) {
+  //
+  // Skipped specifically for a Penalty or Brutality where the tapped
+  // player already committed it (dc==='committed') -- who committed it
+  // is already fully known (the tapped actor directly), and who drew
+  // it is about to be settled by the guaranteed next step (the penalty
+  // shot's own shooter selection) anyway, so asking again here would
+  // just be one more required tap before that automatic hand-off,
+  // defeating the entire point of it being automatic. Still asked when
+  // dc==='drawn' though (the tapped player was the one fouled) --
+  // Brutality's disqualification still needs the committing player
+  // identified in that case, and there's no next-step substitute for
+  // that information the way there is for who's shooting.
+  var skipForAutoPenalty = (d.outcome === 'penalty' || d.outcome === 'brutality') && d.dc === 'committed';
+  if (isTeamMode && d.action === 'exclusion' && xgtHasAdvancedActions() && !d.foulCounterpartStepShown && !skipForAutoPenalty) {
     d.foulCounterpartStepShown = true;
     stepFoulCounterpart();
     return;
