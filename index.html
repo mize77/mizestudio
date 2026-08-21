@@ -20361,7 +20361,6 @@ var S = {
   opponentTracked: false, oppSquad: [], oppWater: [], oppKeepers: [], // Phase E: opt-in opposing-team tracking, mirrors squad/water/keepers above
   keeperLabels: {}, // Phase F: number -> optional display label (e.g. {13:'1B'}) for competitions that label backup goalies 1A/1B/1C -- deliberately a SEPARATE map, not a change to S.keepers itself, so every existing sort()/indexOf()/currentKeeper() call touching keeper numbers keeps working on real numbers untouched
   trackScore: false, // opt-in "game score" display row, shown underneath the clock rather than flanking it -- most sessions are stats-first, not scoreboard-first, per confirmed feedback. A pure live-UI display preference, not game data (scoreOf() always computes the real score regardless of this flag) -- persisted locally so a resumed session keeps the choice, but deliberately NOT part of the cloud-synced record, since saved/combined session views already always show the score in their own header regardless of this toggle
-  barShowing: 'us', // Phase E: 'us' | 'them' -- which roster's water status the persistent bar currently shows; only relevant/visible when opponentTracked
   zoneNumberOverrides: {},     // {zoneId: displayNumber} -- per-device via localStorage (loadZoneNumberOverrides), NOT team-wide or database-backed; any coach/parent can set their own, deliberately
   q: 1, clock: QLEN, running: false, tick: null,
   events: [], undone: [], seq: 0,
@@ -20914,7 +20913,6 @@ function resetGameState() {
   S.squad = []; S.water = []; S.keepers = [];
   S.opponentTracked = false; S.oppSquad = []; S.oppWater = []; S.oppKeepers = [];
   S.keeperLabels = {};
-  S.barShowing = 'us';
   S.q = 1; S.clock = QLEN; S.running = false;
   if (S.tick) { clearInterval(S.tick); S.tick = null; }
   S.events = []; S.undone = []; S.seq = 0;
@@ -21046,6 +21044,12 @@ var CSS = [
 '#xgtSheet .xgtChip.goalie{background:#c0392b;color:#fff;border-color:transparent}',
 '#xgtRoot .xgtChip.goalie{box-shadow:inset 0 0 0 2px #c0392b}',
 // Phase E: live scoreboard badges + opponent quick-tap goal/foul buttons
+// Both rosters always visible now, side by side, rather than a toggle
+// that only ever showed one at a time -- own team left, opponent
+// right. Each column wraps its own chips independently, so a fuller
+// roster on one side doesn't push the other side's chips around.
+'.xgtBarSplit{display:flex;gap:10px;align-items:flex-start}',
+'.xgtBarCol{flex:1;min-width:0}',
 '.xgtChipWrap{position:relative;display:inline-flex;flex-direction:column;align-items:center;gap:3px}',
 '.xgtChipBadges{position:absolute;top:-6px;right:-6px;display:flex;gap:2px;pointer-events:none}',
 '.xgtBadgeGoal,.xgtBadgeFoul{font-size:9px;font-weight:800;min-width:14px;height:14px;border-radius:7px;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 2px;line-height:1}',
@@ -21791,21 +21795,20 @@ function stepVariant() {
 function stepOutcome() {
   var t = tree(), a = null, i;
   for (i = 0; i < t.length; i++) if (t[i].id === S.draft.action) a = t[i];
-  var dc = a.dc ? ('<div class="xgtSeg" id="xgtDc">' +
-      '<button data-dc="drawn" aria-pressed="' + (S.draft.dc === 'drawn') + '">Drawn by</button>' +
-      '<button data-dc="committed" aria-pressed="' + (S.draft.dc === 'committed') + '">Committed by</button></div>') : '';
+  // Always the player tapped first who committed it -- no "drawn by /
+  // committed by" choice anymore, per confirmed direction. The
+  // counterpart step right after this (stepFoulCounterpart) always
+  // asks who drew it instead, since that's the only direction left
+  // that ever needs a second player at all.
+  if (a.dc) S.draft.dc = 'committed';
   var back = a.variants ? stepVariant : stepAction;
   sheetEl().innerHTML = head('Zone ' + S.draft.fieldZoneName,
-      (S.draft.variantLabel ? S.draft.variantLabel : a.label) + ' — outcome', back) + dc +
+      (S.draft.variantLabel ? S.draft.variantLabel : a.label) + ' — outcome', back) +
     '<div class="xgtOpts ' + (a.children.length < 3 ? 'one' : '') + '">' + a.children.map(function (c) {
       return '<button class="xgtOpt ' + c.cls + '" data-s="' + c.id + '"><span class="dot"></span><span>' + c.label +
         (c.sub ? '<span class="sub">' + c.sub + '</span>' : '') + '</span></button>';
     }).join('') + '</div>';
   wire(back);
-  var seg = el('xgtDc');
-  if (seg) Array.prototype.forEach.call(seg.querySelectorAll('button'), function (b) {
-    b.onclick = function () { S.draft.dc = b.dataset.dc; stepOutcome(); };
-  });
   Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-s]'), function (b) {
     b.onclick = function () {
       var c = null, j;
@@ -21928,17 +21931,15 @@ function finish() {
   // bench exclusion still earns a specific opposing player a power play
   // just the same as one drawn in open play.
   //
-  // Skipped specifically for a Penalty or Brutality where the tapped
-  // player already committed it (dc==='committed') -- who committed it
-  // is already fully known (the tapped actor directly), and who drew
-  // it is about to be settled by the guaranteed next step (the penalty
-  // shot's own shooter selection) anyway, so asking again here would
-  // just be one more required tap before that automatic hand-off,
-  // defeating the entire point of it being automatic. Still asked when
-  // dc==='drawn' though (the tapped player was the one fouled) --
-  // Brutality's disqualification still needs the committing player
-  // identified in that case, and there's no next-step substitute for
-  // that information the way there is for who's shooting.
+  // Skipped entirely for a Penalty or Brutality -- who committed it is
+  // already fully known (the tapped actor, always, now that there's no
+  // drawn/committed choice left to make), and who drew it is about to
+  // be settled by the guaranteed next step (the penalty shot's own
+  // shooter selection) anyway, so asking again here would just be one
+  // more required tap before that automatic hand-off, defeating the
+  // entire point of it being automatic. d.dc==='committed' check kept
+  // as a defensive safeguard even though it's now always true for an
+  // exclusion reaching this point in team mode.
   var skipForAutoPenalty = (d.outcome === 'penalty' || d.outcome === 'brutality') && d.dc === 'committed';
   if (isTeamMode && d.action === 'exclusion' && xgtHasAdvancedActions() && !d.foulCounterpartStepShown && !skipForAutoPenalty) {
     d.foulCounterpartStepShown = true;
@@ -22306,17 +22307,18 @@ function stepAssist() {
   el('xgtAssistSkip').onclick = function () { d.assist = null; finish(); };
 }
 // Team mode only. After a personal-foul outcome, asks which specific
-// player on the OTHER team was the counterpart to the actor already
-// selected -- whichever role (drawing it / committing it) the actor
-// DIDN'T already fill, per d.dc. Same roster-or-manual-entry pattern as
-// stepAssist() above: chips from the other side's water when a real
-// roster exists for them, otherwise a manual number entry.
+// player on the OTHER team drew it -- the actor already selected is
+// always the one who committed it now (no more drawn/committed
+// choice), so the counterpart's role is never in question. Same
+// roster-or-manual-entry pattern as stepAssist() above: chips from the
+// other side's water when a real roster exists for them, otherwise a
+// manual number entry.
 function stepFoulCounterpart() {
   var d = S.draft;
   var otherSide = d.actor.side === 'us' ? 'opp' : 'us';
   var otherWater = otherSide === 'opp' ? S.oppWater : S.water;
   var hasRoster = otherSide === 'opp' ? S.opponentTracked : true;
-  var question = d.dc === 'committed' ? 'Who drew this?' : 'Who committed this?';
+  var question = 'Who drew this?';
   var fcDq = xgtDisqualifiedSet(otherSide);
   sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, question, null) +
     (hasRoster
@@ -22831,88 +22833,102 @@ function renderBar() {
                context: { kind: 'presence', dir: v ? 'out' : 'in', trackingMode: S.trackingMode, dc: null, note: null } });
     };
   } else {
-    // Phase E: with opponent tracking on, the bar shows one roster at a
-    // time (a small "Us"/"Them" toggle) rather than both simultaneously
-    // -- two full rosters at once was flagged as a real crowding risk on
-    // a phone-sized screen back in the design pass, before either side
-    // was actually built.
-    var showingThem = S.opponentTracked && S.barShowing === 'them';
-    var rosterSquad = showingThem ? S.oppSquad : S.squad;
-    var rosterWater = showingThem ? S.oppWater : S.water;
-    var side = showingThem ? 'them' : 'us';
-    var toggleHtml = S.opponentTracked
-      ? '<div class="xgtSeg" id="xgtBarSide" style="margin-bottom:8px">' +
-        '<button data-side="us" aria-pressed="' + (!showingThem) + '">Us</button>' +
-        '<button data-side="them" aria-pressed="' + showingThem + '">Them</button></div>'
-      : '';
-    bar.innerHTML = toggleHtml +
-      '<span class="xgtLbl">In the water · ' + rosterWater.length + '/7</span><div class="xgtChips">' +
-      rosterSquad.map(function (n) {
-        var dq = xgtDisqualifiedSet(side)[n];
-        var t = xgtLiveTally(side, n);
-        var badges = (t.goals || t.fouls)
-          ? '<span class="xgtChipBadges">' + (t.goals ? '<span class="xgtBadgeGoal">' + t.goals + '</span>' : '') +
-            (t.fouls ? '<span class="xgtBadgeFoul">' + t.fouls + '</span>' : '') + '</span>'
-          : '';
-        var quick = S.regulationEnded
-          ? '<span class="xgtQuick"><button data-quick-foul="' + n + '">+F</button></span>' // post-regulation misconduct: foul logging only, for whichever side is currently showing -- no more goals possible once the clock has expired
-          : (showingThem
-              ? '<span class="xgtQuick"><button data-quick-goal="' + n + '">+G</button><button data-quick-foul="' + n + '">+F</button></span>'
-              : '');
-        var isGoalie = !showingThem && S.keepers.indexOf(n) >= 0;
-        var displayText = isGoalie ? xgtKeeperLabel(n) : n;
-        // dqPlayer goes on the WRAP, not just the inner chip -- the
-        // adjacent +G/+F quick buttons are siblings of the chip, not
-        // its descendants, so putting it only on the chip itself would
-        // leave those still tappable for a disqualified player.
-        return '<div class="xgtChipWrap' + (dq ? ' dqPlayer' : '') + '"><button class="xgtChip ' + (rosterWater.indexOf(n) >= 0 ? 'water' : '') + (isGoalie ? ' goalie' : '') + '" data-n="' + n + '">' +
-          displayText + badges + '</button>' + quick + '</div>';
-      }).join('') + '</div>';
-
-    var sideToggle = el('xgtBarSide');
-    if (sideToggle) Array.prototype.forEach.call(sideToggle.querySelectorAll('[data-side]'), function (b) {
-      b.onclick = function () { S.barShowing = b.dataset.side; renderBar(); };
-    });
+    // Both rosters shown simultaneously now, side by side (own team
+    // left, opponent right), per confirmed direction -- replacing the
+    // earlier "Us"/"Them" toggle that only ever showed one roster at a
+    // time. If opponent tracking isn't on, there's no second roster to
+    // show at all, so only the left (own) column renders.
+    function renderBarColumn(side) {
+      var isUs = side === 'us';
+      var rosterSquad = isUs ? S.squad : S.oppSquad;
+      var rosterWater = isUs ? S.water : S.oppWater;
+      var keepers = isUs ? S.keepers : S.oppKeepers;
+      var dqSet = xgtDisqualifiedSet(side);
+      return '<div class="xgtBarCol">' +
+        '<span class="xgtLbl">' + (isUs ? 'Us' : 'Them') + ' \u00b7 ' + rosterWater.length + '/7</span>' +
+        '<div class="xgtChips">' + rosterSquad.map(function (n) {
+          var dq = dqSet[n];
+          var t = xgtLiveTally(side, n);
+          var badges = (t.goals || t.fouls)
+            ? '<span class="xgtChipBadges">' + (t.goals ? '<span class="xgtBadgeGoal">' + t.goals + '</span>' : '') +
+              (t.fouls ? '<span class="xgtBadgeFoul">' + t.fouls + '</span>' : '') + '</span>'
+            : '';
+          // Same rule as before, just keyed by this column's own fixed
+          // side rather than a global toggle: post-regulation, either
+          // side can pick up misconduct so +F alone shows for both;
+          // during regular play, only the opponent column gets the
+          // quick-tap +G too, since our own goals already have a real
+          // field zone to tap through instead.
+          var quick = S.regulationEnded
+            ? '<span class="xgtQuick"><button data-quick-foul="' + n + '" data-quick-side="' + side + '">+F</button></span>'
+            : (!isUs
+                ? '<span class="xgtQuick"><button data-quick-goal="' + n + '">+G</button><button data-quick-foul="' + n + '" data-quick-side="them">+F</button></span>'
+                : '');
+          // Both sides' goalkeepers get the same treatment now -- the
+          // opponent's was previously never marked at all (isGoalie
+          // was unconditionally false whenever this rendered their
+          // side), so their keeper never got the red outline this
+          // fixes for both columns alike.
+          var isGoalie = keepers.indexOf(n) >= 0;
+          var displayText = isGoalie && isUs ? xgtKeeperLabel(n) : n;
+          // dqPlayer goes on the WRAP, not just the inner chip -- the
+          // adjacent +G/+F quick buttons are siblings of the chip, not
+          // its descendants, so putting it only on the chip itself would
+          // leave those still tappable for a disqualified player.
+          return '<div class="xgtChipWrap' + (dq ? ' dqPlayer' : '') + '"><button class="xgtChip ' + (rosterWater.indexOf(n) >= 0 ? 'water' : '') + (isGoalie ? ' goalie' : '') + '" data-n="' + n + '" data-side="' + side + '">' +
+            displayText + badges + '</button>' + quick + '</div>';
+        }).join('') + '</div></div>';
+    }
+    bar.innerHTML = '<div class="xgtBarSplit">' + renderBarColumn('us') + (S.opponentTracked ? renderBarColumn('them') : '') + '</div>';
 
     Array.prototype.forEach.call(bar.querySelectorAll('[data-n]'), function (b) {
       b.onclick = function () {
-        var n = +b.dataset.n, waterArr = showingThem ? S.oppWater : S.water, i = waterArr.indexOf(n);
-        if (i >= 0) { waterArr.splice(i, 1); commit({ actor: { side: side, number: n }, context: { kind: 'presence', dir: 'out', trackingMode: 'coach', dc: null, note: null } }); }
+        var n = +b.dataset.n, side = b.dataset.side, waterArr = side === 'them' ? S.oppWater : S.water, i = waterArr.indexOf(n);
+        // Same 'them'->'opp' normalization as the quick-goal/quick-foul
+        // handlers below, and for the same reason: 'us'/'them' is only
+        // this bar's own internal column naming, while every commit
+        // elsewhere in the app uses 'us'/'opp'. xgtUndoAccidentalResub
+        // must be given this same normalized value, since it matches
+        // past events by an exact actor.side equality check.
+        var actorSide = side === 'them' ? 'opp' : side;
+        if (i >= 0) { waterArr.splice(i, 1); commit({ actor: { side: actorSide, number: n }, context: { kind: 'presence', dir: 'out', trackingMode: 'coach', dc: null, note: null } }); }
         else {
           if (waterArr.length >= 7) { toast('7 in the water already — sub someone out first.'); return; }
           waterArr.push(n); waterArr.sort(function (a, b2) { return a - b2; });
-          if (xgtUndoAccidentalResub(side, n)) {
+          if (xgtUndoAccidentalResub(actorSide, n)) {
             save(); render(); toast('Looked like a mis-tap \u2014 the earlier sub-out was removed, nothing logged.');
           } else {
-            commit({ actor: { side: side, number: n }, context: { kind: 'presence', dir: 'in', trackingMode: 'coach', dc: null, note: null } });
+            commit({ actor: { side: actorSide, number: n }, context: { kind: 'presence', dir: 'in', trackingMode: 'coach', dc: null, note: null } });
           }
         }
       };
     });
-    if (showingThem) {
-      Array.prototype.forEach.call(bar.querySelectorAll('[data-quick-goal]'), function (b) {
-        b.onclick = function () {
-          commit({ actor: { side: 'them', number: +b.dataset.quickGoal }, action: 'shot', outcome: 'goal', outcomeLabel: 'Goal',
-                   context: { kind: 'action', dir: null, dc: null, note: 'quick-tap opponent goal' } });
-          if (S.running) toggleClock(); // instant commit, no openZone()/commitDraft() pause-and-decide cycle to go through -- a goal stops play the moment it happens either way
+    Array.prototype.forEach.call(bar.querySelectorAll('[data-quick-goal]'), function (b) {
+      b.onclick = function () {
+        // actor.side must be 'opp', not 'them' -- 'them'/'us' is only
+        // ever this bar's own internal naming for which column a chip
+        // belongs to. scoreOf() and everything else downstream checks
+        // for 'opp' specifically, so committing 'them' here silently
+        // credited OUR OWN score for what was meant to be logged as
+        // the opponent's goal -- a real, pre-existing bug, not
+        // something intentional to preserve.
+        commit({ actor: { side: 'opp', number: +b.dataset.quickGoal }, action: 'shot', outcome: 'goal', outcomeLabel: 'Goal',
+                 context: { kind: 'action', dir: null, dc: null, note: 'quick-tap opponent goal' } });
+        if (S.running) toggleClock(); // instant commit, no openZone()/commitDraft() pause-and-decide cycle to go through -- a goal stops play the moment it happens either way
+      };
+    });
+    Array.prototype.forEach.call(bar.querySelectorAll('[data-quick-foul]'), function (b) {
+      b.onclick = function () {
+        var side = b.dataset.quickSide || 'them';
+        // Same 'them'->'opp' normalization as the quick-goal handler
+        // above, and for the identical reason -- only the note text
+        // below still cares about the bar's own 'us'/'them' naming.
+        var actorSide = side === 'them' ? 'opp' : side;
+        commit({ actor: { side: actorSide, number: +b.dataset.quickFoul }, action: 'exclusion',
+                 context: { kind: 'action', dir: null, dc: 'committed', note: 'quick-tap ' + (side === 'them' ? 'opponent' : 'own-side') + ' personal foul' } });
+        if (S.running) toggleClock(); // same as the quick goal button above -- a personal foul stops play immediately, regardless of how it got logged
         };
       });
-    }
-    if (showingThem || S.regulationEnded) {
-      // side (already computed above as showingThem ? 'them' : 'us') is
-      // what actually decides who this is logged against -- previously
-      // hardcoded to 'them' here, which was harmless while this only
-      // ever rendered for the opponent view, but would have silently
-      // mis-attributed every post-regulation foul logged against our
-      // own side once this button started appearing there too.
-      Array.prototype.forEach.call(bar.querySelectorAll('[data-quick-foul]'), function (b) {
-        b.onclick = function () {
-          commit({ actor: { side: side, number: +b.dataset.quickFoul }, action: 'exclusion',
-                   context: { kind: 'action', dir: null, dc: 'committed', note: 'quick-tap ' + (side === 'them' ? 'opponent' : 'own-side') + ' personal foul' } });
-          if (S.running) toggleClock(); // same as the quick goal button above -- a personal foul stops play immediately, regardless of how it got logged
-        };
-      });
-    }
   }
 }
 
