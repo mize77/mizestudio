@@ -20992,7 +20992,6 @@ var CSS = [
 '#xgtT{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.05}', // color intentionally NOT set here -- #xgtRoot button{color:inherit} outranks a lone #xgtT selector on specificity (ID+element beats ID alone), so the actual color rules live below, qualified the same way
 '#xgtRoot #xgtT{color:#c0392b}', // red while stopped -- ID+ID beats #xgtRoot button's ID+element
 '#xgtRoot #xgtT.run{color:#2e7d32}', // green while running -- needs the same #xgtRoot qualifier as the rule above, or its extra class alone isn't enough to outrank it
-'#xgtUtil{display:flex;gap:6px}',
 // Moved out of the main button row entirely and into a fixed corner --
 // on a phone in portrait, this was previously just one more button
 // crowded in among several others and easy to miss when actually
@@ -21012,9 +21011,6 @@ var CSS = [
 '#xgtGameOverBanner.tied{background:#fff3cd;color:#7a5b00}',
 '#xgtGameOverBanner.decided{background:#e1e6e6;color:#124d4d}',
 '#xgtGameOverBanner button{margin-top:6px;width:100%}',
-'#xgtUtil button{padding:6px 8px;border-radius:9px;font-size:11.5px;font-weight:650;',
-'  background:#e1e6e6;border:1px solid #ccd6d6;color:#124d4d}',
-'#xgtUtil .sp{flex:1}',
 '#xgtBottom{position:absolute;left:0;right:0;bottom:0;border-width:1px 0 0;',
 '  padding:8px 10px calc(env(safe-area-inset-bottom) + 8px);display:flex;flex-direction:column;gap:7px}',
 '#xgtLog{max-height:58px;overflow-y:auto;-webkit-overflow-scrolling:touch}',
@@ -21024,14 +21020,16 @@ var CSS = [
 '#xgtLog .tm{font-variant-numeric:tabular-nums;color:#7c8a8a;font-size:10.5px;width:50px;flex:none}',
 '#xgtLog .mn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
 '.xgtRow{display:flex;gap:7px;align-items:center;min-width:0}',
-'.xgtUb{flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:11px 12px;border-radius:11px;',
-'  background:#e1e6e6;border:1px solid #ccd6d6;font-size:13px;text-align:left;color:#124d4d}',
-'.xgtUb .ic{font-size:17px;flex:none}',
-'.xgtUb .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#54605f}',
-'.xgtUb .tx b{color:#14235c}',
-'#xgtRoot .xgtUb:active{background:#e53935}#xgtRoot .xgtUb:active,#xgtRoot .xgtUb:active .tx,#xgtRoot .xgtUb:active .tx b{color:#fff}',
-'.xgtUb[disabled]{opacity:.4}',
-'.xgtUb.redo{flex:none;width:52px;justify-content:center}#xgtRoot .xgtUb.redo:active{background:#2e7d32;color:#fff}',
+// Attached directly to the latest log entry rather than living on
+// their own dedicated row -- opacity lives on each button itself, not
+// the shared container, so the :active override below can push a
+// specific button to full opacity without the parent's opacity
+// multiplying it back down.
+'.lrActions{display:flex;gap:4px;flex:none}',
+'.lrActions button{width:22px;height:22px;padding:0;border-radius:6px;border:1px solid #ccd6d6;background:#fff;',
+'  font-size:12px;display:flex;align-items:center;justify-content:center;color:#124d4d;flex:none;opacity:.5}',
+'#xgtRoot .lrUndo:active{opacity:1;background:#e53935;color:#fff;border-color:transparent}',
+'#xgtRoot .lrRedo:active{opacity:1;background:#2e7d32;color:#fff;border-color:transparent}',
 '.xgtWho{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:11px;background:#e1e6e6;',
 '  border:1px solid #ccd6d6;flex:1;min-width:0;color:#14235c}',
 '.xgtWho .num{font-size:18px;font-weight:750;font-variant-numeric:tabular-nums}',
@@ -21066,6 +21064,14 @@ var CSS = [
 // roster on one side doesn't push the other side's chips around.
 '.xgtBarSplit{display:flex;gap:10px;align-items:flex-start}',
 '.xgtBarCol{flex:1;min-width:0}',
+// A narrow, fixed-width divider between the two roster columns rather
+// than competing for space with either -- the side borders are what
+// actually read as "a natural separation of both teams" visually,
+// with Options/Stats living inside that same divider since it needs
+// to be somewhere, and this is the one place already structurally
+// between the two teams.
+'.xgtBarUtil{display:flex;flex-direction:column;gap:6px;flex:none;padding:2px 8px;border-left:1px solid #e1e6e6;border-right:1px solid #e1e6e6;justify-content:center}',
+'.xgtBarUtil button{font-size:10.5px;font-weight:650;padding:6px 9px;border-radius:8px;background:#e1e6e6;border:1px solid #ccd6d6;color:#124d4d;white-space:nowrap}',
 '.xgtChipWrap{position:relative;display:inline-flex;flex-direction:column;align-items:center;gap:3px}',
 '.xgtChipBadges{position:absolute;top:-6px;right:-6px;display:flex;gap:2px;pointer-events:none}',
 '.xgtBadgeGoal,.xgtBadgeFoul{font-size:9px;font-weight:800;min-width:14px;height:14px;border-radius:7px;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 2px;line-height:1}',
@@ -21285,15 +21291,9 @@ function buildChrome() {
         '<div id="xgtClock"><button id="xgtQ">Q1 ✎</button><button id="xgtT">8:00</button></div>' +
       '</div>' +
       '<div id="xgtGameOverBanner" style="display:none"></div>' +
-      '<div id="xgtUtil">' +
-      '<button id="xgtOptionsBtn">\u2699 Options</button>' +
-      '<div class="sp"></div>' +
-      '<button id="xgtStatsBtn">Stats</button>' +
-      '</div>' +
     '</div>' +
     '<div class="xgtPane" id="xgtBottom">' +
       '<div id="xgtLog"></div>' +
-      '<div class="xgtRow" id="xgtUndo"></div>' +
       '<div id="xgtBar"></div>' +
     '</div>';
   var scrim = document.createElement('div'); scrim.id = 'xgtScrim';
@@ -21348,17 +21348,7 @@ function buildChrome() {
 
   el('xgtQ').onclick = openClock;
   el('xgtT').onclick = toggleClock;
-  el('xgtStatsBtn').onclick = function () {
-    // Single-game stats, including JSON/CSV export of THIS game's event
-    // log, are free for everyone -- deliberately not gated. The paid
-    // tier is what's built on top of a single game, not the single game
-    // itself: aggregating stats across multiple saved sessions, and PDF
-    // exports of the visual analytics (field-zone heat maps, goal-zone
-    // placement maps). Neither of those exists yet as of this comment.
-    openStats();
-  };
   el('xgtExitBtn').onclick = function () { API.close(); };
-  el('xgtOptionsBtn').onclick = openOptions;
   scrim.addEventListener('click', function () {
     var f = S.onScrim; if (f) { S.onScrim = null; f(); } else closeSheet();
   });
@@ -22790,18 +22780,29 @@ function render() {
     banner.style.display = 'none';
   }
   var recent = S.events.slice(-8).reverse();
+  var red = S.undone[S.undone.length - 1];
+  // Undo/redo attach directly to the latest entry now, rather than
+  // living on their own dedicated row -- only ever rendered on recent[0]
+  // (the most recent event), since that's the only one undo can ever
+  // act on. No separate "nothing to undo" state needed either: with
+  // nothing logged yet, there's no latest row to attach anything to,
+  // so the controls simply don't appear at all. redo naturally
+  // disappears the instant a new event commits, since commit() already
+  // clears S.undone right there -- this only changes where the button
+  // shows, not when it's actually available.
   el('xgtLog').innerHTML = recent.length
-    ? recent.map(function (e) {
+    ? recent.map(function (e, i) {
+        var isLatest = i === 0;
         return '<div class="lr"><span class="tm">Q' + e.quarter + ' ' + fmt(e.gameClock) + '</span>' +
-               '<span class="mn">' + describe(e) + '</span></div>';
+               '<span class="mn">' + describe(e) + '</span>' +
+               (isLatest
+                 ? '<span class="lrActions"><button class="lrUndo" id="xgtUn" title="Undo">\u21ba</button>' +
+                   (red ? '<button class="lrRedo" id="xgtRd" title="Redo">\u21bb</button>' : '') + '</span>'
+                 : '') +
+               '</div>';
       }).join('')
     : '<div class="lr"><span class="mn" style="color:#7c8a8a">Tap the zone where the action happened.</span></div>';
-  var last = S.events[S.events.length - 1], red = S.undone[S.undone.length - 1];
-  el('xgtUndo').innerHTML =
-    '<button class="xgtUb" id="xgtUn" ' + (last ? '' : 'disabled') + '><span class="ic">↺</span>' +
-    '<span class="tx">' + (last ? '<b>Undo</b> — ' + describe(last) : 'Nothing to undo') + '</span></button>' +
-    (red ? '<button class="xgtUb redo" id="xgtRd"><span class="ic">↻</span></button>' : '');
-  if (last) el('xgtUn').onclick = undoLast;
+  if (recent.length) el('xgtUn').onclick = undoLast;
   if (red) el('xgtRd').onclick = redoLast;
   renderBar();
   paintClock();
@@ -22865,12 +22866,15 @@ function renderBar() {
       '<div class="meta" style="flex:1">' + (S.me.name || (gk ? 'Goalkeeper' : 'My player')) + '<br>' +
       (gk ? 'In goal' : 'In water') + ' ' + fmt(waterSeconds(S.me.number)) + '</div></div></div>' +
       '<div class="xgtRow"><button class="xgtPill ' + (iw ? 'in' : 'out') + '" id="xgtPres" style="flex:1">' +
-      (iw ? '● ' + (gk ? 'In goal' : 'In the water') + ' — tap to sub out' : '○ On the bench — tap to sub in') + '</button></div>';
+      (iw ? '● ' + (gk ? 'In goal' : 'In the water') + ' — tap to sub out' : '○ On the bench — tap to sub in') + '</button></div>' +
+      '<div class="xgtRow" style="margin-top:7px"><button id="xgtOptionsBtn" style="flex:1">\u2699 Options</button><button id="xgtStatsBtn" style="flex:1">Stats</button></div>';
     el('xgtPres').onclick = function () {
       var v = inWater(S.me.number);
       commit({ actor: { side: 'us', number: S.me.number },
                context: { kind: 'presence', dir: v ? 'out' : 'in', trackingMode: S.trackingMode, dc: null, note: null } });
     };
+    el('xgtOptionsBtn').onclick = openOptions;
+    el('xgtStatsBtn').onclick = function () { openStats(); };
   } else {
     // Both rosters shown simultaneously now, side by side (own team
     // left, opponent right), per confirmed direction -- replacing the
@@ -22918,7 +22922,20 @@ function renderBar() {
             displayText + badges + '</button>' + quick + '</div>';
         }).join('') + '</div></div>';
     }
-    bar.innerHTML = '<div class="xgtBarSplit">' + renderBarColumn('us') + (S.opponentTracked ? renderBarColumn('them') : '') + '</div>';
+    bar.innerHTML = '<div class="xgtBarSplit">' + renderBarColumn('us') +
+      '<div class="xgtBarUtil"><button id="xgtOptionsBtn">\u2699 Options</button><button id="xgtStatsBtn">Stats</button></div>' +
+      (S.opponentTracked ? renderBarColumn('them') : '') + '</div>';
+
+    el('xgtOptionsBtn').onclick = openOptions;
+    el('xgtStatsBtn').onclick = function () {
+      // Single-game stats, including JSON/CSV export of THIS game's event
+      // log, are free for everyone -- deliberately not gated. The paid
+      // tier is what's built on top of a single game, not the single game
+      // itself: aggregating stats across multiple saved sessions, and PDF
+      // exports of the visual analytics (field-zone heat maps, goal-zone
+      // placement maps). Neither of those exists yet as of this comment.
+      openStats();
+    };
 
     Array.prototype.forEach.call(bar.querySelectorAll('[data-n]'), function (b) {
       b.onclick = function () {
