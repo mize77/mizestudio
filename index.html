@@ -20306,6 +20306,22 @@ function currentKeeper(side) {
 // already depends on keeper numbers being real numbers keeps working
 // exactly as before. Only what gets SHOWN on screen changes.
 function xgtKeeperLabel(n) { return (S.keeperLabels && S.keeperLabels[n]) || n; }
+// This side's real team name if one's been entered, otherwise a
+// generic fallback -- used at every button/label anywhere in the
+// tracker that refers to "my team" or "the opponent", so a coach who's
+// entered real names sees them everywhere instead of just on the
+// scoreboard. `style` picks the fallback that actually fits the
+// grammar it's being dropped into: 'short' for a standalone label
+// ("Us"/"Them"), 'possessive' for mid-sentence use ("Our"/"Their"),
+// 'full' for a fallback meant to stand alone as a button/heading on
+// its own ("My Team"/"Opponent"). Defaults to 'short'.
+function xgtTeamLabel(side, style) {
+  var name = side === 'us' ? S.game.home : S.game.away;
+  if (name) return name;
+  if (style === 'possessive') return side === 'us' ? 'Our' : 'Their';
+  if (style === 'full') return side === 'us' ? 'My Team' : 'Opponent';
+  return side === 'us' ? 'Us' : 'Them';
+}
 
 /* --------------------------------------------------------- goal placement */
 var GOALG = { frame: { x: 130, y: 96, w: 340, h: 110 }, mouth: { x: 150, y: 116, w: 300, h: 90 }, waterY: 206 };
@@ -20964,7 +20980,7 @@ var CSS = [
 '.xgtPane{pointer-events:auto;background:#fff;border:1px solid #ccd6d6;box-shadow:0 2px 14px rgba(20,35,92,.10)}',
 '#xgtTop{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;gap:6px;',
 '  padding:calc(env(safe-area-inset-top) + 5px) 10px 5px;border-width:0 0 1px}',
-'#xgtClockRow{display:flex;align-items:center;justify-content:center;gap:16px}', // now a 3-part row (home score / clock / away score) rather than the clock alone -- see xgtScore below for how the score elements join this same row without a second visibility toggle to keep in sync
+'#xgtClockRow{display:flex;align-items:center;justify-content:center;gap:16px;padding-right:38px}', // now a 3-part row (home score / clock / away score) rather than the clock alone -- see xgtScore below for how the score elements join this same row without a second visibility toggle to keep in sync. padding-right reserves exactly #xgtExitBtn's own footprint (32px wide, 6px offset) so the away team's name/score never sits underneath it, regardless of team name length
 '#xgtScore{display:contents}', // deliberately not a real box -- its two .tm children become direct flex items of xgtClockRow above when shown (positioned via order, not DOM position, so xgtClock can stay in the middle), and the existing single S.trackScore toggle in render() still shows/hides both at once by switching this to 'none'
 '#xgtClock{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none;order:2}', // middle position, between the two scores
 '#xgtTop .tm{flex:1;min-width:0;order:1}',
@@ -21176,10 +21192,25 @@ var CSS = [
 '#xgtStats.on{display:block}',
 '#xgtStats h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:#7c8a8a;margin:16px 0 8px}',
 '.xgtCard{background:#fff;border:1px solid #d5dede;border-radius:14px;padding:12px;margin-bottom:10px}',
-'.xgtTiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}',
-'.xgtTile{background:#fff;border:1px solid #d5dede;border-radius:12px;padding:10px 9px}',
-'.xgtTile .v{font-size:23px;font-weight:750;line-height:1.05;color:#124d4d}',
-'.xgtTile .k{font-size:9.5px;color:#7c8a8a;font-weight:600;margin-top:3px}',
+// Portrait: 4-wide grid, wraps into as many rows as needed. Landscape:
+// switches to flex so every tile fits in one row regardless of count,
+// rather than a fixed column count that would either waste width or
+// wrap unnecessarily on a wide screen.
+'.xgtTiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}',
+'@media (orientation:landscape){.xgtTiles{display:flex;flex-wrap:nowrap}.xgtTiles .xgtTile{flex:1;min-width:0}}',
+'.xgtTile{background:#fff;border:1px solid #d5dede;border-radius:10px;padding:7px 5px;text-align:center}',
+'.xgtTile .v{font-size:18px;font-weight:750;line-height:1.05;color:#124d4d}',
+'.xgtTile .k{font-size:8px;color:#7c8a8a;font-weight:600;margin-top:2px;line-height:1.15}',
+// Player overview: tiles instead of full-width table rows -- 3-wide
+// portrait, 6-wide landscape.
+'.xgtPlayerTiles{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px}',
+'@media (orientation:landscape){.xgtPlayerTiles{grid-template-columns:repeat(6,1fr)}}',
+'.xgtPlayerTile{background:#fff;border:1px solid #d5dede;border-radius:10px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-family:inherit}',
+'.xgtPlayerTile.goalie{box-shadow:inset 0 0 0 2px #c0392b}',
+'.xgtPlayerTile .num{font-size:16px;font-weight:750;color:#124d4d}',
+'.xgtPlayerTile .pstats{display:flex;gap:5px;font-size:9.5px;color:#7c8a8a;font-weight:700}',
+'.xgtPlayerTile .pstats .g{color:#1b7373}',
+'.xgtPlayerTile .pstats .f{color:#c0392b}',
 '#xgtStats table{width:100%;border-collapse:collapse;font-size:12.5px}',
 '#xgtStats th{text-align:left;font-size:10px;text-transform:uppercase;color:#7c8a8a;padding:6px 4px;border-bottom:1px solid #ccd6d6}',
 '#xgtStats td{padding:7px 4px;border-bottom:1px solid #e1e6e6;font-variant-numeric:tabular-nums;color:#14235c}',
@@ -21618,16 +21649,16 @@ function stepPlayer() {
   // here anyway.
   var ourDq = xgtDisqualifiedSet('us'), oppDq = xgtDisqualifiedSet('opp');
   sheetEl().innerHTML = head('Zone ' + S.draft.fieldZoneName, 'Who?', null) +
-    '<span class="xgtLbl">Us</span>' +
+    '<span class="xgtLbl">' + xgtTeamLabel('us') + '</span>' +
     '<div class="xgtNums">' + (ourNums.length
       ? ourNums.map(function (n) { return '<button class="xgtNum' + xgtDqClass(ourDq, n) + '" data-us-n="' + n + '">' + xgtKeeperLabel(n) + '</button>'; }).join('')
       : '<p class="xgtNote" style="margin:2px 0">No players currently in the water.</p>') + '</div>' +
-    '<span class="xgtLbl" style="margin-top:10px;display:block">Them</span>' +
+    '<span class="xgtLbl" style="margin-top:10px;display:block">' + xgtTeamLabel('opp') + '</span>' +
     (oppTracked
       ? '<div class="xgtNums">' + (oppNums.length
           ? oppNums.map(function (n) { return '<button class="xgtNum' + xgtDqClass(oppDq, n) + '" data-opp-n="' + n + '">' + n + '</button>'; }).join('')
           : '<p class="xgtNote" style="margin:2px 0">No opponent players currently in the water.</p>') + '</div>'
-      : '<button class="xgtOpt c" id="xgtOpp" style="width:100%"><span class="dot"></span>Opponent</button>') +
+      : '<button class="xgtOpt c" id="xgtOpp" style="width:100%"><span class="dot"></span>' + xgtTeamLabel('opp', 'full') + '</button>') +
     '<div style="height:9px"></div>' +
     '<button class="xgtBtn" id="xgtBenchExclusionBtn" style="width:100%">Bench exclusion (referee only)</button>';
   wire(null);
@@ -21677,11 +21708,11 @@ function stepBenchExclusion() {
   var ourDq = xgtDisqualifiedSet('us'), oppDq = xgtDisqualifiedSet('opp');
   sheetEl().innerHTML = head('Zone ' + S.draft.fieldZoneName, 'Bench exclusion \u2014 who?', stepPlayer) +
     '<p class="xgtNote" style="margin:0 0 8px">For referee-issued exclusions on a player who wasn\u2019t in the water for this play.</p>' +
-    '<span class="xgtLbl">Us</span>' +
+    '<span class="xgtLbl">' + xgtTeamLabel('us') + '</span>' +
     '<div class="xgtNums">' + (ourBench.length
       ? ourBench.map(function (n) { return '<button class="xgtNum' + xgtDqClass(ourDq, n) + '" data-bench-us="' + n + '">' + xgtKeeperLabel(n) + '</button>'; }).join('')
       : '<p class="xgtNote" style="margin:2px 0">No bench players.</p>') + '</div>' +
-    '<span class="xgtLbl" style="margin-top:10px;display:block">Them</span>' +
+    '<span class="xgtLbl" style="margin-top:10px;display:block">' + xgtTeamLabel('opp') + '</span>' +
     (S.opponentTracked
       ? '<div class="xgtNums">' + (oppBench.length
           ? oppBench.map(function (n) { return '<button class="xgtNum' + xgtDqClass(oppDq, n) + '" data-bench-opp="' + n + '">' + n + '</button>'; }).join('')
@@ -21736,7 +21767,7 @@ function stepAction() {
     attr = '<div class="xgtSeg" id="xgtAttr">' +
       '<button data-a="us" aria-pressed="' + (S.draft.actor.side === 'us') + '">#' + S.me.number + ' mine</button>' +
       '<button data-a="team" aria-pressed="' + (S.draft.actor.side === 'team') + '">Team-mate</button>' +
-      '<button data-a="opp" aria-pressed="' + (S.draft.actor.side === 'opp') + '">Opponent</button></div>';
+      '<button data-a="opp" aria-pressed="' + (S.draft.actor.side === 'opp') + '">' + xgtTeamLabel('opp', 'full') + '</button></div>';
   }
   sheetEl().innerHTML = head('Zone ' + S.draft.fieldZoneName, crumb, back) + attr +
     '<div class="xgtOpts">' + t.map(function (a) {
@@ -21964,29 +21995,23 @@ function finish() {
     stepBlockResult();
     return;
   }
-  // Team mode only, and only for a block by OUR OWN keeper -- d.actor is
-  // whoever took the shot, so actor.side==='opp' means an opponent shot
-  // that OUR keeper faced and blocked (per selectTeamActor(), the
-  // opposing side's current keeper is always the one attributed to a
-  // shot). Outlet-pass tracking is explicitly own-team-only per the
-  // confirmed scope, so this deliberately never fires for actor.side
-  // ==='us' (our own shot blocked by their side) -- there'd be no
-  // opponent-keeper outlet pass to track even if it fired. Also requires
-  // blockResult==='gk_in' -- if the block sent the ball out (corner
-  // throw) or was made by a field defender rather than the keeper,
-  // there's no live possession for our goalkeeper to actually have, so
-  // this step (and the outlet-pass chain beyond it) has nothing to ask.
+  // "What happens to the ball next" is just as open a question whether
+  // the block was made by the goalkeeper or a field defender, and
+  // whether it was our shot or theirs that got kept in play -- the
+  // ball didn't go out and didn't cleanly reach either team in any of
+  // these cases. Previously scoped "own-team-only" (only fired for our
+  // own keeper's save against their shot), which left three of the
+  // four shooter/blocker combinations with no follow-up at all. Per
+  // confirmed direction, this now fires for all of them alike.
   //
   // A shot that hits the post or crossbar is exactly as live as a save
   // that's kept in play -- it didn't go out and didn't cleanly reach
   // the other team either, so what happens to it next is just as open
-  // a question. Scoped the same own-team-only way as the block case:
-  // only fires when it's THEIR shot that struck our frame, since
-  // that's the only direction this tracking is actually useful for.
+  // a question, in either shooting direction.
+  var keptInPlay = d.outcome === 'blocked' && (d.blockResult === 'gk_in' || d.blockResult === 'fp_in');
   var hitFrame = d.action === 'shot' && d.outcome === 'missed' && d.goalPlacement &&
     ['post_left', 'crossbar', 'post_right'].indexOf(d.goalPlacement.area) >= 0;
-  if (isTeamMode && ((d.outcome === 'blocked' && d.blockResult === 'gk_in') || hitFrame) &&
-      d.actor.side === 'opp' && xgtHasAdvancedActions() && !d.possessionStepShown) {
+  if (isTeamMode && (keptInPlay || hitFrame) && xgtHasAdvancedActions() && !d.possessionStepShown) {
     d.possessionStepShown = true;
     stepPossession();
     return;
@@ -21996,7 +22021,13 @@ function finish() {
     stepReboundFollowup();
     return;
   }
-  var goalieHasBall = d.possession === 'goalie' || (d.possession === 'rebound_own' && d.reboundFollowup === 'pass_back');
+  // Outlet-pass tracking keeps its own, separate, deliberate
+  // own-team-only scope even though the possession question above no
+  // longer does -- it's specifically about OUR keeper's own outlet-pass
+  // patterns, so it still only fires when actor.side==='opp' (their
+  // shot, our keeper actually the one holding it), regardless of which
+  // direction the possession question itself just fired for.
+  var goalieHasBall = (d.possession === 'goalie' || (d.possession === 'rebound_own' && d.reboundFollowup === 'pass_back')) && d.actor.side === 'opp';
   var zone = d.fieldZone, zoneName = d.fieldZoneName;
   commitDraft();
   // Chained AFTER the blocked-shot event above has already committed,
@@ -22085,7 +22116,7 @@ function openRegularPenalty(side) {
   drawShooter();
 
   function drawShooter() {
-    sheetEl().innerHTML = head('Penalty (5 m)', (side === 'us' ? 'Our' : 'Their') + ' penalty \u2014 who\u2019s shooting?', null) +
+    sheetEl().innerHTML = head('Penalty (5 m)', xgtTeamLabel(side, 'possessive') + ' penalty \u2014 who\u2019s shooting?', null) +
       '<div class="xgtNums" id="xgtRegPenShooters">' + (fallback
         ? Array.apply(null, { length: 20 }).map(function (_, i) { return i + 1; }).map(function (n) {
             return '<button class="xgtNum" data-reg-pen-shooter="' + n + '">' + n + '</button>';
@@ -22169,11 +22200,18 @@ function stepBlockResult() {
 }
 function stepPossession() {
   var d = S.draft;
+  // Named explicitly (Us/Them) rather than relative (our/the other) --
+  // this now fires for a shot either team took, so "our team" would
+  // read backwards exactly half the time otherwise. Values stay
+  // relative to the DEFENDING side, same meaning as before
+  // (actor.side==='opp' means THEY shot, so WE'RE the defenders here).
+  var defenderLabel = xgtTeamLabel(d.actor.side === 'opp' ? 'us' : 'opp');
+  var shooterLabel = xgtTeamLabel(d.actor.side === 'opp' ? 'opp' : 'us');
   sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Blocked! What happens to the ball?', null) +
     '<div class="xgtOpts one">' +
-      '<button class="xgtOpt g" data-poss="goalie"><span class="dot"></span>Goalie keeps possession</button>' +
-      '<button class="xgtOpt c" data-poss="rebound_opp"><span class="dot"></span>Rebound \u2014 to the other team</button>' +
-      '<button class="xgtOpt w" data-poss="rebound_own"><span class="dot"></span>Rebound \u2014 to our team</button>' +
+      '<button class="xgtOpt g" data-poss="goalie"><span class="dot"></span>' + defenderLabel + ' goalie keeps possession</button>' +
+      '<button class="xgtOpt c" data-poss="rebound_opp"><span class="dot"></span>Rebound \u2014 to ' + shooterLabel + '</button>' +
+      '<button class="xgtOpt w" data-poss="rebound_own"><span class="dot"></span>Rebound \u2014 to ' + defenderLabel + '</button>' +
     '</div>';
   el('xgtX').onclick = function () { closeSheet(); };
   Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-poss]'), function (b) {
@@ -22182,7 +22220,8 @@ function stepPossession() {
 }
 function stepReboundFollowup() {
   var d = S.draft;
-  sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Rebound to our team \u2014 then what?', null) +
+  var defenderLabel = d.actor.side === 'opp' ? 'our' : 'their';
+  sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Rebound to ' + defenderLabel + ' team \u2014 then what?', null) +
     '<div class="xgtOpts one">' +
       '<button class="xgtOpt g" data-rf="pass_back"><span class="dot"></span>Passed back to the goalie</button>' +
       '<button class="xgtOpt c" data-rf="player_keeps"><span class="dot"></span>Player keeps possession</button>' +
@@ -22326,7 +22365,7 @@ function stepFoulCounterpart() {
         otherWater.map(function (n) {
           return '<button class="xgtChip' + xgtDqClass(fcDq, n) + '" data-fc="' + n + '">' + xgtKeeperLabel(n) + '</button>';
         }).join('') + '</div>'
-      : '<span class="xgtLbl">' + (otherSide === 'us' ? 'Our' : 'Their') + ' cap number</span>' +
+      : '<span class="xgtLbl">' + xgtTeamLabel(otherSide, 'possessive') + ' cap number</span>' +
         '<div class="xgtRow"><input class="xgtField" id="xgtFoulNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" ' +
         'placeholder="#" style="flex:0 0 90px;text-align:center;font-size:19px;font-weight:700"></div>' +
         '<button class="xgtBtn pri" id="xgtFoulOk" style="margin-top:8px">Confirm</button>') +
@@ -22538,7 +22577,7 @@ function openShootout() {
 
   function drawDeclareRoster(side) {
     var chosen = S.shootoutRoster[side];
-    sheetEl().innerHTML = head('Penalty Shootout', (side === 'us' ? 'Our' : 'Their') + ' shootout lineup', null) +
+    sheetEl().innerHTML = head('Penalty Shootout', xgtTeamLabel(side, 'possessive') + ' shootout lineup', null) +
       '<p class="xgtNote" style="margin-top:0">No roster was tracked for ' + (side === 'us' ? 'us' : 'them') +
       ' during the game -- tap every cap number who could shoot, just this once. Five is typical; the same list is reused for the whole shootout, including any repeat rounds.</p>' +
       '<div class="xgtChips" id="xgtSoDeclare">' + Array.apply(null, { length: 20 }).map(function (_, i) {
@@ -22564,8 +22603,8 @@ function openShootout() {
     sheetEl().innerHTML = head('Penalty Shootout', 'Who shoots first?', null) +
       '<p class="xgtNote" style="margin-top:0">Decided once, right now -- every attempt after this alternates automatically, no need to pick a side each time.</p>' +
       '<div class="xgtRow" style="margin-top:10px">' +
-        '<button class="xgtBtn pri" id="xgtSoStartUs" style="flex:1">Us</button>' +
-        '<button class="xgtBtn" id="xgtSoStartThem" style="flex:1">Them</button></div>';
+        '<button class="xgtBtn pri" id="xgtSoStartUs" style="flex:1">' + xgtTeamLabel('us') + '</button>' +
+        '<button class="xgtBtn" id="xgtSoStartThem" style="flex:1">' + xgtTeamLabel('them') + '</button></div>';
     el('xgtX').onclick = function () { closeSheet(); };
     el('xgtSoStartUs').onclick = function () { S.shootoutStartSide = 'us'; openShootout(); };
     el('xgtSoStartThem').onclick = function () { S.shootoutStartSide = 'them'; openShootout(); };
@@ -22619,18 +22658,18 @@ function openShootout() {
       (decided.decided
         ? '<div class="soDecidedBanner">Shootout decided \u2014 ' + (decided.winner === 'us' ? 'Us win' : 'Them win') + '</div>'
         : '') +
-      '<span class="xgtLbl" style="display:block;font-size:15px;font-weight:800">' + (side === 'us' ? 'Us' : 'Them') + ' shooting \u2014 tap the cap number</span>' +
+      '<span class="xgtLbl" style="display:block;font-size:15px;font-weight:800">' + xgtTeamLabel(side) + ' shooting \u2014 tap the cap number</span>' +
       '<div class="xgtNums" id="xgtSoShooters">' + roster.map(function (n) {
         return '<button class="xgtNum ' + shootoutHighlightClass(shootoutShotCount(side, n)) + xgtDqClass(shootDq, n) + '" data-so-shooter="' + n + '">' + xgtKeeperLabel(n) + '</button>';
       }).join('') + '</div>' +
-      '<span class="xgtLbl" style="margin-top:14px">' + (defSide === 'us' ? 'Our' : 'Their') + ' goalkeeper</span>' +
+      '<span class="xgtLbl" style="margin-top:14px">' + xgtTeamLabel(defSide, 'possessive') + ' goalkeeper</span>' +
       '<div class="xgtChips" id="xgtSoDefGk">' + defGkOptions.map(function (n) {
         return '<button class="xgtChip' + xgtDqClass(defGkDq, n) + '" data-so-def-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers[defSide] === n) + '">' + xgtKeeperLabel(n) + '</button>';
       }).join('') + '</div>' +
       (attempts.length
         ? '<span class="xgtLbl" style="margin-top:16px">Attempts so far</span>' +
           '<div class="xgtCard"><table>' + attempts.map(function (e) {
-            var sideLabel = (e.actor && e.actor.side === 'them') ? 'Them' : 'Us';
+            var sideLabel = xgtTeamLabel(e.actor && e.actor.side === 'them' ? 'them' : 'us');
             return '<tr><td>' + sideLabel + '</td><td>#' + (e.actor ? e.actor.number : '?') + '</td><td>' + (e.outcomeLabel || '') + '</td></tr>';
           }).join('') + '</table></div>'
         : '') +
@@ -22845,7 +22884,7 @@ function renderBar() {
       var keepers = isUs ? S.keepers : S.oppKeepers;
       var dqSet = xgtDisqualifiedSet(side);
       return '<div class="xgtBarCol">' +
-        '<span class="xgtLbl">' + (isUs ? 'Us' : 'Them') + ' \u00b7 ' + rosterWater.length + '/7</span>' +
+        '<span class="xgtLbl">' + xgtTeamLabel(side) + ' \u00b7 ' + rosterWater.length + '/7</span>' +
         '<div class="xgtChips">' + rosterSquad.map(function (n) {
           var dq = dqSet[n];
           var t = xgtLiveTally(side, n);
@@ -23435,6 +23474,17 @@ function openTeamStats(side) {
   var keepers = side === 'us' ? S.keepers : S.oppKeepers;
   var t = xgtTeamStats(side);
   var teamName = side === 'us' ? (S.game.home || 'My team') : (S.game.away || 'Opponent');
+  var otherTeamName = side === 'us' ? (S.game.away || 'Opponent') : (S.game.home || 'My team');
+  // Offensive: every shot THIS side took, wherever it went -- same
+  // events feed both the field-origin map and the goal-placement map,
+  // same pairing openPlayerStats() already uses for one player at a
+  // time, just scoped to the whole side here instead of one number.
+  var offensiveEvs = actionEvents().filter(function (e) { return e.actor && e.actor.side === side && e.action === 'shot'; });
+  // Defensive: every shot the OTHER side took against this side's
+  // goal -- the mirror image, showing what this team faced and how it
+  // was handled, regardless of which specific keeper was between the
+  // posts for any given shot.
+  var defensiveEvs = actionEvents().filter(function (e) { return e.actor && e.actor.side !== side && e.action === 'shot'; });
   box.innerHTML =
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
       '<button class="xgtIcon" id="xgtSb">‹ Back</button>' +
@@ -23450,25 +23500,29 @@ function openTeamStats(side) {
       [t.turnovers, 'TURNOVERS'], [t.assists, 'ASSISTS']].map(function (x) {
         return '<div class="xgtTile"><div class="v">' + x[0] + '</div><div class="k">' + x[1] + '</div></div>';
       }).join('') + '</div>' +
+    '<h2>Where ' + teamName + '\u2019s shots came from</h2>' +
+    '<div class="xgtCard" style="padding:8px">' + heatFieldSvg(offensiveEvs) + '</div>' +
+    '<h2>' + otherTeamName + '\u2019s goal \u2014 ' + teamName + '\u2019s shooting</h2><div class="xgtCard">' + goalMapHtml(offensiveEvs) + '</div>' +
+    '<h2>' + teamName + '\u2019s goal \u2014 shots faced</h2><div class="xgtCard">' + goalMapHtml(defensiveEvs) + '</div>' +
     '<h2>Players \u2014 tap a number for their own stats</h2>' +
-    '<div class="xgtCard"><table><tr><th>#</th><th style="text-align:right">Goals</th><th style="text-align:right">Fouls</th></tr>' +
+    '<div class="xgtPlayerTiles">' +
       squad.slice().sort(function (a, b) { return a - b; }).map(function (n) {
         var isGk = keepers.indexOf(n) >= 0;
         var ps = xgtPlayerStats(side, n, isGk);
         var goalsOrSaves = isGk ? ps.saves : ps.goals;
-        return '<tr class="xgtStatsPlayerRow" data-player-n="' + n + '" style="cursor:pointer">' +
-          '<td>' + xgtKeeperLabel(n) + (isGk ? ' \uD83E\uDDE4' : '') + '</td>' +
-          '<td style="text-align:right">' + goalsOrSaves + '</td>' +
-          '<td style="text-align:right">' + (ps.exGiven || 0) + '</td></tr>';
-      }).join('') + '</table></div>';
+        return '<button class="xgtPlayerTile' + (isGk ? ' goalie' : '') + '" data-player-n="' + n + '">' +
+          '<div class="num">' + xgtKeeperLabel(n) + '</div>' +
+          '<div class="pstats"><span class="g">' + goalsOrSaves + (isGk ? ' sv' : ' g') + '</span><span class="f">' + (ps.exGiven || 0) + ' f</span></div>' +
+        '</button>';
+      }).join('') + '</div>';
   box.classList.add('on');
   el('xgtSb').onclick = function () { box.classList.remove('on'); };
   var sideToggle = el('xgtStatsSide');
   if (sideToggle) Array.prototype.forEach.call(sideToggle.querySelectorAll('[data-stats-side]'), function (b) {
     b.onclick = function () { openTeamStats(b.dataset.statsSide); };
   });
-  Array.prototype.forEach.call(box.querySelectorAll('.xgtStatsPlayerRow'), function (row) {
-    row.onclick = function () { openPlayerStats(side, +row.dataset.playerN, function () { openTeamStats(side); }); };
+  Array.prototype.forEach.call(box.querySelectorAll('.xgtPlayerTile'), function (tile) {
+    tile.onclick = function () { openPlayerStats(side, +tile.dataset.playerN, function () { openTeamStats(side); }); };
   });
 }
 // One player's full detail view, reachable only from openTeamStats
