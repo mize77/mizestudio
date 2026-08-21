@@ -22130,6 +22130,14 @@ function openRegularPenalty(side) {
   drawShooter();
 
   function drawShooter() {
+    // openSheet() re-adds the 'on' class that commitDraft()'s closeSheet()
+    // just removed -- without this, the HTML below was being generated
+    // correctly but the sheet itself stayed transformed off-screen,
+    // invisible, since nothing ever told it to slide back into view.
+    // Same pattern openOutletPass() already uses correctly for the
+    // identical situation (a new draft/screen opened right after a
+    // prior one just committed, rather than continuing an existing one).
+    openSheet();
     sheetEl().innerHTML = head('Penalty (5 m)', xgtTeamLabel(side, 'possessive') + ' penalty \u2014 who\u2019s shooting?', null) +
       '<div class="xgtNums" id="xgtRegPenShooters">' + (fallback
         ? Array.apply(null, { length: 20 }).map(function (_, i) { return i + 1; }).map(function (n) {
