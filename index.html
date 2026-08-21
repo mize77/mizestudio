@@ -947,7 +947,7 @@
   #mizeDialogInput { display:none; width:calc(100% - 40px); margin:10px 20px 4px; padding:9px 10px; font-size:13.5px; border:1.5px solid #c3d2d2; border-radius:8px; box-sizing:border-box; }
   #mizeDialogButtons { display:flex; justify-content:flex-end; gap:8px; padding:16px 20px 20px; }
   #mizeDialogButtons button { padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600; border:1px solid #c3d2d2; background:#eef4f4; cursor:pointer; }
-  #mizeDialogOkBtn { background:#1b7373; color:#fff; border-color:#1b7373; }
+  #mizeDialogButtons #mizeDialogOkBtn { background:#1b7373; color:#fff; border-color:#1b7373; }
   /* ===== Guest Experience overlays =====
      Full-screen, above everything else including the tutorial banner
      (z-index higher than #tutorialBanner's 1570) -- these represent a
@@ -1002,6 +1002,7 @@
   #xquixHomeScreen { display:none; position:fixed; inset:0; z-index:9000; background:radial-gradient(ellipse 900px 500px at 50% -8%, #123434 0%, #081c1a 45%, #050f0e 75%, #030807 100%); flex-direction:column; align-items:center; overflow-y:auto; padding:48px 20px 40px; box-sizing:border-box; }
   #xquixHomeScreen.open { display:flex; }
   .xquixHomeEyebrow { font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:700; letter-spacing:.16em; color:#2dd4c8; text-transform:uppercase; margin:0 0 10px; }
+  #brandLogoHome { height:44px; display:block; margin:0 auto 14px; }
   .xquixHomeHeading { font-family:'Space Grotesk',sans-serif; font-size:clamp(22px,4vw,30px); font-weight:600; color:#f2fbfa; margin:0 0 40px; text-align:center; }
   .xquixHomeCircles { display:flex; flex-wrap:wrap; gap:28px; justify-content:center; max-width:900px; }
   .xquixHomeCircle { position:relative; width:150px; background:none; border:none; padding:0; cursor:pointer; display:flex; flex-direction:column; align-items:center; -webkit-tap-highlight-color:transparent; }
@@ -2176,7 +2177,7 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
   </div>
 </div>
 <div id="xquixHomeScreen">
-  <div class="xquixHomeEyebrow">XquiX</div>
+  <img id="brandLogoHome" alt="XquiX Studio">
   <h1 class="xquixHomeHeading">What do you want to do?</h1>
   <div class="xquixHomeCircles">
     <div class="xquixHomeTutorialsWrap">
@@ -3125,6 +3126,13 @@ MIZE.Branding.applyHtmlLogos = function(){
   // Shared default image, read once from the field logo's own embedded
   // data rather than storing the same base64 blob five times over.
   const defaultHref = document.getElementById('fieldCenterLogo')?.getAttribute('href') || '';
+  // Home screen logo: always just the shared default, not its own
+  // independently configurable placement (no enabled/height/opacity
+  // controls of its own in the Branding Manager) -- proportional to
+  // what was actually asked for, replacing a plain text label rather
+  // than adding a fifth fully white-label-able logo slot.
+  const homeEl = document.getElementById('brandLogoHome');
+  if(homeEl) homeEl.src = defaultHref;
   Object.keys(MIZE_BRANDING_HTML_LOGO_MAP).forEach(key=>{
     const el = document.getElementById(MIZE_BRANDING_HTML_LOGO_MAP[key]);
     if(!el) return;
@@ -3968,7 +3976,13 @@ document.getElementById('freeAccessBackBtn')?.addEventListener('click', ()=>{
   showFreeAccessOverlay('freeAccessEmailScreen');
   freeAccessClearCodeState();
   const input = document.getElementById('freeAccessEmailInput');
-  if(input) setTimeout(()=>input.focus(), 50);
+  // select(), not just focus() -- with only focus(), the cursor lands
+  // in the field but the previous address stays intact as plain text,
+  // so the first keystroke appends onto it rather than replacing it.
+  // Selecting it means typing immediately overwrites the whole thing,
+  // while still leaving it there to click into and fix a typo without
+  // retyping the entire address, exactly as before.
+  if(input) setTimeout(()=>{ input.focus(); input.select(); }, 50);
 });
 // ===== Account UI (Milestone 4) =====
 // Plain array rather than a <select> hardcoded into the static HTML --
@@ -5709,15 +5723,14 @@ async function xquixOfferLocalMigrationIfNeeded(){
     }
   }
   if(totalCount === 0) return;
-  const formCount = toUpload.formation.length, seqCount = toUpload.sequence.length;
-  const parts = [];
-  if(formCount) parts.push(formCount+' formation'+(formCount===1?'':'s'));
-  if(seqCount) parts.push(seqCount+' sequence'+(seqCount===1?'':'s'));
-  const proceed = await MizeDialog.confirm(
-    'You have '+parts.join(' and ')+' saved locally on this device that aren\u2019t in your account yet. Upload them now so they\u2019re available on other devices too? Your local copies stay right where they are either way.',
-    'Upload local saves?'
-  );
-  if(!proceed) return;
+  // No confirmation dialog and no result popup, matching
+  // xquixMigrateLibraryToCloud() right below -- this used to ask via
+  // MizeDialog.confirm()/alert() before and after, which is exactly the
+  // boot-time interruption already removed from that sibling migration
+  // for the same reason. This one was a genuine miss, not a reversal --
+  // the upload itself is safe and non-destructive (local copies are
+  // left untouched either way), so it now just proceeds, logged instead
+  // of announced.
   let uploaded = 0, failed = 0;
   for(const kind of kinds){
     for(const name of toUpload[kind]){
@@ -5728,9 +5741,9 @@ async function xquixOfferLocalMigrationIfNeeded(){
   }
   if(typeof renderCustomSystems==='function') renderCustomSystems();
   if(typeof renderPackages==='function') renderPackages();
-  MizeDialog.alert(failed>0
-    ? 'Uploaded '+uploaded+' item(s). '+failed+' didn\u2019t make it -- your local copies are untouched, try again later.'
-    : 'Uploaded '+uploaded+' item(s) to your account.');
+  console.info('XQUIX: local-to-cloud formation/sequence upload complete.', failed>0
+    ? uploaded+' item(s) uploaded, '+failed+' failed (local copies untouched, retry by signing out and back in).'
+    : uploaded+' item(s) uploaded to your account.');
 }
 XQUIX.Auth.onChange((user)=>{ if(user) xquixSwitchToCloudProvider(); else xquixSwitchToLocalProvider(); });
 
@@ -21802,14 +21815,20 @@ function buildGoalSvg(mode, noBlock) {
 }
 function stepPlacement(c) {
   var miss = c.placement === 'miss';
+  // A penalty is strictly one-on-one by rule -- no field defender can
+  // legally be involved, same reasoning as useGkTree's goalkeeper-
+  // tracking mode already gets right (that tree has its own dedicated
+  // "Defender Block" outcome instead, making the miss-grid's in-cage
+  // option redundant there too).
+  var noBlock = !!(S.draft.useGkTree || S.draft.variant === 'penalty');
   sheetEl().innerHTML = head('Zone ' + S.draft.fieldZoneName,
       miss ? (c.label + ' — where did it miss?') : (c.label + ' — where in the goal?'), stepOutcome) +
     '<p class="xgtNote" style="margin:0 0 6px">' + (miss
-      ? (S.draft.useGkTree
+      ? (noBlock
           ? 'Tap where it went — post, bar, wide or short.'
           : 'Tap where the ball went — post, bar, or wide. If a field player blocked it on the way in, tap inside the cage.')
       : 'Roughly where in the goal? Skip if you are not sure — speed beats completeness.') + '</p>' +
-    buildGoalSvg(miss ? 'miss' : 'in', !!S.draft.useGkTree) +
+    buildGoalSvg(miss ? 'miss' : 'in', noBlock) +
     '<button class="xgtBtn" id="xgtSkip">Skip placement</button>';
   wire(stepOutcome);
   Array.prototype.forEach.call(sheetEl().querySelectorAll('.gz'), function (g) {
@@ -21834,10 +21853,12 @@ function finish() {
   // stays true only for single-player goalkeeper-tracking mode's "the
   // untracked opponent scored on our known keeper" case, where there's
   // no opponent roster to meaningfully ask about anyway -- excluded here
-  // exactly as before. The guard flag prevents stepAssist()'s own
+  // exactly as before. variant!=='penalty' excluded too -- a penalty is
+  // a direct, unassisted attempt by rule, so there's genuinely no
+  // assist question to ask. The guard flag prevents stepAssist()'s own
   // buttons -- which call finish() again once an assist is picked or
   // skipped -- from re-triggering this same prompt.
-  if (d.outcome === 'goal' && !d.useGkTree && xgtHasAdvancedActions() && !d.assistStepShown) {
+  if (d.outcome === 'goal' && !d.useGkTree && d.variant !== 'penalty' && xgtHasAdvancedActions() && !d.assistStepShown) {
     d.assistStepShown = true;
     stepAssist();
     return;
@@ -21882,7 +21903,17 @@ function finish() {
   // throw) or was made by a field defender rather than the keeper,
   // there's no live possession for our goalkeeper to actually have, so
   // this step (and the outlet-pass chain beyond it) has nothing to ask.
-  if (isTeamMode && d.outcome === 'blocked' && d.actor.side === 'opp' && d.blockResult === 'gk_in' && xgtHasAdvancedActions() && !d.possessionStepShown) {
+  //
+  // A shot that hits the post or crossbar is exactly as live as a save
+  // that's kept in play -- it didn't go out and didn't cleanly reach
+  // the other team either, so what happens to it next is just as open
+  // a question. Scoped the same own-team-only way as the block case:
+  // only fires when it's THEIR shot that struck our frame, since
+  // that's the only direction this tracking is actually useful for.
+  var hitFrame = d.action === 'shot' && d.outcome === 'missed' && d.goalPlacement &&
+    ['post_left', 'crossbar', 'post_right'].indexOf(d.goalPlacement.area) >= 0;
+  if (isTeamMode && ((d.outcome === 'blocked' && d.blockResult === 'gk_in') || hitFrame) &&
+      d.actor.side === 'opp' && xgtHasAdvancedActions() && !d.possessionStepShown) {
     d.possessionStepShown = true;
     stepPossession();
     return;
@@ -21955,13 +21986,20 @@ function xgtFouledSide(ev) {
   if (ev.context && ev.context.dc === 'committed') return ev.actor.side === 'us' ? 'opp' : 'us';
   return null;
 }
-// Deliberately its own small flow rather than a rerun of the
-// shootout's openShootout() -- there's no alternating side, no running
-// shootout tally, and no "who's up" state to manage here, just one
-// specific shot for the side that just drew the foul. Reuses
-// buildGoalSvg() for placement, same as the shootout does, and skips a
-// block-result sub-step entirely: a penalty shot is strictly
-// one-on-one by rule, so "a field defender blocked it" never applies.
+// Only the shooter-selection screen is bespoke here -- everything
+// after that hands off entirely to the SAME pipeline a normal field-
+// zone-tapped shot goes through: stepOutcome() -> stepPlacement() ->
+// finish()'s full chain (assist/block-result/possession/rebound) ->
+// commitDraft(). Deliberately NOT a simplified, standalone copy of
+// that logic the way the shootout's own openShootout() is -- that
+// gets away with it only because a shootout attempt has no live-ball
+// aftermath to ask about at all; a penalty during regular play very
+// much does (a save that's kept in play, or a post/crossbar hit,
+// still needs "what happens next" resolved exactly like any other
+// shot). variant:'penalty' on the draft is what the small, targeted
+// checks in stepPlacement()/stepBlockResult()/finish() key off of to
+// know a field-defender block is impossible and an assist can never
+// apply here, without duplicating any of the rest of that machinery.
 function openRegularPenalty(side) {
   var roster = side === 'us' ? S.water : (S.opponentTracked ? S.oppWater : []);
   // Genuinely can happen for the opponent's side if opponent tracking
@@ -21984,51 +22022,28 @@ function openRegularPenalty(side) {
           }).join('')) + '</div>';
     el('xgtX').onclick = function () { closeSheet(); };
     Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-reg-pen-shooter]'), function (b) {
-      b.onclick = function () { drawOutcome(+b.dataset.regPenShooter); };
+      b.onclick = function () {
+        var number = +b.dataset.regPenShooter;
+        // Same shape openZone() builds for a normal tapped shot, minus
+        // the field-position-specific bits (fieldZone/fieldCoordinates)
+        // a penalty genuinely doesn't have. fieldZoneName still gets a
+        // real value so every downstream header ("Zone " + ...) reads
+        // sensibly rather than showing "Zone undefined".
+        S.draft = {
+          clockAtTapTime: S.clock,
+          fieldZone: null, fieldZoneName: 'Penalty',
+          fieldCoordinates: null,
+          actor: { side: side, number: number },
+          useGkTree: false,
+          goalkeeper: currentKeeper(side === 'us' ? 'opp' : 'us'),
+          targetGoal: side === 'us' ? 'opponent' : 'own',
+          action: 'shot', actionLabel: 'Shot',
+          variant: 'penalty', variantLabel: 'Penalty',
+          outcome: null, outcomeLabel: null, dc: null, goalPlacement: null
+        };
+        stepOutcome();
+      };
     });
-  }
-
-  function drawOutcome(number) {
-    sheetEl().innerHTML = head('Penalty (5 m)', '#' + xgtKeeperLabel(number) + ' \u2014 outcome', drawShooter) +
-      '<div class="xgtRow" style="margin-top:10px">' +
-        '<button class="xgtBtn pri" id="xgtRegPenGoal" style="flex:1">Goal</button>' +
-        '<button class="xgtBtn" id="xgtRegPenMiss" style="flex:1">Miss</button>' +
-        '<button class="xgtBtn" id="xgtRegPenSave" style="flex:1">Saved</button></div>';
-    wire(drawShooter);
-    el('xgtRegPenGoal').onclick = function () { drawPlacement(number, 'goal', 'Goal', false); };
-    el('xgtRegPenMiss').onclick = function () { drawPlacement(number, 'missed', 'Missed', true); };
-    el('xgtRegPenSave').onclick = function () { drawPlacement(number, 'blocked', 'Saved', false); };
-  }
-
-  function drawPlacement(number, outcome, outcomeLabel, miss) {
-    sheetEl().innerHTML = head('Penalty (5 m)', outcomeLabel + ' \u2014 where?', function () { drawOutcome(number); }) +
-      '<p class="xgtNote" style="margin:0 0 6px">Roughly where in the goal? Skip if you are not sure.</p>' +
-      buildGoalSvg(miss ? 'miss' : 'in', true) +
-      '<button class="xgtBtn" id="xgtRegPenSkip">Skip placement</button>';
-    wire(function () { drawOutcome(number); });
-    Array.prototype.forEach.call(sheetEl().querySelectorAll('.gz'), function (g) {
-      g.addEventListener('click', function () {
-        g.classList.add('flash');
-        if (navigator.vibrate) navigator.vibrate(8);
-        var placement = { grid: miss ? 'miss' : '3x3', area: g.dataset.p, label: g.dataset.l };
-        setTimeout(function () { logRegularPenalty(number, outcome, outcomeLabel, placement); }, 90);
-      });
-    });
-    el('xgtRegPenSkip').onclick = function () { logRegularPenalty(number, outcome, outcomeLabel, null); };
-  }
-
-  function logRegularPenalty(number, outcome, outcomeLabel, placement) {
-    commit({
-      actor: { side: side, number: number },
-      action: 'shot', actionLabel: 'Shot',
-      variant: 'penalty', variantLabel: 'Penalty',
-      outcome: outcome, outcomeLabel: outcomeLabel,
-      goalPlacement: placement,
-      goalkeeper: currentKeeper(side === 'us' ? 'opp' : 'us'),
-      targetGoal: side === 'us' ? 'opponent' : 'own',
-      context: { kind: 'action', trackingMode: S.trackingMode, dc: null, note: null, tree: 'field' }
-    });
-    closeSheet();
   }
 }
 // ============================================================= outlet pass
@@ -22056,7 +22071,7 @@ function openRegularPenalty(side) {
 // judgment call to leave to the coach.
 function stepBlockResult() {
   var d = S.draft;
-  var knownBlocker = d.outcome === 'def_block' ? 'fp' : (d.useGkTree ? 'gk' : null);
+  var knownBlocker = d.outcome === 'def_block' ? 'fp' : ((d.useGkTree || d.variant === 'penalty') ? 'gk' : null);
   if (knownBlocker) {
     var label = knownBlocker === 'gk' ? 'Save' : 'Defender block';
     var outLabel = knownBlocker === 'gk' ? 'Went out \u2014 Corner throw' : 'Went out \u2014 Goalie ball';
