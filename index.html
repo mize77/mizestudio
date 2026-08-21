@@ -209,11 +209,16 @@
   }
   #workspace { width:min(98vw,1480px); margin:16px auto; display:flex; gap:14px; align-items:flex-start; }
   #stageWrap { flex:1 1 auto; min-width:0; position:relative; }
-  #controlsPanel { width:280px; position:fixed; top:0; right:0; height:100vh; height:100dvh; overflow-y:auto; background:#fff; border-left:1px solid #d9e0e0; box-shadow:-6px 0 24px rgba(0,0,0,.18); padding:16px 12px 24px; display:flex; flex-direction:column; gap:8px; z-index:320; transform:translateX(100%); transition:transform .25s ease; }
+  #controlsPanel { width:280px; position:fixed; top:0; right:0; height:100vh; height:100dvh; overflow-y:auto; background:#fff; border-left:1px solid #d9e0e0; box-shadow:-6px 0 24px rgba(0,0,0,.18); padding:0 12px 24px; display:flex; flex-direction:column; gap:8px; z-index:320; transform:translateX(100%); transition:transform .25s ease; }
   #controlsPanel.open { transform:translateX(0); }
-  #closeSidebarBtn { align-self:flex-end; margin-bottom:4px; padding:6px 12px; }
-  body.presentation #closeSidebarBtn { font-size:0; width:30px; height:30px; padding:0; border-radius:50%; background:rgba(20,20,20,.85); color:#fff; border:1.5px solid rgba(255,255,255,.5); position:relative; }
-  body.presentation #closeSidebarBtn::before { content:'\2715'; font-size:14px; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  /* Sticky, not just top-of-list -- stays pinned through the rest of
+     the panel's own scrolling, independent of which menu/submenu is
+     open below it. background:#fff is required for a sticky element to
+     actually occlude content scrolling underneath it, not just visual
+     decoration. */
+  .sidebarStickyHeader { position:sticky; top:0; z-index:5; background:#fff; padding:16px 0 10px; margin-bottom:4px; text-align:center; }
+  #controlsPanel #closeSidebarBtn { position:absolute; top:10px; right:0; padding:0; width:32px; height:32px; min-width:32px; border-radius:50%; background:#e1e9e9; border:1.5px solid #b7c4c4; color:#1a2424; font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:center; text-align:center; }
+  body.presentation #controlsPanel #closeSidebarBtn { background:rgba(20,20,20,.85); color:#fff; border:1.5px solid rgba(255,255,255,.5); }
   header { z-index:1530; }
   header { top:24%; left:50%; width:min(640px,92vw); border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.45); transform:translate(-50%,-50%) translateY(-150vh); transition:transform .25s ease; padding-top:12px; pointer-events:none; }
   header.shown { transform:translate(-50%,-50%); pointer-events:auto; }
@@ -479,7 +484,7 @@
   #timelinePanel.vertical { width:190px; }
   #timelinePanel.vertical #timelineControls { flex-direction:column; align-items:stretch; }
   #timelinePanel.vertical #frameStrip { flex-direction:column; overflow-x:visible; overflow-y:auto; max-height:40vh; }
-  #timelineControls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  #timelineControls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding-left:26px; padding-right:26px; }
   #frameStrip { display:flex; gap:8px; overflow-x:auto; padding-top:8px; }
   .frameBtn { min-width:78px; text-align:center; border:1px solid #b7c4c4; border-radius:8px; background:#fff; padding:7px 8px; cursor:grab; font-weight:700; touch-action:none; transition:box-shadow .15s ease, opacity .15s ease; }
   .frameBtn.dragging { opacity:.85; box-shadow:0 8px 20px rgba(0,0,0,.2); z-index:5; cursor:grabbing; transition:none; }
@@ -1058,29 +1063,38 @@
   .presTextSwingRow { display:flex; gap:14px; margin-top:30px; flex-wrap:wrap; justify-content:center; }
   .presTextSwingBtn { padding:12px 22px; border-radius:999px; background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; font-size:14px; font-weight:600; cursor:pointer; }
   .presTextSwingBtn:hover { background:rgba(255,255,255,.24); }
-  .cmdCatHeader { width:100%; display:flex; align-items:center; justify-content:space-between; text-align:left; background:#fff; border:0; border-radius:9px; padding:8px 10px; font-size:12.5px; }
-  .cmdCatHeader .chev { transition:transform .15s; color:#8a9494; font-size:11px; }
+  /* Tile grid, both levels: the category row itself, and each open
+     category's own flyout of items. An open category/sub-group spans
+     the full width of whatever grid it's actually sitting in (its own
+     row of tiles becomes one tall cell containing the tile header plus
+     its now-visible content stacked below), rather than each level
+     needing separate, bespoke expand/collapse layout math. */
+  .cmdCategoryGrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:4px; }
+  .cmdCategory { display:flex; flex-direction:column; min-width:0; }
+  .cmdCategory.open { grid-column:1 / -1; }
+  .cmdCatHeader { width:100%; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; text-align:center; background:#f6f9f9; border:1px solid #e5eaea; border-radius:10px; padding:10px 6px; font-size:11.5px; font-weight:700; min-height:60px; line-height:1.25; }
+  .cmdCatHeader .chev { transition:transform .15s; color:#8a9494; font-size:10px; }
   .cmdCategory.open .cmdCatHeader .chev { transform:rotate(90deg); }
-  .cmdCategory.open .cmdCatHeader { border-bottom-left-radius:0; border-bottom-right-radius:0; }
+  .cmdCategory.open .cmdCatHeader { border-bottom-left-radius:0; border-bottom-right-radius:0; background:#eef4f4; border-color:#c3d2d2; }
   .cmdQuick { display:flex; gap:4px; padding:6px 8px 8px; flex-wrap:wrap; }
   .cmdQuick button { flex:1 1 auto; font-size:10.5px; padding:6px 5px; }
-  .cmdFlyout { display:none; flex-direction:column; gap:6px; padding:8px; }
-  .cmdCategory.open .cmdFlyout { display:flex; }
-  .cmdFlyout button { width:100%; text-align:left; }
+  .cmdFlyout { display:none; grid-template-columns:repeat(3, 1fr); gap:6px; padding:8px; background:#fbfcfc; border:1px solid #e5eaea; border-top:0; border-radius:0 0 10px 10px; }
+  .cmdCategory.open .cmdFlyout { display:grid; }
+  .cmdFlyout > button, .cmdFlyout > label { width:100%; text-align:center; }
   /* Sub-groups: for categories with too many items to show flat without
      the category itself overflowing the sidebar's height limit. Same
      collapse/expand pattern as .cmdCategory, one level deeper -- opening
      the category never overflows on its own, since it's just a short list
-     of sub-group headers until one of those is opened too. */
-  .subGroup { border:1px solid #e5eaea; border-radius:9px; margin-top:6px; overflow:hidden; }
-  .subGroup:first-child { margin-top:0; }
-  .subGroupHeader { width:100%; display:flex; align-items:center; justify-content:space-between; text-align:left; background:#f6f9f9; border:0; border-radius:9px; padding:7px 10px; font-size:11.5px; color:#4a5757; }
+     of sub-group tiles until one of those is opened too. */
+  .subGroup { border:1px solid #e5eaea; border-radius:9px; overflow:hidden; display:flex; flex-direction:column; min-width:0; }
+  .subGroup.open { grid-column:1 / -1; }
+  .subGroupHeader { width:100%; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; text-align:center; background:#f6f9f9; border:0; padding:8px 6px; font-size:11px; color:#4a5757; min-height:52px; line-height:1.2; }
   .subGroupHeader .chev { transition:transform .15s; color:#8a9494; font-size:10px; }
   .subGroup.open .subGroupHeader .chev { transform:rotate(90deg); }
   .subGroup.open .subGroupHeader { border-bottom-left-radius:0; border-bottom-right-radius:0; }
-  .subGroupFlyout { display:none; flex-direction:column; gap:5px; padding:8px; }
-  .subGroup.open .subGroupFlyout { display:flex; }
-  .subGroupFlyout button { width:100%; text-align:left; }
+  .subGroupFlyout { display:none; grid-template-columns:repeat(3, 1fr); gap:5px; padding:8px; }
+  .subGroup.open .subGroupFlyout { display:grid; }
+  .subGroupFlyout button { width:100%; text-align:center; }
   /* Flyouts open purely via click (see JS below) -- a hover-based show was
      removed since it could fight with the click-toggle depending on exact
      mouse movement, closing a flyout the user just opened. */
@@ -1098,8 +1112,19 @@
 
   /* ---- Draggable timeline ---- */
   #timelineControls { cursor:default; }
-  #timelineDragHandle { cursor:grab; -webkit-user-select:none; user-select:none; padding:2px 8px 2px 2px; font-weight:900; color:#8a9494; touch-action:none; }
+  #timelineDragHandle { position:absolute; top:8px; left:8px; cursor:grab; -webkit-user-select:none; user-select:none; padding:2px 4px; font-weight:900; color:#8a9494; touch-action:none; z-index:2; }
   #timelineDragHandle:active { cursor:grabbing; }
+  /* Close button always in the top-right corner, same principle as the
+     drag handle's top-left placement above -- both sit outside the
+     controls row's own flex flow (which reserves space for them via
+     its left/right padding), so neither drifts when that row wraps
+     onto multiple lines. */
+  #closeTimelineBtn { position:absolute; top:8px; right:8px; z-index:2; }
+  /* One visual unit, two independently clickable halves, rather than
+     two separate buttons that can end up apart when the row wraps. */
+  .moveFramePair { display:inline-flex; border-radius:8px; overflow:hidden; }
+  .moveFramePair button { border-radius:0; margin:0; }
+  .moveFramePair button:first-child { border-right:0; }
   #timelinePanel.detached { position:fixed; z-index:40; margin:0; width:min(1180px,92vw); box-shadow:0 10px 30px rgba(0,0,0,.35); }
   #timelinePanel.detached.vertical { width:190px; }
   #dockTimelineBtn { display:none; font-size:11px; padding:5px 8px; }
@@ -1487,8 +1512,10 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
 </div>
 </div>
 <aside id="controlsPanel">
-  <img id="brandLogoSidebar" alt="" style="height:36px;display:block;margin:0 auto 8px;">
-  <button id="closeSidebarBtn" title="Hide Sidebar">Hide Sidebar &#10095;</button>
+  <div class="sidebarStickyHeader">
+    <img id="brandLogoSidebar" alt="" style="height:36px;display:block;margin:0 auto;">
+    <button id="closeSidebarBtn" title="Close Menu">&#10005;</button>
+  </div>
   <button type="button" class="toolListBtn" id="accountSidebarBtn" data-panel="accountPanel" style="width:100%;margin-bottom:2px;font-size:13px;">Sign In</button>
   <div id="cloudSyncStatus" style="font-size:10.5px;color:#7c8a8a;text-align:center;margin-bottom:8px;min-height:14px;"></div>
   <div class="panelTitle">Commands</div>
@@ -1506,6 +1533,7 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
   <div class="panelTitle" style="margin-top:0;font-size:11px;">Most Used</div>
   <div class="cmdQuick" id="globalQuickRow"></div>
 
+  <div class="cmdCategoryGrid">
   <div class="cmdCategory" data-cat="movement">
     <button type="button" class="cmdCatHeader">Movement &amp; Ball <span class="chev">&#9656;</span></button>
     <div class="cmdFlyout">
@@ -1598,6 +1626,14 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
     <div class="cmdFlyout">
 
       <div class="subGroup">
+        <button type="button" class="subGroupHeader">Board <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="newBtn" data-tip="Clear the field completely -- no players, just the ball at center. Use Reset instead to go back to the starting formation.">New</button>
+          <button id="resetBtn" data-tip="Reset the board back to the starting formation.">Reset</button>
+        </div>
+      </div>
+
+      <div class="subGroup">
         <button type="button" class="subGroupHeader">History <span class="chev">&#9656;</span></button>
         <div class="subGroupFlyout">
           <button id="undoBtn" data-tip="Undo the last change.">Undo</button>
@@ -1639,18 +1675,10 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
     <button type="button" class="cmdCatHeader">Coaching Library <span class="chev">&#9656;</span></button>
     <div class="cmdFlyout">
       <button id="openCoachingLibraryBtn" data-tip="Browse, search and organize your coaching knowledge -- formations, sequences, practice sessions and notes -- across organizations and collections.">Open Coaching Library</button>
-    </div>
-  </div>
-
-  <div class="cmdCategory" data-cat="formations">
-    <button type="button" class="cmdCatHeader">Formations &amp; Packages <span class="chev">&#9656;</span></button>
-    <div class="cmdFlyout">
-      <button id="newBtn" data-tip="Clear the field completely -- no players, just the ball at center. Use Reset instead to go back to the starting formation.">New</button>
-      <button id="resetBtn" data-tip="Reset the board back to the starting formation.">Reset</button>
       <button id="saveFormationBtn" data-tip="Save the current player positions as a reusable formation.">Save Formation</button>
-      <button id="savePackageBtn" data-tip="Save the whole timeline (all frames) as a tactical package.">Save Package</button>
+      <button id="savePackageBtn" data-tip="Save the whole sequence (all frames) as a tactical sequence.">Save Sequence</button>
       <button class="toolListBtn" data-panel="panel_saved_formations">Saved Formations</button>
-      <button class="toolListBtn" data-panel="packagePanel">Tactical Packages</button>
+      <button class="toolListBtn" data-panel="packagePanel">Tactical Sequences</button>
     </div>
   </div>
 
@@ -1687,6 +1715,7 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
       <button class="toolListBtn" id="brandingManagerEntryBtn" data-panel="brandingManagerPanel" style="display:none;">Branding &amp; Sponsors</button>
       <button class="toolListBtn" id="featureManagementEntryBtn" data-panel="featureManagementPanel" style="display:none;">Feature Management</button>
     </div>
+  </div>
   </div>
 
   <details class="moreToolsWrapper" id="moreToolsPanel">
@@ -1731,7 +1760,7 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
 </div>
 <div id="edgeTabStack">
   <button id="showQuickCommandBarTab" class="edgeTab active" title="Show/hide the quick-command bar">Quicks</button>
-  <button id="timelineToggleTab" class="edgeTab timelineTab">Frames</button>
+  <button id="timelineToggleTab" class="edgeTab timelineTab">Creator</button>
   <button id="libraryToggleTab" class="edgeTab" title="Coaching Library">Library</button>
   <button id="sidebarToggleTab" class="edgeTab">Menu</button>
   <button id="coachingModeToggleTab" class="edgeTab" title="Show/hide your presentation notes sidebar (only visible on this screen)">Notes</button>
@@ -1883,26 +1912,28 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
 <div id="tooltipBox"></div>
 <div id="timelinePanel">
   <div id="timelineControls">
-    <span id="timelineDragHandle" title="Drag to move the timeline anywhere on screen">&#10021;</span>
-    <button id="collapseTimelineBtn" title="Collapse/expand the timeline">&#9662;</button>
-    <strong>Timeline</strong>
-    <select id="timelineQuickAccessSelect" title="Jump directly to your saved formations, packages, or other timeline content">
+    <span id="timelineDragHandle" title="Drag to move the Creator anywhere on screen">&#9776;</span>
+    <button id="collapseTimelineBtn" title="Collapse/expand the Creator">&#9662;</button>
+    <strong>Creator</strong>
+    <select id="timelineQuickAccessSelect" title="Jump directly to your saved formations, sequences, or other Creator content">
       <option value="">Quick Access...</option>
       <option value="panel_saved_formations">Saved Formations</option>
-      <option value="packagePanel">Tactical Packages</option>
+      <option value="packagePanel">Tactical Sequences</option>
       <option value="versionHistoryPanel">Version History</option>
       <option value="presentationStudioPanel">Presentations</option>
     </select>
     <button id="addFrameBtn">Add Frame</button>
     <button id="updateFrameBtn">Update Frame</button>
     <button id="deleteFrameBtn">Delete Frame</button>
-    <button id="moveFrameLeftBtn" title="Move this frame earlier in the sequence">&#8592; Move</button>
-    <button id="moveFrameRightBtn" title="Move this frame later in the sequence">Move &#8594;</button>
+    <span class="moveFramePair">
+      <button id="moveFrameLeftBtn" title="Move this frame earlier in the sequence">&#8592;</button>
+      <button id="moveFrameRightBtn" title="Move this frame later in the sequence">&#8594;</button>
+    </span>
     <button id="playFramesBtn">Play</button>
     <label style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;">Duration <input id="frameDuration" type="number" value="0.9" step="0.1" min="0.1" style="width:64px;border:1px solid #ccd6d6;border-radius:7px;padding:5px;"> sec</label>
-    <button id="dockTimelineBtn">Dock Timeline</button>
-    <label style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;" title="Show a small remote-control bar (play/pause/next/prev) on screen, once a formation or package is loaded"><input type="checkbox" id="timelineRemoteToggle"> Show Remote</label>
-    <button id="closeTimelineBtn" title="Close Timeline" style="margin-left:auto;">&#10005;</button>
+    <button id="dockTimelineBtn">Dock Creator</button>
+    <label style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;" title="Once a sequence has 2+ frames, the remote-control bar (play/pause/next/prev) shows automatically -- check this to keep it hidden instead."><input type="checkbox" id="timelineRemoteToggle"> Hide Remote</label>
+    <button id="closeTimelineBtn" title="Close Creator">&#10005;</button>
   </div>
   <div id="frameStrip"></div>
   <textarea id="frameNote" placeholder="Frame coaching note / teaching point..."></textarea>
@@ -2670,7 +2701,7 @@ const MizeDialog = (function(){
   </div>
 </div>
 <div class="toolPanel" id="packagePanel">
-  <div class="toolPanelHeader"><h3>Tactical Packages</h3><button class="closeToolPanelBtn">&#10005;</button></div>
+  <div class="toolPanelHeader"><h3>Tactical Sequences</h3><button class="closeToolPanelBtn">&#10005;</button></div>
   <div class="toolPanelBody">
     <input type="text" id="packageTagFilter" placeholder="Filter by tag (e.g. counterattack, U16)" style="width:100%;margin-bottom:8px;padding:6px 8px;font-size:12px;box-sizing:border-box;">
     <div id="packageList"></div>
@@ -7462,7 +7493,7 @@ function libGetStorageBreakdown(){
   const categories = [
     { label:'Coaching Library', keys:['mizeCoachingLibraryV1'] },
     { label:'Saved Formations', keys:['wpStrategyFormationsV5'] },
-    { label:'Tactical Packages', keys:['tpgTacticalPackagesV8'] },
+    { label:'Tactical Sequences', keys:['tpgTacticalPackagesV8'] },
     { label:'Practice Sessions (legacy)', keys:['tpgPracticeSessionsV1'] },
     { label:'Saved Presentations', keys:['tpgPresentationsV1'] },
     { label:'Org-scoped Formation/Sequence Libraries', keys:['mizeOrgFormationLibraryV1','mizeOrgSequenceLibraryV1'] },
@@ -7499,7 +7530,7 @@ async function renderAboutDiagnostics(){
     <div>${MIZE.config.copyright}</div>
     <hr style="margin:10px 0;border:none;border-top:1px solid #dbe4e4;">
     <div>Saved Formations: ${formationCount}</div>
-    <div>Tactical Packages: ${packageCount}</div>
+    <div>Tactical Sequences: ${packageCount}</div>
     <div>Practice Sessions: ${countKeys(PRACTICE_SESSIONS_KEY)}</div>
     <div>Version History Checkpoints: ${countArray('tpgVersionHistoryV1')}</div>
     <div>Custom Sport Templates: ${countKeys(SPORT_TEMPLATES_KEY)}</div>
@@ -7629,6 +7660,7 @@ function xquixUpdateBrandingManagerAccess(){
   // fix, since it shipped with that same inline style baked into the
   // HTML from the start.
   if(!canAccess){ const panel = document.getElementById('brandingManagerPanel'); if(panel) panel.classList.remove('open'); }
+  xquixUpdateAdminCategoryVisibility();
 }
 applyDeveloperModeVisibility(); // reflect persisted state immediately on load, not only after the next toggle
 if(typeof XQUIX!=='undefined' && XQUIX.Org) XQUIX.Org.onChange(()=>xquixUpdateBrandingManagerAccess());
@@ -7654,8 +7686,23 @@ function xquixUpdateFeatureManagementAccess(){
   const btn = document.getElementById('featureManagementEntryBtn');
   if(btn) btn.style.display = canAccess ? '' : 'none';
   if(!canAccess){ const panel = document.getElementById('featureManagementPanel'); if(panel) panel.classList.remove('open'); }
+  xquixUpdateAdminCategoryVisibility();
 }
 if(typeof XQUIX!=='undefined' && XQUIX.Org) XQUIX.Org.onChange(()=>xquixUpdateFeatureManagementAccess());
+// Both entry buttons above default to display:none and are shown
+// independently of each other -- a coach with access to neither would
+// otherwise see an empty "Administration" header with nothing under
+// it. Called from the tail of both access-check functions above,
+// since either one changing could flip the combined empty/non-empty
+// state.
+function xquixUpdateAdminCategoryVisibility(){
+  const cat = document.querySelector('.cmdCategory[data-cat="admin"]');
+  if(!cat) return;
+  const brandingBtn = document.getElementById('brandingManagerEntryBtn');
+  const featureBtn = document.getElementById('featureManagementEntryBtn');
+  const anyVisible = (brandingBtn && brandingBtn.style.display !== 'none') || (featureBtn && featureBtn.style.display !== 'none');
+  cat.style.display = anyVisible ? '' : 'none';
+}
 
 document.getElementById('featureManagementEntryBtn')?.addEventListener('click', renderFeatureManagementPanel);
 
@@ -7673,7 +7720,7 @@ const XQUIX_WIRED_FUNCTION_NAMES = new Set([
   'Advanced Tracking Actions', 'Count direction', 'Darken / brighten studio windows', 'Dock / detach timeline',
   'Field Zones', 'Frame Transition / Display Modes', 'Load image / web content',
   'Load local video', 'Load video URL', 'Measure', 'Multi-Session Stats',
-  'Open / close Practice Studio', 'Play / pause video', 'Player Setups',
+  'Open / close Practice Studio', 'Player Setups',
   'Reorder frames', 'Session PDF Export', 'Smart Goalie Positioning',
   'Smart Positioning', 'Sync with package', 'Team Manager',
 ]);
@@ -9732,13 +9779,13 @@ function renderPresentationSubView(){
       const rec=XQUIX.StorageProvider.getItemSync('formation', step.board.refName);
       if(!rec){ MizeDialog.alert('Formation "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
       else loadState(formationRecordState(rec));
-      if(remoteToggle) remoteToggle.checked = false; // single frame -- nothing to play/navigate, so the remote stays hidden
+      if(remoteToggle) remoteToggle.checked = true; // checked = hidden (inverted polarity) -- single frame, nothing to play/navigate
     } else if(step.board.kind==='package'){
       const rec=XQUIX.StorageProvider.getItemSync('sequence', step.board.refName);
       if(!rec){ MizeDialog.alert('Package "'+step.board.refName+'" no longer exists -- it may have been renamed or deleted.'); }
-      else { frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0); if(remoteToggle) remoteToggle.checked = frames.length>1; }
+      else { frames=rec.frames||[rec.current]; currentFrame=0; loadFrame(0); if(remoteToggle) remoteToggle.checked = frames.length<=1; } // checked = hidden (inverted polarity)
     }
-  } else if(remoteToggle) remoteToggle.checked = false; // no board content this step at all
+  } else if(remoteToggle) remoteToggle.checked = true; // checked = hidden (inverted polarity) -- no board content this step at all
   if(typeof updateTimelineRemoteVisibility==='function') updateTimelineRemoteVisibility();
   presentationFrameHasContent.board = true; // always available -- the live board can always be interacted with, regardless of whether this specific step pre-loaded a formation for it
   updateStudioFrameDots();
@@ -10818,7 +10865,14 @@ function updateTimelineRemoteVisibility(){
   const bar=document.getElementById('timelineCommandsBar');
   const cb=document.getElementById('timelineRemoteToggle');
   if(!bar || !cb) return;
-  const show = cb.checked && frames.length>1;
+  // Inverted from the checkbox's old "Show Remote" meaning to match its
+  // current "Hide Remote" label -- checked now means hidden, unchecked
+  // means showing. Unchecked is also the untouched starting state, so
+  // the remote auto-appears the instant frames.length crosses 2 with no
+  // separate "auto-activate" trigger needed anywhere else -- this one
+  // check, already re-run by renderFrames() on every add/delete, is
+  // sufficient on its own.
+  const show = !cb.checked && frames.length>1;
   bar.style.display = show ? 'flex' : 'none';
   if(show){
     const remoteSel=document.getElementById('tcTransitionSelect'); if(remoteSel) remoteSel.value=frameTransitionMode;
@@ -10827,7 +10881,7 @@ function updateTimelineRemoteVisibility(){
 document.getElementById('timelineRemoteToggle')?.addEventListener('change', updateTimelineRemoteVisibility);
 function closeTimelineRemote(){
   const cb=document.getElementById('timelineRemoteToggle');
-  if(cb) cb.checked=false;
+  if(cb) cb.checked=true; // checked = hidden, per the inverted polarity above
   updateTimelineRemoteVisibility();
 }
 document.getElementById('tcCloseRemoteBtn')?.addEventListener('click', closeTimelineRemote);
@@ -10959,8 +11013,13 @@ function syncPlayPauseUI(){
       miniBtn.innerHTML='<span class="tcPlayPauseIcon">&#9208;</span>';
     } else {
       miniBtn.innerHTML='<span id="tcPlayReverseHalf" class="tcPlayHalf" title="Play in reverse">&#9664;</span><span id="tcPlayForwardHalf" class="tcPlayHalf" title="Play forward (Space)">&#9654;</span>';
-      document.getElementById('tcPlayReverseHalf')?.addEventListener('click', e=>{ e.stopPropagation(); if(!xquixRequireFunction('Play / pause video')) return; playFrames(-1); });
-      document.getElementById('tcPlayForwardHalf')?.addEventListener('click', e=>{ e.stopPropagation(); if(!xquixRequireFunction('Play / pause video')) return; playFrames(1); });
+      // No gate here, deliberately -- play/pause is free for every
+      // user regardless of plan, per confirmed direction, both because
+      // the free tutorial flow depends on this exact control working
+      // and so a free user sees the remote is a real, working feature
+      // worth upgrading for the rest of.
+      document.getElementById('tcPlayReverseHalf')?.addEventListener('click', e=>{ e.stopPropagation(); playFrames(-1); });
+      document.getElementById('tcPlayForwardHalf')?.addEventListener('click', e=>{ e.stopPropagation(); playFrames(1); });
     }
   }
 }
@@ -11097,13 +11156,13 @@ document.getElementById('moveFrameLeftBtn').onclick=()=>moveFrame(-1);
 document.getElementById('moveFrameRightBtn').onclick=()=>moveFrame(1);
 document.getElementById('playFramesBtn').onclick=()=>playFrames();
 document.getElementById('tcPlayPauseBtn')?.addEventListener('click', ()=>{
-  // Only gates STARTING playback, not stopping it -- when this button is
-  // in its merged/pause-icon state, a click always means "stop", and
-  // stopping something already running should never be blocked (same
-  // principle as timeline re-docking staying unconditionally allowed).
-  // The split reverse/forward halves below only ever exist in the
-  // not-currently-playing state, so those are always a "start" action.
-  if(!playing && !xquixRequireFunction('Play / pause video')) return;
+  // No gate here, deliberately -- play/pause is free for every user
+  // regardless of plan, per confirmed direction, both because the free
+  // tutorial flow depends on this exact control working and so a free
+  // user sees the remote is a real, working feature worth upgrading
+  // for the rest of. The other five remote buttons (rewind/prev/next/
+  // add/delete frame) were already ungated before this change and stay
+  // that way -- only Frame Transition/Display Modes remains gated.
   playFrames();
 });
 syncPlayPauseUI();
@@ -12269,12 +12328,12 @@ function tutorialOpenCategory(dataCat){
   });
   if(typeof syncPresentationPanelBackdrop==='function') syncPresentationPanelBackdrop();
 }
-// Reveals the Timeline's floating Remote Control bar (Play/Pause/etc) --
-// hidden by default until the "Show Remote" checkbox is checked, so
-// "Press Play" would otherwise have no visible button to press.
+// Reveals the Creator's floating Remote Control bar (Play/Pause/etc) --
+// checked = hidden under the "Hide Remote" checkbox's polarity, so
+// showing it here means explicitly unchecking, not checking.
 function tutorialShowTimelineRemote(){
   const cb = document.getElementById('timelineRemoteToggle');
-  if(cb && !cb.checked){ cb.checked = true; if(typeof updateTimelineRemoteVisibility==='function') updateTimelineRemoteVisibility(); }
+  if(cb && cb.checked){ cb.checked = false; if(typeof updateTimelineRemoteVisibility==='function') updateTimelineRemoteVisibility(); }
 }
 // On a phone screen, the Remote Control can cover a meaningful chunk of
 // the field -- shown only for the two steps that actually need it
@@ -12282,7 +12341,7 @@ function tutorialShowTimelineRemote(){
 // player-positioning steps get a clearer view.
 function tutorialHideTimelineRemote(){
   const cb = document.getElementById('timelineRemoteToggle');
-  if(cb && cb.checked){ cb.checked = false; if(typeof updateTimelineRemoteVisibility==='function') updateTimelineRemoteVisibility(); }
+  if(cb && !cb.checked){ cb.checked = true; if(typeof updateTimelineRemoteVisibility==='function') updateTimelineRemoteVisibility(); }
 }
 // Closes the Quick Command Bar -- open by default, which would otherwise
 // let the "open it" step complete instantly without the coach doing
@@ -13863,7 +13922,7 @@ function xquixApplyCoachingNotesAuthGate(){
     if(el) el.disabled = disabled;
   });
   const state = document.getElementById('coachingNotesSaveState');
-  if(state) state.textContent = disabled ? 'Read-only in this view.' : 'Saves together with the formation/sequence -- use Save Formation/Save Package.';
+  if(state) state.textContent = disabled ? 'Read-only in this view.' : 'Saves together with the formation/sequence -- use Save Formation/Save Sequence.';
 }
 
 function xquixBroadcastCoachingState(){
