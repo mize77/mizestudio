@@ -96,8 +96,6 @@
   body.viewerModeActive [data-panel="developerModePanel"],
   body.viewerModeActive #devPreviewTutorialBtn,
   body.viewerModeActive #devPreviewRealTutorialBtn,
-  body.viewerModeActive #openPracticeStudioBtn,
-  body.viewerModeActive #sidebarPracticeStudioBtn,
   body.viewerModeActive #tcAddFrameBtn,
   body.viewerModeActive #tcDeleteFrameBtn { display:none !important; }
   /* Branding panel restricted to Field Logo + Perimeter Zones only, with
@@ -1141,17 +1139,6 @@
   @media print { header, #controlsPanel, #timelinePanel { display:none; } #stageWrap { width:100vw; margin:0; } #board { box-shadow:none; } }
 
 
-/* Game Tracker launch button: hidden during Presentation, the guided
-   tutorial, Audience Mode, and entirely absent from the Viewer/Guest
-   builds -- none of these are contexts where a parent-facing stats
-   tool belongs. Matches the same body-class gating pattern already
-   used elsewhere in Studio for the same purpose. */
-body.presentation #xgtLaunch,
-body.tutorialLockActive #xgtLaunch,
-body.guestExperienceActive #xgtLaunch,
-body.xquixAudienceMode #xgtLaunch,
-body.viewerModeActive #xgtLaunch { display:none !important; }
-
 </style>
 <!-- Milestone 4: first external dependency this app has ever had. Loaded
      here (end of head, before any body content) so window.supabase is
@@ -1337,7 +1324,6 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
 <header>
   <img id="brandLogoHeader" alt="" style="height:32px;vertical-align:middle;margin-right:8px;">
   <h1>MIZE Studio <span style="font-size:12px;color:#6c7777;">Tactical Studio</span></h1>
-  <button id="openPracticeStudioBtn" style="font-size:13px;font-weight:700;">Practice Studio (Preview) →</button>
   <div id="autosaveStatus" style="font-size:11px;color:#7c8a8a;display:inline-block;padding:6px 4px;">Autosave: not yet saved</div>
   <div id="shotBlockDiagnostic" style="display:none;font-size:12px;font-weight:700;padding:6px 10px;border-radius:8px;background:#fbecec;"></div>
   <div id="goalieVisionDiagnostic" style="display:none;font-size:12px;font-weight:700;padding:6px 10px;border-radius:8px;background:#fbecec;"></div>
@@ -1520,18 +1506,13 @@ body.viewerModeActive #xgtLaunch { display:none !important; }
   <div id="cloudSyncStatus" style="font-size:10.5px;color:#7c8a8a;text-align:center;margin-bottom:8px;min-height:14px;"></div>
   <div class="panelTitle">Commands</div>
   <label class="tooltipToggle"><input type="checkbox" id="tooltipsEnabled" checked> Show help tooltips on hover</label>
-  <button type="button" id="sidebarPracticeStudioBtn" style="width:100%;margin:6px 0 10px;font-size:13px;font-weight:700;">Practice Studio (Preview) →</button>
   <!-- Reveals the existing XquiX home screen (Tutorial/Coaching/Game
        Tracker/Presenting/Practice) so a coach can jump to a different
        mode from wherever they currently are, rather than needing to
-       exit back to the start first. Placed alongside Practice Studio
-       above, in the sidebar's always-visible header area rather than
-       inside any collapsible category, since switching modes is a
-       frequent, top-level action. -->
+       exit back to the start first. In the sidebar's always-visible
+       header area rather than inside any collapsible category, since
+       switching modes is a frequent, top-level action. -->
   <button type="button" id="sidebarSwitchModeBtn" style="width:100%;margin:0 0 10px;font-size:13px;font-weight:700;background:#1b7373;color:#fff;border:1px solid #124d4d;">Switch Mode →</button>
-
-  <div class="panelTitle" style="margin-top:0;font-size:11px;">Most Used</div>
-  <div class="cmdQuick" id="globalQuickRow"></div>
 
   <div class="cmdCategoryGrid">
   <div class="cmdCategory" data-cat="movement">
@@ -4202,8 +4183,7 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
   } else if(mode === 'presenting'){
     if(!document.body.classList.contains('presentation')) togglePresentation('fit');
   } else if(mode === 'practice'){
-    openToolPanel('orgLibraryPanel');
-    xquixRenderOrgLibrary();
+    openPracticeStudio();
   }
   // 'coaching': just reveals the Studio as-is, already handled by
   // xquixHideHome() uncovering it -- that IS the coaching environment.
@@ -7099,7 +7079,7 @@ function previewPlacement(key){
       togglePresentation('fit');
     }
   } else if(key==='practiceStudioLogo'){
-    document.getElementById('openPracticeStudioBtn')?.click();
+    openPracticeStudio();
   }
   // fieldLogo, headerLogo, sidebarLogo: already visible in the normal
   // editing view -- simply closing the panel above is enough to see them.
@@ -7723,6 +7703,14 @@ const XQUIX_WIRED_FUNCTION_NAMES = new Set([
   'Open / close Practice Studio', 'Player Setups',
   'Reorder frames', 'Session PDF Export', 'Smart Goalie Positioning',
   'Smart Positioning', 'Sync with package', 'Team Manager',
+  // Added following a full audit against every canFunction()/
+  // xquixRequireFunction() call site in this file (Aug 2026) -- these
+  // 11 were real, working gates that had simply never been added here,
+  // making them invisible in Feature Management even though they were
+  // already restricting access elsewhere in the app.
+  'Shooting Angle', 'Shot Blocking', 'Goalkeeper Vision', 'Branding Manager',
+  'Formation tags / Coaching DNA', 'Session Cloud Storage',
+  'Tutorials Mode', 'Coaching Mode', 'Game Tracker Mode', 'Presenting Mode', 'Practice Mode',
 ]);
 async function renderFeatureManagementPanel(){
   const container = document.getElementById('featureManagementList');
@@ -14665,34 +14653,14 @@ document.addEventListener('click', e=>{
   if(!e.target.closest('.cmdCategory') && !e.target.closest('#sidebarToggleTab')) document.querySelectorAll('.cmdCategory.open').forEach(c=>c.classList.remove('open'));
 });
 
-// --- Usage tracking + a single overall top-3 quick-access row ---
-const USAGE_KEY='tpgCommandUsageV1';
-let cmdUsage={};
-try { cmdUsage=JSON.parse(localStorage.getItem(USAGE_KEY))||{}; } catch(err) { cmdUsage={}; }
-function persistUsage(){ try { localStorage.setItem(USAGE_KEY, JSON.stringify(cmdUsage)); } catch(err) {} }
-function renderGlobalQuickRow(){
-  const quick=document.getElementById('globalQuickRow');
-  if(!quick) return;
-  const buttons=[...document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)')];
-  const ranked=buttons.map((b,idx)=>({b,idx,count:cmdUsage[b.id]||0})).sort((a,b2)=> b2.count-a.count || a.idx-b2.idx).slice(0,3);
-  quick.innerHTML='';
-  ranked.forEach(r=>{
-    const q=document.createElement('button');
-    q.type='button'; q.textContent=r.b.textContent; q.dataset.tip=r.b.dataset.tip||'';
-    q.addEventListener('click', ()=>r.b.click());
-    quick.appendChild(q);
-  });
-}
-renderGlobalQuickRow();
+// --- Recently-used tracking, feeding the floating Quick Command Bar ---
 const RECENT_KEY='tpgRecentCmdV1';
 let recentCmdOrder=[];
 try { recentCmdOrder=JSON.parse(localStorage.getItem(RECENT_KEY))||[]; } catch(err) { recentCmdOrder=[]; }
 function persistRecent(){ try { localStorage.setItem(RECENT_KEY, JSON.stringify(recentCmdOrder)); } catch(err) {} }
 document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)').forEach(b=>{
   b.addEventListener('click', ()=>{
-    cmdUsage[b.id]=(cmdUsage[b.id]||0)+1; persistUsage();
     recentCmdOrder=[b.id, ...recentCmdOrder.filter(id=>id!==b.id)].slice(0,20); persistRecent();
-    renderGlobalQuickRow();
     setTimeout(renderQuickCommandBar, 0);
   });
 });
@@ -16798,8 +16766,6 @@ function openPracticeStudio(){
   renderSavedSessions();
 }
 function closePracticeStudio(){ document.getElementById('practiceStudioView').style.display='none'; }
-document.getElementById('openPracticeStudioBtn').addEventListener('click', openPracticeStudio);
-document.getElementById('sidebarPracticeStudioBtn')?.addEventListener('click', openPracticeStudio);
 // Home screen (z-index 9000) fully covers the sidebar (z-index 320)
 // once shown, so no separate step is needed to close the sidebar first.
 document.getElementById('sidebarSwitchModeBtn')?.addEventListener('click', xquixShowHome);
@@ -21260,18 +21226,6 @@ var CSS = [
 '  stroke-linejoin:round;font-family:system-ui,sans-serif}',
 '.xgtZoneNum{font-size:1.3px;font-weight:800}',
 /* launcher */
-// Positioned above the direction pad's own full reserved footprint
-// (170px tall, same bottom-right corner, per #directionPad's own CSS)
-// rather than sharing its exact spot -- both live in the same corner,
-// and this button's very high z-index meant it sat directly on top of
-// the pad whenever a player was selected and the pad appeared,
-// physically blocking part of it. A static offset above that height
-// keeps this clear of the pad's space at all times, whether the pad
-// happens to be showing or not, without needing to track its
-// visibility dynamically.
-'#xgtLaunch{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom) + 190px);z-index:8000;',
-'  padding:11px 14px;border-radius:12px;background:#1b7373;color:#fff;border:1px solid #124d4d;',
-'  font:600 13px system-ui,sans-serif;box-shadow:0 6px 20px rgba(20,35,92,.30);cursor:pointer}',
 // Phone landscape specifically (max-height, not max-width -- a tablet or
 // desktop turned sideways still has plenty of vertical room and doesn't
 // need this). Total chrome height (top clock/score/util row + bottom
@@ -24215,7 +24169,6 @@ var API = {
       showFullVenueWidth();
       positionShield();
     }, 60);
-    var launch = el('xgtLaunch'); if (launch) launch.style.display = 'none';
     var saved = loadSaved();
     if (saved && saved.events && saved.events.length) {
       askResume(saved);
@@ -24257,7 +24210,6 @@ var API = {
       try { if (typeof loadState === 'function') loadState(S.savedBoardState); } catch (err) {}
       S.savedBoardState = null;
     }
-    var launch = el('xgtLaunch'); if (launch) launch.style.display = '';
   },
   isOpen: function () { return S.active; },
   state: S,
@@ -24430,16 +24382,8 @@ function askResume(saved) {
 }
 
 /* ------------------------------------------------------------- boot / launch */
-function addLauncher() {
-  if (el('xgtLaunch')) return;
-  var b = document.createElement('button');
-  b.id = 'xgtLaunch'; b.type = 'button'; b.textContent = '⏱ Game Tracker';
-  b.addEventListener('click', function () { API.open(); });
-  document.body.appendChild(b);
-}
 function boot() {
   injectCss();
-  addLauncher();
   window.XquiXGameTracker = API;
   if (window.MIZE) { window.MIZE.GameTracker = API; }
 }
