@@ -142,6 +142,21 @@
   body.xquixAudienceMode #edgeTabStack, body.xquixAudienceMode #coachingNotesSidebar,
   body.xquixAudienceMode #coachingModeToggleTab, body.xquixAudienceMode #openAudienceDisplayBtn,
   body.xquixAudienceMode #timelinePanel, body.xquixAudienceMode #controlsPanel { display:none !important; }
+  /* Same underlying issue as Audience Mode above, for a different
+     reason: Game Tracker's own chrome sits at a much higher z-index
+     than these, but its middle field area is deliberately transparent
+     to show the field underneath -- so the edge tabs specifically
+     (vertically centered on the right edge) were still visually
+     showing through AND actually clickable there, not just
+     theoretically stacked behind. Confirmed by testing: tapping the
+     Menu edge tab while the tracker was open successfully opened the
+     Studio sidebar on top of it. closeHeaderBtn/closeSidebarBtn/
+     controlsPanel/toolPanelBackdrop are covered defensively alongside
+     the tabs, in case any of them were already open the moment the
+     tracker launched. */
+  body.gameTrackerActive #edgeTabStack, body.gameTrackerActive #closeHeaderBtn,
+  body.gameTrackerActive #closeSidebarBtn, body.gameTrackerActive #controlsPanel,
+  body.gameTrackerActive #toolPanelBackdrop { display:none !important; }
   /* Read-only: the audience display only ever renders state pushed from
      the coach's window, so nothing on it should be draggable or clickable. */
   body.xquixAudienceMode #board .player, body.xquixAudienceMode #board #ball,
@@ -207,7 +222,7 @@
   }
   #workspace { width:min(98vw,1480px); margin:16px auto; display:flex; gap:14px; align-items:flex-start; }
   #stageWrap { flex:1 1 auto; min-width:0; position:relative; }
-  #controlsPanel { width:280px; position:fixed; top:0; right:0; height:100vh; height:100dvh; overflow-y:auto; background:#fff; border-left:1px solid #d9e0e0; box-shadow:-6px 0 24px rgba(0,0,0,.18); padding:0 12px 24px; display:flex; flex-direction:column; gap:8px; z-index:320; transform:translateX(100%); transition:transform .25s ease; }
+  #controlsPanel { width:280px; position:fixed; top:0; right:0; height:100vh; height:100dvh; overflow-y:hidden; background:#fff; border-left:1px solid #d9e0e0; box-shadow:-6px 0 24px rgba(0,0,0,.18); padding:0 12px 24px; display:flex; flex-direction:column; gap:8px; z-index:320; transform:translateX(100%); transition:transform .25s ease; }
   #controlsPanel.open { transform:translateX(0); }
   /* Sticky, not just top-of-list -- stays pinned through the rest of
      the panel's own scrolling, independent of which menu/submenu is
@@ -215,13 +230,25 @@
      actually occlude content scrolling underneath it, not just visual
      decoration. */
   .sidebarStickyHeader { position:sticky; top:0; z-index:5; background:#fff; padding:16px 0 10px; margin-bottom:4px; text-align:center; }
+  /* Splits the panel into a fixed top region (this always shows in
+     full, at its natural height -- header, sign-in, Switch Mode, and
+     the full category tile grid) and a separate, independently
+     scrolling bottom region for everything after it (More Tools &
+     Panels). Previously the whole panel scrolled as one piece, which
+     meant the tile grid itself could get cut off before a coach ever
+     reached anything below it. flex:none keeps the top region at
+     exactly the height its content needs; min-height:0 on the bottom
+     region is required for a flex child to actually shrink and scroll
+     instead of just overflowing its parent. */
+  #controlsPanelFixed { flex:none; }
+  #controlsPanelScroll { flex:1 1 auto; min-height:0; overflow-y:auto; }
   #controlsPanel #closeSidebarBtn { position:absolute; top:10px; right:0; padding:0; width:32px; height:32px; min-width:32px; border-radius:50%; background:#e1e9e9; border:1.5px solid #b7c4c4; color:#1a2424; font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:center; text-align:center; }
   body.presentation #controlsPanel #closeSidebarBtn { background:rgba(20,20,20,.85); color:#fff; border:1.5px solid rgba(255,255,255,.5); }
   header { z-index:1530; }
   header { top:24%; left:50%; width:min(640px,92vw); border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.45); transform:translate(-50%,-50%) translateY(-150vh); transition:transform .25s ease; padding-top:12px; pointer-events:none; }
   header.shown { transform:translate(-50%,-50%); pointer-events:auto; }
   #controlsPanel { z-index:1530; }
-  #controlsPanel { top:70%; left:50%; right:auto; width:min(420px,92vw); height:auto; max-height:50vh; max-height:50dvh; border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.45); transform:translate(-50%,-50%) translateX(150vw); transition:transform .25s ease; pointer-events:none; }
+  #controlsPanel { top:70%; left:50%; right:auto; width:min(420px,92vw); height:auto; max-height:90vh; max-height:90dvh; border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.45); transform:translate(-50%,-50%) translateX(150vw); transition:transform .25s ease; pointer-events:none; }
   #controlsPanel.open { transform:translate(-50%,-50%); pointer-events:auto; }
   #controlsPanel .panelTitle { font-size:13px; font-weight:800; color:#5d6868; text-transform:uppercase; letter-spacing:.04em; margin:2px 0 4px; }
   #controlsPanel button { width:100%; text-align:left; }
@@ -1498,6 +1525,7 @@
 </div>
 </div>
 <aside id="controlsPanel">
+<div id="controlsPanelFixed">
   <div class="sidebarStickyHeader">
     <img id="brandLogoSidebar" alt="" style="height:36px;display:block;margin:0 auto;">
     <button id="closeSidebarBtn" title="Close Menu">&#10005;</button>
@@ -1698,7 +1726,9 @@
     </div>
   </div>
   </div>
+</div>
 
+<div id="controlsPanelScroll">
   <details class="moreToolsWrapper" id="moreToolsPanel">
     <summary><div class="panelTitle" style="font-size:14px;">More Tools &amp; Panels</div></summary>
     <div class="moreToolsInner">
@@ -1737,6 +1767,7 @@
 
     </div>
   </details>
+</div>
 </aside>
 </div>
 <div id="edgeTabStack">
@@ -24242,6 +24273,16 @@ var API = {
       return;
     }
     S.active = true;
+    // Studio's own navigation chrome (the edge tabs, header/sidebar close
+    // handles) sit at a lower z-index than this tracker's own chrome, but
+    // the tracker's middle field area is deliberately transparent to show
+    // the underlying field -- so anything positioned in that middle
+    // region (the edge tabs specifically, vertically centered on the
+    // right) was still visually showing through AND clickable, not just
+    // theoretically stacked behind. This class drives the CSS that hides
+    // them for as long as the tracker is open, same body-class pattern
+    // already used for body.presentation/body.viewerModeActive elsewhere.
+    document.body.classList.add('gameTrackerActive');
     S.zoneNumberOverrides = loadZoneNumberOverrides();
     injectCss(); buildChrome();
     S.hadFrontCourt = frontCourtOn();
@@ -24305,6 +24346,7 @@ var API = {
   close: function () {
     if (!S.active) return;
     S.active = false;
+    document.body.classList.remove('gameTrackerActive');
     S.running = false; clearInterval(S.tick);
     S.shieldSuspendedForToolPanel = false; // no shield left to restore once removeChrome() below runs anyway, but avoids a stale flag if reopened later
     removeChrome(); removeOverlay();
