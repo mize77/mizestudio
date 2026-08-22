@@ -17090,11 +17090,23 @@ function maybeAutoFace(el){
 MIZE.UI = MIZE.UI || {};
 MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange, gateFunctionName){
   const btn=document.getElementById(buttonId);
+  // Hidden entirely when gated and not already on -- a free user should
+  // never see an entry point they can't use, rather than seeing it and
+  // getting an "Upgrade Required" dialog on tap. Stays visible if it's
+  // already on (e.g. account downgraded mid-session with the tool still
+  // active), so turning it back off -- always allowed regardless of
+  // entitlement -- still has a control to do it with.
+  function updateVisibility(){
+    if(!btn || !gateFunctionName) return;
+    const allowed = (typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.canFunction) ? XQUIX.Entitlements.canFunction(gateFunctionName) : true;
+    btn.style.display = (!allowed && !getFn()) ? 'none' : '';
+  }
   function render(){
     if(!btn) return;
     const on=getFn();
     btn.textContent=label+': '+(on?'On':'Off');
     btn.classList.toggle('active', on);
+    updateVisibility();
     if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
   }
   function toggle(){
@@ -17109,6 +17121,7 @@ MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange, gateFun
   }
   if(btn) btn.addEventListener('click', toggle);
   render();
+  if(gateFunctionName && typeof XQUIX!=='undefined' && XQUIX.Entitlements) XQUIX.Entitlements.onChange(updateVisibility);
   return { toggle, render };
 };
 const _smartPositioningUI=MIZE.UI.ToggleButton('smartPositioningToggleBtn', 'Smart Positioning',
@@ -17494,9 +17507,15 @@ function renderSmartGoaliePositioning(){
 }
 function updateSmartGoaliePositioningButton(){
   const btn = document.getElementById('smartGoaliePositioningToggleBtn');
-  if(btn){ btn.textContent = 'Smart Goalie Positioning: '+(smartGoaliePositioningActive?'On':'Off'); btn.classList.toggle('active', smartGoaliePositioningActive); }
+  if(btn){
+    btn.textContent = 'Smart Goalie Positioning: '+(smartGoaliePositioningActive?'On':'Off');
+    btn.classList.toggle('active', smartGoaliePositioningActive);
+    const allowed = (typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.canFunction) ? XQUIX.Entitlements.canFunction('Smart Goalie Positioning') : true;
+    btn.style.display = (!allowed && !smartGoaliePositioningActive) ? 'none' : '';
+  }
   if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
 }
+if(typeof XQUIX!=='undefined' && XQUIX.Entitlements) XQUIX.Entitlements.onChange(updateSmartGoaliePositioningButton);
 document.getElementById('smartGoaliePositioningToggleBtn')?.addEventListener('click', ()=>{
   if(smartGoaliePositioningActive){
     smartGoaliePositioningActive = false;
@@ -20056,6 +20075,84 @@ document.querySelectorAll('.toolListBtn').forEach(btn=>{
     openToolPanel(btn.dataset.panel);
   });
 });
+// Hides each gated launcher entirely when its gate is denied, rather
+// than leaving it visible to be blocked on tap -- same rationale as
+// MIZE.UI.ToggleButton's own visibility handling above. These buttons
+// have no "already on" state to preserve (opening a panel isn't
+// reversible the way a toggle is), so this is a plain hide/show with
+// no extra condition.
+function xquixUpdateGatedToolPanelVisibility(){
+  document.querySelectorAll('.toolListBtn').forEach(btn=>{
+    const gateFunctionName = GATED_TOOL_PANELS[btn.dataset.panel];
+    if(!gateFunctionName) return;
+    const allowed = (typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.canFunction) ? XQUIX.Entitlements.canFunction(gateFunctionName) : true;
+    btn.style.display = allowed ? '' : 'none';
+  });
+}
+xquixUpdateGatedToolPanelVisibility();
+if(typeof XQUIX!=='undefined' && XQUIX.Entitlements) XQUIX.Entitlements.onChange(xquixUpdateGatedToolPanelVisibility);
+
+// Every other gated control that isn't a ToggleButton-factory button or
+// a GATED_TOOL_PANELS launcher -- each hidden entirely when its gate is
+// denied, rather than left visible to be blocked on tap. Plain
+// elementId -> gateFunctionName pairs where hiding the element itself
+// is enough; label-wrapped inputs hide the whole label so no orphaned
+// text is left behind. "Reorder frames" is deliberately not here -- it
+// gates a drag gesture on the frame chip itself, which also has to stay
+// tappable for normal navigation, so there's no separate element that
+// could be hidden without breaking that. Its existing click(drag)-time
+// block is the correct, narrowest fix available for that one.
+const XQUIX_GATED_ELEMENT_IDS = [
+  ['videoLoadUrlBtn', 'Load video URL'],
+  ['videoOpenWindowBtn', 'Load video URL'],
+  ['videoLoadFileBtn', 'Load local video'],
+  ['statsLoadUrlBtn', 'Load image / web content'],
+  ['statsOpenWindowBtn', 'Load image / web content'],
+  ['statsLoadFileBtn', 'Load image / web content'],
+  ['studioWindowDarkenBtn', 'Darken / brighten studio windows'],
+  ['studioBlindsControlBtn', 'Darken / brighten studio windows'],
+  ['measureBtn', 'Measure'],
+  ['playerSetupsToggleBtn', 'Player Setups'],
+  ['fieldZonesToggleBtn', 'Field Zones'],
+  ['tcTransitionSelect', 'Frame Transition / Display Modes'],
+];
+// These two need their wrapping <label> hidden, not just the input,
+// since the label text ("Frame Transition", "Sync to package duration
+// when playing", etc.) is the input's own sibling content, not a
+// separate element -- hiding only the input would leave orphaned text.
+const XQUIX_GATED_LABEL_INPUT_IDS = [
+  ['frameTransitionSelect', 'Frame Transition / Display Modes'],
+  ['shotClockSyncPackage', 'Sync with package'],
+  ['shotClockDirUp', 'Count direction'],
+  ['shotClockDirDown', 'Count direction'],
+];
+function xquixUpdateMiscGateVisibility(){
+  const allowed = (name) => (typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.canFunction) ? XQUIX.Entitlements.canFunction(name) : true;
+  XQUIX_GATED_ELEMENT_IDS.forEach(([id, gate])=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = allowed(gate) ? '' : 'none';
+  });
+  XQUIX_GATED_LABEL_INPUT_IDS.forEach(([id, gate])=>{
+    const input = document.getElementById(id);
+    const label = input?.closest('label');
+    if(label) label.style.display = allowed(gate) ? '' : 'none';
+  });
+  // Dock/detach timeline: the SAME handle serves two different actions
+  // depending on current state -- detaching (gated) when docked, or
+  // re-docking (always allowed) once already detached. Hiding it
+  // outright whenever the gate is denied would strand anyone who's
+  // already detached with no way back, so it only hides in the one
+  // state where it would otherwise do nothing but show a blocked-drag
+  // dialog: docked AND gated. Any other combination leaves it visible.
+  const timelineHandle = document.getElementById('timelineDragHandle');
+  const timelinePanel = document.getElementById('timelinePanel');
+  if(timelineHandle && timelinePanel){
+    const docked = !timelinePanel.classList.contains('detached');
+    timelineHandle.style.display = (docked && !allowed('Dock / detach timeline')) ? 'none' : '';
+  }
+}
+xquixUpdateMiscGateVisibility();
+if(typeof XQUIX!=='undefined' && XQUIX.Entitlements) XQUIX.Entitlements.onChange(xquixUpdateMiscGateVisibility);
 document.querySelectorAll('.closeToolPanelBtn').forEach(btn=>{
   btn.addEventListener('click', ()=>closeToolPanels());
 });
@@ -22853,7 +22950,7 @@ function renderBar() {
       (gk ? 'In goal' : 'In water') + ' ' + fmt(waterSeconds(S.me.number)) + '</div></div></div>' +
       '<div class="xgtRow"><button class="xgtPill ' + (iw ? 'in' : 'out') + '" id="xgtPres" style="flex:1">' +
       (iw ? '● ' + (gk ? 'In goal' : 'In the water') + ' — tap to sub out' : '○ On the bench — tap to sub in') + '</button></div>' +
-      '<div class="xgtRow" style="margin-top:7px"><button id="xgtOptionsBtn" style="flex:1">\u2699 Options</button><button id="xgtStatsBtn" style="flex:1">Stats</button></div>';
+      '<div class="xgtRow" style="margin-top:7px"><button id="xgtOptionsBtn" style="flex:1">\u2630 Menu</button><button id="xgtStatsBtn" style="flex:1">Stats</button></div>';
     el('xgtPres').onclick = function () {
       var v = inWater(S.me.number);
       commit({ actor: { side: 'us', number: S.me.number },
@@ -22916,7 +23013,7 @@ function renderBar() {
         }).join('') + '</div></div>';
     }
     bar.innerHTML = '<div class="xgtBarSplit">' + renderBarColumn('us') +
-      '<div class="xgtBarUtil"><button id="xgtOptionsBtn">\u2699 Options</button><button id="xgtStatsBtn">Stats</button></div>' +
+      '<div class="xgtBarUtil"><button id="xgtOptionsBtn">\u2630 Menu</button><button id="xgtStatsBtn">Stats</button></div>' +
       (S.opponentTracked ? renderBarColumn('them') : '') + '</div>';
 
     el('xgtOptionsBtn').onclick = openOptions;
@@ -23253,7 +23350,26 @@ function openOptions() {
   draw(); openSheet();
   function draw() {
     var isFrontCourt = frontCourtOn();
-    sheetEl().innerHTML = head('Options', 'Settings and less-frequent actions', null) +
+    // Sessions only shown when it would actually lead somewhere useful:
+    // hidden if not signed in or the underlying cloud-storage gate is
+    // denied (tapping it would only ever show a toast, never the
+    // library itself, matching xgtOpenSessions()'s own checks), and
+    // hidden if storage IS allowed but genuinely empty (nothing saved
+    // yet, so the library would open to nothing). listStoreSync() reads
+    // a local cache that may not be warm yet on a cold start -- true
+    // uncertainty (module not ready) defaults to showing the button
+    // rather than risking hiding one that actually has content,
+    // matching this app's established fail-open convention elsewhere.
+    var signedIn = typeof XQUIX !== 'undefined' && XQUIX.Auth && XQUIX.Auth.getCurrentUser();
+    var showSessions = signedIn && xgtHasCloudStorage() && (
+      typeof XQUIX === 'undefined' || !XQUIX.StorageProvider || typeof XQUIX.StorageProvider.listStoreSync !== 'function'
+      || Object.keys(XQUIX.StorageProvider.listStoreSync('gameTrackerSession')).length > 0
+    );
+    sheetEl().innerHTML = head('Menu', 'Settings and less-frequent actions', null) +
+      // Prominent and first, matching how Switch Mode sits at the top
+      // of the sidebar in the Coaching platform, rather than buried
+      // among the settings below it.
+      '<button class="xgtBtn" id="xgtOptSwitchMode" style="background:#1b7373;color:#fff;border:1px solid #124d4d;margin-bottom:14px">Switch Mode \u2192</button>' +
       '<button class="xgtBtn" id="xgtOptTime">Set / Reset Time</button>' +
       '<button class="xgtBtn" id="xgtOptZones" style="margin-top:8px">' + (S.zonesVisible ? 'Hide Field Zones' : 'Show Field Zones') + '</button>' +
       '<button class="xgtBtn" id="xgtOptEditNums" style="margin-top:8px">' + (S.editingZoneNumbers ? 'Done Renaming Zones' : 'Rename Field Zones') + '</button>' +
@@ -23271,9 +23387,7 @@ function openOptions() {
         (isFrontCourt ? 'Front Court (tap for Full Court)' : 'Full Court (tap for Front Court)') + '</button>' +
       '<div style="border-top:1px solid #e1e6e6;margin:14px 0 10px"></div>' +
       '<button class="xgtBtn" id="xgtOptStats">Stats</button>' +
-      '<button class="xgtBtn" id="xgtOptSessions" style="margin-top:8px">Sessions</button>' +
-      '<div style="border-top:1px solid #e1e6e6;margin:14px 0 10px"></div>' +
-      '<button class="xgtBtn" id="xgtOptSwitchMode">Switch Mode</button>' +
+      (showSessions ? '<button class="xgtBtn" id="xgtOptSessions" style="margin-top:8px">Sessions</button>' : '') +
       '<div style="border-top:1px solid #e1e6e6;margin:14px 0 10px"></div>' +
       '<button class="xgtBtn" id="xgtOptCsv">Export CSV</button>' +
       '<button class="xgtBtn" id="xgtOptJson" style="margin-top:8px">Export JSON</button>' +
@@ -23301,7 +23415,7 @@ function openOptions() {
       draw();
     };
     el('xgtOptStats').onclick = function () { closeSheet(); openStats(); };
-    el('xgtOptSessions').onclick = function () { closeSheet(); xgtOpenSessions(); };
+    el('xgtOptSessions')?.addEventListener('click', function () { closeSheet(); xgtOpenSessions(); });
     // Mirrors the Exit button's own close path (game state is already
     // kept saved/resumable via syncSessionToCloud on every tap, same as
     // Exit) -- then reveals the home screen so the coach can jump
