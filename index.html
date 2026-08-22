@@ -855,6 +855,23 @@
   #toolPanelBackdrop.open { display:block; }
   .toolPanel { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:1550; background:#fff; border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.4); width:min(640px,92vw); max-height:88vh; max-height:88dvh; overflow-y:auto; }
   .toolPanel.open { display:block; }
+  /* Anchored near the top instead of vertically centered, unlike every
+     other toolPanel -- this one in particular tends to hold the most
+     content (a growing list of saved items) and is the one confirmed to
+     go half off-screen with a tall enough list, since centering a tall
+     panel pushes its top edge above y=0. Pinning near the top keeps the
+     header (and its close button) reachable regardless of how tall the
+     content underneath grows, or how much the visible viewport shrinks
+     from below (e.g. a keyboard open in the search box). */
+  #coachingLibraryPanel { top:2vh; top:2dvh; left:50%; transform:translateX(-50%); max-height:96vh; max-height:96dvh; }
+  /* Same fix, same reasoning as coachingLibraryPanel above -- confirmed
+     by direct measurement that the invite-result message at the bottom
+     of this panel's Members/Invites/Invite-form sections can render
+     below the panel's own visible scroll boundary, clipped out of view
+     by its overflow-y:auto rather than actually missing. Anchoring
+     near the top gives the whole panel more usable height before that
+     clipping can happen. */
+  #organizationsPanel { top:2vh; top:2dvh; left:50%; transform:translateX(-50%); max-height:96vh; max-height:96dvh; }
   .toolPanelHeader { position:sticky; top:0; background:#fff; display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid #e1e6e6; border-radius:14px 14px 0 0; }
   .toolPanelHeader h3 { margin:0; font-size:16px; }
   .closeToolPanelBtn { padding:0; width:32px; height:32px; min-width:32px; border-radius:50%; background:#e1e9e9; border:1.5px solid #b7c4c4; color:#1a2424; font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -1105,6 +1122,13 @@
   .cmdCatHeader .chev { transition:transform .15s; color:#8a9494; font-size:10px; }
   .cmdCategory.open .cmdCatHeader .chev { transform:rotate(90deg); }
   .cmdCategory.open .cmdCatHeader { border-bottom-left-radius:0; border-bottom-right-radius:0; background:#eef4f4; border-color:#c3d2d2; }
+  /* Isolates the expanded category once one is open -- the other 7
+     tiles disappear entirely (not just staying collapsed) so the
+     expanded category's own content gets the full available height
+     instead of competing with them, cutting down on scrolling. Driven
+     by a class toggled in JS alongside .open, rather than a :has()
+     selector, for broader compatibility. */
+  .cmdCategoryGrid.hasOpenCategory .cmdCategory:not(.open) { display:none; }
   .cmdQuick { display:flex; gap:4px; padding:6px 8px 8px; flex-wrap:wrap; }
   .cmdQuick button { flex:1 1 auto; font-size:10.5px; padding:6px 5px; }
   .cmdFlyout { display:none; grid-template-columns:repeat(3, 1fr); gap:6px; padding:8px; background:#fbfcfc; border:1px solid #e5eaea; border-top:0; border-radius:0 0 10px 10px; }
@@ -1546,6 +1570,7 @@
        switching modes is a frequent, top-level action. -->
   <button type="button" id="sidebarSwitchModeBtn" style="width:100%;margin:0 0 10px;font-size:13px;font-weight:700;background:#1b7373;color:#fff;border:1px solid #124d4d;">Switch Mode →</button>
 
+  <button type="button" id="cmdCategoryBackBtn" style="display:none;width:100%;margin-bottom:8px;font-size:13px;font-weight:700;">&#8592; Back to Menu</button>
   <div class="cmdCategoryGrid">
   <div class="cmdCategory" data-cat="movement">
     <button type="button" class="cmdCatHeader">Movement &amp; Ball <span class="chev">&#9656;</span></button>
@@ -6136,9 +6161,9 @@ document.getElementById('xquixSendInviteBtn')?.addEventListener('click', async (
   const email = emailInput.value.trim();
   const role = document.getElementById('xquixInviteRoleSelect').value;
   const msgEl = document.getElementById('xquixInviteFormMessage');
-  if(!email || !email.includes('@')){ msgEl.style.display=''; msgEl.style.color='#b23b3b'; msgEl.textContent='Enter a valid email address.'; return; }
+  if(!email || !email.includes('@')){ msgEl.style.display=''; msgEl.style.color='#b23b3b'; msgEl.textContent='Enter a valid email address.'; msgEl.scrollIntoView({block:'nearest'}); return; }
   const result = await XQUIX.Org.createInvite(orgId, email, role);
-  if(result.error){ msgEl.style.display=''; msgEl.style.color='#b23b3b'; msgEl.textContent='Could not send invite: '+result.error.message; return; }
+  if(result.error){ msgEl.style.display=''; msgEl.style.color='#b23b3b'; msgEl.textContent='Could not send invite: '+result.error.message; msgEl.scrollIntoView({block:'nearest'}); return; }
   emailInput.value='';
   await xquixRenderOrgMembers(orgId);
   // The org_invites row above is the actual source of truth for "who's
@@ -6157,6 +6182,13 @@ document.getElementById('xquixSendInviteBtn')?.addEventListener('click', async (
     msgEl.style.color='#2e7d32';
     msgEl.textContent='Invite sent to '+email+'.';
   }
+  // Confirmed by direct measurement that this message could render
+  // below the panel's own visible scroll area -- clipped by
+  // overflow-y:auto, not actually missing, but indistinguishable from
+  // "nothing happened" without this. block:'nearest' avoids yanking the
+  // whole panel to reposition the message dead-center when it's
+  // already at least partially in view.
+  msgEl.scrollIntoView({block:'nearest'});
 });
 // Runs on every sign-in (not just first sign-up) so an invite created
 // while someone was already a member elsewhere still gets offered the
@@ -14668,7 +14700,16 @@ document.querySelectorAll('.cmdCategory').forEach(cat=>{
     const willOpen=!cat.classList.contains('open');
     document.querySelectorAll('.cmdCategory.open').forEach(c=>{ if(c!==cat) c.classList.remove('open'); });
     cat.classList.toggle('open', willOpen);
+    const grid=cat.closest('.cmdCategoryGrid');
+    if(grid) grid.classList.toggle('hasOpenCategory', willOpen);
+    const backBtn=document.getElementById('cmdCategoryBackBtn');
+    if(backBtn) backBtn.style.display = willOpen ? '' : 'none';
   });
+});
+document.getElementById('cmdCategoryBackBtn')?.addEventListener('click', ()=>{
+  document.querySelectorAll('.cmdCategory.open').forEach(c=>c.classList.remove('open'));
+  document.querySelectorAll('.cmdCategoryGrid.hasOpenCategory').forEach(g=>g.classList.remove('hasOpenCategory'));
+  document.getElementById('cmdCategoryBackBtn').style.display='none';
 });
 document.querySelectorAll('.subGroup').forEach(sub=>{
   const header=sub.querySelector('.subGroupHeader');
@@ -14681,7 +14722,12 @@ document.querySelectorAll('.subGroup').forEach(sub=>{
   });
 });
 document.addEventListener('click', e=>{
-  if(!e.target.closest('.cmdCategory') && !e.target.closest('#sidebarToggleTab')) document.querySelectorAll('.cmdCategory.open').forEach(c=>c.classList.remove('open'));
+  if(!e.target.closest('.cmdCategory') && !e.target.closest('#sidebarToggleTab') && !e.target.closest('#cmdCategoryBackBtn')){
+    document.querySelectorAll('.cmdCategory.open').forEach(c=>c.classList.remove('open'));
+    document.querySelectorAll('.cmdCategoryGrid.hasOpenCategory').forEach(g=>g.classList.remove('hasOpenCategory'));
+    const backBtn=document.getElementById('cmdCategoryBackBtn');
+    if(backBtn) backBtn.style.display='none';
+  }
 });
 
 // --- Recently-used tracking, feeding the floating Quick Command Bar ---
@@ -20522,6 +20568,8 @@ var S = {
   squad: [], water: [], keepers: [],
   editingZoneNumbers: false,   // true while the tap-to-relabel flow (zoneNum below) is active; intercepts the normal zone-tap-opens-action-sheet behavior
   cloudSessionName: null,      // stable per-session name used as the upsert key for cloud sync (Phase A) -- generated once in go(), preserved across resume, cleared on New Game
+  officiallyEnded: false,      // true once regulation ends outright, a shootout is decided, or the coach manually ends the session -- distinct from just closing the tracker mid-game, which leaves this false so Resume still offers it next time
+  finishPromptShown: false,    // guards the "finish and save?" prompt from firing again on every subsequent render() once the coach has already answered it once (whether they said yes or not yet)
   shieldSuspendedForToolPanel: false, // Phase B: true while #xgtShield's pointer-events are deliberately disabled so the "Sessions" button's Library panel is actually clickable underneath it
   opponentTracked: false, oppSquad: [], oppWater: [], oppKeepers: [], // Phase E: opt-in opposing-team tracking, mirrors squad/water/keepers above
   keeperLabels: {}, // Phase F: number -> optional display label (e.g. {13:'1B'}) for competitions that label backup goalies 1A/1B/1C -- deliberately a SEPARATE map, not a change to S.keepers itself, so every existing sort()/indexOf()/currentKeeper() call touching keeper numbers keeps working on real numbers untouched
@@ -20993,7 +21041,7 @@ function save() {
       me: S.me, squad: S.squad, water: S.water, keepers: S.keepers, keeperLabels: S.keeperLabels,
       opponentTracked: S.opponentTracked, oppSquad: S.oppSquad, oppWater: S.oppWater, oppKeepers: S.oppKeepers,
       q: S.q, clock: S.clock, seq: S.seq, events: S.events,
-      cloudSessionName: S.cloudSessionName, trackScore: S.trackScore
+      cloudSessionName: S.cloudSessionName, trackScore: S.trackScore, officiallyEnded: S.officiallyEnded
     }));
   } catch (err) { /* private mode / quota — tracking continues in memory */ }
   syncSessionToCloud(); // fire-and-forget -- never blocks or delays the local save above
@@ -21020,6 +21068,22 @@ function save() {
 function xgtHasCloudStorage() {
   return typeof XQUIX === 'undefined' || !XQUIX.Entitlements || typeof XQUIX.Entitlements.canFunction !== 'function'
     || XQUIX.Entitlements.canFunction('Session Cloud Storage');
+}
+// Shared by the Options/Menu sheet and the Game Tracker landing screen --
+// a Sessions/View Saved Sessions entry only makes sense to show when
+// tapping it would actually lead somewhere useful: signed in, the
+// underlying cloud-storage gate allowed, and something genuinely saved
+// to show. listStoreSync() reads a local cache that may not be warm yet
+// on a cold start -- true uncertainty (module not ready) defaults to
+// showing the entry rather than risking hiding one that actually has
+// content, matching this app's established fail-open convention
+// elsewhere.
+function xgtShouldShowSessionsEntry() {
+  var signedIn = typeof XQUIX !== 'undefined' && XQUIX.Auth && XQUIX.Auth.getCurrentUser();
+  return !!(signedIn && xgtHasCloudStorage() && (
+    typeof XQUIX === 'undefined' || !XQUIX.StorageProvider || typeof XQUIX.StorageProvider.listStoreSync !== 'function'
+    || Object.keys(XQUIX.StorageProvider.listStoreSync('gameTrackerSession')).length > 0
+  ));
 }
 function syncSessionToCloud() {
   if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Storage || typeof XQUIX.Storage.save !== 'function' || !XQUIX.Auth.getCurrentUser()) return;
@@ -21102,6 +21166,8 @@ function resetGameState() {
   S.shootoutGoalkeepers = { us: null, them: null };
   S.shootoutRoster = { us: [], them: [] };
   S.regulationEnded = false;
+  S.officiallyEnded = false;
+  S.finishPromptShown = false;
   clearSaved();
 }
 function restore(d) {
@@ -21113,6 +21179,8 @@ function restore(d) {
   S.q = d.q; S.clock = d.clock; S.seq = d.seq || 0; S.events = d.events || []; S.undone = [];
   S.cloudSessionName = d.cloudSessionName || null; // preserved so a resumed session keeps updating the SAME cloud record, not a fresh duplicate
   S.trackScore = d.trackScore || false;
+  S.officiallyEnded = d.officiallyEnded || false;
+  S.finishPromptShown = false;
 }
 
 /* ================================================================== styling */
@@ -21277,6 +21345,7 @@ var CSS = [
 '.xgtSeg{display:flex;background:#e1e6e6;border:1px solid #ccd6d6;border-radius:12px;padding:3px;gap:3px;margin-bottom:11px}',
 '.xgtSeg button{flex:1;padding:10px 6px;border-radius:9px;font-size:13px;font-weight:600;color:#54605f}',
 '#xgtSheet .xgtSeg button[aria-pressed="true"]{background:#1b7373;color:#fff;box-shadow:0 1px 4px rgba(20,35,92,.25)}',
+'#xgtStats .xgtSeg button[aria-pressed="true"]{background:#1b7373;color:#fff;box-shadow:0 1px 4px rgba(20,35,92,.25)}',
 '.xgtNums{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}',
 '.xgtNum{min-height:60px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:750;color:#124d4d;',
 '  font-variant-numeric:tabular-nums;border-radius:14px;background:#e1e6e6;border:1px solid #ccd6d6}',
@@ -21289,6 +21358,13 @@ var CSS = [
 '.xgtNum.soShot1{background:#a9c2c2;border-color:#8fb0b0}',
 '.xgtNum.soShot2{background:#4f7a7a;color:#fff;border-color:#3f6363}',
 '.xgtNum.soShot3{background:#0d3838;color:#fff;border-color:#092a2a}',
+// A suggestion, not a restriction -- every shooter chip stays equally
+// tappable regardless of this, per direct confirmation that even an
+// already-shot player should remain reachable. The ring layers over
+// any of the three shade classes above (or none), so it reads clearly
+// whether this is someone's 1st, 2nd, or 3rd trip to the line.
+'.xgtNum.soSuggested{box-shadow:0 0 0 3px #e0a72c;animation:soSuggestPulse 1.6s ease-in-out infinite}',
+'@keyframes soSuggestPulse{0%,100%{box-shadow:0 0 0 3px #e0a72c}50%{box-shadow:0 0 0 5px #f0c15c}}',
 // Same color language as #xgtGameOverBanner.decided (a settled, no-
 // longer-live state) -- kept as its own class rather than reusing that
 // ID-scoped rule, since this banner lives inside the shootout sheet
@@ -22672,6 +22748,35 @@ function shootoutShotCount(side, number) {
 function shootoutHighlightClass(count) {
   return count ? ('soShot' + (((count - 1) % 3) + 1)) : '';
 }
+// The 5 official shooters aren't declared upfront -- they're simply
+// whichever 5 distinct players a side's coach actually taps first,
+// established naturally as the shootout is logged rather than through
+// a separate pre-declaration step. Once 5 have shot, this list is
+// fixed for the rest of the shootout (no 6th or 7th player should be
+// offered), and it's what round 2+ reuses to know who's up.
+function shootoutDesignatedShooters(side) {
+  var order = [];
+  shootoutAttempts().forEach(function (e) {
+    if (e.actor && e.actor.side === side && order.indexOf(e.actor.number) < 0 && order.length < 5) {
+      order.push(e.actor.number);
+    }
+  });
+  return order;
+}
+// Only meaningful once all 5 are established (round 1's own order is
+// the coach's free choice as it happens, nothing to suggest yet) --
+// from there, cycles through that same fixed order every time this
+// side comes back up, so round 2's first shooter is round 1's first
+// shooter, and so on. A suggestion only, not an enforced restriction --
+// every shooter chip stays tappable regardless, per direct confirmation
+// that even an already-shot player should remain reachable rather than
+// being locked out.
+function shootoutSuggestedShooter(side) {
+  var designated = shootoutDesignatedShooters(side);
+  if (designated.length < 5) return null;
+  var sideAttempts = shootoutAttempts().filter(function (e) { return e.actor && e.actor.side === side; }).length;
+  return designated[sideAttempts % 5];
+}
 // Standard shootout math: 5 shooters per side to start (the official
 // number -- not configurable here, matching the confirmed rule), then
 // sudden death one shot each, same order, repeating. Decided as soon as
@@ -22710,6 +22815,43 @@ function shootoutIsDecided() {
   if (beyond % 2 !== 0) return { decided: false, winner: null };
   if (tally.us === tally.them) return { decided: false, winner: null };
   return { decided: true, winner: tally.us > tally.them ? 'us' : 'them' };
+}
+// YYYYMMDD_myteam_opponent[_optional note], per the confirmed naming
+// convention -- date with dashes stripped, both team names falling back
+// to the same defaults used everywhere else if left blank, an optional
+// trailing note only appended if the coach actually provided one.
+function xgtBuildSessionName(suffix) {
+  var dateStr = (S.game.date || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+  var home = (S.game.home || 'My Team').trim();
+  var away = (S.game.away || 'Opponent').trim();
+  var base = dateStr + '_' + home + '_' + away;
+  var extra = (suffix || '').trim();
+  return extra ? (base + '_' + extra) : base;
+}
+// Shared by all three ways a game actually ends: the shootout resolving,
+// regulation ending outright with no shootout needed, and the coach
+// manually tapping End & Save. finishPromptShown guards against asking
+// twice in the same session -- once the coach has answered (whether
+// "yes, finish" or "not yet"), render() calling this again on every
+// subsequent commit shouldn't re-open the same question.
+async function xgtOfferToFinishGame(force) {
+  if (S.finishPromptShown && !force) return;
+  S.finishPromptShown = true;
+  closeSheet(); // closes whatever's open -- the shootout screen in particular, per the confirmed requirement that it should close once decided, not stay open alongside this prompt
+  var sc = scoreOf();
+  var hadShootout = shootoutAttempts().length > 0;
+  var soTally = hadShootout ? shootoutTally() : null;
+  var summary = xgtTeamLabel('us') + ' ' + sc[0] + ' \u2013 ' + sc[1] + ' ' + xgtTeamLabel('them') +
+    (hadShootout ? ' (shootout ' + soTally.us + '\u2013' + soTally.them + ')' : '');
+  var ok = await MizeDialog.confirm('The game is over \u2014 ' + summary + '. Finish and save this session?', 'Game Finished');
+  if (!ok) return; // not ready to close it out yet -- everything else about the game (events, score, officiallyEnded staying false) is untouched, so play can continue or this can be finished later via End & Save
+  var suffix = await MizeDialog.prompt('Add a note to the file name (optional):', '');
+  S.cloudSessionName = xgtBuildSessionName(suffix);
+  S.officiallyEnded = true;
+  if (S.events.length) syncSessionToCloud();
+  save();
+  await MizeDialog.alert('Saved as \u201c' + S.cloudSessionName + '\u201d. You can find it later in the Coaching Library.', 'Session Saved');
+  API.close();
 }
 function openShootout() {
   // Asked once, the very first time -- never again after that. Everyone
@@ -22774,6 +22916,31 @@ function openShootout() {
     var attempts = shootoutAttempts().slice().reverse();
     var side = shootoutCurrentSide();
     var decided = shootoutIsDecided();
+    // Once decided, this screen is blocking-only: shows the outcome and
+    // the attempts log, and immediately re-offers the finish flow
+    // (harmless if already answered once, since that flow's own guard
+    // stops it from re-prompting) rather than leaving the shooter grid
+    // and goalkeeper selector live. This replaces the earlier design,
+    // which deliberately kept shooting available even once the math
+    // was settled -- since changed, per direct confirmation that a
+    // decided shootout should block every further action instead.
+    if (decided.decided) {
+      xgtOfferToFinishGame();
+      var doneAttempts = shootoutAttempts().slice().reverse();
+      sheetEl().innerHTML = head('Penalty Shootout', 'Log each attempt as it happens', null) +
+        '<div style="text-align:center;font-size:22px;font-weight:800;margin:6px 0 14px">' + xgtTeamLabel('us') + ' ' + tally.us + ' \u2013 ' + tally.them + ' ' + xgtTeamLabel('them') + '</div>' +
+        '<div class="soDecidedBanner">Shootout decided \u2014 ' + xgtTeamLabel(decided.winner) + ' win</div>' +
+        (doneAttempts.length
+          ? '<span class="xgtLbl" style="margin-top:16px">Attempts</span>' +
+            '<div class="xgtCard"><table>' + doneAttempts.map(function (e) {
+              var sideLabel = xgtTeamLabel(e.actor && e.actor.side === 'them' ? 'them' : 'us');
+              return '<tr><td>' + sideLabel + '</td><td>#' + (e.actor ? e.actor.number : '?') + '</td><td>' + (e.outcomeLabel || '') + '</td></tr>';
+            }).join('') + '</table></div>'
+          : '');
+      el('xgtX').onclick = function () { closeSheet(); };
+      sheetEl().scrollTop = 0;
+      return;
+    }
     // The side currently in goal for this attempt -- always the
     // opposite of whoever's shooting. Only this side's goalkeeper has
     // any bearing on the attempt about to be logged, so it's the only
@@ -22783,7 +22950,15 @@ function openShootout() {
     // openShootout()'s needsRosterDeclare() gate guarantees one of
     // these two is always non-empty by the time drawMain() ever runs,
     // so there is no third "nothing to tap" case left to handle here.
-    var roster = side === 'us' ? (S.water.length ? S.water : S.shootoutRoster.us) : (S.oppWater.length ? S.oppWater : S.shootoutRoster.them);
+    var fullRoster = side === 'us' ? (S.water.length ? S.water : S.shootoutRoster.us) : (S.oppWater.length ? S.oppWater : S.shootoutRoster.them);
+    var designatedShooters = shootoutDesignatedShooters(side);
+    // Round 1 still offers the full water roster -- any of them could
+    // end up being one of the 5, and it's the coach's free choice which
+    // ones as they tap. Once round 1 has settled who those 5 actually
+    // are, the grid narrows to just them, since a 6th or 7th player has
+    // no further role in this shootout.
+    var roster = designatedShooters.length >= 5 ? designatedShooters : fullRoster;
+    var suggestedShooter = shootoutSuggestedShooter(side);
     var defKnownKeepers = defSide === 'us' ? (S.keepers || []) : (S.oppKeepers || []);
     // Same reasoning as the shooter roster fallback above -- if this
     // side's goalkeeper was never declared (no roster tracked, or a
@@ -22809,17 +22984,10 @@ function openShootout() {
     // attempt is the actual next action, not whatever was scrolled to
     // reach the placement tap zones a moment before.
     sheetEl().innerHTML = head('Penalty Shootout', 'Log each attempt as it happens', null) +
-      '<div style="text-align:center;font-size:22px;font-weight:800;margin:6px 0 14px">Us ' + tally.us + ' \u2013 ' + tally.them + ' Them</div>' +
-      // Flagged, not forced -- the shooter grid and everything else
-      // below stays fully available even once this fires, since a
-      // league or referee may still want the remaining scheduled
-      // shooters to go regardless of the math already being settled.
-      (decided.decided
-        ? '<div class="soDecidedBanner">Shootout decided \u2014 ' + (decided.winner === 'us' ? 'Us win' : 'Them win') + '</div>'
-        : '') +
+      '<div style="text-align:center;font-size:22px;font-weight:800;margin:6px 0 14px">' + xgtTeamLabel('us') + ' ' + tally.us + ' \u2013 ' + tally.them + ' ' + xgtTeamLabel('them') + '</div>' +
       '<span class="xgtLbl" style="display:block;font-size:15px;font-weight:800">' + xgtTeamLabel(side) + ' shooting \u2014 tap the cap number</span>' +
       '<div class="xgtNums" id="xgtSoShooters">' + roster.map(function (n) {
-        return '<button class="xgtNum ' + shootoutHighlightClass(shootoutShotCount(side, n)) + xgtDqClass(shootDq, n) + '" data-so-shooter="' + n + '">' + xgtKeeperLabel(n) + '</button>';
+        return '<button class="xgtNum ' + shootoutHighlightClass(shootoutShotCount(side, n)) + xgtDqClass(shootDq, n) + (n === suggestedShooter ? ' soSuggested' : '') + '" data-so-shooter="' + n + '">' + xgtKeeperLabel(n) + '</button>';
       }).join('') + '</div>' +
       '<span class="xgtLbl" style="margin-top:14px">' + xgtTeamLabel(defSide, 'possessive') + ' goalkeeper</span>' +
       '<div class="xgtChips" id="xgtSoDefGk">' + defGkOptions.map(function (n) {
@@ -22837,12 +23005,11 @@ function openShootout() {
       // whole shootout screen (the shootout itself isn't finished by
       // this -- attempts and the running tally are preserved, and it
       // can be reopened from the Time editor's SO chip or the game-over
-      // banner at any point to keep going). Switches to a primary-
-      // styled "End Shootout" once the outcome is settled, as the
-      // clearer next step, without removing the option to keep going.
-      (decided.decided
-        ? '<button class="xgtBtn pri" id="xgtSoDone" style="margin-top:14px">End Shootout</button>'
-        : '<button class="xgtBtn" id="xgtSoDone" style="margin-top:14px">Close Shootout</button>');
+      // banner at any point to keep going). The "End Shootout"/decided
+      // styling this used to switch to has moved to the early-return
+      // block above, since that's the only place this now renders once
+      // decided.
+      '<button class="xgtBtn" id="xgtSoDone" style="margin-top:14px">Close Shootout</button>';
     // Explicit reset, every render -- #xgtSheet's own scroll position
     // otherwise carries over verbatim across a full innerHTML swap, so
     // without this, returning here right after scrolling down to reach
@@ -22919,9 +23086,11 @@ function openShootout() {
     // afterward if the coach keeps logging further, ceremonial shots.
     var nowDecided = shootoutIsDecided();
     if (nowDecided.decided && !wasDecided) {
-      toast('Shootout decided \u2014 ' + (nowDecided.winner === 'us' ? 'Us win' : 'Them win'));
+      toast('Shootout decided \u2014 ' + xgtTeamLabel(nowDecided.winner) + ' win');
+      xgtOfferToFinishGame(); // closes this screen itself -- no further shootout actions should be reachable once decided
+    } else {
+      drawMain();
     }
-    drawMain();
   }
 }
 
@@ -22945,6 +23114,7 @@ function render() {
       : ('Game Over \u2014 ' + sc[0] + '\u2013' + sc[1]);
     var soBtn = el('xgtGameOverSoBtn');
     if (soBtn) soBtn.onclick = openShootout;
+    if (!tied) xgtOfferToFinishGame(); // no shootout needed -- the game is decided the moment regulation ends; xgtOfferToFinishGame's own guard keeps this from re-prompting on every later render()
   } else {
     banner.style.display = 'none';
   }
@@ -23065,17 +23235,19 @@ function renderBar() {
             ? '<span class="xgtChipBadges">' + (t.goals ? '<span class="xgtBadgeGoal">' + t.goals + '</span>' : '') +
               (t.fouls ? '<span class="xgtBadgeFoul">' + t.fouls + '</span>' : '') + '</span>'
             : '';
-          // Same rule as before, just keyed by this column's own fixed
-          // side rather than a global toggle: post-regulation, either
-          // side can pick up misconduct so +F alone shows for both;
-          // during regular play, only the opponent column gets the
-          // quick-tap +G too, since our own goals already have a real
-          // field zone to tap through instead.
+          // Post-regulation, either side can pick up misconduct so +F
+          // alone shows for both. During regular play, neither side
+          // gets a quick-tap button anymore -- the Oppo Zone tap
+          // already routes through the exact same openZone() flow a
+          // real field-zone tap for our own team uses, so it's a
+          // complete, working path to log any opponent event
+          // (including goals and fouls), not just a narrower shortcut
+          // alongside it. Keeping both made two different, redundant
+          // ways to log the same thing; this makes the opponent's
+          // chips behave identically to our own team's chips.
           var quick = S.regulationEnded
             ? '<span class="xgtQuick"><button data-quick-foul="' + n + '" data-quick-side="' + side + '">+F</button></span>'
-            : (!isUs
-                ? '<span class="xgtQuick"><button data-quick-goal="' + n + '">+G</button><button data-quick-foul="' + n + '" data-quick-side="them">+F</button></span>'
-                : '');
+            : '';
           // Both sides' goalkeepers get the same treatment now -- the
           // opponent's was previously never marked at all (isGoalie
           // was unconditionally false whenever this rendered their
@@ -23133,20 +23305,6 @@ function renderBar() {
             commit({ actor: { side: actorSide, number: n }, context: { kind: 'presence', dir: 'in', trackingMode: 'coach', dc: null, note: null } });
           }
         }
-      };
-    });
-    Array.prototype.forEach.call(bar.querySelectorAll('[data-quick-goal]'), function (b) {
-      b.onclick = function () {
-        // actor.side must be 'opp', not 'them' -- 'them'/'us' is only
-        // ever this bar's own internal naming for which column a chip
-        // belongs to. scoreOf() and everything else downstream checks
-        // for 'opp' specifically, so committing 'them' here silently
-        // credited OUR OWN score for what was meant to be logged as
-        // the opponent's goal -- a real, pre-existing bug, not
-        // something intentional to preserve.
-        commit({ actor: { side: 'opp', number: +b.dataset.quickGoal }, action: 'shot', outcome: 'goal', outcomeLabel: 'Goal',
-                 context: { kind: 'action', dir: null, dc: null, note: 'quick-tap opponent goal' } });
-        if (S.running) toggleClock(); // instant commit, no openZone()/commitDraft() pause-and-decide cycle to go through -- a goal stops play the moment it happens either way
       };
     });
     Array.prototype.forEach.call(bar.querySelectorAll('[data-quick-foul]'), function (b) {
@@ -23436,21 +23594,9 @@ function openOptions() {
   draw(); openSheet();
   function draw() {
     var isFrontCourt = frontCourtOn();
-    // Sessions only shown when it would actually lead somewhere useful:
-    // hidden if not signed in or the underlying cloud-storage gate is
-    // denied (tapping it would only ever show a toast, never the
-    // library itself, matching xgtOpenSessions()'s own checks), and
-    // hidden if storage IS allowed but genuinely empty (nothing saved
-    // yet, so the library would open to nothing). listStoreSync() reads
-    // a local cache that may not be warm yet on a cold start -- true
-    // uncertainty (module not ready) defaults to showing the button
-    // rather than risking hiding one that actually has content,
-    // matching this app's established fail-open convention elsewhere.
-    var signedIn = typeof XQUIX !== 'undefined' && XQUIX.Auth && XQUIX.Auth.getCurrentUser();
-    var showSessions = signedIn && xgtHasCloudStorage() && (
-      typeof XQUIX === 'undefined' || !XQUIX.StorageProvider || typeof XQUIX.StorageProvider.listStoreSync !== 'function'
-      || Object.keys(XQUIX.StorageProvider.listStoreSync('gameTrackerSession')).length > 0
-    );
+    // Sessions only shown when it would actually lead somewhere useful --
+    // see xgtShouldShowSessionsEntry()'s own comment for the full reasoning.
+    var showSessions = xgtShouldShowSessionsEntry();
     sheetEl().innerHTML = head('Menu', 'Settings and less-frequent actions', null) +
       // Prominent and first, matching how Switch Mode sits at the top
       // of the sidebar in the Coaching platform, rather than buried
@@ -23535,13 +23681,7 @@ function openOptions() {
     // explicit "yes, this is done and saved" action, not to have to
     // trust that closing the same way as every other exit already
     // covered it.
-    el('xgtOptEndSave').onclick = async function () {
-      const ok = await MizeDialog.confirm('End this session? It\u2019s saved automatically as you go \u2014 this closes the tracker.');
-      if (!ok) return;
-      if (S.events.length) syncSessionToCloud();
-      closeSheet();
-      API.close();
-    };
+    el('xgtOptEndSave').onclick = function () { xgtOfferToFinishGame(true); };
   }
 }
 function openStats() {
@@ -23924,7 +24064,7 @@ function openSetup() {
         S.squad.sort(function (a, b2) { return a - b2; });
         S.keepers.sort(function (a, b2) { return a - b2; });
         el('xgtSetupErr').classList.remove('on');
-        draw();
+        grab(); draw();
       };
     });
     var kp = el('xgtKeepers');
@@ -23933,7 +24073,7 @@ function openSetup() {
         var n = +b.dataset.k, i = S.keepers.indexOf(n);
         if (i >= 0) { S.keepers.splice(i, 1); delete S.keeperLabels[n]; } else S.keepers.push(n);
         S.keepers.sort(function (a, b2) { return a - b2; });
-        draw(); // re-render, not just toggle the one chip's attribute -- the label-input list below needs to show/hide/reorder with the keeper set
+        grab(); draw(); // re-render, not just toggle the one chip's attribute -- the label-input list below needs to show/hide/reorder with the keeper set
       };
     });
     var klWrap = el('xgtKeeperLabels');
@@ -23944,7 +24084,7 @@ function openSetup() {
       };
     });
     var oppToggle = el('xgtOppToggle');
-    if (oppToggle) oppToggle.onchange = function () { S.opponentTracked = oppToggle.checked; draw(); };
+    if (oppToggle) oppToggle.onchange = function () { S.opponentTracked = oppToggle.checked; grab(); draw(); };
     var scoreToggle = el('xgtTrackScoreToggle');
     // No re-draw needed here, unlike oppToggle -- this doesn't reveal any
     // additional setup UI, it only affects the live tracker's top bar,
@@ -23959,7 +24099,7 @@ function openSetup() {
           var k = S.oppKeepers.indexOf(n); if (k >= 0) S.oppKeepers.splice(k, 1);
         } else S.oppSquad.push(n);
         S.oppSquad.sort(function (a, b2) { return a - b2; });
-        draw();
+        grab(); draw();
       };
     });
     var oppKp = el('xgtOppKeepers');
@@ -24380,23 +24520,24 @@ var API = {
       positionShield();
     }, 60);
     var saved = loadSaved();
-    if (saved && saved.events && saved.events.length) {
-      askResume(saved);
-    } else {
-      // No saved game to resume from -- but S itself is a page-lifetime
-      // variable, not something that re-initializes on its own just
-      // because the tracker closed and reopened. Without this, a coach
-      // who closed the tracker after a game without explicitly starting
-      // a new one (or hit some edge case where the autosave didn't
-      // persist) could reopen it later in the same browser session and
-      // land straight in setup while S still silently held the
-      // previous game's score and events underneath. Safe either way:
-      // a no-op if S was already clean, corrective if it wasn't, and
-      // still saves first via resetGameState() if there's anything
-      // there worth keeping.
+    var canResume = !!(saved && saved.events && saved.events.length && !saved.officiallyEnded);
+    if (!canResume) {
+      // No resumable game -- but S itself is a page-lifetime variable,
+      // not something that re-initializes on its own just because the
+      // tracker closed and reopened. Without this, a coach who closed
+      // the tracker after a game without explicitly starting a new one
+      // (or hit some edge case where the autosave didn't persist) could
+      // reopen it later in the same browser session and land in the
+      // landing screen while S still silently held the previous game's
+      // score and events underneath. Safe either way: a no-op if S was
+      // already clean, corrective if it wasn't, and still saves first
+      // via resetGameState() if there's anything there worth keeping.
+      // Also covers the case where a saved game exists but is
+      // officially ended -- already persisted, nothing left to resume
+      // from it locally.
       resetGameState();
-      render(); openSetup();
     }
+    openGameTrackerLanding(canResume ? saved : null);
   },
   close: function () {
     if (!S.active) return;
@@ -24577,19 +24718,27 @@ var API = {
     download((filenameHint || 'xquix-session-stats') + '.csv', 'text/csv', xgtEventsToCsvString(events));
   }
 };
-function askResume(saved) {
+function openGameTrackerLanding(saved) {
   openSheet();
+  var showSessions = xgtShouldShowSessionsEntry();
   var when = '';
-  try { when = new Date(saved.savedAt).toLocaleString(); } catch (err) {}
-  sheetEl().innerHTML = head('Game in progress', 'Saved ' + when, null) +
-    '<p class="xgtNote" style="margin-top:0">' +
-      (saved.game.home || 'My team') + ' vs ' + (saved.game.away || 'Opponent') + ' · ' +
-      saved.events.length + ' events · Q' + saved.q + ' ' + fmt(saved.clock) + '</p>' +
-    '<button class="xgtBtn pri" id="xgtRes" style="margin-bottom:9px">Resume this game</button>' +
-    '<button class="xgtBtn" id="xgtFresh">Start a new game instead</button>';
+  if (saved) { try { when = new Date(saved.savedAt).toLocaleString(); } catch (err) {} }
+  sheetEl().innerHTML = head('Game Tracker', saved ? 'Saved ' + when : 'Start tracking a game', null) +
+    (saved
+      ? '<p class="xgtNote" style="margin-top:0">' +
+          (saved.game.home || 'My team') + ' vs ' + (saved.game.away || 'Opponent') + ' \u00b7 ' +
+          saved.events.length + ' events \u00b7 Q' + saved.q + ' ' + fmt(saved.clock) + '</p>' +
+        '<button class="xgtBtn pri" id="xgtRes" style="margin-bottom:9px">Resume this game</button>'
+      : '') +
+    // Start a new game takes the primary styling itself whenever there's
+    // nothing to resume -- otherwise Resume already fills that role, and
+    // this stays the plain, secondary option beneath it.
+    '<button class="xgtBtn' + (saved ? '' : ' pri') + '" id="xgtFresh" style="margin-bottom:9px">Start a new game</button>' +
+    (showSessions ? '<button class="xgtBtn" id="xgtViewSessions">View Saved Sessions</button>' : '');
   el('xgtX').onclick = function () { closeSheet(); API.close(); };
-  el('xgtRes').onclick = function () { restore(saved); closeSheet(); render(); };
+  if (saved) el('xgtRes').onclick = function () { restore(saved); closeSheet(); render(); };
   el('xgtFresh').onclick = function () { resetGameState(); closeSheet(); render(); openSetup(); };
+  if (showSessions) el('xgtViewSessions').onclick = xgtOpenSessions;
 }
 
 /* ------------------------------------------------------------- boot / launch */
