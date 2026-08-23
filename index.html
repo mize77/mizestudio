@@ -21159,9 +21159,10 @@ function xgtShouldShowSessionsEntry() {
   ));
 }
 function syncSessionToCloud() {
-  if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Storage || typeof XQUIX.Storage.save !== 'function' || !XQUIX.Auth.getCurrentUser()) return;
-  if (!xgtHasCloudStorage()) return;
-  if (!S.cloudSessionName) return;
+  if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Storage || typeof XQUIX.Storage.save !== 'function') return Promise.resolve({ status: 'skipped', reason: 'unavailable' });
+  if (!XQUIX.Auth.getCurrentUser()) return Promise.resolve({ status: 'skipped', reason: 'signed-out' });
+  if (!xgtHasCloudStorage()) return Promise.resolve({ status: 'skipped', reason: 'no-entitlement' });
+  if (!S.cloudSessionName) return Promise.resolve({ status: 'skipped', reason: 'no-session-name' });
   try {
     var sc = scoreOf();
     var hadShootout = shootoutAttempts().length > 0;
@@ -21180,11 +21181,18 @@ function syncSessionToCloud() {
       shootout: soTally,
       events: S.events
     };
-    XQUIX.Storage.save({ kind: 'gameTrackerSession', name: S.cloudSessionName, record: record, scope: 'personal' })
+    return XQUIX.Storage.save({ kind: 'gameTrackerSession', name: S.cloudSessionName, record: record, scope: 'personal' })
       .then(function (result) {
-        if (result && result.error) console.error('XquiX Game Tracker: cloud session sync failed (queued for retry by CloudProvider):', result.error.message);
+        if (result && result.error) {
+          console.error('XquiX Game Tracker: cloud session sync failed (queued for retry by CloudProvider):', result.error.message);
+          return { status: 'error', message: result.error.message };
+        }
+        return { status: 'success' };
       })
-      .catch(function (err) { console.error('XquiX Game Tracker: cloud session sync threw:', err); });
+      .catch(function (err) {
+        console.error('XquiX Game Tracker: cloud session sync threw:', err);
+        return { status: 'error', message: err && err.message };
+      });
   } catch (err) {
     // Defense in depth: even a synchronous throw here (e.g. a malformed
     // or partially-mocked XQUIX.Storage) must never propagate out of
@@ -21195,6 +21203,7 @@ function syncSessionToCloud() {
     // function) threw synchronously and interrupted go() before it
     // reached closeSheet()/render() at the end.
     console.error('XquiX Game Tracker: cloud session sync threw synchronously:', err);
+    return Promise.resolve({ status: 'error', message: err && err.message });
   }
 }
 function loadSaved() {
@@ -22937,9 +22946,26 @@ async function xgtOfferToFinishGame(force) {
   var suffix = await MizeDialog.prompt('Add a note to the file name (optional):', '');
   S.cloudSessionName = xgtBuildSessionName(suffix);
   S.officiallyEnded = true;
-  if (S.events.length) syncSessionToCloud();
+  // The local save always happens regardless of what the cloud sync does --
+  // this is just about telling the coach honestly whether it also actually
+  // reached the Coaching Library, rather than claiming that unconditionally
+  // when it may well not have.
+  var syncResult = S.events.length ? await syncSessionToCloud() : { status: 'skipped', reason: 'no-events' };
   save();
-  await MizeDialog.alert('Saved as \u201c' + S.cloudSessionName + '\u201d. You can find it later in the Coaching Library.', 'Session Saved');
+  var name = '\u201c' + S.cloudSessionName + '\u201d';
+  var message;
+  if (syncResult.status === 'success') {
+    message = 'Saved as ' + name + '. You can find it later in the Coaching Library.';
+  } else if (syncResult.status === 'error') {
+    message = 'Saved as ' + name + ' on this device. Uploading to the Coaching Library didn\u2019t go through just now, but it\u2019ll keep retrying automatically.';
+  } else if (syncResult.reason === 'signed-out') {
+    message = 'Saved as ' + name + ' on this device. Sign in to also save it to your Coaching Library.';
+  } else if (syncResult.reason === 'no-entitlement') {
+    message = 'Saved as ' + name + ' on this device. Cloud session storage isn\u2019t included in your current plan, so it won\u2019t appear in the Coaching Library.';
+  } else {
+    message = 'Saved as ' + name + ' on this device.';
+  }
+  await MizeDialog.alert(message, 'Session Saved');
   API.close();
 }
 function openShootout() {
