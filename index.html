@@ -209,7 +209,9 @@
      tracker launched. */
   body.gameTrackerActive #edgeTabStack, body.gameTrackerActive #closeHeaderBtn,
   body.gameTrackerActive #closeSidebarBtn, body.gameTrackerActive #controlsPanel,
-  body.gameTrackerActive #toolPanelBackdrop { display:none !important; }
+  body.gameTrackerActive #toolPanelBackdrop, body.gameTrackerActive #quickCommandBar,
+  body.gameTrackerActive #coachingNotesSidebar, body.gameTrackerActive #timelinePanel,
+  body.gameTrackerActive .toolPanel { display:none !important; }
   /* Read-only: the audience display only ever renders state pushed from
      the coach's window, so nothing on it should be draggable or clickable. */
   body.xquixAudienceMode #board .player, body.xquixAudienceMode #board #ball,
@@ -21311,10 +21313,12 @@ var CSS = [
 // Shown only once regulation actually ends (S.regulationEnded) --
 // content is filled in by render(), not baked into this rule, since it
 // differs depending on whether the score is tied.
-'#xgtGameOverBanner{border-radius:10px;padding:9px 12px;margin:8px 0;text-align:center;font-weight:700;font-size:13px}',
+'#xgtGameOverBanner{border-radius:12px;padding:14px 12px;margin:8px 0;text-align:center}',
 '#xgtGameOverBanner.tied{background:#fff3cd;color:#7a5b00}',
 '#xgtGameOverBanner.decided{background:#e1e6e6;color:#124d4d}',
-'#xgtGameOverBanner button{margin-top:6px;width:100%}',
+'#xgtGameOverLabel{font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.85}',
+'#xgtGameOverScore{font-weight:800;font-size:26px;line-height:1.25;margin-top:4px;font-variant-numeric:tabular-nums}',
+'#xgtGameOverBanner button{margin-top:12px;width:100%;padding-top:15px;padding-bottom:15px;font-size:15px}',
 '#xgtBottom{position:absolute;left:0;right:0;bottom:0;border-width:1px 0 0;',
 '  padding:8px 10px calc(env(safe-area-inset-bottom) + 8px);display:flex;flex-direction:column;gap:7px;',
 '  max-height:58vh;max-height:58dvh;overflow-y:auto;-webkit-overflow-scrolling:touch}',
@@ -21475,7 +21479,7 @@ var CSS = [
 '.xgtChip.dqRedCard::after,.xgtNum.dqRedCard::after{content:"R"}',
 '.xgtBtn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 16px;border-radius:12px;',
 '  background:#e1e6e6;border:1px solid #ccd6d6;font-weight:600;width:100%;color:#124d4d}',
-'#xgtSheet .xgtBtn.pri{background:#1b7373;border-color:transparent;color:#fff}',
+'#xgtRoot .xgtBtn.pri{background:#1b7373;border-color:transparent;color:#fff}',
 '.xgtField{width:100%;padding:11px 12px;border-radius:10px;background:#fff;border:1px solid #ccd6d6;',
 '  color:#14235c;outline:none;margin-bottom:10px;font:inherit}',
 '.xgtField:focus{border-color:#1b7373}',
@@ -23224,11 +23228,12 @@ function render() {
     var tied = sc[0] === sc[1];
     banner.style.display = '';
     banner.className = tied ? 'tied' : 'decided';
+    var scoreLine = '<div id="xgtGameOverScore">' + xgtTeamLabel('us') + ' ' + sc[0] + ' \u2013 ' + sc[1] + ' ' + xgtTeamLabel('them') + '</div>';
     banner.innerHTML = tied
       ? (S.shootoutStartSide
-          ? 'Game tied \u2014 penalty shootout in progress<br><button class="xgtBtn pri" id="xgtGameOverSoBtn">Continue shootout</button>'
-          : 'Regulation over, game tied ' + sc[0] + '\u2013' + sc[1] + '<br><button class="xgtBtn pri" id="xgtGameOverSoBtn">Continue with Penalty Shootout</button>')
-      : ('Game Over \u2014 ' + sc[0] + '\u2013' + sc[1]);
+          ? '<div id="xgtGameOverLabel">Penalty Shootout In Progress</div>' + scoreLine + '<button class="xgtBtn pri" id="xgtGameOverSoBtn">Continue Shootout</button>'
+          : '<div id="xgtGameOverLabel">Regulation Over \u2014 Tied</div>' + scoreLine + '<button class="xgtBtn pri" id="xgtGameOverSoBtn">Continue with Penalty Shootout</button>')
+      : ('<div id="xgtGameOverLabel">Game Over</div>' + scoreLine);
     var soBtn = el('xgtGameOverSoBtn');
     if (soBtn) soBtn.onclick = openShootout;
     if (!tied) xgtOfferToFinishGame(); // no shootout needed -- the game is decided the moment regulation ends; xgtOfferToFinishGame's own guard keeps this from re-prompting on every later render()
