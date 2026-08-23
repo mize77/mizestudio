@@ -20589,6 +20589,13 @@ var S = {
   // specifically for this is real and expected.
   shootoutStartSide: null,
   shootoutGoalkeepers: { us: null, them: null },
+  // Off by default -- the automatic order enforcement below (no repeat
+  // shooter until all 5 have gone in round 1, then only the next player
+  // in that established order selectable in round 2+) is the standard
+  // behavior. This is the explicit override for events whose own rules
+  // differ from the official ones, letting the coach tap any shooter
+  // freely instead.
+  shootoutFreeSelection: false,
   // Only populated for a side whose water roster is unknown at shootout
   // time (opponent tracking wasn't enabled) -- a one-time, tap-declared
   // stand-in for S.water/S.oppWater so the shooter grid in the shootout
@@ -20837,6 +20844,7 @@ function xgtDisqualifiedSet(side, eventsList) {
     if (!who || xgtDqSide(who.side) !== normSide) return;
     if (e.outcome === 'excl_sub') { dq[who.number] = 'excl_sub'; return; }
     if (e.outcome === 'brutality') { dq[who.number] = 'brutality'; return; }
+    if (e.outcome === 'red_card') { dq[who.number] = 'red_card'; return; }
     if (e.outcome === 'exclusion' || e.outcome === 'penalty') {
       counts[who.number] = (counts[who.number] || 0) + 1;
       if (counts[who.number] >= 3 && !dq[who.number]) dq[who.number] = 'fouls';
@@ -20846,12 +20854,13 @@ function xgtDisqualifiedSet(side, eventsList) {
 }
 // Returns the disqualification reason itself (not just a boolean) so
 // callers can apply a reason-specific marker class -- dqExclSub /
-// dqBrutality get their own distinct visual mark (S / X), while the
-// plain 3-foul case just gets the shared dqPlayer treatment alone.
+// dqBrutality / dqRedCard get their own distinct visual mark (S / X /
+// R), while the plain 3-foul case just gets the shared dqPlayer
+// treatment alone.
 function xgtDqClass(dqSet, number) {
   var reason = dqSet[number];
   if (!reason) return '';
-  return ' dqPlayer' + (reason === 'excl_sub' ? ' dqExclSub' : reason === 'brutality' ? ' dqBrutality' : '');
+  return ' dqPlayer' + (reason === 'excl_sub' ? ' dqExclSub' : reason === 'brutality' ? ' dqBrutality' : reason === 'red_card' ? ' dqRedCard' : '');
 }
 // Runs after every commit(). The only thing that ever needs doing here
 // -- the derived set above needs nothing done to it at all -- is the
@@ -21165,6 +21174,7 @@ function resetGameState() {
   S.shootoutStartSide = null;
   S.shootoutGoalkeepers = { us: null, them: null };
   S.shootoutRoster = { us: [], them: [] };
+  S.shootoutFreeSelection = false;
   S.regulationEnded = false;
   S.officiallyEnded = false;
   S.finishPromptShown = false;
@@ -21244,7 +21254,8 @@ var CSS = [
 '#xgtGameOverBanner.decided{background:#e1e6e6;color:#124d4d}',
 '#xgtGameOverBanner button{margin-top:6px;width:100%}',
 '#xgtBottom{position:absolute;left:0;right:0;bottom:0;border-width:1px 0 0;',
-'  padding:8px 10px calc(env(safe-area-inset-bottom) + 8px);display:flex;flex-direction:column;gap:7px}',
+'  padding:8px 10px calc(env(safe-area-inset-bottom) + 8px);display:flex;flex-direction:column;gap:7px;',
+'  max-height:58vh;max-height:58dvh;overflow-y:auto;-webkit-overflow-scrolling:touch}',
 '#xgtLog{max-height:58px;overflow-y:auto;-webkit-overflow-scrolling:touch}',
 '#xgtLog .lr{display:flex;gap:8px;align-items:baseline;padding:4px 0;font-size:12px;color:#124d4d;',
 '  border-bottom:1px solid #e1e6e6}',
@@ -21309,8 +21320,7 @@ var CSS = [
 '.xgtBadgeGoal,.xgtBadgeFoul{font-size:9px;font-weight:800;min-width:14px;height:14px;border-radius:7px;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 2px;line-height:1}',
 '.xgtBadgeGoal{background:#1b7373}',
 '.xgtBadgeFoul{background:#c0392b}', /* red, not teal -- deliberately the more attention-getting color, since several water polo rule sets disqualify a player after a set number of personal fouls and this is meant to be glanceable */
-'.xgtQuick{display:flex;gap:3px}',
-'.xgtQuick button{font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;border:1px solid #c7d0d0;background:#fff;color:#124d4d;cursor:pointer}',
+
 /* scrim + sheet */
 '#xgtScrim{position:fixed;inset:0;z-index:999985;background:rgba(13,43,43,.45);opacity:0;pointer-events:none;transition:opacity .18s}',
 '#xgtScrim.on{opacity:1;pointer-events:auto}',
@@ -21358,13 +21368,25 @@ var CSS = [
 '.xgtNum.soShot1{background:#a9c2c2;border-color:#8fb0b0}',
 '.xgtNum.soShot2{background:#4f7a7a;color:#fff;border-color:#3f6363}',
 '.xgtNum.soShot3{background:#0d3838;color:#fff;border-color:#092a2a}',
-// A suggestion, not a restriction -- every shooter chip stays equally
-// tappable regardless of this, per direct confirmation that even an
-// already-shot player should remain reachable. The ring layers over
-// any of the three shade classes above (or none), so it reads clearly
-// whether this is someone's 1st, 2nd, or 3rd trip to the line.
+// Marks who's up next in the established order -- enforced by default
+// (the actual blocking is the disabled attribute set in drawMain()
+// itself, not this ring), unless free selection is on, in which case
+// this ring is purely informational since every chip is tappable
+// again. Layers over any of the three shade classes above, so it
+// reads clearly whether this is someone's 1st, 2nd, or 3rd trip to
+// the line.
 '.xgtNum.soSuggested{box-shadow:0 0 0 3px #e0a72c;animation:soSuggestPulse 1.6s ease-in-out infinite}',
 '@keyframes soSuggestPulse{0%,100%{box-shadow:0 0 0 3px #e0a72c}50%{box-shadow:0 0 0 5px #f0c15c}}',
+// The actual block -- visibly inert rather than just quietly ignoring
+// taps, since a disabled control that still looked fully normal is
+// what read as "nothing is happening" before.
+'.xgtNum:disabled{background:#e1e6e6 !important;color:#8a9898 !important;border-color:#ccd6d6 !important;cursor:not-allowed;animation:none;box-shadow:none !important;background-image:repeating-linear-gradient(135deg,rgba(138,152,152,.18) 0 4px,transparent 4px 10px)}',
+// Fixed position label ("1st", "2nd"...) marking this player's spot in
+// the order round 1 established, regardless of how many times they've
+// since shot -- distinct from the shade classes above, which track
+// shot count, not shooting position.
+'.xgtNum{position:relative}',
+'.soOrdinal{position:absolute;top:-8px;left:-6px;background:#1b7373;color:#fff;font-size:10px;font-weight:800;padding:2px 5px;border-radius:8px;line-height:1}',
 // Same color language as #xgtGameOverBanner.decided (a settled, no-
 // longer-live state) -- kept as its own class rather than reusing that
 // ID-scoped rule, since this banner lives inside the shootout sheet
@@ -21382,12 +21404,13 @@ var CSS = [
 // on top of the shared 50% opacity every disqualified player already
 // gets -- top-left corner, opposite the goal/foul count badges
 // (top-right), so the two never collide on the same chip.
-'.xgtChip.dqExclSub,.xgtChip.dqBrutality,.xgtNum.dqExclSub,.xgtNum.dqBrutality{position:relative}',
-'.xgtChip.dqExclSub::after,.xgtChip.dqBrutality::after,.xgtNum.dqExclSub::after,.xgtNum.dqBrutality::after{position:absolute;top:-6px;left:-6px;width:15px;height:15px;',
+'.xgtChip.dqExclSub,.xgtChip.dqBrutality,.xgtChip.dqRedCard,.xgtNum.dqExclSub,.xgtNum.dqBrutality,.xgtNum.dqRedCard{position:relative}',
+'.xgtChip.dqExclSub::after,.xgtChip.dqBrutality::after,.xgtChip.dqRedCard::after,.xgtNum.dqExclSub::after,.xgtNum.dqBrutality::after,.xgtNum.dqRedCard::after{position:absolute;top:-6px;left:-6px;width:15px;height:15px;',
 '  border-radius:50%;background:#c0392b;color:#fff;font-size:9.5px;font-weight:800;display:flex;',
 '  align-items:center;justify-content:center;line-height:1}',
 '.xgtChip.dqExclSub::after,.xgtNum.dqExclSub::after{content:"S"}',
 '.xgtChip.dqBrutality::after,.xgtNum.dqBrutality::after{content:"X"}',
+'.xgtChip.dqRedCard::after,.xgtNum.dqRedCard::after{content:"R"}',
 '.xgtBtn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 16px;border-radius:12px;',
 '  background:#e1e6e6;border:1px solid #ccd6d6;font-weight:600;width:100%;color:#124d4d}',
 '#xgtSheet .xgtBtn.pri{background:#1b7373;border-color:transparent;color:#fff}',
@@ -22966,8 +22989,11 @@ function openShootout() {
     // a tap target rather than typing one in. Unlike the shooter
     // roster, this isn't asked once upfront -- a keeper substitution
     // mid-shootout is real, so it stays a plain tap here, re-offered
-    // fresh on every attempt.
-    var defGkOptions = defKnownKeepers.length ? defKnownKeepers : Array.apply(null, { length: 20 }).map(function (_, i) { return i + 1; });
+    // fresh on every attempt. Falls back to that side's own declared
+    // squad specifically -- not an arbitrary 1-20 range, which offered
+    // cap numbers that were never part of this game's roster at all.
+    var defSquad = defSide === 'us' ? (S.squad || []) : (S.oppSquad || []);
+    var defGkOptions = defKnownKeepers.length ? defKnownKeepers : (defSquad.length ? defSquad : Array.apply(null, { length: 20 }).map(function (_, i) { return i + 1; }));
     // Genuinely needed here, not just a defensive backstop -- roster
     // can come from S.shootoutRoster (a manually tap-declared stand-in,
     // see needsRosterDeclare()) rather than the live S.water/oppWater,
@@ -22983,12 +23009,40 @@ function openShootout() {
     // makes sure the very next thing visible after committing an
     // attempt is the actual next action, not whatever was scrolled to
     // reach the placement tap zones a moment before.
+    var freeSelection = !!S.shootoutFreeSelection;
+    // The two situations that actually restrict who's tappable right
+    // now, both off entirely when free selection is on:
+    //  - round 1 still in progress (fewer than 5 distinct shooters so
+    //    far): anyone who's already taken their one shot this round is
+    //    blocked until the other 5th shooter has also gone, per the
+    //    confirmed rule that nobody repeats within that first pass.
+    //  - round 2+ (all 5 established): only the next shooter in the
+    //    order that round 1 itself established is selectable -- the
+    //    "automatism" that round 2 replays round 1's order exactly.
+    // Both branches disable the actual <button> element rather than
+    // relying on styling alone, since a merely-styled-but-still-
+    // clickable control is what didn't read as "blocked" at all
+    // previously.
+    var ordinalLabels = ['1st', '2nd', '3rd', '4th', '5th'];
     sheetEl().innerHTML = head('Penalty Shootout', 'Log each attempt as it happens', null) +
       '<div style="text-align:center;font-size:22px;font-weight:800;margin:6px 0 14px">' + xgtTeamLabel('us') + ' ' + tally.us + ' \u2013 ' + tally.them + ' ' + xgtTeamLabel('them') + '</div>' +
       '<span class="xgtLbl" style="display:block;font-size:15px;font-weight:800">' + xgtTeamLabel(side) + ' shooting \u2014 tap the cap number</span>' +
       '<div class="xgtNums" id="xgtSoShooters">' + roster.map(function (n) {
-        return '<button class="xgtNum ' + shootoutHighlightClass(shootoutShotCount(side, n)) + xgtDqClass(shootDq, n) + (n === suggestedShooter ? ' soSuggested' : '') + '" data-so-shooter="' + n + '">' + xgtKeeperLabel(n) + '</button>';
+        var shotCount = shootoutShotCount(side, n);
+        var ordinalIdx = designatedShooters.indexOf(n);
+        var ordinalLabel = ordinalIdx >= 0 ? ordinalLabels[ordinalIdx] : '';
+        var blocked = false;
+        if (!freeSelection) {
+          blocked = designatedShooters.length < 5 ? (shotCount > 0) : (n !== suggestedShooter);
+        }
+        return '<button class="xgtNum ' + shootoutHighlightClass(shotCount) + xgtDqClass(shootDq, n) + (n === suggestedShooter ? ' soSuggested' : '') + '" data-so-shooter="' + n + '"' + (blocked ? ' disabled' : '') + '>' + xgtKeeperLabel(n) + (ordinalLabel ? '<span class="soOrdinal">' + ordinalLabel + '</span>' : '') + '</button>';
       }).join('') + '</div>' +
+      // The escape hatch for events whose own rules differ from the
+      // official ones -- bypasses both blocking behaviors above without
+      // touching the roster restriction itself (the same 5 still
+      // continue; only which one of them can be tapped right now
+      // changes).
+      '<label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#5a6664;margin:8px 0 2px;"><input type="checkbox" id="xgtSoFreeSelection" ' + (freeSelection ? 'checked' : '') + '> Free selection (override automatic order)</label>' +
       '<span class="xgtLbl" style="margin-top:14px">' + xgtTeamLabel(defSide, 'possessive') + ' goalkeeper</span>' +
       '<div class="xgtChips" id="xgtSoDefGk">' + defGkOptions.map(function (n) {
         return '<button class="xgtChip' + xgtDqClass(defGkDq, n) + '" data-so-def-gk="' + n + '" aria-pressed="' + (S.shootoutGoalkeepers[defSide] === n) + '">' + xgtKeeperLabel(n) + '</button>';
@@ -23023,6 +23077,7 @@ function openShootout() {
     Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-so-shooter]'), function (b) {
       b.onclick = function () { drawOutcome(side, +b.dataset.soShooter); };
     });
+    el('xgtSoFreeSelection').onchange = function () { S.shootoutFreeSelection = this.checked; drawMain(); };
     el('xgtSoDone').onclick = function () { closeSheet(); };
   }
 
@@ -23235,19 +23290,6 @@ function renderBar() {
             ? '<span class="xgtChipBadges">' + (t.goals ? '<span class="xgtBadgeGoal">' + t.goals + '</span>' : '') +
               (t.fouls ? '<span class="xgtBadgeFoul">' + t.fouls + '</span>' : '') + '</span>'
             : '';
-          // Post-regulation, either side can pick up misconduct so +F
-          // alone shows for both. During regular play, neither side
-          // gets a quick-tap button anymore -- the Oppo Zone tap
-          // already routes through the exact same openZone() flow a
-          // real field-zone tap for our own team uses, so it's a
-          // complete, working path to log any opponent event
-          // (including goals and fouls), not just a narrower shortcut
-          // alongside it. Keeping both made two different, redundant
-          // ways to log the same thing; this makes the opponent's
-          // chips behave identically to our own team's chips.
-          var quick = S.regulationEnded
-            ? '<span class="xgtQuick"><button data-quick-foul="' + n + '" data-quick-side="' + side + '">+F</button></span>'
-            : '';
           // Both sides' goalkeepers get the same treatment now -- the
           // opponent's was previously never marked at all (isGoalie
           // was unconditionally false whenever this rendered their
@@ -23255,19 +23297,12 @@ function renderBar() {
           // fixes for both columns alike.
           var isGoalie = keepers.indexOf(n) >= 0;
           var displayText = isGoalie && isUs ? xgtKeeperLabel(n) : n;
-          // dqPlayer goes on the WRAP, not just the inner chip -- the
-          // adjacent +G/+F quick buttons are siblings of the chip, not
-          // its descendants, so putting it only on the chip itself would
-          // leave those still tappable for a disqualified player. The
-          // reason-specific marker (dqExclSub/dqBrutality) goes on the
-          // chip itself instead, alongside its other classes -- that's
-          // where the CSS ::after marker is actually anchored, and
-          // wrapping it in this same variable was previously silently
-          // dropping it, since this render site built its own inline
-          // 'dqPlayer' string rather than calling xgtDqClass() at all.
-          var dqReasonClass = dq === 'excl_sub' ? ' dqExclSub' : dq === 'brutality' ? ' dqBrutality' : '';
+          // Reason-specific marker (dqExclSub/dqBrutality/dqRedCard)
+          // goes on the chip itself, alongside its other classes --
+          // that's where the CSS ::after marker is actually anchored.
+          var dqReasonClass = dq === 'excl_sub' ? ' dqExclSub' : dq === 'brutality' ? ' dqBrutality' : dq === 'red_card' ? ' dqRedCard' : '';
           return '<div class="xgtChipWrap' + (dq ? ' dqPlayer' : '') + '"><button class="xgtChip ' + (rosterWater.indexOf(n) >= 0 ? 'water' : '') + (isGoalie ? ' goalie' : '') + dqReasonClass + '" data-n="' + n + '" data-side="' + side + '">' +
-            displayText + badges + '</button>' + quick + '</div>';
+            displayText + badges + '</button></div>';
         }).join('') + '</div></div>';
     }
     bar.innerHTML = '<div class="xgtBarSplit">' + renderBarColumn('us') +
@@ -23307,18 +23342,6 @@ function renderBar() {
         }
       };
     });
-    Array.prototype.forEach.call(bar.querySelectorAll('[data-quick-foul]'), function (b) {
-      b.onclick = function () {
-        var side = b.dataset.quickSide || 'them';
-        // Same 'them'->'opp' normalization as the quick-goal handler
-        // above, and for the identical reason -- only the note text
-        // below still cares about the bar's own 'us'/'them' naming.
-        var actorSide = side === 'them' ? 'opp' : side;
-        commit({ actor: { side: actorSide, number: +b.dataset.quickFoul }, action: 'exclusion',
-                 context: { kind: 'action', dir: null, dc: 'committed', note: 'quick-tap ' + (side === 'them' ? 'opponent' : 'own-side') + ' personal foul' } });
-        if (S.running) toggleClock(); // same as the quick goal button above -- a personal foul stops play immediately, regardless of how it got logged
-        };
-      });
   }
 }
 
@@ -23620,6 +23643,11 @@ function openOptions() {
       '<div style="border-top:1px solid #e1e6e6;margin:14px 0 10px"></div>' +
       '<button class="xgtBtn" id="xgtOptStats">Stats</button>' +
       (showSessions ? '<button class="xgtBtn" id="xgtOptSessions" style="margin-top:8px">Sessions</button>' : '') +
+      // Only reachable once regulation has actually ended -- a post-
+      // game foul, by definition, can't happen before then. Tucked in
+      // here rather than given a prominent spot of its own, matching
+      // how rare an occurrence this is expected to be.
+      (S.regulationEnded ? '<button class="xgtBtn" id="xgtOptPostGameFoul" style="margin-top:8px">Log Post-Game Foul</button>' : '') +
       '<div style="border-top:1px solid #e1e6e6;margin:14px 0 10px"></div>' +
       '<button class="xgtBtn" id="xgtOptCsv">Export CSV</button>' +
       '<button class="xgtBtn" id="xgtOptJson" style="margin-top:8px">Export JSON</button>' +
@@ -23648,6 +23676,7 @@ function openOptions() {
     };
     el('xgtOptStats').onclick = function () { closeSheet(); openStats(); };
     el('xgtOptSessions')?.addEventListener('click', function () { closeSheet(); xgtOpenSessions(); });
+    el('xgtOptPostGameFoul')?.addEventListener('click', function () { openPostGameFoulWho(); });
     // Mirrors the Exit button's own close path (game state is already
     // kept saved/resumable via syncSessionToCloud on every tap, same as
     // Exit) -- then reveals the home screen so the coach can jump
@@ -23683,6 +23712,51 @@ function openOptions() {
     // covered it.
     el('xgtOptEndSave').onclick = function () { xgtOfferToFinishGame(true); };
   }
+}
+function openPostGameFoulWho() {
+  var usRoster = S.squad.length ? S.squad : S.water;
+  var themRoster = S.oppSquad.length ? S.oppSquad : S.oppWater;
+  sheetEl().innerHTML = head('Post-Game Foul', 'Who committed it?', openOptions) +
+    '<span class="xgtLbl" style="display:block;font-size:14px;font-weight:800">' + xgtTeamLabel('us') + '</span>' +
+    '<div class="xgtNums">' + usRoster.map(function (n) {
+      return '<button class="xgtNum" data-pgf-who="us:' + n + '">' + n + '</button>';
+    }).join('') + '</div>' +
+    // No opponent roster to pick from at all if they were never
+    // tracked -- there'd be no known cap numbers for them regardless
+    // of what actually happened.
+    (S.opponentTracked
+      ? '<span class="xgtLbl" style="display:block;font-size:14px;font-weight:800;margin-top:14px">' + xgtTeamLabel('them') + '</span>' +
+        '<div class="xgtNums">' + themRoster.map(function (n) {
+          return '<button class="xgtNum" data-pgf-who="them:' + n + '">' + n + '</button>';
+        }).join('') + '</div>'
+      : '');
+  wire(openOptions);
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-pgf-who]'), function (b) {
+    b.onclick = function () {
+      var parts = b.dataset.pgfWho.split(':');
+      openPostGameFoulConsequence(parts[0], +parts[1]);
+    };
+  });
+}
+function openPostGameFoulConsequence(side, number) {
+  sheetEl().innerHTML = head('Post-Game Foul', xgtTeamLabel(side) + ' #' + number + ' \u2014 what happened?', openPostGameFoulWho) +
+    '<button class="xgtBtn pri" data-pgf-outcome="red_card" style="margin-bottom:9px">Red Card</button>' +
+    '<button class="xgtBtn" data-pgf-outcome="excl_sub" style="margin-bottom:9px">Exclusion with Substitution</button>' +
+    '<button class="xgtBtn" data-pgf-outcome="brutality">Exclusion with Brutality</button>';
+  wire(openPostGameFoulWho);
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-pgf-outcome]'), function (b) {
+    b.onclick = function () {
+      // Normalized to 'opp' for the actual event, matching every other
+      // commit() call site -- 'us'/'them' is purely this screen's own
+      // display-layer naming, same distinction xgtLiveTally() and
+      // others already have to account for.
+      var actorSide = side === 'them' ? 'opp' : side;
+      commit({ actor: { side: actorSide, number: number }, action: 'exclusion', outcome: b.dataset.pgfOutcome,
+               context: { kind: 'action', dir: null, dc: 'committed', note: 'post-game foul (' + b.dataset.pgfOutcome + ')' } });
+      closeSheet();
+      openOptions();
+    };
+  });
 }
 function openStats() {
   // Team mode gets a genuinely different structure -- a whole-team view
