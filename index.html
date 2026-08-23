@@ -211,7 +211,7 @@
   body.gameTrackerActive #closeSidebarBtn, body.gameTrackerActive #controlsPanel,
   body.gameTrackerActive #toolPanelBackdrop, body.gameTrackerActive #quickCommandBar,
   body.gameTrackerActive #coachingNotesSidebar, body.gameTrackerActive #timelinePanel,
-  body.gameTrackerActive .toolPanel { display:none !important; }
+  body.gameTrackerActive .toolPanel:not(#coachingLibraryPanel) { display:none !important; }
   /* Read-only: the audience display only ever renders state pushed from
      the coach's window, so nothing on it should be draggable or clickable. */
   body.xquixAudienceMode #board .player, body.xquixAudienceMode #board #ball,
