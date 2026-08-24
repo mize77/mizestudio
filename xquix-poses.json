@@ -1,0 +1,551 @@
+{
+  "format": "mize-pose-library",
+  "version": 1,
+  "note": "Angles are degrees offset from the rig rest pose. A frame stores a poseId per player; the board tweens angles between frames. Triggers let the board pick a pose without the user setting one.",
+  "triggerOrder": [
+    "shooting",
+    "passing",
+    "hasBall",
+    "blocking",
+    "swimming",
+    "guarding",
+    "idle"
+  ],
+  "poses": [
+    {
+      "id": "p1",
+      "name": "Standard Defense",
+      "body": "v",
+      "trigger": "idle",
+      "angles": {},
+      "base": "Standard Defense",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "p0aotoi",
+      "name": "Ball protection - right arm",
+      "body": "v",
+      "trigger": "hasBall",
+      "angles": {
+        "shoulder_L": 7,
+        "elbow_L": -21,
+        "shoulder_R": 38,
+        "elbow_R": 42
+      },
+      "hand": "R",
+      "base": "Ball protection",
+      "focus": "arm",
+      "side": "R"
+    },
+    {
+      "id": "pbpb3ja",
+      "name": "Ball protection - left arm",
+      "body": "v",
+      "trigger": "hasBall",
+      "angles": {
+        "shoulder_L": -38,
+        "shoulder_R": -7,
+        "elbow_L": -42,
+        "elbow_R": 21,
+        "hip_L": 0,
+        "hip_R": 0,
+        "knee_L": 0,
+        "knee_R": 0
+      },
+      "hand": "L",
+      "base": "Ball protection",
+      "focus": "arm",
+      "side": "L"
+    },
+    {
+      "id": "pszhqlt",
+      "name": "Ball holding shot - right arm",
+      "body": "v",
+      "trigger": "hasBall",
+      "angles": {
+        "shoulder_R": 68,
+        "elbow_R": 90
+      },
+      "hand": "R",
+      "base": "Ball holding shot",
+      "focus": "arm",
+      "side": "R"
+    },
+    {
+      "id": "p0xjgol",
+      "name": "Ball holding shot - left arm",
+      "body": "v",
+      "trigger": "hasBall",
+      "angles": {
+        "shoulder_L": -68,
+        "shoulder_R": 0,
+        "elbow_L": -90,
+        "elbow_R": 0,
+        "hip_L": 0,
+        "hip_R": 0,
+        "knee_L": 0,
+        "knee_R": 0
+      },
+      "hand": "L",
+      "base": "Ball holding shot",
+      "focus": "arm",
+      "side": "L"
+    },
+    {
+      "id": "pcyzwsu",
+      "name": "Shot blocking - right arm",
+      "body": "v",
+      "trigger": "blocking",
+      "angles": {
+        "elbow_R": 30,
+        "shoulder_R": -35
+      },
+      "hand": "R",
+      "base": "Shot blocking",
+      "focus": "arm",
+      "side": "R"
+    },
+    {
+      "id": "pc97jsf",
+      "name": "Shot blocking - left arm",
+      "body": "v",
+      "trigger": "blocking",
+      "angles": {
+        "shoulder_L": 35,
+        "shoulder_R": 0,
+        "elbow_L": -30,
+        "elbow_R": 0,
+        "hip_L": 0,
+        "hip_R": 0,
+        "knee_L": 0,
+        "knee_R": 0
+      },
+      "hand": "L",
+      "base": "Shot blocking",
+      "focus": "arm",
+      "side": "L"
+    },
+    {
+      "id": "pzx2g8a",
+      "name": "Shot release - right arm",
+      "body": "v",
+      "trigger": "shooting",
+      "angles": {
+        "shoulder_L": -10,
+        "shoulder_R": -24,
+        "elbow_L": 59,
+        "elbow_R": 26,
+        "hip_L": 0,
+        "hip_R": 0,
+        "knee_L": 0,
+        "knee_R": 0
+      },
+      "hand": "R",
+      "base": "Shot release",
+      "focus": "arm",
+      "side": "R"
+    },
+    {
+      "id": "pvo2pkm",
+      "name": "Shot release - left arm",
+      "body": "v",
+      "trigger": "shooting",
+      "angles": {
+        "shoulder_L": 24,
+        "shoulder_R": 10,
+        "elbow_L": -26,
+        "elbow_R": -59,
+        "hip_L": 0,
+        "hip_R": 0,
+        "knee_L": 0,
+        "knee_R": 0
+      },
+      "hand": "L",
+      "base": "Shot release",
+      "focus": "arm",
+      "side": "L"
+    },
+    {
+      "id": "pk1795d",
+      "name": "Fake stop - right arm",
+      "body": "v",
+      "trigger": "shooting",
+      "angles": {
+        "shoulder_L": -27,
+        "shoulder_R": 20,
+        "elbow_L": 32,
+        "elbow_R": -15,
+        "hip_L": 0,
+        "hip_R": 0,
+        "knee_L": 0,
+        "knee_R": 0
+      },
+      "hand": "R",
+      "base": "Fake stop",
+      "focus": "arm",
+      "side": "R"
+    },
+    {
+      "id": "pgrhgfq",
+      "name": "Fake stop - left arm",
+      "body": "v",
+      "trigger": "shooting",
+      "angles": {
+        "shoulder_L": -20,
+        "shoulder_R": 27,
+        "elbow_L": 15,
+        "elbow_R": -32,
+        "hip_L": 0,
+        "hip_R": 0,
+        "knee_L": 0,
+        "knee_R": 0
+      },
+      "hand": "L",
+      "base": "Fake stop",
+      "focus": "arm",
+      "side": "L"
+    },
+    {
+      "id": "p5k8tgg",
+      "name": "Horizontal standard",
+      "body": "h",
+      "trigger": "idle",
+      "angles": {},
+      "base": "Horizontal standard",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "p9p36q7",
+      "name": "Horizontal high knees",
+      "body": "h",
+      "trigger": "swimming",
+      "angles": {
+        "knee_L": -15,
+        "hip_L": 22,
+        "hip_R": -22,
+        "knee_R": 15
+      },
+      "base": "Horizontal high knees",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "p5hhil4",
+      "name": "Pass release - right arm",
+      "body": "v",
+      "trigger": "passing",
+      "angles": {
+        "shoulder_L": -10,
+        "shoulder_R": -24,
+        "elbow_L": 59,
+        "elbow_R": 26,
+        "hip_L": 0,
+        "hip_R": 0,
+        "knee_L": 0,
+        "knee_R": 0
+      },
+      "hand": "R",
+      "base": "Pass release",
+      "focus": "arm",
+      "side": "R"
+    },
+    {
+      "id": "p1rgd9s",
+      "name": "Pass release - left arm",
+      "body": "v",
+      "trigger": "passing",
+      "angles": {
+        "shoulder_L": 24,
+        "shoulder_R": 10,
+        "elbow_L": -26,
+        "elbow_R": -59,
+        "hip_L": 0,
+        "hip_R": 0,
+        "knee_L": 0,
+        "knee_R": 0
+      },
+      "hand": "L",
+      "base": "Pass release",
+      "focus": "arm",
+      "side": "L"
+    },
+    {
+      "id": "pmeabi9",
+      "name": "Ball holding pass - right arm",
+      "body": "v",
+      "trigger": "passing",
+      "angles": {
+        "shoulder_R": 68,
+        "elbow_R": 90
+      },
+      "hand": "R",
+      "base": "Ball holding pass",
+      "focus": "arm",
+      "side": "R"
+    },
+    {
+      "id": "pqrk30e",
+      "name": "Ball holding pass - left arm",
+      "body": "v",
+      "trigger": "passing",
+      "angles": {
+        "shoulder_L": -68,
+        "shoulder_R": 0,
+        "elbow_L": -90,
+        "elbow_R": 0,
+        "hip_L": 0,
+        "hip_R": 0,
+        "knee_L": 0,
+        "knee_R": 0
+      },
+      "hand": "L",
+      "base": "Ball holding pass",
+      "focus": "arm",
+      "side": "L"
+    },
+    {
+      "id": "pt9ruad",
+      "name": "Horizontal swimming - left arm forward",
+      "body": "h",
+      "trigger": "swimming",
+      "angles": {
+        "knee_L": 40,
+        "hip_L": -40,
+        "hip_R": 40,
+        "knee_R": -40,
+        "shoulder_L": 40,
+        "elbow_L": -60,
+        "shoulder_R": 80,
+        "elbow_R": 60
+      },
+      "base": "Horizontal swimming - left arm forward",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "pzusl39",
+      "name": "Horizontal swimming - right arm forward",
+      "body": "h",
+      "trigger": "swimming",
+      "angles": {
+        "shoulder_L": -80,
+        "shoulder_R": -40,
+        "elbow_L": -60,
+        "elbow_R": 60,
+        "hip_L": -40,
+        "hip_R": 40,
+        "knee_L": 40,
+        "knee_R": -40
+      },
+      "base": "Horizontal swimming - right arm forward",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "puvidq7",
+      "name": "Horizontal swimming - left arm pull",
+      "body": "h",
+      "trigger": "swimming",
+      "angles": {
+        "shoulder_L": -75.28983722192343,
+        "elbow_L": 70,
+        "shoulder_R": -35.289837221923435,
+        "elbow_R": 60,
+        "hip_L": -40,
+        "knee_L": 30,
+        "hip_R": 40,
+        "knee_R": -40
+      },
+      "base": "Horizontal swimming - left arm pull",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "p6fpmgt",
+      "name": "Horizontal swimming - right arm pull",
+      "body": "h",
+      "trigger": "swimming",
+      "angles": {
+        "shoulder_L": 35.289837221923435,
+        "shoulder_R": 75.28983722192343,
+        "elbow_L": -60,
+        "elbow_R": -70,
+        "hip_L": -40,
+        "hip_R": 40,
+        "knee_L": 30,
+        "knee_R": -40
+      },
+      "base": "Horizontal swimming - right arm pull",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "pba2nt8",
+      "name": "Horizontal swimming - right arm full pull",
+      "body": "h",
+      "trigger": "swimming",
+      "angles": {
+        "shoulder_L": 15,
+        "shoulder_R": 90,
+        "elbow_L": -10,
+        "elbow_R": -90,
+        "hip_L": -40,
+        "hip_R": 40,
+        "knee_L": 40,
+        "knee_R": -30
+      },
+      "base": "Horizontal swimming - right arm full pull",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "pjl4dwo",
+      "name": "Horizontal swimming - left arm full pull",
+      "body": "h",
+      "trigger": "swimming",
+      "angles": {
+        "shoulder_L": -90,
+        "shoulder_R": -15,
+        "elbow_L": 90,
+        "elbow_R": 10,
+        "hip_L": -40,
+        "hip_R": 40,
+        "knee_L": 40,
+        "knee_R": -30
+      },
+      "base": "Horizontal swimming - left arm full pull",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "pyjovf9",
+      "name": "Horizontal treading - left leg",
+      "body": "h",
+      "trigger": "guarding",
+      "angles": {
+        "knee_L": -35,
+        "hip_L": 40,
+        "hip_R": 0,
+        "knee_R": -15,
+        "elbow_L": 10,
+        "elbow_R": -10
+      },
+      "base": "Horizontal treading",
+      "focus": "leg",
+      "side": "L"
+    },
+    {
+      "id": "pgvrezt",
+      "name": "Horizontal treading - right leg",
+      "body": "h",
+      "trigger": "guarding",
+      "angles": {
+        "shoulder_L": 0,
+        "shoulder_R": 0,
+        "elbow_L": -10,
+        "elbow_R": 10,
+        "hip_L": 0,
+        "hip_R": -40,
+        "knee_L": 15,
+        "knee_R": 35
+      },
+      "base": "Horizontal treading",
+      "focus": "leg",
+      "side": "R"
+    }
+  ],
+  "cycles": [
+    {
+      "id": "c1",
+      "name": "Freestyle stroke",
+      "body": "h",
+      "trigger": "swimming",
+      "stepMs": 280,
+      "poses": [
+        "puvidq7",
+        "pjl4dwo",
+        "p6fpmgt",
+        "pba2nt8"
+      ],
+      "base": "Freestyle stroke",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "ckofjd",
+      "name": "Shot wind-up and release - right arm",
+      "body": "v",
+      "trigger": "shooting",
+      "stepMs": 240,
+      "poses": [
+        "pszhqlt",
+        "pzx2g8a"
+      ],
+      "hand": "R",
+      "base": "Shot wind-up and release",
+      "focus": "arm",
+      "side": "R"
+    },
+    {
+      "id": "c2wyuc",
+      "name": "Treading kick - horizontal",
+      "body": "h",
+      "trigger": "guarding",
+      "stepMs": 420,
+      "poses": [
+        "pyjovf9",
+        "pgvrezt"
+      ],
+      "base": "Treading kick - horizontal",
+      "focus": "",
+      "side": "B"
+    },
+    {
+      "id": "cw5bpl",
+      "name": "Pass wind-up and release - right arm",
+      "body": "v",
+      "trigger": "passing",
+      "stepMs": 420,
+      "poses": [
+        "pmeabi9",
+        "p5hhil4"
+      ],
+      "hand": "R",
+      "base": "Pass wind-up and release",
+      "focus": "arm",
+      "side": "R"
+    },
+    {
+      "id": "ckofjdm",
+      "name": "Shot wind-up and release - left arm",
+      "body": "v",
+      "trigger": "shooting",
+      "hand": "L",
+      "stepMs": 240,
+      "poses": [
+        "p0xjgol",
+        "pvo2pkm"
+      ],
+      "base": "Shot wind-up and release",
+      "focus": "arm",
+      "side": "L"
+    },
+    {
+      "id": "cw5bplm",
+      "name": "Pass wind-up and release - left arm",
+      "body": "v",
+      "trigger": "passing",
+      "hand": "L",
+      "stepMs": 420,
+      "poses": [
+        "pqrk30e",
+        "p1rgd9s"
+      ],
+      "base": "Pass wind-up and release",
+      "focus": "arm",
+      "side": "L"
+    }
+  ]
+}
