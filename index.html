@@ -2096,7 +2096,22 @@
         </select>
         <button type="button" id="xquixSendInviteBtn">Send Invite</button>
       </div>
+      <div class="smallRow full" id="xquixInviteSeatTierRow" style="display:none;">
+        <select id="xquixInviteSeatTierSelect" style="flex:1;">
+          <option value="basic">Basic seat</option>
+          <option value="pro">Pro seat</option>
+          <option value="expert">Expert seat</option>
+        </select>
+        <span id="xquixInviteSeatAvailability" style="font-size:11px;color:#7c8a8a;white-space:nowrap;"></span>
+      </div>
       <div id="xquixInviteFormMessage" style="font-size:12px;color:#b23b3b;margin-top:6px;display:none;"></div>
+      <div id="xquixSubOrgSection" style="display:none;border-top:1px solid #e5eaea;padding-top:12px;margin-top:12px;">
+        <div style="font-size:11px;color:#7c8a8a;font-weight:600;margin-bottom:6px;">SUB-ORGANIZATIONS</div>
+        <div id="xquixSubOrgList" style="font-size:12px;color:#7c8a8a;margin-bottom:10px;">None</div>
+        <div class="smallRow full"><label>Name<input type="text" id="xquixSubOrgNameInput" placeholder="e.g. Youth Program"></label></div>
+        <button type="button" id="xquixCreateSubOrgBtn" style="width:100%;">+ Create Sub-Organization</button>
+        <div id="xquixSubOrgFormMessage" style="font-size:12px;color:#b23b3b;margin-top:6px;display:none;"></div>
+      </div>
     </div>
     <div style="border-top:1px solid #e5eaea;padding-top:12px;">
       <button type="button" id="xquixCreateOrgBtn" style="width:100%;margin-bottom:8px;">+ Create Organization</button>
@@ -4488,13 +4503,20 @@ XQUIX.Org = (function(){
     // updates the role rather than erroring on the unique constraint, so
     // an admin can freely change their mind about a not-yet-claimed
     // invite by just inviting the same email again with a new role.
-    async createInvite(orgId, email, role){
+    async createInvite(orgId, email, role, seatTier){
       const client = XQUIX.Auth.getClient();
       const user = XQUIX.Auth.getCurrentUser();
       if(!client || !user) return { error:{ message:'Sign in first.' } };
       try {
+        const row = { organization_id:orgId, email: email.trim().toLowerCase(), role, invited_by:user.id };
+        // org_admin never carries a seat tier (their role alone grants
+        // full access, per the org architecture spec) -- only attach the
+        // field at all when a real tier was actually passed in, so this
+        // stays a no-op against today's real org_invites table, which
+        // doesn't have this column yet.
+        if(seatTier) row.seat_tier = seatTier;
         const { error } = await withTimeout(
-          client.from('org_invites').upsert({ organization_id:orgId, email: email.trim().toLowerCase(), role, invited_by:user.id }, { onConflict:'organization_id,email' }), 15);
+          client.from('org_invites').upsert(row, { onConflict:'organization_id,email' }), 15);
         if(error) throw error;
         return { success:true };
       } catch(err) { return { error:{ message: err.message } }; }
@@ -4563,6 +4585,172 @@ XQUIX.Org = (function(){
   };
 })();
 XQUIX.Auth.onChange((user)=>{ if(user) XQUIX.Org.refreshMyOrganizations(); else XQUIX.Org.setActiveOrgId(null); });
+
+// ===== XQUIX.OrgArchitecture =====
+// The new organization-plan/seat-tier/override/sub-org system from the
+// Organization & Tier Architecture Specification. Built entirely against
+// organization_architecture_migration.sql's table and column names
+// (organizations.plan_tier, organizations.parent_organization_id,
+// memberships.seat_tier, organization_plan_defaults,
+// organization_overrides, organization_admin_swap_requests) -- none of
+// which exist in the live database yet as of this writing.
+//
+// isAvailable() is the gate every other piece of new UI checks before
+// rendering anything. It probes for organizations.plan_tier specifically
+// (cheapest single-column check) and caches the result. Until the
+// migration actually runs, this resolves false and every dependent
+// feature below stays completely invisible -- no new buttons, no new
+// panels, nothing a coach using the app today would ever see or be
+// affected by. The moment the migration lands, this starts resolving
+// true on its own, with no code change or flag flip needed here.
+XQUIX.OrgArchitecture = (function(){
+  let _available = null; // null = not yet checked; true/false = cached result of the one probe
+
+  async function isAvailable(){
+    if(_available !== null) return _available;
+    const client = XQUIX.Auth.getClient();
+    if(!client){ _available = false; return false; }
+    try {
+      // Selecting a genuinely nonexistent column errors; selecting one
+      // that exists succeeds regardless of whether any rows match --
+      // .limit(0) means this never actually fetches a row either way,
+      // just proves the column is queryable.
+      const { error } = await client.from('organizations').select('plan_tier').limit(0);
+      _available = !error;
+    } catch(err) { _available = false; }
+    return _available;
+  }
+  function isAvailableSync(){ return _available === true; }
+
+  // ---- Effective configuration (Section 5 of the spec: defaults + override, field by field) ----
+  // Walks up to the top-level ancestor first (Section 7: a sub-org has no
+  // allocation of its own, it draws from its parent's), then merges that
+  // organization's plan defaults with any override row, field by field --
+  // a null field in the override row means "use the default for that
+  // field specifically," not "use the default for everything."
+  async function getTopLevelOrgId(orgId){
+    const client = XQUIX.Auth.getClient();
+    let currentId = orgId;
+    // Bounded loop, not a recursive CTE -- the spec's hierarchy is shallow
+    // by design (departments under one parent, not arbitrary nesting), and
+    // an explicit bound here is a deliberate guard against an unexpected
+    // cycle in the data causing an infinite loop client-side.
+    for(let depth = 0; depth < 10; depth++){
+      const { data, error } = await client.from('organizations').select('parent_organization_id').eq('id', currentId).single();
+      if(error || !data || !data.parent_organization_id) return currentId;
+      currentId = data.parent_organization_id;
+    }
+    return currentId; // depth guard hit -- return whatever we last resolved rather than looping forever
+  }
+
+  async function getEffectiveConfig(orgId){
+    if(!await isAvailable()) return { error:{ message:'Organization architecture not yet available.' } };
+    const client = XQUIX.Auth.getClient();
+    try {
+      const topLevelId = await getTopLevelOrgId(orgId);
+      const { data: org, error: orgErr } = await client.from('organizations').select('id, name, plan_tier').eq('id', topLevelId).single();
+      if(orgErr) throw orgErr;
+      if(!org.plan_tier) return { error:{ message:'This organization has no plan_tier set.' } };
+
+      let defaults = null;
+      if(org.plan_tier !== 'federation'){
+        const { data: d, error: dErr } = await client.from('organization_plan_defaults').select('*').eq('plan_tier', org.plan_tier).single();
+        if(dErr) throw dErr;
+        defaults = d;
+      }
+      // Federation has no defaults row at all by design (Section 3) -- its
+      // entire configuration must come from the override below, with
+      // nothing to fall back to if a field is missing there.
+
+      const { data: override } = await client.from('organization_overrides').select('*').eq('organization_id', topLevelId).maybeSingle();
+
+      function pick(field){
+        if(override && override[field] !== null && override[field] !== undefined) return override[field];
+        if(defaults) return defaults[field];
+        return null; // Federation with no override row, or a missing override field -- genuinely unconfigured
+      }
+
+      return {
+        topLevelOrgId: topLevelId,
+        topLevelOrgName: org.name,
+        planTier: org.plan_tier,
+        expertSeats: pick('expert_seats'),
+        proSeats: pick('pro_seats'),
+        basicSeats: pick('basic_seats'),
+        storageGb: pick('storage_gb'),
+        adminSeatLimit: pick('admin_seat_limit'),
+        subOrgCreation: override && override.hasOwnProperty('sub_org_creation') ? override.sub_org_creation : (defaults ? defaults.sub_org_creation : false),
+        monthlyPriceCents: override ? override.monthly_price_cents : null,
+        isOverridden: !!override,
+      };
+    } catch(err) { return { error:{ message: err.message } }; }
+  }
+
+  // ---- Current seat usage, hierarchy-wide (Section 7: shared pool) ----
+  async function getSeatUsage(orgId){
+    if(!await isAvailable()) return { error:{ message:'Organization architecture not yet available.' } };
+    const client = XQUIX.Auth.getClient();
+    try {
+      const topLevelId = await getTopLevelOrgId(orgId);
+      // Every org in the hierarchy (the top-level org plus every sub-org
+      // beneath it) shares one pool, so usage has to be summed across all
+      // of them, not just the one org being viewed.
+      const { data: allOrgs, error: orgsErr } = await client.from('organizations').select('id').or(`id.eq.${topLevelId},parent_organization_id.eq.${topLevelId}`);
+      if(orgsErr) throw orgsErr;
+      const orgIds = allOrgs.map(o => o.id);
+      const { data: members, error: memErr } = await client.from('memberships').select('role, seat_tier').in('organization_id', orgIds).eq('status', 'active');
+      if(memErr) throw memErr;
+      const usage = { admin: 0, expert: 0, pro: 0, basic: 0 };
+      members.forEach(m => {
+        if(m.role === 'org_admin') usage.admin++;
+        else if(m.seat_tier === 'expert') usage.expert++;
+        else if(m.seat_tier === 'pro') usage.pro++;
+        else if(m.seat_tier === 'basic') usage.basic++;
+      });
+      return usage;
+    } catch(err) { return { error:{ message: err.message } }; }
+  }
+
+  // ---- Sub-organizations (Section 4.4 / 7 of the spec) ----
+  // Deliberately only ever creates a sub-org directly under a genuinely
+  // top-level organization -- not nested sub-orgs of sub-orgs. The spec
+  // describes these as "departments" under one parent, which reads as a
+  // flat structure, and the seat-pooling model (Section 7: no allocation
+  // of its own) doesn't have an obvious meaning for a third hierarchy
+  // level. Revisit if a real need for deeper nesting ever comes up.
+  async function listSubOrganizations(parentOrgId){
+    if(!await isAvailable()) return { error:{ message:'Organization architecture not yet available.' } };
+    const client = XQUIX.Auth.getClient();
+    try {
+      const { data, error } = await client.from('organizations').select('id, name').eq('parent_organization_id', parentOrgId);
+      if(error) throw error;
+      return { success:true, subOrgs: data };
+    } catch(err) { return { error:{ message: err.message } }; }
+  }
+
+  async function createSubOrganization(parentOrgId, name){
+    if(!await isAvailable()) return { error:{ message:'Organization architecture not yet available.' } };
+    const client = XQUIX.Auth.getClient();
+    const user = XQUIX.Auth.getCurrentUser();
+    if(!client || !user) return { error:{ message:'Sign in first.' } };
+    if(!name || !name.trim()) return { error:{ message:'Enter a name for the sub-organization.' } };
+    try {
+      const topLevelId = await getTopLevelOrgId(parentOrgId);
+      if(topLevelId !== parentOrgId) return { error:{ message:'Sub-organizations can only be created directly under a top-level organization.' } };
+      const config = await getEffectiveConfig(parentOrgId);
+      if(config.error) return config;
+      if(!config.subOrgCreation) return { error:{ message:'This organization\u2019s plan does not include sub-organization creation.' } };
+      // plan_tier deliberately left unset on the new row -- a sub-org has
+      // no plan tier of its own, it draws from the parent it's under
+      // (getEffectiveConfig already walks up to find that parent).
+      const { data, error } = await client.from('organizations').insert({ name: name.trim(), parent_organization_id: parentOrgId, created_by: user.id }).select().single();
+      if(error) throw error;
+      return { success:true, organizationId: data.id };
+    } catch(err) { return { error:{ message: err.message } }; }
+  }
+
+  return { isAvailable, isAvailableSync, getEffectiveConfig, getSeatUsage, getTopLevelOrgId, listSubOrganizations, createSubOrganization };
+})();
 
 // ===== XQUIX.Entitlements (Milestone 9, data-driven since Milestone 11) =====
 // The one authoritative function per 9B ("Entitlements.can('featureName')
@@ -6127,10 +6315,75 @@ async function xquixRenderOrganizations(){
     if(activeOrg && activeOrg.role==='org_admin'){
       membersSection.style.display = '';
       await xquixRenderOrgMembers(activeId);
+      await xquixUpdateInviteSeatTierUI(activeId);
+      await xquixUpdateSubOrgUI(activeId);
     } else {
       membersSection.style.display = 'none';
     }
   }
+}
+// Shows/hides and populates the seat-tier row on the invite form. Two
+// independent gates control visibility: the org architecture has to
+// actually exist yet (isAvailable(), false against today's real schema --
+// see XQUIX.OrgArchitecture's own comment for why), and the currently
+// selected role has to not be org_admin (an admin's role alone grants
+// Expert-level access, per the spec -- they never need or consume a seat).
+async function xquixUpdateInviteSeatTierUI(orgId){
+  const row = document.getElementById('xquixInviteSeatTierRow');
+  const roleSelect = document.getElementById('xquixInviteRoleSelect');
+  const availabilityEl = document.getElementById('xquixInviteSeatAvailability');
+  if(!row || !roleSelect) return;
+  const architectureReady = await XQUIX.OrgArchitecture.isAvailable();
+  async function refreshVisibility(){
+    if(!architectureReady || roleSelect.value === 'org_admin'){ row.style.display = 'none'; return; }
+    row.style.display = '';
+    const [config, usage] = await Promise.all([
+      XQUIX.OrgArchitecture.getEffectiveConfig(orgId),
+      XQUIX.OrgArchitecture.getSeatUsage(orgId)
+    ]);
+    if(config.error || usage.error){ availabilityEl.textContent = ''; return; }
+    const seatSelect = document.getElementById('xquixInviteSeatTierSelect');
+    const tier = seatSelect ? seatSelect.value : 'basic';
+    const totalField = tier === 'expert' ? config.expertSeats : tier === 'pro' ? config.proSeats : config.basicSeats;
+    const usedField = tier === 'expert' ? usage.expert : tier === 'pro' ? usage.pro : usage.basic;
+    availabilityEl.textContent = (totalField === null) ? '' : (usedField + ' of ' + totalField + ' used');
+  }
+  roleSelect.onchange = refreshVisibility;
+  const seatSelect = document.getElementById('xquixInviteSeatTierSelect');
+  if(seatSelect) seatSelect.onchange = refreshVisibility;
+  await refreshVisibility();
+}
+// Shows/hides the sub-organization section and renders its list. Same
+// availability gate as the seat-tier UI, plus a check specific to this
+// section: the active org's effective config has to actually include
+// sub-org creation (Expert/Federation, not Pro), and this has to genuinely
+// be a top-level org, not a sub-org itself (Section 4.4/7 -- no nested
+// sub-orgs).
+async function xquixUpdateSubOrgUI(orgId){
+  const section = document.getElementById('xquixSubOrgSection');
+  if(!section) return;
+  if(!await XQUIX.OrgArchitecture.isAvailable()){ section.style.display = 'none'; return; }
+  const topLevelId = await XQUIX.OrgArchitecture.getTopLevelOrgId(orgId);
+  const config = await XQUIX.OrgArchitecture.getEffectiveConfig(orgId);
+  if(topLevelId !== orgId || config.error || !config.subOrgCreation){ section.style.display = 'none'; return; }
+  section.style.display = '';
+  const listResult = await XQUIX.OrgArchitecture.listSubOrganizations(orgId);
+  const listEl = document.getElementById('xquixSubOrgList');
+  if(listResult.error){ listEl.textContent = 'Could not load sub-organizations.'; }
+  else if(!listResult.subOrgs.length){ listEl.textContent = 'None'; }
+  else { listEl.innerHTML = listResult.subOrgs.map(o => '<div>'+o.name+'</div>').join(''); }
+
+  document.getElementById('xquixCreateSubOrgBtn').onclick = async ()=>{
+    const nameInput = document.getElementById('xquixSubOrgNameInput');
+    const msgEl = document.getElementById('xquixSubOrgFormMessage');
+    const result = await XQUIX.OrgArchitecture.createSubOrganization(orgId, nameInput.value);
+    msgEl.style.display = '';
+    if(result.error){ msgEl.style.color = '#b23b3b'; msgEl.textContent = result.error.message; return; }
+    msgEl.style.color = '#2e7d32';
+    msgEl.textContent = 'Sub-organization created.';
+    nameInput.value = '';
+    await xquixUpdateSubOrgUI(orgId);
+  };
 }
 document.getElementById('xquixCopyOrgIdBtn')?.addEventListener('click', ()=>{
   const id = XQUIX.Org.getActiveOrgId();
@@ -6224,9 +6477,13 @@ document.getElementById('xquixSendInviteBtn')?.addEventListener('click', async (
   const emailInput = document.getElementById('xquixInviteEmailInput');
   const email = emailInput.value.trim();
   const role = document.getElementById('xquixInviteRoleSelect').value;
+  const seatTierRow = document.getElementById('xquixInviteSeatTierRow');
+  const seatTier = (seatTierRow && seatTierRow.style.display !== 'none')
+    ? document.getElementById('xquixInviteSeatTierSelect').value
+    : null;
   const msgEl = document.getElementById('xquixInviteFormMessage');
   if(!email || !email.includes('@')){ msgEl.style.display=''; msgEl.style.color='#b23b3b'; msgEl.textContent='Enter a valid email address.'; msgEl.scrollIntoView({block:'nearest'}); return; }
-  const result = await XQUIX.Org.createInvite(orgId, email, role);
+  const result = await XQUIX.Org.createInvite(orgId, email, role, seatTier);
   if(result.error){ msgEl.style.display=''; msgEl.style.color='#b23b3b'; msgEl.textContent='Could not send invite: '+result.error.message; msgEl.scrollIntoView({block:'nearest'}); return; }
   emailInput.value='';
   await xquixRenderOrgMembers(orgId);
