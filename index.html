@@ -25951,6 +25951,95 @@ else boot();
     return t;
   }
 
+  /* -------------------------------------------------------------- true size */
+
+  // The Studio sizes every horizontal player to exactly 1.0 m x 1.6 m and every
+  // vertical one to 1.0 m wide, constants inherited from the PNG sprites. The
+  // rig's artwork is 1.403 m x 1.938 m, so those constants squeeze it to 71 %
+  // across and 83 % lengthways — not merely small but unevenly small, which is
+  // why it read as narrow. Measured on the board that gave a swimmer 1.404 m
+  // from wrist to ankle where the rig means 1.700 m, and a treading player
+  // 0.830 m across the elbows where the rig means 1.162 m.
+  //
+  // The rig's own bones are right: for the 1.90 m male it declares, the upper
+  // arm is 0.186 of stature, the forearm 0.146, the thigh 0.245, the shin 0.246
+  // — the standard proportions to three decimal places. So the fix is simply to
+  // draw the artwork at the size it already claims: image pixels over its own
+  // px-per-metre, times the player's own sizePercent.
+  function sizeFromRig(el) {
+    const img = el && el.querySelector && el.querySelector('img');
+    if (!img) return;
+    if (!window.MIZE.Sports || window.MIZE.Sports.activeId !== 'water_polo') return;
+    const pose = el.dataset.pose;
+    const key = rigKey(pose, el.dataset.category);
+    const r = CUT[key] || RIG[key];
+    if (!r || !r.image || !r.image.pxPerMeterX) return;
+    const mult = (+el.dataset.sizePercent || 100) / 100;
+
+    // Recover pixels-per-metre from what the original just wrote, rather than
+    // calling meterPxX/meterPxY again: those read the board's bounding rect, and
+    // reading it back right after writing a style forces a reflow once per
+    // player. The original set width = meterPxX(1.0) * mult for both poses, and
+    // for a horizontal player height = meterPxY(1.6) * mult.
+    const wpx = parseFloat(img.style.width);
+    if (!(wpx > 0)) return;
+    const pxPerMX = wpx / mult;
+    // A vertical player is sized by the engine entirely in X units — its height
+    // comes from width x ASPECT — so following that keeps the two consistent.
+    const hpx = parseFloat(img.style.height);
+    const pxPerMY = (pose === 'h' && hpx > 0) ? hpx / (1.6 * mult) : pxPerMX;
+
+    img.style.width  = (r.image.width  / r.image.pxPerMeterX * mult * pxPerMX) + 'px';
+    img.style.height = (r.image.height / r.image.pxPerMeterY * mult * pxPerMY) + 'px';
+  }
+
+  /* -------------------------------------------------------- the ball's hand */
+
+  // The Studio's own offsets — dx 0.42, dy -0.58 — were measured off the old
+  // 1000x1568 PNG. Once the body is drawn at its true size those points are no
+  // longer where the hand is, and they could never follow a posed arm anyway.
+  // Reading the wrist out of the rig fixes both: it is exact at rest and it
+  // tracks the arm once joint angles move it.
+  //
+  // How far beyond the wrist, along the forearm, the ball's centre sits. The rig
+  // draws no hand — the forearm capsule ends at the wrist — so this stands in
+  // for the palm. Tunable, because how "held" it reads depends on the ball's
+  // drawn size (the Studio draws it 0.38 m across) as much as on anatomy.
+  let PALM_M = 0.10;
+
+  // moveBallTo() adds a flat 0.30 m in the facing direction for horizontal
+  // players — "a little separation ahead of the hand", written when the hand
+  // offset pointed at the old sprite's fingertip. Against the rig's real wrist
+  // that nudge lands the ball a body-width clear of the arm, floating. It is
+  // engine code and not ours to edit, so it is cancelled here instead: while
+  // moveBallTo is running, the wrist is reported 0.30 m short, and the two
+  // cancel to put the ball exactly PALM_M past the wrist.
+  //
+  // armWorldPos() also reads handOffset — for the shot-block corridor and the
+  // shooting-angle cone — and does NOT add the nudge. Hence the flag: only the
+  // ball's own call is compensated, and those two keep the true wrist.
+  const BALL_FWD_NUDGE_M = 0.30;
+  let inMoveBall = false;
+
+  function handOffsetFromRig(el, hand) {
+    const key = rigKey(el.dataset.pose, el.dataset.category);
+    const r = RIG[key];
+    if (!r || !r.joints || !r.image || !r.image.pxPerMeterX) return null;
+    const side = (hand === 'right') ? 'R' : 'L';
+    if (!r.joints['wrist_' + side]) return null;
+    const wp = worldJoints(key, anglesOf(el) || {});
+    const w = wp['wrist_' + side], e = wp['elbow_' + side];
+    if (!w || !e) return null;
+    const px = r.image.pxPerMeterX, py = r.image.pxPerMeterY;
+    // step on past the wrist in the direction the forearm points
+    let ax = w[0] - e[0], ay = w[1] - e[1];
+    const L = Math.hypot(ax, ay) || 1;
+    ax /= L; ay /= L;
+    const back = (inMoveBall && el.dataset.pose === 'h') ? BALL_FWD_NUDGE_M : 0;
+    return { dx: (w[0] - r.image.width  / 2) / px + ax * PALM_M,
+             dy: (w[1] - r.image.height / 2) / py + ay * PALM_M + back };
+  }
+
   /* ----------------------------------------------------------------- wiring */
 
   let drawingEl = null;          // set only for the duration of sizePlayer
@@ -25981,14 +26070,44 @@ else boot();
       }
     };
 
-    // Wrapped only so playerIconSrc knows whose angles it is drawing. The
-    // original does all the work and its return value is passed straight back.
+    // Two jobs. It lets playerIconSrc know whose angles it is drawing, and once
+    // the original has run it replaces the sprite-era 1.0 x 1.6 box with the
+    // artwork's own true metres. The original still does everything else,
+    // including the cap badge, and its return value is passed straight back.
     window.sizePlayer = function (el) {
       const prev = drawingEl;
       drawingEl = el;
-      try { return origSize.apply(this, arguments); }
-      finally { drawingEl = prev; }
+      try {
+        const out = origSize.apply(this, arguments);
+        if (API.enabled && API.trueScale) { try { sizeFromRig(el); } catch (e) {} }
+        return out;
+      } finally { drawingEl = prev; }
     };
+
+    // Only called by scaledHandOffset, which is the sole route to both the ball
+    // and armWorldPos — so this one override moves everything that follows a hand.
+    const origHand = window.handOffset;
+    if (typeof origHand === 'function') {
+      window.handOffset = function (el, hand) {
+        try {
+          if (API.enabled && API.trueScale && el && el.dataset) {
+            const o = handOffsetFromRig(el, hand === 'left' ? 'left' : 'right');
+            if (o) return o;
+          }
+        } catch (e) {}
+        return origHand.apply(this, arguments);
+      };
+      API._orig_handOffset = origHand;
+    }
+
+    const origMove = window.moveBallTo;
+    if (typeof origMove === 'function') {
+      window.moveBallTo = function () {
+        const prev = inMoveBall; inMoveBall = true;
+        try { return origMove.apply(this, arguments); } finally { inMoveBall = prev; }
+      };
+      API._orig_moveBallTo = origMove;
+    }
 
     API._orig = { playerIconSrc: origIcon, sizePlayer: origSize };
     API._booted = true;
@@ -26006,6 +26125,14 @@ else boot();
   const API = {
     _booted: false,
     enabled: true,
+    // Draw the artwork at the size it declares, instead of the sprite-era
+    // 1.0 x 1.6 m box. Off puts every player back in the old footprint, with
+    // the old ball offsets, without giving up the rig artwork.
+    trueScale: true,
+    setTrueScale(v) { API.trueScale = !!v; refresh(); },
+    // Where the ball sits relative to the wrist, in metres along the forearm.
+    get palm() { return PALM_M; },
+    setPalm(m) { PALM_M = +m || 0; refresh(); },
     // Turn the rig off and the board is back on its PNGs, live, with no reload
     // — the wrappers stay installed and simply defer to the originals.
     setEnabled(v) { API.enabled = !!v; uriCache.clear(); refresh(); },
