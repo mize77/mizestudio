@@ -55,6 +55,50 @@
     h:[['shoulder_L','elbow_L','wrist_L'],['shoulder_R','elbow_R','wrist_R'],
        ['hip_L','knee_L','ankle_L'],['hip_R','knee_R','ankle_R']]
   };
+  /* ------------------------------------------------------- elevation
+
+     The board is a plan view, so there is no third axis to move a limb along.
+     What there is: a limb tilted out of the water plane does not change DIRECTION
+     on screen, it gets shorter — by the cosine of how far it has tilted. That is
+     the whole of the geometry, and it is exact rather than an impression of depth.
+
+     It is not the whole of the picture, because cosine is even. Forty degrees up
+     and forty degrees down foreshorten by exactly the same amount, so length alone
+     can never say which. Depth is therefore carried by two more things, and they
+     are what make the pose readable at a glance:
+
+       - a raised limb draws OVER the trunk and keeps its painted colour
+       - a submerged one draws UNDER it and is mixed toward the water
+
+     Each joint carries its own elevation, and each is measured from the water
+     plane rather than from its parent. An arm cocked for a shot is "upper arm 45
+     up, forearm 80 up" — what you would say out loud — instead of a number that
+     only means something once you have worked out where the shoulder already put
+     the elbow. */
+  const ELEV_MAX=90;
+  const WATER='#2E86B8';     // what a submerged limb is mixed toward
+  const SUB_MIX=0.62;        // how far toward it at full depth
+  const SUB_FADE=0.34;       // and how far toward transparent, so the pool reads through
+  const MIN_FORE=0.02;       // a bone at 90 deg is a dot; never let it hit exactly zero
+
+  function elevOf(elev,j){
+    const v=+((elev||{})[j]||0);
+    return isFinite(v) ? Math.max(-ELEV_MAX,Math.min(ELEV_MAX,v)) : 0;
+  }
+  // The fraction of a bone's length that survives the projection.
+  function fore(phi){ return Math.max(MIN_FORE, Math.cos(phi*Math.PI/180)); }
+  // How far above the surface the far end of a bone sits, in rig pixels.
+  function rise(phi,L){ return Math.sin(phi*Math.PI/180)*L; }
+
+  function hex2rgb(h){ h=h.replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join('');
+    return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+  function mixHex(a,b,k){ const A=hex2rgb(a),B=hex2rgb(b);
+    return '#'+[0,1,2].map(i=>Math.round(A[i]+(B[i]-A[i])*k).toString(16).padStart(2,'0')).join(''); }
+  // Colour and transparency for a limb at this elevation. Above water it is
+  // exactly as painted — only what is under the surface is touched.
+  function depthFill(hex,phi){ return phi<0 ? mixHex(hex,WATER,SUB_MIX*(-phi/ELEV_MAX)) : hex; }
+  function depthOpacity(phi){ return phi<0 ? +(1-SUB_FADE*(-phi/ELEV_MAX)).toFixed(3) : 1; }
+
   function segPath(L,w0,w1){ const a=w0/2,b=w1/2; return `M 0,${-a} L ${L},${-b} L ${L},${b} L 0,${a} Z`; }
 
 
@@ -84,8 +128,8 @@
      that: it was painted at one particular elbow angle and only fits there.
      Measuring the painted files showed the limbs were drawn as tapered strips
      anyway, so the capsules carry the artwork's own widths. */
-  function cutCapsule(cp,L,P){
-    const c=roleCol(P,cp.fill), r0=cp.r0, r1=cp.r1;
+  function cutCapsule(cp,L,P,phi){
+    const c=depthFill(roleCol(P,cp.fill), phi||0), r0=cp.r0, r1=cp.r1;
     return `<circle cx="0" cy="0" r="${r0}" fill="${c}"/>`
          + `<path d="M 0,${-r0} L ${L},${-r1} L ${L},${r1} L 0,${r0} Z" fill="${c}"/>`
          + `<circle cx="${L}" cy="0" r="${r1}" fill="${c}"/>`;
@@ -156,15 +200,22 @@
     return warp;
   }
 
-  function cutPieces(p,P,warp){
+  function cutPieces(p,P,warp,c,phi){
+    // `c` is the fraction of this bone's length left after projecting its
+    // elevation. Parts are drawn in a frame whose +x runs along the bone, so
+    // foreshortening is a scale along x and nothing else — except the caps, which
+    // are round ends and stay round at every angle.
+    c = (c===undefined||c===null) ? 1 : Math.max(MIN_FORE, c);
+    phi = phi||0;
     let s='';
-    if(p.capsule) s+=cutCapsule(p.capsule,p.len,P);
-    if(p.cap){ const c=roleCol(P,p.cap.fill);
-      s+=`<circle cx="0" cy="0" r="${p.cap.r}" fill="${c}" stroke="${c}" stroke-width="${SEAM}"/>`; }
+    if(p.capsule) s+=cutCapsule(p.capsule,p.len*c,P,phi);
+    if(p.cap){ const c2=depthFill(roleCol(P,p.cap.fill),phi);
+      s+=`<circle cx="0" cy="0" r="${p.cap.r}" fill="${c2}" stroke="${c2}" stroke-width="${SEAM}"/>`; }
+    let pieces='';
     for(const pc of [...p.pieces].sort((a,b)=>(ZORD[a.fill]??9)-(ZORD[b.fill]??9))){
-      const f=roleCol(P,pc.fill);
+      const f=depthFill(roleCol(P,pc.fill),phi);
       if(!warp){
-        s+=`<polygon points="${pc.poly.map(q=>q[0].toFixed(2)+','+q[1].toFixed(2)).join(' ')}" fill="${f}" stroke="${f}" stroke-width="${SEAM}" stroke-linejoin="round"/>`;
+        pieces+=`<polygon points="${pc.poly.map(q=>q[0].toFixed(2)+','+q[1].toFixed(2)).join(' ')}" fill="${f}" stroke="${f}" stroke-width="${SEAM}" stroke-linejoin="round"/>`;
         continue;
       }
       // Subdivide first: a long straight edge across a field that rotates by
@@ -192,22 +243,37 @@
         s+=`<polygon points="${w2.map(q=>q[0].toFixed(2)+','+q[1].toFixed(2)).join(' ')}" fill="${f}" stroke="${f}" stroke-width="${SEAM}" stroke-linejoin="round"/>`;
       }
     }
-    return s;
+    return s + (c===1 ? pieces : `<g transform="scale(${c.toFixed(4)},1)">${pieces}</g>`);
   }
-  function cutChain(parts,P,parent,child,ang){
+  function cutChain(parts,P,parent,child,ang,ev){
     const a=parts[parent]; if(!a) return '';
-    let g=`<g transform="translate(${a.pivot[0]},${a.pivot[1]}) rotate(${a.rest+(ang[parent]||0)})">`+cutPieces(a,P);
+    const pa=elevOf(ev,parent), ca=fore(pa);
+    let g=`<g transform="translate(${a.pivot[0]},${a.pivot[1]}) rotate(${a.rest+(ang[parent]||0)})">`
+        + `<g opacity="${depthOpacity(pa)}">`+cutPieces(a,P,null,ca,pa)+`</g>`;
     const b=parts[child];
-    if(b) g+=`<g transform="translate(${a.len},0) rotate(${b.rest-a.rest+(ang[child]||0)})">`+cutPieces(b,P)+'</g>';
+    if(b){
+      const pb=elevOf(ev,child), cb=fore(pb);
+      // the child hangs off the parent's PROJECTED end, not its true length
+      g+=`<g transform="translate(${a.len*ca},0) rotate(${b.rest-a.rest+(ang[child]||0)})" opacity="${depthOpacity(pb)}">`
+        +cutPieces(b,P,null,cb,pb)+'</g>';
+    }
     return g+'</g>';
   }
   function cutMarkup(key, angles, team, opts){
-    const C=CUT[key], P=PAL[team], o=opts||{};
-    const ang={};
-    for(const [j,pt] of Object.entries(JOINT2PART)) if(angles[j]) ang[pt]=angles[j];
-    let body='';
-    for(const [a,b] of CUTCHAIN) if(a.startsWith('thigh')) body+=cutChain(C.parts,P,a,b,ang);
-    for(const [a,b] of CUTCHAIN) if(a.startsWith('upperArm')) body+=cutChain(C.parts,P,a,b,ang);
+    const C=CUT[key], P=PAL[team], o=opts||{}, elev=o.elev||{};
+    const ang={}, ev={};
+    for(const [j,pt] of Object.entries(JOINT2PART)){
+      if(angles[j]) ang[pt]=angles[j];
+      if(elev[j])   ev[pt]=elevOf(elev,j);
+    }
+    // Under the surface first, over it last — the trunk goes between them, which
+    // is the only thing that tells a raised arm from a sunk one once both have
+    // been foreshortened by the same amount.
+    const sunk=([a])=>(ev[a]||0)<=0, risen=([a])=>(ev[a]||0)>0;
+    let body='', above='';
+    for(const ch of CUTCHAIN) if(ch[0].startsWith('thigh')    && sunk(ch))  body +=cutChain(C.parts,P,ch[0],ch[1],ang,ev);
+    for(const ch of CUTCHAIN) if(ch[0].startsWith('upperArm') && sunk(ch))  body +=cutChain(C.parts,P,ch[0],ch[1],ang,ev);
+    for(const ch of CUTCHAIN) if(risen(ch))                                 above+=cutChain(C.parts,P,ch[0],ch[1],ang,ev);
     const warp=torsoWarp(C.parts,ang);
     /* The trunk may grow, but only INSIDE the body. The union in cutPieces lets the
        garment gain ground, which is what makes it read as cloth. Unclipped it also
@@ -231,14 +297,15 @@
         // Sweeping the limb through the clip, not just its final position: only the
         // current position leaves the ground it has vacated outside the clip, and
         // the garment gets cut back to a notch there instead of closing over it.
+        const ca=fore(ev[pa]||0);
         for(let k=0;k<=n;k++)
           shape+=`<g transform="translate(${a.pivot[0]},${a.pivot[1]}) rotate(${a.rest+da*k/n})">`
-                +capsule(a.capsule,a.len)+`</g>`;
+                +capsule(a.capsule,a.len*ca)+`</g>`;
         const b=C.parts[ch];
         if(b&&b.capsule)
           shape+=`<g transform="translate(${a.pivot[0]},${a.pivot[1]}) rotate(${a.rest+da})">`
-                +`<g transform="translate(${a.len},0) rotate(${b.rest-a.rest+(ang[ch]||0)})">`
-                +capsule(b.capsule,b.len)+`</g></g>`;
+                +`<g transform="translate(${a.len*ca},0) rotate(${b.rest-a.rest+(ang[ch]||0)})">`
+                +capsule(b.capsule,b.len*fore(ev[ch]||0))+`</g></g>`;
       }
       const cid='inbody'+key.replace(/[^a-z0-9]/gi,'');
       body+=`<defs><clipPath id="${cid}">${shape}</clipPath></defs>`
@@ -255,14 +322,15 @@
        down it ate a wedge out of the grown suit beside the hip — the behaviour that
        was already right. */
     for(const [a] of CUTCHAIN){
-      const p=C.parts[a], d=ang[a]||0;
-      if(p && a.startsWith('thigh') && (p.upSign||1)*d > 0.2)
-        body+=`<g transform="translate(${p.pivot[0]},${p.pivot[1]}) rotate(${p.rest+d})">${cutPieces(p,P)}</g>`;
+      const p=C.parts[a], d=ang[a]||0, pe=ev[a]||0;
+      if(p && a.startsWith('thigh') && (p.upSign||1)*d > 0.2 && pe<=0)
+        body+=`<g transform="translate(${p.pivot[0]},${p.pivot[1]}) rotate(${p.rest+d})" opacity="${depthOpacity(pe)}">${cutPieces(p,P,null,fore(pe),pe)}</g>`;
     }
+    body+=above;                                   // everything above the surface
     if(C.parts.head)  body+=cutPieces(C.parts.head,P);
     let sk='';
     if(o.bones){
-      const wp=worldJoints(key,angles);
+      const wp=worldJoints(key,angles,elev);
       for(const [a,b,c] of CHAINS[C.pose]){
         sk+=`<line x1="${wp[a][0]}" y1="${wp[a][1]}" x2="${wp[b][0]}" y2="${wp[b][1]}" stroke="#14E39B" stroke-width="5"/>`
           + `<line x1="${wp[b][0]}" y1="${wp[b][1]}" x2="${wp[c][0]}" y2="${wp[c][1]}" stroke="#14E39B" stroke-width="5"/>`;
@@ -274,7 +342,7 @@
 
   function rigMarkup(key, angles, team, opts){
     if(typeof CUT!=='undefined' && CUT[key]) return cutMarkup(key, angles, team, opts);
-    const r=RIG[key], body=r.pose, P=PAL[team], o=opts||{};
+    const r=RIG[key], body=r.pose, P=PAL[team], o=opts||{}, elev=o.elev||{};
     const uid='bm'+Math.random().toString(36).slice(2,9);
     const chain=(root,mid,tip,fillOverride,rootCapFill)=>{
       const s1=r.segments.find(s=>s.from===root&&s.to===mid), s2=r.segments.find(s=>s.from===mid&&s.to===tip);
@@ -284,21 +352,38 @@
       const aRoot=D(Math.atan2(jp(mid)[1]-jp(root)[1], jp(mid)[0]-jp(root)[0]));
       const aMid =D(Math.atan2(jp(tip)[1]-jp(mid)[1],  jp(tip)[0]-jp(mid)[0])) - aRoot;
       const dR=angles[root]||0, dM=angles[mid]||0, p=jp(root);
+      // Each bone is shortened by its own elevation. The end caps are not: a
+      // rounded end is a sphere, and a sphere projects to a circle whatever angle
+      // you see it from — which is also why a limb held straight up collapses to a
+      // dot rather than a sliver.
+      const f1=elevOf(elev,root), f2=elevOf(elev,mid);
+      const P1=L1*fore(f1), P2=L2*fore(f2);
+      const plain=!!fillOverride;          // the body mask wants shape only, no depth
       const F=fillOverride||P.skin;
+      const F1=plain?F:depthFill(F,f1), F2=plain?F:depthFill(F,f2);
       // The cap at the ROOT joint can take its own colour. On a women's suit the
       // shoulder strap covers the shoulder, and because the cap is centred on the
       // joint it stays covered at any arm angle.
       const RC=fillOverride||rootCapFill||P.skin;
-      const cap=(cx,rr,c)=>`<circle cx="${cx}" cy="0" r="${rr}" fill="${c||F}"/>`;
+      const o1=plain?1:depthOpacity(f1), o2=plain?1:depthOpacity(f2);
+      const cap=(cx,rr,c,d)=>`<circle cx="${cx}" cy="0" r="${rr}" fill="${c||d}"/>`;
       return `<g transform="translate(${p[0]},${p[1]}) rotate(${aRoot+dR})">
-        ${cap(0,s1.w0/2,RC)}<path d="${segPath(L1,s1.w0,s1.w1)}" fill="${F}"/>${cap(L1,s1.w1/2)}
-        <g transform="translate(${L1},0) rotate(${aMid+dM})">
-          ${cap(0,s2.w0/2)}<path d="${segPath(L2,s2.w0,s2.w1)}" fill="${F}"/>${cap(L2,s2.w1/2)}
+        <g opacity="${o1}">${cap(0,s1.w0/2,plain?F:depthFill(RC,f1),F1)}<path d="${segPath(P1,s1.w0,s1.w1)}" fill="${F1}"/>${cap(P1,s1.w1/2,null,F1)}</g>
+        <g transform="translate(${P1},0) rotate(${aMid+dM})" opacity="${o2}">
+          ${cap(0,s2.w0/2,null,F2)}<path d="${segPath(P2,s2.w0,s2.w1)}" fill="${F2}"/>${cap(P2,s2.w1/2,null,F2)}
         </g></g>`;
     };
-    const armsWith=(f,rc)=>CHAINS[body].filter(c=>c[0].startsWith('shoulder')).map(c=>chain(...c,f,rc)).join('');
-    const legsWith=f=>CHAINS[body].filter(c=>c[0].startsWith('hip')).map(c=>chain(...c,f)).join('');
-    const arms=armsWith(null, r.torsoIsSuit ? P.trunks : null), legs=legsWith();
+    // Split by depth: what is under the surface goes down before the trunk, what
+    // is above it goes down after. Without this a raised arm is still drawn under
+    // the body and the lift reads as nothing but a shorter arm.
+    const up=c=>elevOf(elev,c[0])>0;
+    const armsWith=(f,rc,pick)=>CHAINS[body].filter(c=>c[0].startsWith('shoulder'))
+          .filter(c=>pick?pick(c):true).map(c=>chain(...c,f,rc)).join('');
+    const legsWith=(f,pick)=>CHAINS[body].filter(c=>c[0].startsWith('hip'))
+          .filter(c=>pick?pick(c):true).map(c=>chain(...c,f)).join('');
+    const SUIT = r.torsoIsSuit ? P.trunks : null;
+    const arms=armsWith(null, SUIT, c=>!up(c)), legs=legsWith(null, c=>!up(c));
+    const armsUp=armsWith(null, SUIT, up), legsUp=legsWith(null, up);
     const poly=pts=>pts.map(p=>p.join(',')).join(' ');
     // A women's suit covers the whole torso, so the torso itself is filled with the
     // suit colour. Painting only a traced suit shape on top of skin leaves slivers
@@ -320,7 +405,7 @@
       const W=r.image.width, H=r.image.height;
       const bodyMask=(r.static.torso ?`<polygon points="${poly(r.static.torso)}" fill="#fff"/>`:'')
                     +(r.static.pelvis?`<polygon points="${poly(r.static.pelvis)}" fill="#fff"/>`:'')
-                    +legsWith('#fff')+armsWith('#fff');
+                    +legsWith('#fff')+armsWith('#fff','#fff');
       // A collar behind the cap. Contour-tracing the painted reference loses this
       // thin crescent between the ring and the arms, and it is a circle by nature
       // anyway — so it is drawn directly, and the mask keeps it on the body.
@@ -342,22 +427,31 @@
                 <ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.irx}" ry="${e.iry}" fill="${P.cap}"/>`;
     let sk='';
     if(o.bones){
-      const wp=worldJoints(key,angles);
+      const wp=worldJoints(key,angles,elev);
       for(const [a,b,c] of CHAINS[body]){
         sk+=`<line x1="${wp[a][0]}" y1="${wp[a][1]}" x2="${wp[b][0]}" y2="${wp[b][1]}" stroke="#14E39B" stroke-width="5"/>`
           + `<line x1="${wp[b][0]}" y1="${wp[b][1]}" x2="${wp[c][0]}" y2="${wp[c][1]}" stroke="#14E39B" stroke-width="5"/>`;
         for(const k of [a,b,c]) sk+=`<circle cx="${wp[k][0]}" cy="${wp[k][1]}" r="9" fill="#FF2D95" stroke="#06120E" stroke-width="3"/>`;
       }
     }
-    return {inner: legs+arms+torso+garment+zip+head+sk, w:r.image.width, h:r.image.height};
+    return {inner: legs+arms+torso+garment+zip+legsUp+armsUp+head+sk, w:r.image.width, h:r.image.height};
   }
 
-  function worldJoints(key, angles){
+  function worldJoints(key, angles, elev){
     const r=RIG[key], body=r.pose, out={};
+    // out.z, filled alongside, is how far each joint sits above the surface in rig
+    // pixels — negative under it. Nothing in the plan view uses it, but the ball
+    // does: a shot released with the arm up leaves the hand above the water.
+    out.z={};
     for(const [root,mid,tip] of CHAINS[body]){
       const jp=k=>r.joints[k], p=jp(root);
-      const L1=Math.hypot(jp(mid)[0]-p[0], jp(mid)[1]-p[1]);
-      const L2=Math.hypot(jp(tip)[0]-jp(mid)[0], jp(tip)[1]-jp(mid)[1]);
+      const f1=elevOf(elev,root), f2=elevOf(elev,mid);
+      const L1full=Math.hypot(jp(mid)[0]-p[0], jp(mid)[1]-p[1]);
+      const L2full=Math.hypot(jp(tip)[0]-jp(mid)[0], jp(tip)[1]-jp(mid)[1]);
+      const L1=L1full*fore(f1), L2=L2full*fore(f2);
+      out.z[root]=0;
+      out.z[mid]=rise(f1,L1full);
+      out.z[tip]=out.z[mid]+rise(f2,L2full);
       const a0=Math.atan2(jp(mid)[1]-p[1], jp(mid)[0]-p[0]);
       const a1=Math.atan2(jp(tip)[1]-jp(mid)[1], jp(tip)[0]-jp(mid)[0]);
       const aRoot=a0+Rad(angles[root]||0);
@@ -400,12 +494,12 @@
      exceed it. */
   const BOX_STEP = 8;            // quantised, so a cycle reuses a handful of sizes
 
-  function poseBox(key, angles) {
+  function poseBox(key, angles, elev) {
     const r = RIG[key], c = CUT[key];
     const W = r.image.width, H = r.image.height, cx = W / 2, cy = H / 2;
     let x0 = 0, y0 = 0, x1 = W, y1 = H;              // never smaller than the artwork
     try {
-      const wp = worldJoints(key, angles || {});
+      const wp = worldJoints(key, angles || {}, elev || {});
       const grow = (p, rad) => { if (!p) return;
         x0 = Math.min(x0, p[0] - rad); x1 = Math.max(x1, p[0] + rad);
         y0 = Math.min(y0, p[1] - rad); y1 = Math.max(y1, p[1] + rad); };
@@ -435,7 +529,7 @@
   // every player's footprint on the board, so it stretches the same way.
   function svgFor(key, team, angles, opts) {
     const m = rigMarkup(key, angles || {}, team, opts || {});
-    const b = poseBox(key, angles);
+    const b = poseBox(key, angles, (opts || {}).elev);
     const inner = (b.dx || b.dy)
       ? '<g transform="translate(' + b.dx + ',' + b.dy + ')">' + m.inner + '</g>'
       : m.inner;
@@ -445,10 +539,10 @@
   }
 
   const uriCache = new Map();
-  function dataUri(key, team, angles, cacheKey) {
+  function dataUri(key, team, angles, cacheKey, elev) {
     let u = uriCache.get(cacheKey);
     if (u === undefined) {
-      u = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgFor(key, team, angles));
+      u = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgFor(key, team, angles, { elev: elev || {} }));
       // A guard, not a policy: at rest this holds a dozen entries. It only
       // grows once joint angles vary, and then it is bounded rather than a leak.
       if (uriCache.size > 400) uriCache.clear();
@@ -477,13 +571,17 @@
     return ((label || '')[0] === 'W' ? 'white' : 'blue') + '_goalie';
   }
 
-  function anglesOf(el) {
-    if (!el || !el.dataset || !el.dataset.rigAngles) return null;
+  function jsonOf(el, field) {
+    if (!el || !el.dataset || !el.dataset[field]) return null;
     try {
-      const a = JSON.parse(el.dataset.rigAngles);
+      const a = JSON.parse(el.dataset[field]);
       return (a && typeof a === 'object') ? a : null;
     } catch (e) { return null; }
   }
+  function anglesOf(el) { return jsonOf(el, 'rigAngles'); }
+  // How far each joint is lifted out of the water, kept beside the in-plane
+  // angles in its own field so a library with no elevation stays byte-identical.
+  function elevOfEl(el) { return jsonOf(el, 'rigElev'); }
 
   // Quantised so a tween does not mint a new string every frame at 60 fps.
   // Half a degree is far below what is visible on a player 40 px tall.
@@ -539,7 +637,7 @@
     // The same box the markup was drawn into — see poseBox. Reading it from
     // there rather than from r.image is what keeps the figure at one scale
     // while the box around it changes with the pose.
-    const box = poseBox(key, anglesOf(el) || {});
+    const box = poseBox(key, anglesOf(el) || {}, elevOfEl(el) || {});
     img.style.width  = (box.w / r.image.pxPerMeterX * mult * pxPerMX) + 'px';
     img.style.height = (box.h / r.image.pxPerMeterY * mult * pxPerMY) + 'px';
   }
@@ -578,7 +676,7 @@
     if (!r || !r.joints || !r.image || !r.image.pxPerMeterX) return null;
     const side = (hand === 'right') ? 'R' : 'L';
     if (!r.joints['wrist_' + side]) return null;
-    const wp = worldJoints(key, anglesOf(el) || {});
+    const wp = worldJoints(key, anglesOf(el) || {}, elevOfEl(el) || {});
     const w = wp['wrist_' + side], e = wp['elbow_' + side];
     if (!w || !e) return null;
     const px = r.image.pxPerMeterX, py = r.image.pxPerMeterY;
@@ -612,8 +710,8 @@
         const key = rigKey(pose, category);
         if (!RIG[key] && !CUT[key]) return origIcon.apply(this, arguments);
         const pal = palKey(team, label);
-        const angles = anglesOf(drawingEl);
-        return dataUri(key, pal, angles, key + '|' + pal + '|' + angleTag(angles));
+        const angles = anglesOf(drawingEl), elev = elevOfEl(drawingEl);
+        return dataUri(key, pal, angles, key + '|' + pal + '|' + angleTag(angles) + '|' + angleTag(elev), elev);
       } catch (e) {
         // A rig that throws must never take the board down with it.
         if (!API._warned) { API._warned = true; console.warn('[PlayerRig] falling back to sprites:', e); }
@@ -689,18 +787,21 @@
     setEnabled(v) { API.enabled = !!v; uriCache.clear(); refresh(); },
     // Set a player's joint angles: degrees offset from rest, the pose library's
     // own format. null clears them back to rest.
-    setAngles(el, angles) {
+    setAngles(el, angles, elev) {
       if (!el || !el.dataset) return;
       if (angles && Object.keys(angles).length) el.dataset.rigAngles = JSON.stringify(angles);
       else delete el.dataset.rigAngles;
+      if (elev && Object.keys(elev).length) el.dataset.rigElev = JSON.stringify(elev);
+      else delete el.dataset.rigElev;
       const place = (window.MIZE && window.MIZE.Players && window.MIZE.Players.place) || window.place;
       if (typeof place === 'function') place(el);
     },
     getAngles(el) { return anglesOf(el); },
+    getElev(el) { return elevOfEl(el); },
     // Escape hatches for anything that wants the markup directly (a thumbnail,
     // an export) without going through the board.
-    markup(pose, sexOrCategory, team, label, angles) {
-      return svgFor(rigKey(pose, sexOrCategory), palKey(team, label), angles || {});
+    markup(pose, sexOrCategory, team, label, angles, elev) {
+      return svgFor(rigKey(pose, sexOrCategory), palKey(team, label), angles || {}, { elev: elev || {} });
     },
     refresh,
     bodies() { return { rig: Object.keys(RIG), cut: Object.keys(CUT) }; },
