@@ -227,18 +227,28 @@
   const SWIM_MPS = 0.35;        // a sprint is ~1.5 m/s; drift and nudges are well under this
   const SWIM_HOLD_MS = 500;
   let swimMode = 'moving';      // 'moving' | 'always'
-  const motion = new WeakMap();
+
+  // Keyed by LABEL, not by element. `loadState()` — which animateToFrame calls
+  // the instant a transition lands — removes and rebuilds every player element
+  // from scratch. Keyed by element reference, a swimmer's movement history died
+  // with the old element at every frame boundary, the next tick saw a fresh
+  // element with nothing to measure, and the stroke dropped for a few ticks: the
+  // stutter at each frame change. The label survives the rebuild, so the history
+  // does too.
+  const motion = new Map();
+  function motionKey(el) { return el.dataset.label || el.dataset.id || ''; }
 
   function isSwimming(el, now) {
     if (el.dataset.pose !== 'h') return false;
     if (swimMode === 'always') return true;
-    const p = at(el), m = motion.get(el);
-    motion.set(el, { x: p.x, y: p.y, t: now, until: m ? m.until : 0 });
+    const k = motionKey(el);
+    const p = at(el), m = motion.get(k);
+    motion.set(k, { x: p.x, y: p.y, t: now, until: m ? m.until : 0 });
     if (m) {
       const dt = (now - m.t) / 1000;
       if (dt > 0.001) {
         const v = Math.hypot(p.x - m.x, p.y - m.y) / dt;
-        if (v >= SWIM_MPS) { motion.get(el).until = now + SWIM_HOLD_MS; return true; }
+        if (v >= SWIM_MPS) { motion.get(k).until = now + SWIM_HOLD_MS; return true; }
       }
       return now < m.until;
     }
