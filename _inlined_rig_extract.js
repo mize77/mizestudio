@@ -1,3 +1,5 @@
+
+
 /* =====================================================================
  * XquiX Studio — player rig renderer
  * ---------------------------------------------------------------------
@@ -204,7 +206,14 @@
   function cutMarkup(key, angles, team, opts){
     const C=CUT[key], P=PAL[team], o=opts||{};
     const ang={};
-    for(const [j,pt] of Object.entries(JOINT2PART)) if(angles[j]) ang[pt]=angles[j];
+    // Same right-side mirror as worldJoints()/chain() -- see worldJoints's
+    // comment for why. Applied here, at the joint-name stage, covers both
+    // arms and legs in one place since JOINT2PART maps all four pairs.
+    // The CUT data's own upSign field looks like it exists for exactly
+    // this, but it's only ever read for one narrow lift-detection check
+    // (below) -- never applied to an actual rotation -- so this was the
+    // gap letting a right-arm/leg pose swing in the wrong direction here too.
+    for(const [j,pt] of Object.entries(JOINT2PART)) if(angles[j]) ang[pt]=angles[j]*(j.endsWith('_R')?-1:1);
     let body='';
     for(const [a,b] of CUTCHAIN) if(a.startsWith('thigh')) body+=cutChain(C.parts,P,a,b,ang);
     for(const [a,b] of CUTCHAIN) if(a.startsWith('upperArm')) body+=cutChain(C.parts,P,a,b,ang);
@@ -283,7 +292,13 @@
       const L2=Math.hypot(jp(tip)[0]-jp(mid)[0], jp(tip)[1]-jp(mid)[1]);
       const aRoot=D(Math.atan2(jp(mid)[1]-jp(root)[1], jp(mid)[0]-jp(root)[0]));
       const aMid =D(Math.atan2(jp(tip)[1]-jp(mid)[1],  jp(tip)[0]-jp(mid)[0])) - aRoot;
-      const dR=angles[root]||0, dM=angles[mid]||0, p=jp(root);
+      // Same right-side mirror as worldJoints() -- see its comment. This is
+      // the function that actually draws the 'v' body's arms (rigMarkup
+      // only reaches here when there's no painted CUT template), so this
+      // is where the visible forearm-off-canvas bug for a treading,
+      // ball-holding player traces back to.
+      const mirror = root.endsWith('_R') ? -1 : 1;
+      const dR=(angles[root]||0)*mirror, dM=(angles[mid]||0)*mirror, p=jp(root);
       const F=fillOverride||P.skin;
       // The cap at the ROOT joint can take its own colour. On a women's suit the
       // shoulder strap covers the shoulder, and because the cap is centred on the
@@ -360,70 +375,20 @@
       const L2=Math.hypot(jp(tip)[0]-jp(mid)[0], jp(tip)[1]-jp(mid)[1]);
       const a0=Math.atan2(jp(mid)[1]-p[1], jp(mid)[0]-p[0]);
       const a1=Math.atan2(jp(tip)[1]-jp(mid)[1], jp(tip)[0]-jp(mid)[0]);
-      const aRoot=a0+Rad(angles[root]||0);
-      const aMid =aRoot+(a1-a0)+Rad(angles[mid]||0);
+      // Right-side joints are a mirror image of left (confirmed against the
+      // CUT rig data's own upSign field, and numerically: the same pose
+      // angle produces the correctly-mirrored wrist position only when
+      // negated on this side). Without this, a right-arm/leg pose angle
+      // rotates the limb in the wrong direction -- far enough, for large
+      // offsets, to land the joint entirely outside the visible canvas.
+      const mirror = root.endsWith('_R') ? -1 : 1;
+      const aRoot=a0+Rad((angles[root]||0)*mirror);
+      const aMid =aRoot+(a1-a0)+Rad((angles[mid]||0)*mirror);
       out[root]=[p[0],p[1]];
       out[mid]=[p[0]+Math.cos(aRoot)*L1, p[1]+Math.sin(aRoot)*L1];
       out[tip]=[out[mid][0]+Math.cos(aMid)*L2, out[mid][1]+Math.sin(aMid)*L2];
     }
     return out;
-  }
-
-  /* ------------------------------------------------------------ the box
-
-     The artwork's own width and height are the REST pose's. Swing a limb and it
-     leaves that rectangle — and because the markup is handed to the board as an
-     <img> src, whatever leaves the viewBox is simply cut off. Measured against
-     the coach's library the worst case loses 130 px off a 311 px-tall treading
-     body: a ball-holding player's forearm, gone.
-
-     So the box is computed from the pose rather than inherited from the
-     painting. Two things make that safe to do per pose rather than once per
-     body:
-
-       - It stays CENTRED on the artwork centre. The board positions a player by
-         the element's centre and handOffset measures the wrist from the same
-         point, so growing symmetrically moves nothing and rescales nothing.
-       - The element's size in metres is box pixels / pxPerMetre, so a bigger box
-         means a bigger element holding the same figure at the same scale — not a
-         smaller figure. sizeFromRig reads this same function, which is why the
-         two cannot drift apart.
-
-     Sizing per body instead would mean padding every player for the most extreme
-     pose in the library: a treading player's footprint — and its click target —
-     would grow 2.4x whether or not that player is reaching. Per pose it grows
-     only while the limb is actually out there.
-
-     A limb is a tapered strip between two capped circles, so it lies inside the
-     hull of those circles: joint positions expanded by their cap radii is an
-     exact bound, not an estimate. The trunk is clipped to the body and cannot
-     exceed it. */
-  const BOX_STEP = 8;            // quantised, so a cycle reuses a handful of sizes
-
-  function poseBox(key, angles) {
-    const r = RIG[key], c = CUT[key];
-    const W = r.image.width, H = r.image.height, cx = W / 2, cy = H / 2;
-    let x0 = 0, y0 = 0, x1 = W, y1 = H;              // never smaller than the artwork
-    try {
-      const wp = worldJoints(key, angles || {});
-      const grow = (p, rad) => { if (!p) return;
-        x0 = Math.min(x0, p[0] - rad); x1 = Math.max(x1, p[0] + rad);
-        y0 = Math.min(y0, p[1] - rad); y1 = Math.max(y1, p[1] + rad); };
-      const cap = (seg, end, part, which) => Math.max(
-        seg ? seg['w' + end] / 2 : 0,
-        (c && c.parts && c.parts[part] && c.parts[part].capsule) ? c.parts[part].capsule[which] : 0);
-      for (const [root, mid, tip] of (CHAINS[r.pose] || [])) {
-        const s1 = r.segments.find(s => s.from === root && s.to === mid);
-        const s2 = r.segments.find(s => s.from === mid  && s.to === tip);
-        const p1 = JOINT2PART[root], p2 = JOINT2PART[mid];
-        grow(wp[root], cap(s1, 0, p1, 'r0'));
-        grow(wp[mid],  cap(s1, 1, p2, 'r0'));
-        grow(wp[tip],  cap(s2, 1, p2, 'r1'));
-      }
-    } catch (e) { /* fall back to the artwork box rather than draw nothing */ }
-    const q = v => Math.ceil(v / BOX_STEP) * BOX_STEP;
-    const hx = q(Math.max(cx - x0, x1 - cx)), hy = q(Math.max(cy - y0, y1 - cy));
-    return { w: hx * 2, h: hy * 2, dx: hx - cx, dy: hy - cy };
   }
 
   /* ---------------------------------------------------------------- render */
@@ -435,13 +400,9 @@
   // every player's footprint on the board, so it stretches the same way.
   function svgFor(key, team, angles, opts) {
     const m = rigMarkup(key, angles || {}, team, opts || {});
-    const b = poseBox(key, angles);
-    const inner = (b.dx || b.dy)
-      ? '<g transform="translate(' + b.dx + ',' + b.dy + ')">' + m.inner + '</g>'
-      : m.inner;
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + b.w + ' ' + b.h +
-           '" width="' + b.w + '" height="' + b.h + '" preserveAspectRatio="none">' +
-           inner + '</svg>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + m.w + ' ' + m.h +
+           '" width="' + m.w + '" height="' + m.h + '" preserveAspectRatio="none">' +
+           m.inner + '</svg>';
   }
 
   const uriCache = new Map();
@@ -536,12 +497,8 @@
     const hpx = parseFloat(img.style.height);
     const pxPerMY = (pose === 'h' && hpx > 0) ? hpx / (1.6 * mult) : pxPerMX;
 
-    // The same box the markup was drawn into — see poseBox. Reading it from
-    // there rather than from r.image is what keeps the figure at one scale
-    // while the box around it changes with the pose.
-    const box = poseBox(key, anglesOf(el) || {});
-    img.style.width  = (box.w / r.image.pxPerMeterX * mult * pxPerMX) + 'px';
-    img.style.height = (box.h / r.image.pxPerMeterY * mult * pxPerMY) + 'px';
+    img.style.width  = (r.image.width  / r.image.pxPerMeterX * mult * pxPerMX) + 'px';
+    img.style.height = (r.image.height / r.image.pxPerMeterY * mult * pxPerMY) + 'px';
   }
 
   /* -------------------------------------------------------- the ball's hand */

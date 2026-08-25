@@ -1858,6 +1858,68 @@
   <button id="libraryToggleTab" class="edgeTab" title="Coaching Library">Library</button>
   <button id="sidebarToggleTab" class="edgeTab">Menu</button>
   <button id="coachingModeToggleTab" class="edgeTab" title="Show/hide your presentation notes sidebar (only visible on this screen)">Notes</button>
+  <button id="feedbackToggleTab" class="edgeTab" title="Report a problem or suggest an improvement">Feedback</button>
+</div>
+<div id="feedbackPanel" class="toolPanel" style="position:fixed;z-index:999990;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.25);width:min(92vw,420px);max-height:90dvh;left:50%;top:2dvh;transform:translateX(-50%);overflow-y:auto;">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 6px;">
+    <strong style="font-size:15px;">Feedback</strong>
+    <button id="feedbackCloseBtn" style="border:none;background:none;font-size:18px;cursor:pointer;color:#7c8a8a;">&#10005;</button>
+  </div>
+  <div style="padding:0 16px 16px;">
+
+    <div id="feedbackStepType">
+      <p style="font-size:13px;color:#5a6666;margin:0 0 12px;">What would you like to do?</p>
+      <button type="button" class="feedbackTile" data-feedback-type="bug" style="width:100%;text-align:left;padding:12px;margin-bottom:8px;border:1.5px solid #dbe4e4;border-radius:8px;background:#fff;cursor:pointer;">
+        <strong>Report a Problem</strong><br><span style="font-size:12px;color:#7c8a8a;">Something isn't working the way it should</span>
+      </button>
+      <button type="button" class="feedbackTile" data-feedback-type="suggestion" style="width:100%;text-align:left;padding:12px;border:1.5px solid #dbe4e4;border-radius:8px;background:#fff;cursor:pointer;">
+        <strong>Suggest an Improvement</strong><br><span style="font-size:12px;color:#7c8a8a;">Something you'd like to see added or changed</span>
+      </button>
+    </div>
+
+    <div id="feedbackStepMode" style="display:none;">
+      <button type="button" class="feedbackBackBtn" data-back-to="feedbackStepType" style="border:none;background:none;color:#14a89a;font-size:13px;padding:0 0 10px;cursor:pointer;">&larr; Back</button>
+      <p style="font-size:13px;color:#5a6666;margin:0 0 12px;">Which part of XquiX Studio?</p>
+      <div id="feedbackModeGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+    </div>
+
+    <div id="feedbackStepCategory" style="display:none;">
+      <button type="button" class="feedbackBackBtn" data-back-to="feedbackStepMode" style="border:none;background:none;color:#14a89a;font-size:13px;padding:0 0 10px;cursor:pointer;">&larr; Back</button>
+      <p style="font-size:13px;color:#5a6666;margin:0 0 12px;">What's this about?</p>
+      <div id="feedbackCategoryGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+    </div>
+
+    <div id="feedbackStepOtherText" style="display:none;">
+      <button type="button" class="feedbackBackBtn" data-back-to="feedbackStepCategory" style="border:none;background:none;color:#14a89a;font-size:13px;padding:0 0 10px;cursor:pointer;">&larr; Back</button>
+      <p style="font-size:13px;color:#5a6666;margin:0 0 8px;">In a few words, what's this about?</p>
+      <input type="text" id="feedbackOtherText" placeholder="e.g. Exporting to PDF" style="width:100%;padding:10px;border:1.5px solid #dbe4e4;border-radius:8px;box-sizing:border-box;margin-bottom:12px;">
+      <button type="button" id="feedbackOtherNextBtn" style="width:100%;padding:11px;border:none;border-radius:8px;background:#14a89a;color:#fff;font-weight:600;cursor:pointer;">Continue</button>
+    </div>
+
+    <div id="feedbackStepDescription" style="display:none;">
+      <button type="button" class="feedbackBackBtn" data-back-dynamic="true" style="border:none;background:none;color:#14a89a;font-size:13px;padding:0 0 10px;cursor:pointer;">&larr; Back</button>
+      <p id="feedbackDescriptionPrompt" style="font-size:13px;color:#5a6666;margin:0 0 8px;">Tell us what happened</p>
+      <textarea id="feedbackDescriptionInput" rows="5" style="width:100%;padding:10px;border:1.5px solid #dbe4e4;border-radius:8px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;resize:vertical;"></textarea>
+      <button type="button" id="feedbackDescriptionNextBtn" style="width:100%;padding:11px;border:none;border-radius:8px;background:#14a89a;color:#fff;font-weight:600;cursor:pointer;">Continue</button>
+      <div id="feedbackDescriptionMsg" style="font-size:12px;color:#b23b3b;margin-top:6px;display:none;"></div>
+    </div>
+
+    <div id="feedbackStepClarify" style="display:none;">
+      <button type="button" class="feedbackBackBtn" data-back-to="feedbackStepDescription" style="border:none;background:none;color:#14a89a;font-size:13px;padding:0 0 10px;cursor:pointer;">&larr; Back</button>
+      <p id="feedbackClarifyQuestion" style="font-size:13px;color:#5a6666;margin:0 0 8px;"></p>
+      <textarea id="feedbackClarifyAnswer" rows="3" style="width:100%;padding:10px;border:1.5px solid #dbe4e4;border-radius:8px;box-sizing:border-box;margin-bottom:12px;font-family:inherit;resize:vertical;"></textarea>
+      <button type="button" id="feedbackSubmitBtn" style="width:100%;padding:11px;border:none;border-radius:8px;background:#14a89a;color:#fff;font-weight:600;cursor:pointer;">Submit</button>
+      <div id="feedbackSubmitMsg" style="font-size:12px;color:#b23b3b;margin-top:6px;display:none;"></div>
+    </div>
+
+    <div id="feedbackStepThankYou" style="display:none;text-align:center;padding:10px 0;">
+      <div style="font-size:32px;margin-bottom:8px;">&#128075;</div>
+      <p style="font-size:15px;font-weight:600;margin:0 0 6px;">Thank you!</p>
+      <p style="font-size:13px;color:#5a6666;margin:0 0 16px;">This genuinely helps us make XquiX Studio better -- for you and every coach using it. Please keep the feedback coming whenever something's not right or you've got an idea worth sharing.</p>
+      <button type="button" id="feedbackDoneBtn" style="width:100%;padding:11px;border:none;border-radius:8px;background:#14a89a;color:#fff;font-weight:600;cursor:pointer;">Done</button>
+    </div>
+
+  </div>
 </div>
 <div id="coachingNotesSidebar">
   <h4>General Notes</h4>
@@ -27473,5 +27535,245 @@ else boot();
   }, POLL_MS);
 })();
 
+
+/* ---------------------------------------------------------------------
+ * Feedback tool -- bug reports and improvement suggestions, always
+ * reachable from the edge tab stack. Deliberately ungated: every user,
+ * any tier, since the whole point is maximizing how much genuine signal
+ * reaches the team, not restricting who gets to report a problem.
+ *
+ * Honest limitation, stated plainly rather than glossed over: the
+ * "clarifying question" below is a rule-based approximation (description
+ * length, and for bug reports specifically, whether a frequency word is
+ * present), not real understanding of what was written. There's no
+ * language-understanding backend this client-side code can call. It
+ * asks for more detail when the description looks too short or is
+ * missing the single most useful reproduction detail (how often this
+ * happens) -- not a genuinely "smart" read of the actual content.
+ * --------------------------------------------------------------------- */
+(function () {
+  'use strict';
+
+  const MODE_LABELS = {
+    coaching: 'Coaching', gametracker: 'Game Tracker', presenting: 'Presenting',
+    practice: 'Practice', tutorials: 'Tutorials'
+  };
+  const MODE_ORDER = ['coaching', 'gametracker', 'presenting', 'practice', 'tutorials'];
+
+  // 'other' is deliberately never listed per-mode here -- always appended
+  // once, in renderCategoryGrid(), so it can't be forgotten on a mode
+  // that gets more categories later.
+  const MODE_CATEGORIES = {
+    coaching: [
+      { id: 'movement', label: 'Player movement & positioning' },
+      { id: 'drawing', label: 'Drawing & arrows' },
+      { id: 'formations', label: 'Formations & sequences' },
+      { id: 'ball', label: 'Ball & possession' },
+      { id: 'smart', label: 'Smart Positioning / Shot Block / Vision' },
+      { id: 'library', label: 'Coaching Library' },
+      { id: 'animation', label: 'Player animation' },
+    ],
+    gametracker: [
+      { id: 'session', label: 'Starting or resuming a session' },
+      { id: 'recording', label: 'Recording actions (shots, passes, fouls)' },
+      { id: 'shootout', label: 'Penalty shootout' },
+      { id: 'stats', label: 'Stats & scoring' },
+      { id: 'saving', label: 'Saving / cloud sync' },
+    ],
+    presenting: [
+      { id: 'playback', label: 'Playback controls' },
+      { id: 'transitions', label: 'Slide / frame transitions' },
+      { id: 'display', label: 'Display / screen issues' },
+    ],
+    practice: [
+      { id: 'plans', label: 'Practice plans' },
+      { id: 'drills', label: 'Drills' },
+      { id: 'scheduling', label: 'Scheduling' },
+    ],
+    tutorials: [
+      { id: 'content', label: 'Tutorial content / instructions' },
+      { id: 'progress', label: 'Progress tracking' },
+      { id: 'navigation', label: 'Getting started / navigation' },
+    ],
+  };
+
+  const MIN_WORDS_NO_CLARIFY = 12;
+  const FREQUENCY_WORDS = /\b(always|every ?time|sometimes|once|occasionally|rarely|first time|never)\b/i;
+
+  function needsClarification(type, description) {
+    const words = (description || '').trim().split(/\s+/).filter(Boolean);
+    if (words.length < MIN_WORDS_NO_CLARIFY) return true;
+    if (type === 'bug' && !FREQUENCY_WORDS.test(description || '')) return true;
+    return false;
+  }
+  function clarifyingQuestionFor(type, description) {
+    if (type === 'bug' && !FREQUENCY_WORDS.test(description || '')) {
+      return 'Does this happen every time, or only sometimes?';
+    }
+    if (type === 'suggestion') {
+      return 'What would you expect to happen instead, or how would this help your coaching?';
+    }
+    return 'Can you tell us a bit more about what you expected to happen instead?';
+  }
+
+  function collectDeviceInfo() {
+    return {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      pixelRatio: window.devicePixelRatio || 1,
+      appVersion: (window.MIZE && MIZE.config && MIZE.config.version) || null,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  let state = {};
+  function resetState() {
+    state = { type: null, mode: null, category: null, categoryLabel: null,
+              otherText: '', description: '', clarifyingQuestion: null, clarifyingAnswer: '' };
+  }
+  resetState();
+
+  const STEPS = ['feedbackStepType', 'feedbackStepMode', 'feedbackStepCategory', 'feedbackStepOtherText',
+                 'feedbackStepDescription', 'feedbackStepClarify', 'feedbackStepThankYou'];
+  function showStep(id) {
+    STEPS.forEach(s => { const el = document.getElementById(s); if (el) el.style.display = (s === id) ? '' : 'none'; });
+  }
+
+  function renderModeGrid() {
+    const grid = document.getElementById('feedbackModeGrid');
+    if (!grid) return;
+    grid.innerHTML = MODE_ORDER.map(m =>
+      '<button type="button" class="feedbackTile" data-mode="' + m + '" style="padding:14px 8px;border:1.5px solid #dbe4e4;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-weight:600;">' + MODE_LABELS[m] + '</button>'
+    ).join('');
+    grid.querySelectorAll('[data-mode]').forEach(btn => {
+      btn.onclick = () => { state.mode = btn.dataset.mode; renderCategoryGrid(); showStep('feedbackStepCategory'); };
+    });
+  }
+  function renderCategoryGrid() {
+    const grid = document.getElementById('feedbackCategoryGrid');
+    if (!grid || !state.mode) return;
+    const cats = (MODE_CATEGORIES[state.mode] || []).concat([{ id: 'other', label: 'Other' }]);
+    grid.innerHTML = cats.map(c =>
+      '<button type="button" class="feedbackTile" data-cat="' + c.id + '" style="padding:12px 8px;border:1.5px solid #dbe4e4;border-radius:8px;background:#fff;cursor:pointer;font-size:12.5px;">' + c.label + '</button>'
+    ).join('');
+    grid.querySelectorAll('[data-cat]').forEach((btn, i) => {
+      btn.onclick = () => {
+        state.category = cats[i].id;
+        state.categoryLabel = cats[i].label;
+        if (state.category === 'other') { showStep('feedbackStepOtherText'); }
+        else { renderDescriptionPrompt(); showStep('feedbackStepDescription'); }
+      };
+    });
+  }
+  function renderDescriptionPrompt() {
+    const p = document.getElementById('feedbackDescriptionPrompt');
+    if (p) p.textContent = (state.type === 'bug') ? 'Tell us what happened' : 'Tell us your idea';
+  }
+
+  document.querySelectorAll('.feedbackTile[data-feedback-type]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.type = btn.dataset.feedbackType;
+      renderModeGrid();
+      showStep('feedbackStepMode');
+    });
+  });
+  document.querySelectorAll('.feedbackBackBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.backTo;
+      if (target) { showStep(target); return; }
+      // Dynamic back from the description step: returns to wherever the
+      // category was actually chosen from, since "other" adds an extra
+      // step that a fixed data-back-to can't express.
+      showStep(state.category === 'other' ? 'feedbackStepOtherText' : 'feedbackStepCategory');
+    });
+  });
+  document.getElementById('feedbackOtherNextBtn')?.addEventListener('click', () => {
+    const val = (document.getElementById('feedbackOtherText').value || '').trim();
+    if (!val) return;
+    state.otherText = val;
+    state.categoryLabel = val;
+    renderDescriptionPrompt();
+    showStep('feedbackStepDescription');
+  });
+  document.getElementById('feedbackDescriptionNextBtn')?.addEventListener('click', () => {
+    const val = (document.getElementById('feedbackDescriptionInput').value || '').trim();
+    const msgEl = document.getElementById('feedbackDescriptionMsg');
+    if (!val) { msgEl.style.display = ''; msgEl.textContent = 'Please add a short description first.'; return; }
+    msgEl.style.display = 'none';
+    state.description = val;
+    if (needsClarification(state.type, val)) {
+      state.clarifyingQuestion = clarifyingQuestionFor(state.type, val);
+      document.getElementById('feedbackClarifyQuestion').textContent = state.clarifyingQuestion;
+      document.getElementById('feedbackClarifyAnswer').value = '';
+      showStep('feedbackStepClarify');
+    } else {
+      state.clarifyingQuestion = null;
+      submitFeedback();
+    }
+  });
+  document.getElementById('feedbackSubmitBtn')?.addEventListener('click', () => {
+    state.clarifyingAnswer = (document.getElementById('feedbackClarifyAnswer').value || '').trim();
+    submitFeedback();
+  });
+
+  async function submitFeedback() {
+    const activeBtn = state.clarifyingQuestion
+      ? document.getElementById('feedbackSubmitBtn')
+      : document.getElementById('feedbackDescriptionNextBtn');
+    const origLabel = activeBtn ? activeBtn.textContent : '';
+    if (activeBtn) { activeBtn.disabled = true; activeBtn.textContent = 'Sending\u2026'; }
+    try {
+      const client = (typeof XQUIX !== 'undefined' && XQUIX.Auth && XQUIX.Auth.getClient) ? XQUIX.Auth.getClient() : null;
+      const user = (typeof XQUIX !== 'undefined' && XQUIX.Auth && XQUIX.Auth.getCurrentUser) ? XQUIX.Auth.getCurrentUser() : null;
+      const row = {
+        user_id: user ? user.id : null,
+        feedback_type: state.type,
+        mode: state.mode,
+        category: state.category,
+        category_other_text: state.category === 'other' ? state.otherText : null,
+        description: state.description,
+        clarifying_question: state.clarifyingQuestion,
+        clarifying_answer: state.clarifyingQuestion ? state.clarifyingAnswer : null,
+        device_info: collectDeviceInfo(),
+      };
+      if (!client) {
+        // No Supabase client available at all -- a genuine failure to
+        // reach anywhere, not a silent success. Thrown deliberately so
+        // this takes the same honest error path as a real insert
+        // failure below, rather than showing the same "thank you" a
+        // genuinely-received submission gets.
+        throw new Error('No connection available right now.');
+      }
+      const { error } = await client.from('user_feedback').insert(row);
+      if (error) throw error;
+      showStep('feedbackStepThankYou');
+    } catch (err) {
+      const msgEl = state.clarifyingQuestion ? document.getElementById('feedbackSubmitMsg') : document.getElementById('feedbackDescriptionMsg');
+      if (msgEl) { msgEl.style.display = ''; msgEl.textContent = 'Couldn\u2019t send that just now \u2014 please try again in a moment.'; }
+      console.error('XquiX Feedback: submission failed', err);
+    } finally {
+      if (activeBtn) { activeBtn.disabled = false; activeBtn.textContent = origLabel; }
+    }
+  }
+
+  function openPanel() {
+    resetState();
+    showStep('feedbackStepType');
+    if (typeof openToolPanel === 'function') openToolPanel('feedbackPanel');
+  }
+  function closePanel() {
+    if (typeof closeToolPanels === 'function') closeToolPanels();
+  }
+  document.getElementById('feedbackToggleTab')?.addEventListener('click', openPanel);
+  document.getElementById('feedbackCloseBtn')?.addEventListener('click', closePanel);
+  document.getElementById('feedbackDoneBtn')?.addEventListener('click', closePanel);
+
+  window.MIZE = window.MIZE || {};
+  window.MIZE.Feedback = { open: openPanel, close: closePanel, _test: { needsClarification, clarifyingQuestionFor, collectDeviceInfo } };
+})();
 </script>
 </body></html>
