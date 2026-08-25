@@ -26279,9 +26279,9 @@ else boot();
  * ===================================================================== */
 (function () {
   'use strict';
- 
+
   /* ------------------------------------------------------------- library */
- 
+
   // The pose tool's seeded set, bundled so the module does something the
   // moment it loads. These angles are plausible guesses, not coached
   // positions — replace the whole thing with setLibrary(exportedJson).
@@ -26306,16 +26306,16 @@ else boot();
       { id: 'c1', name: 'Freestyle stroke', body: 'h', trigger: 'swimming', stepMs: 420, poses: ['p6', 'p7', 'p8', 'p5'] }
     ]
   };
- 
+
   let LIB = SEED;
   let byId = {}, byTrigger = {};
- 
+
   // Most specific first, so shooting beats hasBall — a shooter is also a
   // carrier, and the more particular thing is what should show.
   const ORDER = ['shooting', 'passing', 'hasBall', 'blocking', 'swimming', 'guarding', 'idle'];
- 
+
   /* --------------------------------------------------------- handedness */
- 
+
   // Nearly every pose worth authoring exists twice — the same shot, block or
   // carry with the other arm. Keying a slot on trigger+body alone therefore
   // throws half a library away: the two variants collide and one silently wins.
@@ -26328,7 +26328,7 @@ else boot();
   // field existed get it read off the name instead, which is why the naming
   // convention "<something> - left arm" is load-bearing rather than cosmetic.
   const HAND_SUFFIX = /[-–—]\s*(left|right)\s*(arm|hand|side)?\s*$/i;
- 
+
   function handOf(ref) {
     const h = (ref.hand || '').toString().trim().toUpperCase();
     if (h === 'L' || h === 'LEFT')  return 'L';
@@ -26340,7 +26340,7 @@ else boot();
     const m = HAND_SUFFIX.exec(ref.name || '');
     return m ? (m[1].toLowerCase() === 'left' ? 'L' : 'R') : null;   // null = either arm
   }
- 
+
   // Which arm this player is using, for the trigger that matched. Anything
   // ball-related follows the ball; blocking follows the assigned blocking arm.
   // Everything else is two-armed and asks for nothing.
@@ -26357,7 +26357,7 @@ else boot();
     }
     return null;
   }
- 
+
   function indexLibrary() {
     byId = {}; byTrigger = {};
     // A slot now holds every candidate rather than the last one written, so
@@ -26386,7 +26386,7 @@ else boot();
     }
   }
   indexLibrary();
- 
+
   // Pick one candidate out of a slot.
   //   1. the arm the board asked for beats an either-arm pose beats the wrong arm
   //   2. within that, a cycle beats a still pose — a repeating motion is the
@@ -26404,20 +26404,20 @@ else boot();
     }
     return best;
   }
- 
+
   /* -------------------------------------------------------- board probes */
- 
+
   const ARROW_START_M = 1.30;   // how close an arrow's tail must be to count as this player's
   const GUARD_M       = 2.00;   // the Studio's own marking radius (maybeAutoFace)
- 
+
   const num = v => { const n = +v; return isFinite(n) ? n : 0; };
   const at = el => ({ x: num(el.dataset.x), y: num(el.dataset.y) });
- 
+
   function sideOf(el) {
     if (typeof playerSide === 'function') { try { return playerSide(el); } catch (e) {} }
     return ((el.dataset.label || '')[0] === 'W') ? 'white' : 'blue';
   }
- 
+
   // A shot or pass arrow whose tail sits on this player. Arrows live in board
   // metres in #arrowsGroup, same coordinate space as dataset.x / dataset.y.
   function hasArrowFrom(el, type) {
@@ -26431,11 +26431,11 @@ else boot();
     }
     return false;
   }
- 
+
   function isCarrier(el) {
     return (typeof ballCarrier !== 'undefined') && ballCarrier === el;
   }
- 
+
   // The Studio already knows how to answer this one properly, corridor
   // geometry and all. It returns a {reason} when the player is not blocking.
   function isBlocking(el) {
@@ -26447,7 +26447,7 @@ else boot();
     if (!attacker) return false;
     try { return !!(computeShotBlockCorridor(el, attacker) || {}).points; } catch (e) { return false; }
   }
- 
+
   // No marking state exists in the Studio, but its smart-positioning logic
   // already treats "nearest opponent within 2 m" as marking, so that is the
   // threshold used here rather than inventing a second one.
@@ -26461,7 +26461,7 @@ else boot();
     }
     return false;
   }
- 
+
   // Lying flat is necessary but not sufficient. The engine calls `h` "swimming"
   // because it had one flat sprite and no way to say more, but a flat player
   // parked on the board is holding position, not stroking — which is exactly
@@ -26477,24 +26477,34 @@ else boot();
   const SWIM_MPS = 0.35;        // a sprint is ~1.5 m/s; drift and nudges are well under this
   const SWIM_HOLD_MS = 500;
   let swimMode = 'moving';      // 'moving' | 'always'
-  const motion = new WeakMap();
- 
+
+  // Keyed by LABEL, not by element. `loadState()` — which animateToFrame calls
+  // the instant a transition lands — removes and rebuilds every player element
+  // from scratch. Keyed by element reference, a swimmer's movement history died
+  // with the old element at every frame boundary, the next tick saw a fresh
+  // element with nothing to measure, and the stroke dropped for a few ticks: the
+  // stutter at each frame change. The label survives the rebuild, so the history
+  // does too.
+  const motion = new Map();
+  function motionKey(el) { return el.dataset.label || el.dataset.id || ''; }
+
   function isSwimming(el, now) {
     if (el.dataset.pose !== 'h') return false;
     if (swimMode === 'always') return true;
-    const p = at(el), m = motion.get(el);
-    motion.set(el, { x: p.x, y: p.y, t: now, until: m ? m.until : 0 });
+    const k = motionKey(el);
+    const p = at(el), m = motion.get(k);
+    motion.set(k, { x: p.x, y: p.y, t: now, until: m ? m.until : 0 });
     if (m) {
       const dt = (now - m.t) / 1000;
       if (dt > 0.001) {
         const v = Math.hypot(p.x - m.x, p.y - m.y) / dt;
-        if (v >= SWIM_MPS) { motion.get(el).until = now + SWIM_HOLD_MS; return true; }
+        if (v >= SWIM_MPS) { motion.get(k).until = now + SWIM_HOLD_MS; return true; }
       }
       return now < m.until;
     }
     return false;
   }
- 
+
   function triggerFor(el, now) {
     if (hasArrowFrom(el, 'shot')) return 'shooting';
     if (hasArrowFrom(el, 'pass')) return 'passing';
@@ -26504,18 +26514,18 @@ else boot();
     if (isGuarding(el))           return 'guarding';
     return 'idle';
   }
- 
+
   /* ------------------------------------------------------------- angles */
- 
+
   const TICK_MS = 70;           // also the cycle's sub-step, see cycleAngles
   const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
- 
+
   function blend(a, b, u) {
     const out = {}, ks = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
     for (const k of ks) out[k] = (num((a || {})[k])) * (1 - u) + (num((b || {})[k])) * u;
     return out;
   }
- 
+
   // A cycle is a repeating motion, not a position: a swimmer interpolating
   // toward one frozen "swimming" pose would simply stop moving once it arrived.
   // Phase comes from the wall clock so every player on the same cycle strokes
@@ -26528,7 +26538,7 @@ else boot();
   // pass cost 11.7 ms. On the grid the whole cycle is a fixed 24 frames that every
   // player shares, so after one lap round it everything is a cache hit.
   function subStepsFor(step) { return Math.max(2, Math.round(step / TICK_MS)); }
- 
+
   function cycleAngles(c, el, now) {
     const ids = (c.poses || []).filter(id => byId[id]);
     if (!ids.length) return {};
@@ -26542,7 +26552,7 @@ else boot();
     const j = (i + 1) % ids.length;
     return blend(byId[ids[i]].angles, byId[ids[j]].angles, ease((k % sub) / sub));
   }
- 
+
   // Deterministic per player, so it does not shuffle between ticks — and landed
   // on the same grid, so a squad shares one set of frames instead of each player
   // needing their own.
@@ -26552,12 +26562,12 @@ else boot();
     for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 997;
     return h % total;
   }
- 
+
   /* ------------------------------------------------------------ resolve */
- 
+
   function resolve(el, now) {
     const body = (el.dataset.pose === 'h') ? 'h' : 'v';
- 
+
     // A hand-assigned pose wins outright — that is the whole point of the
     // override. It still has to suit the body: a treading pose has no legs in
     // it and would leave a swimmer's half-posed.
@@ -26567,7 +26577,7 @@ else boot();
       return { trigger: 'manual', id: manual.id, name: manual.name,
                angles: isCycle ? cycleAngles(manual, el, now) : (manual.angles || {}) };
     }
- 
+
     const want = triggerFor(el, now);
     const hand = handFor(el, want);
     // Fall through from the matched trigger down the order. A library with no
@@ -26583,12 +26593,12 @@ else boot();
     }
     return { trigger: want, used: null, hand, id: null, name: null, angles: {} };
   }
- 
+
   /* --------------------------------------------------------------- tick */
- 
+
   let timer = null, running = false;
   const lastSig = new WeakMap();
- 
+
   // Half a degree, matching the rig's own cache bucket — writing finer than it
   // can draw would just churn strings.
   function sig(r) {
@@ -26597,7 +26607,7 @@ else boot();
     for (const k of ks) { const v = Math.round(num(r.angles[k]) * 2) / 2; if (v) s += k + v + ';'; }
     return s;
   }
- 
+
   function pass(now) {
     const Rig = window.MIZE && window.MIZE.PlayerRig;
     if (!Rig || typeof Rig.setAngles !== 'function') return 0;
@@ -26612,14 +26622,14 @@ else boot();
     }
     return wrote;
   }
- 
+
   function start() {
     if (running) return;
     running = true;
     timer = setInterval(() => { try { pass(performance.now()); } catch (e) {} }, TICK_MS);
     pass(performance.now());
   }
- 
+
   function stop() {
     running = false;
     if (timer) { clearInterval(timer); timer = null; }
@@ -26629,16 +26639,16 @@ else boot();
       if (Rig && Rig.setAngles) { try { Rig.setAngles(el, null); } catch (e) {} }
     }
   }
- 
+
   /* ---------------------------------------------------------------- API */
- 
+
   const API = {
     _booted: false,
     get running() { return running; },
     start, stop,
     // One resolve pass right now, without waiting for the tick.
     apply() { return pass(performance.now()); },
- 
+
     // Replace the bundled seed with a pose library exported from the pose tool.
     setLibrary(json) {
       const lib = (typeof json === 'string') ? JSON.parse(json) : json;
@@ -26649,7 +26659,7 @@ else boot();
       return API.coverage();
     },
     getLibrary() { return LIB; },
- 
+
     // Which trigger/body combinations the current library can actually answer.
     // The seeded set has holes — no swimming pose for hasBall or blocking — and
     // a hole means that player falls through to a less specific pose.
@@ -26664,7 +26674,7 @@ else boot();
       }
       return rows;
     },
- 
+
     // Every pose in the library that nothing on the board can ever reach —
     // either its slot is claimed by something that outranks it, or its trigger
     // is blank. A pose used only as a frame inside a cycle counts as reached.
@@ -26680,7 +26690,7 @@ else boot();
         .filter(p => !seen.has(p.id))
         .map(p => ({ id: p.id, name: p.name, body: p.body, trigger: p.trigger || '(none)' }));
     },
- 
+
     // What every player on the board resolved to, and why. This is the thing to
     // look at when a pose is not what you expected.
     explain() {
@@ -26694,7 +26704,7 @@ else boot();
                  fellThrough: !!(r.used && r.used !== r.trigger) };
       });
     },
- 
+
     // Pin one player to a pose by hand; null hands them back to the resolver.
     setManual(el, poseId) {
       if (!el || !el.dataset) return;
@@ -26703,16 +26713,16 @@ else boot();
       if (running) pass(performance.now());
     },
     getManual(el) { return (el && el.dataset && el.dataset.poseId) || null; },
- 
+
     triggerOf(el) { return triggerFor(el, performance.now()); },
- 
+
     // 'moving' (default): a flat player strokes only while actually travelling,
     // so a flat player holding station gets a treading pose instead.
     // 'always': any flat player strokes, as the sprite set used to imply.
     setSwimMode(m) { swimMode = (m === 'always') ? 'always' : 'moving'; return swimMode; },
     getSwimMode() { return swimMode; }
   };
- 
+
   function boot() {
     if (!window.MIZE) return;
     if (window.MIZE.PoseResolver && window.MIZE.PoseResolver._booted) return;
@@ -26720,7 +26730,7 @@ else boot();
     API._booted = true;
     if (window.MIZE.PlayerRig) start();
   }
- 
+
   if (window.MIZE) window.MIZE.PoseResolver = API;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
@@ -27440,99 +27450,6 @@ else boot();
       render();
     });
   }
-
-  /* -----------------------------------------------------------------
-   * Swim continuity across frame boundaries.
-   *
-   * Root cause: animateToFrame() calls loadState() the instant a
-   * transition finishes, which removes and rebuilds every player
-   * element from scratch (loadState's own first line). The resolver
-   * tracks each player's recent movement in a WeakMap keyed by element
-   * reference, specifically to tell a genuinely swimming player from a
-   * stationary one -- so the moment the element is replaced, that
-   * history is gone, and the very next resolver tick correctly (by its
-   * own logic) sees a fresh element with no motion to measure and
-   * reports "not swimming". A few ticks later, once the next
-   * transition is moving the new element and enough samples have
-   * accumulated again, swimming resumes. That gap is the stutter.
-   *
-   * Fix: whenever the current frame changes during playback, check
-   * each player against the *next* frame in the playback direction. If
-   * both frames have them at 'h' and moving a meaningful distance, this
-   * is a continuing swim -- force the freestyle cycle directly via
-   * setManual(), which the resolver checks before it ever calls its own
-   * movement detection, so the gap in motion history never matters. Not
-   * continuing (this is their last frame, or they were never swimming)
-   * releases the override so normal resolution decides their landing
-   * pose -- including the "static means still" default from before.
-   *
-   * Polls faster than the enable/active watcher above (50ms, under the
-   * resolver's own 70ms tick) specifically to close that gap as tightly
-   * as possible -- checking whether one integer changed is cheap enough
-   * that the faster interval costs nothing worth avoiding.
-   * ----------------------------------------------------------------- */
-  const SWIM_CYCLE_ID = 'c1';
-  const MIN_SWIM_DISTANCE_M = 0.3; // a genuine stroke across the pool between frames, not just a small nudge in place
-  const FRAME_POLL_MS = 50;
-  let lastSeenFrame = -1;
-  const oursNow = new Set(); // labels this block currently holds the cycle override for -- so releasing only ever touches our own, never a coach's real manual pin
-
-  function applySwimContinuity() {
-    if (!liveAnimationEnabled) return;
-    if (typeof playing === 'undefined' || !playing) return;
-    if (typeof frames === 'undefined' || !frames.length) return;
-    if (typeof currentFrame === 'undefined') return;
-    if (currentFrame === lastSeenFrame) return;
-    lastSeenFrame = currentFrame;
-
-    const Rig = getResolver();
-    if (!Rig) return;
-    const cur = frames[currentFrame];
-    if (!cur) return;
-    const dir = (typeof playDirection !== 'undefined' && playDirection) ? playDirection : 1;
-    const next = frames[currentFrame + dir];
-
-    const liveByLabel = {};
-    document.querySelectorAll('.player').forEach(el => { liveByLabel[el.dataset.label] = el; });
-
-    const stillOurs = new Set();
-    cur.players.forEach(p => {
-      const el = liveByLabel[p.label];
-      if (!el) return;
-      let continuing = false;
-      if (next && p.pose === 'h') {
-        const np = next.players.find(x => x.label === p.label);
-        if (np && np.pose === 'h' && Math.hypot(np.x - p.x, np.y - p.y) >= MIN_SWIM_DISTANCE_M) continuing = true;
-      }
-      if (continuing) {
-        try { Rig.setManual(el, SWIM_CYCLE_ID); } catch (e) {}
-        stillOurs.add(p.label);
-      } else if (oursNow.has(p.label) && Rig.getManual && Rig.getManual(el) === SWIM_CYCLE_ID) {
-        try { Rig.setManual(el, null); } catch (e) {}
-      }
-    });
-    oursNow.clear();
-    stillOurs.forEach(l => oursNow.add(l));
-  }
-  setInterval(applySwimContinuity, FRAME_POLL_MS);
-
-  // Playback stopping is its own transition out of this entirely --
-  // release every override this block is holding rather than waiting
-  // for the next frame change that may never come.
-  setInterval(() => {
-    if (typeof playing !== 'undefined' && !playing && oursNow.size) {
-      const Rig = getResolver();
-      if (Rig) {
-        document.querySelectorAll('.player').forEach(el => {
-          if (oursNow.has(el.dataset.label) && Rig.getManual && Rig.getManual(el) === SWIM_CYCLE_ID) {
-            try { Rig.setManual(el, null); } catch (e) {}
-          }
-        });
-      }
-      oursNow.clear();
-      lastSeenFrame = -1;
-    }
-  }, POLL_MS);
 })();
 
 
