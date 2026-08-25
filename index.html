@@ -2025,6 +2025,7 @@
     <label style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;">Duration <input id="frameDuration" type="number" value="0.9" step="0.1" min="0.1" style="width:64px;border:1px solid #ccd6d6;border-radius:7px;padding:5px;"> sec</label>
     <button id="dockTimelineBtn">Dock Creator</button>
     <label style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;" title="Once a sequence has 2+ frames, the remote-control bar (play/pause/next/prev) shows automatically -- check this to keep it hidden instead."><input type="checkbox" id="timelineRemoteToggle"> Hide Remote</label>
+    <label style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;" id="liveAnimationToggleLabel" title="Automatically animates each player's arms and legs based on what's happening on the board -- holding the ball, shooting, passing, blocking, or swimming."><input type="checkbox" id="liveAnimationToggle"> Live Animation</label>
     <button id="closeTimelineBtn" title="Close Creator">&#10005;</button>
   </div>
   <div id="frameStrip"></div>
@@ -8386,6 +8387,7 @@ const XQUIX_WIRED_FUNCTION_NAMES = new Set([
   'Shooting Angle', 'Shot Blocking', 'Goalkeeper Vision', 'Branding Manager',
   'Formation tags / Coaching DNA', 'Session Cloud Storage',
   'Tutorials Mode', 'Coaching Mode', 'Game Tracker Mode', 'Presenting Mode', 'Practice Mode',
+  'Live Player Animation',
 ]);
 async function renderFeatureManagementPanel(){
   const container = document.getElementById('featureManagementList');
@@ -25718,7 +25720,14 @@ else boot();
   function cutMarkup(key, angles, team, opts){
     const C=CUT[key], P=PAL[team], o=opts||{};
     const ang={};
-    for(const [j,pt] of Object.entries(JOINT2PART)) if(angles[j]) ang[pt]=angles[j];
+    // Same right-side mirror as worldJoints()/chain() -- see worldJoints's
+    // comment for why. Applied here, at the joint-name stage, covers both
+    // arms and legs in one place since JOINT2PART maps all four pairs.
+    // The CUT data's own upSign field looks like it exists for exactly
+    // this, but it's only ever read for one narrow lift-detection check
+    // (below) -- never applied to an actual rotation -- so this was the
+    // gap letting a right-arm/leg pose swing in the wrong direction here too.
+    for(const [j,pt] of Object.entries(JOINT2PART)) if(angles[j]) ang[pt]=angles[j]*(j.endsWith('_R')?-1:1);
     let body='';
     for(const [a,b] of CUTCHAIN) if(a.startsWith('thigh')) body+=cutChain(C.parts,P,a,b,ang);
     for(const [a,b] of CUTCHAIN) if(a.startsWith('upperArm')) body+=cutChain(C.parts,P,a,b,ang);
@@ -25797,7 +25806,13 @@ else boot();
       const L2=Math.hypot(jp(tip)[0]-jp(mid)[0], jp(tip)[1]-jp(mid)[1]);
       const aRoot=D(Math.atan2(jp(mid)[1]-jp(root)[1], jp(mid)[0]-jp(root)[0]));
       const aMid =D(Math.atan2(jp(tip)[1]-jp(mid)[1],  jp(tip)[0]-jp(mid)[0])) - aRoot;
-      const dR=angles[root]||0, dM=angles[mid]||0, p=jp(root);
+      // Same right-side mirror as worldJoints() -- see its comment. This is
+      // the function that actually draws the 'v' body's arms (rigMarkup
+      // only reaches here when there's no painted CUT template), so this
+      // is where the visible forearm-off-canvas bug for a treading,
+      // ball-holding player traces back to.
+      const mirror = root.endsWith('_R') ? -1 : 1;
+      const dR=(angles[root]||0)*mirror, dM=(angles[mid]||0)*mirror, p=jp(root);
       const F=fillOverride||P.skin;
       // The cap at the ROOT joint can take its own colour. On a women's suit the
       // shoulder strap covers the shoulder, and because the cap is centred on the
@@ -25874,8 +25889,15 @@ else boot();
       const L2=Math.hypot(jp(tip)[0]-jp(mid)[0], jp(tip)[1]-jp(mid)[1]);
       const a0=Math.atan2(jp(mid)[1]-p[1], jp(mid)[0]-p[0]);
       const a1=Math.atan2(jp(tip)[1]-jp(mid)[1], jp(tip)[0]-jp(mid)[0]);
-      const aRoot=a0+Rad(angles[root]||0);
-      const aMid =aRoot+(a1-a0)+Rad(angles[mid]||0);
+      // Right-side joints are a mirror image of left (confirmed against the
+      // CUT rig data's own upSign field, and numerically: the same pose
+      // angle produces the correctly-mirrored wrist position only when
+      // negated on this side). Without this, a right-arm/leg pose angle
+      // rotates the limb in the wrong direction -- far enough, for large
+      // offsets, to land the joint entirely outside the visible canvas.
+      const mirror = root.endsWith('_R') ? -1 : 1;
+      const aRoot=a0+Rad((angles[root]||0)*mirror);
+      const aMid =aRoot+(a1-a0)+Rad((angles[mid]||0)*mirror);
       out[root]=[p[0],p[1]];
       out[mid]=[p[0]+Math.cos(aRoot)*L1, p[1]+Math.sin(aRoot)*L1];
       out[tip]=[out[mid][0]+Math.cos(aMid)*L2, out[mid][1]+Math.sin(aMid)*L2];
@@ -27220,6 +27242,235 @@ else boot();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadIt);
   else loadIt();
+})();
+
+
+/* ---------------------------------------------------------------------
+ * Live Animation checkbox (Creator panel) -- Pro-gated.
+ *
+ * The resolver auto-starts itself the moment it boots (see its own
+ * boot()), same as Smart Positioning defaults to on. Left alone, every
+ * free user would get live animation running from page load with
+ * nothing to actually gate. Rather than editing the resolver file
+ * itself to remove that auto-start -- it's the other chat's file, and
+ * silently rewriting its behavior risks the two versions drifting --
+ * this stops it right back up here, at the integration layer, the
+ * moment it's detected running. Animation then starts off for everyone
+ * until a Pro user explicitly checks the box.
+ *
+ * SECOND DEFAULT: a paused sequence or a static formation should show
+ * players in the correct position -- a ball carrier still reads as
+ * protecting the ball -- but should not be actively animating. Only
+ * genuinely moving state (a sequence playing, or a player being
+ * dragged) should drive the resolver's continuous tick, since that tick
+ * is what advances a cycle's phase; a still board calling it
+ * periodically, even slowly, would still look like motion, just choppier.
+ * So "enabled" (the checkbox, user intent) and "actively ticking" (the
+ * resolver's own running flag) are two different things here: checking
+ * the box does one immediate settle pass so positions are correct right
+ * away, then only starts the continuous tick while the board is active,
+ * and does one more settle pass the moment it goes still again so
+ * nothing freezes mid-stroke.
+ * --------------------------------------------------------------------- */
+(function () {
+  'use strict';
+  const GATE = 'Live Player Animation';
+  const checkbox = document.getElementById('liveAnimationToggle');
+  const label = document.getElementById('liveAnimationToggleLabel');
+  const POLL_MS = 120; // frequent enough to feel responsive; well above the resolver's own 70ms tick so this never competes with it
+
+  let liveAnimationEnabled = false; // user intent -- separate from whether the tick loop happens to be running right now
+
+  function allowed() {
+    return (typeof XQUIX !== 'undefined' && XQUIX.Entitlements && XQUIX.Entitlements.canFunction)
+      ? XQUIX.Entitlements.canFunction(GATE) : true;
+  }
+  function getResolver() { return window.MIZE && window.MIZE.PoseResolver; }
+  // "Active" mirrors the two things that actually change position over
+  // time on this board: sequence playback and an in-progress drag.
+  // Both are plain globals in the same script scope as this block.
+  function isBoardActive() {
+    return (typeof playing !== 'undefined' && playing) || (typeof dragging !== 'undefined' && dragging !== null);
+  }
+
+  // Hidden entirely when not entitled and not already enabled, matching
+  // the ToggleButton pattern used for Smart Positioning -- a free user
+  // shouldn't see a control they can't use, but a control already on
+  // (e.g. downgraded mid-session) stays reachable so it can still be
+  // turned off.
+  function updateVisibility() {
+    if (!label) return;
+    label.style.display = (!allowed() && !liveAnimationEnabled) ? 'none' : '';
+  }
+  function render() {
+    if (checkbox) checkbox.checked = liveAnimationEnabled;
+    updateVisibility();
+  }
+
+  function disableEverything() {
+    liveAnimationEnabled = false;
+    const Rig = getResolver();
+    if (Rig && Rig.running) Rig.stop(); // stop() itself returns every player to rest
+  }
+  function undoAutoStart() {
+    if (getResolver()) { disableEverything(); render(); }
+    else {
+      window.addEventListener('load', function retry() {
+        window.removeEventListener('load', retry);
+        disableEverything(); render();
+      });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', undoAutoStart);
+  else undoAutoStart();
+
+  if (checkbox) {
+    checkbox.addEventListener('change', () => {
+      const wantOn = checkbox.checked;
+      // Gate only applies when turning on -- turning an active tool back
+      // off is never blocked, same principle as every other reversible
+      // toggle in this app.
+      if (wantOn && (!xquixRequireFunction || !xquixRequireFunction(GATE))) {
+        checkbox.checked = false;
+        return;
+      }
+      liveAnimationEnabled = wantOn;
+      const Rig = getResolver();
+      if (wantOn && Rig) {
+        // Correct positions immediately -- "in their specific position"
+        // -- without waiting for the poll below, and without starting
+        // the continuous tick unless the board is already active.
+        if (isBoardActive()) Rig.start(); else Rig.apply();
+      } else {
+        disableEverything();
+      }
+      render();
+    });
+  }
+
+  // Watches for the board becoming active or going still, and starts or
+  // stops the resolver's continuous tick to match -- only while enabled.
+  // The settle pass on the way back to still is what keeps a paused
+  // swimmer from being left frozen mid-stroke.
+  //
+  // Also re-checks entitlement on every cycle, rather than relying
+  // solely on the onChange event below -- a second, independent path to
+  // the same correction, so a downgrade is caught within one poll no
+  // matter which notification mechanism actually fires first.
+  setInterval(() => {
+    if (!liveAnimationEnabled) return;
+    if (!allowed()) { disableEverything(); render(); return; }
+    const Rig = getResolver();
+    if (!Rig) return;
+    const active = isBoardActive();
+    if (active && !Rig.running) Rig.start();
+    else if (!active && Rig.running) { Rig.stop(); Rig.apply(); }
+  }, POLL_MS);
+
+  // Corrects the same async-entitlement-timing gap Smart Positioning
+  // handles: if this ends up enabled (a downgrade mid-session, or a
+  // future resolver version that auto-starts again) while this user
+  // isn't actually entitled, shut it back off rather than leaving it
+  // running with a checkbox nobody can see to stop it.
+  if (typeof XQUIX !== 'undefined' && XQUIX.Entitlements) {
+    XQUIX.Entitlements.onChange(() => {
+      if (liveAnimationEnabled && !allowed()) disableEverything();
+      render();
+    });
+  }
+
+  /* -----------------------------------------------------------------
+   * Swim continuity across frame boundaries.
+   *
+   * Root cause: animateToFrame() calls loadState() the instant a
+   * transition finishes, which removes and rebuilds every player
+   * element from scratch (loadState's own first line). The resolver
+   * tracks each player's recent movement in a WeakMap keyed by element
+   * reference, specifically to tell a genuinely swimming player from a
+   * stationary one -- so the moment the element is replaced, that
+   * history is gone, and the very next resolver tick correctly (by its
+   * own logic) sees a fresh element with no motion to measure and
+   * reports "not swimming". A few ticks later, once the next
+   * transition is moving the new element and enough samples have
+   * accumulated again, swimming resumes. That gap is the stutter.
+   *
+   * Fix: whenever the current frame changes during playback, check
+   * each player against the *next* frame in the playback direction. If
+   * both frames have them at 'h' and moving a meaningful distance, this
+   * is a continuing swim -- force the freestyle cycle directly via
+   * setManual(), which the resolver checks before it ever calls its own
+   * movement detection, so the gap in motion history never matters. Not
+   * continuing (this is their last frame, or they were never swimming)
+   * releases the override so normal resolution decides their landing
+   * pose -- including the "static means still" default from before.
+   *
+   * Polls faster than the enable/active watcher above (50ms, under the
+   * resolver's own 70ms tick) specifically to close that gap as tightly
+   * as possible -- checking whether one integer changed is cheap enough
+   * that the faster interval costs nothing worth avoiding.
+   * ----------------------------------------------------------------- */
+  const SWIM_CYCLE_ID = 'c1';
+  const MIN_SWIM_DISTANCE_M = 0.3; // a genuine stroke across the pool between frames, not just a small nudge in place
+  const FRAME_POLL_MS = 50;
+  let lastSeenFrame = -1;
+  const oursNow = new Set(); // labels this block currently holds the cycle override for -- so releasing only ever touches our own, never a coach's real manual pin
+
+  function applySwimContinuity() {
+    if (!liveAnimationEnabled) return;
+    if (typeof playing === 'undefined' || !playing) return;
+    if (typeof frames === 'undefined' || !frames.length) return;
+    if (typeof currentFrame === 'undefined') return;
+    if (currentFrame === lastSeenFrame) return;
+    lastSeenFrame = currentFrame;
+
+    const Rig = getResolver();
+    if (!Rig) return;
+    const cur = frames[currentFrame];
+    if (!cur) return;
+    const dir = (typeof playDirection !== 'undefined' && playDirection) ? playDirection : 1;
+    const next = frames[currentFrame + dir];
+
+    const liveByLabel = {};
+    document.querySelectorAll('.player').forEach(el => { liveByLabel[el.dataset.label] = el; });
+
+    const stillOurs = new Set();
+    cur.players.forEach(p => {
+      const el = liveByLabel[p.label];
+      if (!el) return;
+      let continuing = false;
+      if (next && p.pose === 'h') {
+        const np = next.players.find(x => x.label === p.label);
+        if (np && np.pose === 'h' && Math.hypot(np.x - p.x, np.y - p.y) >= MIN_SWIM_DISTANCE_M) continuing = true;
+      }
+      if (continuing) {
+        try { Rig.setManual(el, SWIM_CYCLE_ID); } catch (e) {}
+        stillOurs.add(p.label);
+      } else if (oursNow.has(p.label) && Rig.getManual && Rig.getManual(el) === SWIM_CYCLE_ID) {
+        try { Rig.setManual(el, null); } catch (e) {}
+      }
+    });
+    oursNow.clear();
+    stillOurs.forEach(l => oursNow.add(l));
+  }
+  setInterval(applySwimContinuity, FRAME_POLL_MS);
+
+  // Playback stopping is its own transition out of this entirely --
+  // release every override this block is holding rather than waiting
+  // for the next frame change that may never come.
+  setInterval(() => {
+    if (typeof playing !== 'undefined' && !playing && oursNow.size) {
+      const Rig = getResolver();
+      if (Rig) {
+        document.querySelectorAll('.player').forEach(el => {
+          if (oursNow.has(el.dataset.label) && Rig.getManual && Rig.getManual(el) === SWIM_CYCLE_ID) {
+            try { Rig.setManual(el, null); } catch (e) {}
+          }
+        });
+      }
+      oursNow.clear();
+      lastSeenFrame = -1;
+    }
+  }, POLL_MS);
 })();
 
 </script>
