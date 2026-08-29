@@ -265,6 +265,15 @@ var MISS_TARGETS = [
 /* -------------------------------------------------------------------- state */
 var S = {
   active: false,
+  // Set only by API.setTutorialMode(), while a Game Tracker tutorial is
+  // running. Suppresses ALL persistence: no localStorage write, no cloud
+  // sync, and no clearing of whatever real session the user already had
+  // saved. A tutorial session therefore lives entirely in memory and dies
+  // with it, and the user's own saved game is never touched -- not
+  // snapshot-and-restored, simply never written over. Without this, running
+  // a tutorial would overwrite a coach's in-progress game AND file its own
+  // invented events into their real cloud library.
+  tutorialMode: false,
   trackingMode: 'parent',      // parent | coach
   playerRole: 'field',         // field | goalkeeper | team
   game: { date: '', loc: '', home: '', away: '' },
@@ -747,6 +756,7 @@ function openEditEvent(eventId) {
 
 /* ------------------------------------------------------------- persistence */
 function save() {
+  if (S.tutorialMode) return; // see S.tutorialMode -- skips the local write AND the cloud sync below
   try {
     localStorage.setItem(KEY, JSON.stringify({
       v: 1, savedAt: new Date().toISOString(),
@@ -873,7 +883,7 @@ function resetGameState() {
   // the last moment, not the primary save mechanism. Only bothers if
   // there's actually something to save; a session with no events yet
   // has nothing worth writing.
-  if (S.events.length) syncSessionToCloud();
+  if (S.events.length && !S.tutorialMode) syncSessionToCloud();
   S.game = { date: '', loc: '', home: '', away: '' };
   S.me = { number: null, name: '' };
   S.squad = []; S.water = []; S.keepers = [];
@@ -891,7 +901,8 @@ function resetGameState() {
   S.regulationEnded = false;
   S.officiallyEnded = false;
   S.finishPromptShown = false;
-  clearSaved();
+  // Never clear the user's real saved session on a tutorial's behalf.
+  if (!S.tutorialMode) clearSaved();
 }
 function restore(d) {
   S.game = d.game; S.trackingMode = d.trackingMode; S.playerRole = d.playerRole;
@@ -4409,6 +4420,10 @@ var API = {
     }
   },
   isOpen: function () { return S.active; },
+  // The tutorial owns this; nothing else should set it. Deliberately a
+  // method rather than leaving callers to poke API.state, so the one
+  // switch that disables persistence stays greppable.
+  setTutorialMode: function (on) { S.tutorialMode = !!on; },
   state: S,
   zones: ZONES,
   hitZone: hitZone,
