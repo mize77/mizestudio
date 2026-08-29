@@ -1997,10 +1997,18 @@ function finish() {
   // and the outlet-pass question is the same: where does it go from here?
   // goalieHasBall cannot fire for steal because a steal sets actor.side
   // to 'us' (the keeper is our player who made the steal), not 'opp',
-  // so steal needs its own trigger. Scoped to useGkTree — field-player
-  // steals and team-mode events all set useGkTree to false explicitly,
-  // so they are correctly excluded and end normally without a prompt.
-  var goalieStole = d.useGkTree && d.action === 'steal';
+  // so steal needs its own trigger. Two cases:
+  //   1. Single-player goalkeeper mode (useGkTree=true): every action in
+  //      the GK tree that isn't 'shot' belongs to our keeper by definition,
+  //      so steal always means our keeper got the ball.
+  //   2. Team mode (useGkTree=false): the actor could be any player on
+  //      either side, so check explicitly that it is our own keeper via
+  //      currentKeeper('us'). Opponent goalkeeper steals are excluded --
+  //      their keeper's outlet patterns aren't what we're tracking here.
+  var goalieStole = d.action === 'steal' && (
+    d.useGkTree ||
+    (d.actor && d.actor.side === 'us' && d.actor.number === currentKeeper('us'))
+  );
   var zone = d.fieldZone, zoneName = d.fieldZoneName;
   commitDraft();
   // Chained AFTER the blocked-shot event above has already committed,
