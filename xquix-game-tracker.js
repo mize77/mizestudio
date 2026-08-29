@@ -1993,31 +1993,33 @@ function finish() {
   // shot, our keeper actually the one holding it), regardless of which
   // direction the possession question itself just fired for.
   var goalieHasBall = (d.possession === 'goalie' || (d.possession === 'rebound_own' && d.reboundFollowup === 'pass_back')) && d.actor.side === 'opp';
-  // A goalkeeper steal gives our keeper the ball just as a save does,
-  // and the outlet-pass question is the same: where does it go from here?
-  // goalieHasBall cannot fire for steal because a steal sets actor.side
-  // to 'us' (the keeper is our player who made the steal), not 'opp',
-  // so steal needs its own trigger. Two cases:
-  //   1. Single-player goalkeeper mode (useGkTree=true): every action in
-  //      the GK tree that isn't 'shot' belongs to our keeper by definition,
-  //      so steal always means our keeper got the ball.
-  //   2. Team mode (useGkTree=false): the actor could be any player on
-  //      either side, so check explicitly that it is our own keeper via
-  //      currentKeeper('us'). Opponent goalkeeper steals are excluded --
-  //      their keeper's outlet patterns aren't what we're tracking here.
-  var goalieStole = d.action === 'steal' && (
+  // Keeper-steal identification -- used both to gate the intermediate
+  // possession step below and to trigger the outlet pass afterward.
+  // goalieHasBall cannot fire for steal because actor.side is 'us'
+  // (our keeper made the steal), not 'opp'. Two cases: single-player
+  // goalkeeper mode (useGkTree) and team mode (S.keepers check).
+  var isGoalieSteal = d.action === 'steal' && (
     d.useGkTree ||
     (d.actor && d.actor.side === 'us' && S.keepers && S.keepers.indexOf(d.actor.number) >= 0)
   );
+  // Before deciding on the outlet pass, ask what actually happened to
+  // the ball -- same guard-flag pattern as stepBlockResult() and
+  // stepPossession(). Gated by xgtHasAdvancedActions() for consistency
+  // with the possession step in the blocked-shot chain.
+  if (isGoalieSteal && xgtHasAdvancedActions() && !d.stealResultStepShown) {
+    d.stealResultStepShown = true;
+    stepStealResult();
+    return;
+  }
+  // Outlet pass fires only when the steal result step confirmed the
+  // goalkeeper actually has possession -- not for out of bounds,
+  // opponent recovery, or teammate pickup.
+  var goalieStole = isGoalieSteal && d.stealResult === 'gk_has_ball';
   var zone = d.fieldZone, zoneName = d.fieldZoneName;
   commitDraft();
-  // Chained AFTER the blocked-shot event above has already committed,
+  // Chained AFTER the steal event above has already committed,
   // not folded into it -- opens a fresh, independent draft/commit cycle
-  // for the outlet pass itself, so it gets its own real timestamp at
-  // whatever moment the coach actually finishes selecting it, rather
-  // than inheriting the block's. See openOutletPass() for why this
-  // matters (the eventual 3-second-window analysis this is captured
-  // for).
+  // for the outlet pass itself, so it gets its own real timestamp.
   if (goalieHasBall || goalieStole) openOutletPass(zone, zoneName);
 }
 function commitDraft() {
@@ -2218,6 +2220,26 @@ function stepReboundFollowup() {
   el('xgtX').onclick = function () { closeSheet(); };
   Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-rf]'), function (b) {
     b.onclick = function () { d.reboundFollowup = b.dataset.rf; finish(); };
+  });
+}
+function stepStealResult() {
+  // Shown after a goalkeeper steal, before deciding whether to open the
+  // outlet-pass flow. A steal does not automatically mean the keeper has
+  // the ball -- it can go out of bounds, be recovered by the opponent
+  // immediately, or land with a field teammate. Only the first case
+  // triggers the outlet-pass chain; the others close the event cleanly.
+  var d = S.draft;
+  var oppLabel = xgtTeamLabel('opp');
+  sheetEl().innerHTML = head('Zone ' + d.fieldZoneName, 'Steal \u2014 what happens to the ball?', null) +
+    '<div class="xgtOpts one">' +
+      '<button class="xgtOpt g" data-sr="gk_has_ball"><span class="dot"></span>Goalkeeper has possession</button>' +
+      '<button class="xgtOpt w" data-sr="teammate"><span class="dot"></span>Teammate picks up</button>' +
+      '<button class="xgtOpt c" data-sr="opp_recovered"><span class="dot"></span>' + oppLabel + ' recovered</button>' +
+      '<button class="xgtOpt c" data-sr="out"><span class="dot"></span>Went out of bounds</button>' +
+    '</div>';
+  el('xgtX').onclick = function () { closeSheet(); };
+  Array.prototype.forEach.call(sheetEl().querySelectorAll('[data-sr]'), function (b) {
+    b.onclick = function () { d.stealResult = b.dataset.sr; finish(); };
   });
 }
 // A fresh, independent draft cycle -- NOT a continuation of the
