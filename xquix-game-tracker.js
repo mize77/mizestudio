@@ -1993,6 +1993,14 @@ function finish() {
   // shot, our keeper actually the one holding it), regardless of which
   // direction the possession question itself just fired for.
   var goalieHasBall = (d.possession === 'goalie' || (d.possession === 'rebound_own' && d.reboundFollowup === 'pass_back')) && d.actor.side === 'opp';
+  // A goalkeeper steal gives our keeper the ball just as a save does,
+  // and the outlet-pass question is the same: where does it go from here?
+  // goalieHasBall cannot fire for steal because a steal sets actor.side
+  // to 'us' (the keeper is our player who made the steal), not 'opp',
+  // so steal needs its own trigger. Scoped to useGkTree — field-player
+  // steals and team-mode events all set useGkTree to false explicitly,
+  // so they are correctly excluded and end normally without a prompt.
+  var goalieStole = d.useGkTree && d.action === 'steal';
   var zone = d.fieldZone, zoneName = d.fieldZoneName;
   commitDraft();
   // Chained AFTER the blocked-shot event above has already committed,
@@ -2002,7 +2010,7 @@ function finish() {
   // than inheriting the block's. See openOutletPass() for why this
   // matters (the eventual 3-second-window analysis this is captured
   // for).
-  if (goalieHasBall) openOutletPass(zone, zoneName);
+  if (goalieHasBall || goalieStole) openOutletPass(zone, zoneName);
 }
 function commitDraft() {
   var d = S.draft;
