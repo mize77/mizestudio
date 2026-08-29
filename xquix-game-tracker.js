@@ -2007,7 +2007,7 @@ function finish() {
   //      their keeper's outlet patterns aren't what we're tracking here.
   var goalieStole = d.action === 'steal' && (
     d.useGkTree ||
-    (d.actor && d.actor.side === 'us' && d.actor.number === currentKeeper('us'))
+    (d.actor && d.actor.side === 'us' && S.keepers && S.keepers.indexOf(d.actor.number) >= 0)
   );
   var zone = d.fieldZone, zoneName = d.fieldZoneName;
   commitDraft();
