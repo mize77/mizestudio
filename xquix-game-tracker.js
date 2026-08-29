@@ -452,6 +452,13 @@ function drawOverlay(counts) {
   clipped.setAttribute('clip-path', 'url(#xgtHalfClip)');
   g.appendChild(clipped);
   ZONES.forEach(function (z) {
+    // 'oppo' is deliberately not part of the polar system -- it has no
+    // r1/r2/a1/a2 and is drawn as its own button (#xgtOppoZone), not a wedge.
+    // Without this guard wedgePath()/labelPoint() are handed undefined and the
+    // browser logs an invalid path plus NaN label coordinates on EVERY redraw,
+    // which is every zone tap. Nothing was visibly wrong; the console was just
+    // permanently noisy, which is where a real error would go unnoticed.
+    if (z.r1 == null) return;
     var path = document.createElementNS(NS, 'path');
     path.setAttribute('d', wedgePath(z.r1, z.r2, z.a1, z.a2));
     path.setAttribute('class', 'xgtZone');
