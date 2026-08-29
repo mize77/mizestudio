@@ -14,3 +14,4 @@ Archive
 *.md
 *.sh
 _inlined_*
+.promote-backup

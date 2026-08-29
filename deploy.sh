@@ -34,6 +34,29 @@ for m in xquix-game-tracker.js xquix-player-rig.js xquix-pose-resolver.js; do
   echo "    ok  $m linked and present"
 done
 
+echo "==> Checking index.html still wires up the Game Tracker tutorial"
+# More than one Claude chat edits index.html. On 2026-08-29 one of them wrote
+# back a copy it had read BEFORE the tutorial was wired in, silently discarding
+# it -- and because the file still looked healthy, it deployed. Nothing warned.
+# These markers are cheap and they turn that class of loss into a refusal.
+for f in xquix-game-tracker-tutorial.js xquixHomeBanner_gametracker_field.webp \
+         xquixHomeBanner_gametracker_goalkeeper.webp xquixHomeBanner_gametracker_team.webp \
+         xquixHomeBanner_gametracker_fullgame.webp; do
+  [ -f "$f" ] || { echo "!! $f is missing from the repo - nothing pushed." >&2; exit 1; }
+done
+missing=""
+grep -q '<script src="xquix-game-tracker-tutorial.js">' index.html || missing="$missing\n    - the tutorial <script src> tag"
+grep -q 'id="xquixHomeGametrackerBanners"'              index.html || missing="$missing\n    - the Game Tracker tutorial submenu"
+grep -q "tutorial === 'gametracker-field'"              index.html || missing="$missing\n    - the gametracker-field branch"
+if [ -n "$missing" ]; then
+  echo "!! index.html has lost the tutorial wiring:" >&2
+  printf "$missing\n" >&2
+  echo "   This usually means another session wrote back an older copy of" >&2
+  echo "   index.html. Nothing pushed. Restore it before deploying." >&2
+  exit 1
+fi
+echo "    ok  tutorial wired into index.html"
+
 echo "==> Changes to publish"
 git status --short
 if [ -z "$(git status --porcelain)" ]; then

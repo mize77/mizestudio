@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Game Tracker Lab — XquiX</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin:0; height:100%; background:#0a1f1d; overflow:hidden;
+               font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:#eaf6f5; }
+  #labBanner { position:fixed; left:0; right:0; top:0; z-index:2147483000;
+               background:#7a3b00; color:#ffe9c9; font:800 11px system-ui; letter-spacing:.08em;
+               text-transform:uppercase; text-align:center; padding:4px 8px;
+               padding-top:calc(4px + env(safe-area-inset-top)); pointer-events:none; }
+  #stageWrap { position:absolute; inset:0; overflow:auto; }
+  #board { position:absolute; inset:0; }
+  #fieldZonesSvg { position:absolute; left:0; top:0; width:100%; height:100%; }
+  /* Collapsed by default: the tracker's own bar lives along the bottom, and a
+     permanently open dev panel sits right on top of the Menu and Stats buttons. */
+  #labToggle { position:fixed; right:10px; top:calc(26px + env(safe-area-inset-top));
+               z-index:2147482100; font:800 10px system-ui; letter-spacing:.08em;
+               background:#7a3b00; color:#ffe9c9; border:1px solid #a35400; border-radius:8px;
+               padding:6px 9px; cursor:pointer; touch-action:manipulation; }
+  #labPanel { position:fixed; right:10px; top:calc(58px + env(safe-area-inset-top));
+              z-index:2147482000; background:rgba(10,31,29,.96); border:1px solid #2a5f5c;
+              border-radius:12px; padding:10px; display:none; flex-wrap:wrap; gap:6px;
+              width:min(300px, calc(100vw - 20px)); box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  #labPanel.open { display:flex; }
+  #labPanel button { font:700 12px system-ui; color:#fff; background:#1b7373; border:1px solid #2a5f5c;
+                     border-radius:8px; padding:7px 10px; cursor:pointer; touch-action:manipulation; }
+  #labPanel button.alt { background:#37474f; }
+  #labPanel button.warn { background:#8a3a3a; }
+  #labPanel .lbl { flex:1 0 100%; font:800 10px system-ui; letter-spacing:.08em;
+                   text-transform:uppercase; color:#4bb8bd; }
+  #labState { flex:1 0 100%; font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; color:#9ec9c7;
+              border-top:1px solid #21504e; padding-top:7px; margin-top:2px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+
+<div id="labBanner">Game Tracker Lab · sandbox · not the live Studio</div>
+
+<!-- The Studio surface the tracker actually depends on, and nothing more. Its
+     own header names four ids; the rest of this file provides the handful of
+     globals that turned out to be needed too (see GAMETRACKER-CONTRACT.md). -->
+<div id="stageWrap">
+  <div id="board"></div>
+  <svg id="fieldZonesSvg" viewBox="0 0 29 24" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="labWater" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#0e4f5e"/><stop offset="1" stop-color="#07323d"/>
+      </linearGradient>
+    </defs>
+    <rect x="0" y="0" width="29" height="24" fill="#071c1b"/>
+    <rect x="2" y="2" width="25" height="20" fill="url(#labWater)"/>
+    <!-- goal at the left end, matching the tracker's GEO.goal = {x:2, y:12} -->
+    <rect x="1.4" y="10.5" width="0.6" height="3" fill="#ffd166" opacity=".9"/>
+    <path d="M 6 2 L 6 22" stroke="#7fd6da" stroke-width=".08" opacity=".45" fill="none"/>
+    <path d="M 11 2 L 11 22" stroke="#ff8f6b" stroke-width=".08" opacity=".45" fill="none"/>
+    <path d="M 14.5 2 L 14.5 22" stroke="#eaf6f5" stroke-width=".1" opacity=".55" fill="none"/>
+    <g id="fieldZonesGroup"></g>
+  </svg>
+</div>
+
+<button id="labToggle" type="button">LAB ▾</button>
+<div id="labPanel">
+  <span class="lbl">Lab controls</span>
+  <button id="labTutorial">Run tutorial · Field Player</button>
+  <button id="labTracker" class="alt">Open tracker only</button>
+  <button id="labSeed" class="alt">Seed a saved game</button>
+  <button id="labClear" class="warn">Clear lab storage</button>
+  <button id="labReload" class="alt">Reload</button>
+  <div id="labState"></div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+ * STORAGE IS NAMESPACED, and this is the most important line in the file.
+ *
+ * The lab is served from app.xquix.com/lab/, which is the SAME ORIGIN as the
+ * real Studio -- so it shares one localStorage. Without this, opening the
+ * tracker here would read and overwrite the coach's actual saved game under
+ * 'xquixGameTrackerV1'. Every key this page touches is prefixed instead, so the
+ * lab and the Studio cannot see each other's storage at all.
+ *
+ * Patched on Storage.prototype before any other script loads, so it covers the
+ * tracker, the tutorial, and anything either of them calls.
+ * ------------------------------------------------------------------------- */
+(function () {
+  var NS = 'lab:', P = Storage.prototype;
+  var g = P.getItem, s = P.setItem, r = P.removeItem;
+  P.getItem    = function (k) { return g.call(this, NS + k); };
+  P.setItem    = function (k, v) { return s.call(this, NS + k, v); };
+  P.removeItem = function (k) { return r.call(this, NS + k); };
+  window.LAB_NS = NS;
+})();
+
+/* Declared in the real index.html as a top-level `let`, so it lives in the
+   global lexical scope and an external classic script resolves it by bare name.
+   The tracker reads it in showFullVenueWidth(); without it, tracking throws. */
+var frontCourtActive = false;
+
+window.MIZE = { Field: { toggleFrontCourt: function () {}, fitBoardToScreen: function () {} } };
+window.viewportHeight  = function () { return window.innerHeight; };
+window.closeToolPanels = function () {};
+window.xquixShowHome   = function () { labSay('tutorial exited — xquixShowHome() would return to Home'); };
+window.MizeDialog = {
+  confirm: function (m) { return Promise.resolve(window.confirm(m)); },
+  alert:   function (m) { window.alert(m); return Promise.resolve(); }
+};
+
+/* XQUIX is deliberately absent. Every entitlement gate in the tracker fails
+   open, so the lab behaves like a PRO account -- the stricter case, because Pro
+   shows sheets (assist, shot variants, the keeper steal follow-up) that Basic
+   never does. Anything that survives here survives on Basic. */
+
+function labSay(msg) {
+  var el = document.getElementById('labState');
+  var T = window.XquiXGameTracker, U = window.XquiXGameTrackerTutorial;
+  el.textContent =
+    (msg ? msg + '\n' : '') +
+    'tracker: ' + (T ? (T.isOpen() ? 'open' : 'closed') : 'not loaded') +
+    '  ·  tutorial mode: ' + (T ? T.state.tutorialMode : '—') +
+    '\ntutorial: ' + (U && U.isRunning() ? ('step ' + (U.stepIndex() + 1) + ' of ' + U.stepCount()) : 'not running') +
+    '\nevents: ' + (T ? T.events().filter(function (e) { return e.context && e.context.kind === 'action'; }).length : 0) +
+    '  ·  saved game: ' + (localStorage.getItem('xquixGameTrackerV1') ? 'present' : 'none');
+}
+</script>
+
+<script src="xquix-game-tracker.js"></script>
+<script src="xquix-game-tracker-tutorial.js"></script>
+
+<script>
+document.getElementById('labTutorial').onclick = function () {
+  window.XquiXGameTrackerTutorial.start('field'); labSay('tutorial started');
+};
+document.getElementById('labTracker').onclick = function () {
+  window.XquiXGameTracker.open(); labSay('tracker opened without the tutorial');
+};
+document.getElementById('labSeed').onclick = function () {
+  // A realistic autosave, so the landing screen's Resume card renders and the
+  // "a real game survives the tutorial" behaviour can be checked by hand.
+  localStorage.setItem('xquixGameTrackerV1', JSON.stringify({
+    v: 1, savedAt: new Date().toISOString(),
+    game: { date: new Date().toISOString().slice(0, 10), loc: 'Lab', home: 'SEEDED GAME', away: 'Diablo' },
+    trackingMode: 'coach', playerRole: 'team', me: { number: 7, name: 'Seed' },
+    squad: [1, 2, 3], water: [1, 2, 3], keepers: [1], keeperLabels: {},
+    opponentTracked: false, oppSquad: [], oppWater: [], oppKeepers: [],
+    q: 3, clock: 214, seq: 42,
+    events: [{ eventId: 1, context: { kind: 'action' }, action: 'shot', outcome: 'goal' }],
+    cloudSessionName: 'lab seed', trackScore: true, officiallyEnded: false
+  }));
+  labSay('seeded a saved game — run the tutorial, then check it is still here');
+};
+document.getElementById('labClear').onclick = function () {
+  Object.keys(localStorage).filter(function (k) { return k.indexOf(window.LAB_NS) === 0; })
+    .forEach(function (k) { localStorage.removeItem(k.slice(window.LAB_NS.length)); });
+  labSay('lab storage cleared (the Studio’s own storage was never touched)');
+};
+document.getElementById('labReload').onclick = function () { location.reload(); };
+document.getElementById('labToggle').onclick = function () {
+  var open = document.getElementById('labPanel').classList.toggle('open');
+  this.textContent = open ? 'LAB ▴' : 'LAB ▾';
+};
+setInterval(function () { labSay(''); }, 700);
+labSay('ready');
+</script>
+</body></html>
