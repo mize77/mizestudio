@@ -638,6 +638,13 @@
   .shotClockMiniControls button { width:24px; height:24px; border-radius:50%; background:#14235c; color:#fff; border:none; font-size:11px; display:flex; align-items:center; justify-content:center; padding:0; }
   .shotClockMiniControls button.active { background:#ffcf40; color:#20200a; }
   body.presentation #spotlightToggleBtn { display:block; }
+  /* Shot clocks: lift out of the board's stacking context so they
+     appear above the presentation layer. Match the same z-index as
+     #shotClockCenter which already uses position:fixed at 1450.
+     Percentages are now relative to the viewport, same visual
+     position as in the normal Studio view. */
+  body.presentation #shotClockLeft  { position:fixed; top:3%; left:3%;  z-index:1450; }
+  body.presentation #shotClockRight { position:fixed; top:3%; right:3%; z-index:1450; }
   .fieldZoneLine { fill:none; stroke:#6b6b6b; stroke-width:.06; stroke-dasharray:.3 .2; }
   .fieldZoneLabel { text-anchor:middle; dominant-baseline:central; font-family:Arial, sans-serif; fill:#6b6b6b; fill-opacity:.7; }
   .setupButtonList { display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto; padding:2px; }
@@ -676,6 +683,66 @@
   .studioFrameClearBtn.shown { display:flex; }
   #studioNavLeft, #studioNavRight { display:none; position:fixed; top:calc(50% + 140px); transform:translateY(-50%); z-index:1450; width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; font-size:22px; align-items:center; justify-content:center; cursor:pointer; }
   body.presentation #studioNavLeft, body.presentation #studioNavRight { display:flex; }
+
+  /* ---- Mode Switcher Panel ----------------------------------------- */
+  #modeSwitcherPanel {
+    display:none; position:fixed;
+    bottom:calc(58px + env(safe-area-inset-bottom));
+    left:calc(14px + env(safe-area-inset-left));
+    z-index:1600;
+    background:rgba(14,28,36,.97);
+    border:1px solid rgba(255,255,255,.15);
+    border-radius:16px;
+    padding:12px 10px 10px;
+    box-shadow:0 8px 32px rgba(0,0,0,.6);
+    flex-direction:column;
+    gap:0;
+    min-width:160px;
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+  }
+  #modeSwitcherPanel.open { display:flex; }
+  #modeSwitcherPanel h4 {
+    font-size:10px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:rgba(255,255,255,.38);
+    margin:0 0 8px 4px; padding:0;
+  }
+  .modeSwitcherOption {
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius:10px; border:none;
+    background:none; color:#fff; font-size:14px; font-weight:500;
+    cursor:pointer; text-align:left; width:100%;
+    transition:background .12s;
+  }
+  .modeSwitcherOption:hover, .modeSwitcherOption:active {
+    background:rgba(255,255,255,.1);
+  }
+  .modeSwitcherOption.active { background:rgba(1,180,200,.18); color:#01b4c8; }
+  .modeSwitcherOption .modeSwitcherDot {
+    width:8px; height:8px; border-radius:50%; flex-shrink:0;
+    background:rgba(255,255,255,.28);
+  }
+  .modeSwitcherOption.active .modeSwitcherDot { background:#01b4c8; }
+  .modeSwitcherDivider {
+    height:1px; background:rgba(255,255,255,.1); margin:6px 0;
+  }
+  .modeSwitcherExit {
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius:10px; border:none;
+    background:none; color:rgba(255,255,255,.55); font-size:13px;
+    cursor:pointer; text-align:left; width:100%;
+    transition:background .12s;
+  }
+  .modeSwitcherExit:hover, .modeSwitcherExit:active {
+    background:rgba(255,255,255,.08); color:#fff;
+  }
+  /* Repurpose exitPresentationBtn icon to a grid/mode icon */
+  body.presentation #exitPresentationBtn { font-size:17px; }
+  /* Mode-switcher backdrop to close on outside tap */
+  #modeSwitcherBackdrop {
+    display:none; position:fixed; inset:0; z-index:1590;
+  }
+  #modeSwitcherBackdrop.open { display:block; }
   #studioNavLeft { left:calc(14px + env(safe-area-inset-left)); }
   #studioNavRight { right:calc(14px + env(safe-area-inset-right)); }
   #studioNavLeft:disabled, #studioNavRight:disabled { opacity:.25; cursor:default; }
@@ -1270,7 +1337,25 @@
     <button class="enterBtn" id="enterStudioBtn" type="button">Enter the Studio</button>
   </div>
 </div>
-<button id="exitPresentationBtn" title="Exit Presentation">&#10005;</button>
+<button id="exitPresentationBtn" title="Switch Mode">&#9707;</button>
+<div id="modeSwitcherBackdrop"></div>
+<div id="modeSwitcherPanel" role="menu" aria-label="Switch mode">
+  <h4>Switch Mode</h4>
+  <button class="modeSwitcherOption" data-switch-mode="coaching" role="menuitem">
+    <span class="modeSwitcherDot"></span>Coaching
+  </button>
+  <button class="modeSwitcherOption" data-switch-mode="gametracker" role="menuitem">
+    <span class="modeSwitcherDot"></span>Game Tracker
+  </button>
+  <button class="modeSwitcherOption" data-switch-mode="presenting" role="menuitem">
+    <span class="modeSwitcherDot"></span>Presenting
+  </button>
+  <button class="modeSwitcherOption" data-switch-mode="practice" role="menuitem">
+    <span class="modeSwitcherDot"></span>Practice
+  </button>
+  <div class="modeSwitcherDivider"></div>
+  <button class="modeSwitcherExit" id="modeSwitcherExitBtn" role="menuitem">&#10005;&nbsp; Exit to board</button>
+</div>
 <div id="presentationTextSlide">
   <div class="presTextSlideRole"></div>
   <div class="presTextSlideTitle"></div>
@@ -4392,6 +4477,9 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
   const mode = e.detail.mode;
   xquixHideHome();
   if(mode === 'gametracker'){
+    // Exit presentation mode first so its background and stage setup
+    // don't linger underneath the tracker UI.
+    if(document.body.classList.contains('presentation')) togglePresentation();
     if(window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function') window.XquiXGameTracker.open();
   } else if(mode === 'presenting'){
     if(!document.body.classList.contains('presentation')) togglePresentation('fit');
@@ -11276,7 +11364,69 @@ document.getElementById('duplicateBtn').onclick=duplicateSelected;
 document.getElementById('deleteObjBtn').onclick=deleteSelectedObject;
 document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit');
 document.getElementById('presentationRealBtn').onclick=()=>togglePresentation('real');
-document.getElementById('exitPresentationBtn').onclick=()=>togglePresentation();
+// Mode Switcher — replaces the exitPresentationBtn ✕ with a mode picker.
+(function () {
+  'use strict';
+
+  var panel    = document.getElementById('modeSwitcherPanel');
+  var backdrop = document.getElementById('modeSwitcherBackdrop');
+  var triggerBtn = document.getElementById('exitPresentationBtn');
+
+  function currentMode() {
+    if (document.body.classList.contains('presentation')) return 'presenting';
+    if (document.body.classList.contains('gameTrackerActive')) return 'gametracker';
+    return 'coaching';
+  }
+
+  function openSwitcher() {
+    var cur = currentMode();
+    panel.querySelectorAll('.modeSwitcherOption').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.switchMode === cur);
+    });
+    panel.classList.add('open');
+    backdrop.classList.add('open');
+  }
+
+  function closeSwitcher() {
+    panel.classList.remove('open');
+    backdrop.classList.remove('open');
+  }
+
+  // Toggle on button click
+  triggerBtn.onclick = function () {
+    if (panel.classList.contains('open')) { closeSwitcher(); } else { openSwitcher(); }
+  };
+
+  // Close on backdrop tap
+  backdrop.onclick = closeSwitcher;
+
+  // Mode selection
+  panel.querySelectorAll('.modeSwitcherOption').forEach(function (btn) {
+    btn.onclick = function () {
+      closeSwitcher();
+      var target = btn.dataset.switchMode;
+      var inPresentation = document.body.classList.contains('presentation');
+      // Exit presentation first if leaving it
+      if (inPresentation && target !== 'presenting') togglePresentation();
+      if (target === 'gametracker') {
+        if (window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function') {
+          window.XquiXGameTracker.open();
+        }
+      } else if (target === 'presenting') {
+        if (!document.body.classList.contains('presentation')) togglePresentation('fit');
+      } else if (target === 'practice') {
+        openPracticeStudio();
+      }
+      // 'coaching': exiting presentation (done above) reveals the board directly.
+    };
+  });
+
+  // "Exit to board" — just exits the current mode without switching
+  document.getElementById('modeSwitcherExitBtn').onclick = function () {
+    closeSwitcher();
+    if (document.body.classList.contains('presentation')) togglePresentation();
+  };
+})();
 function toggleMultiSelect(){
   multiSelectMode=!multiSelectMode;
   const b=document.getElementById('multiSelectBtn');
