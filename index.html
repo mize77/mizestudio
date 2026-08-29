@@ -1180,13 +1180,25 @@
   .xquixHomeTooltip { display:none; position:absolute; top:calc(100% + 10px); left:50%; transform:translateX(-50%); width:190px; background:#0d2422; border:1px solid #234745; border-radius:10px; padding:10px 12px; font-size:12.5px; line-height:1.4; color:#cfe7e4; text-align:center; z-index:10; box-shadow:0 10px 30px rgba(0,0,0,.5); }
   .xquixHomeTooltip.shown { display:block; }
   .xquixHomeTutorialsWrap { position:relative; width:150px; }
-  .xquixHomeTutorialBanners { display:flex; flex-direction:column; gap:10px; margin-top:18px; width:min(380px,82vw); }
+  .xquixHomeTutorialBanners { display:flex; flex-direction:column; gap:10px; margin-top:18px; width:min(380px,82vw); padding-bottom:28px; }
   .xquixHomeTutorialBanners:not(.open) { display:none; }
   .xquixHomeTutorialBanner { width:100%; height:auto; display:block; opacity:0; transform:translateY(-8px) scale(.97); animation:xquixHomeMiniIn .35s ease forwards; cursor:pointer; }
   .xquixHomeTutorialBanner:nth-child(1){ animation-delay:.03s; }
   .xquixHomeTutorialBanner:nth-child(2){ animation-delay:.10s; }
   .xquixHomeTutorialBanner:nth-child(3){ animation-delay:.17s; }
   .xquixHomeTutorialBanner:nth-child(4){ animation-delay:.24s; }
+  /* Drill-down, not unfold. Four more full-width banners appended under the
+     three existing ones made the list scroll and read as "seven things", with
+     no signal that the last four were a choice within the third. Opening the
+     Game Tracker group therefore REPLACES the top level instead of extending
+     it: same list length, one obvious question on screen, and no new artwork
+     needed (these pills are 4.7:1, so a 2x2 grid would render them ~39px tall
+     and the subtitles would be unreadable). */
+  .xquixHomeTutorialBanners.drilled > .xquixHomeTutorialBanner { display:none; }
+  .xquixHomeSubHead { display:flex; align-items:center; gap:8px; margin-bottom:2px; }
+  .xquixHomeSubHead button { font:800 12px system-ui; color:#cfeaea; background:#123c3a;
+    border:1px solid #2a5f5c; border-radius:8px; padding:6px 10px; cursor:pointer; touch-action:manipulation; }
+  .xquixHomeSubHead span { font:800 10px system-ui; letter-spacing:.08em; text-transform:uppercase; color:#4bb8bd; }
   .xquixHomeTutorialBanner:nth-child(5){ animation-delay:.31s; }
   @keyframes xquixHomeMiniIn { to { opacity:1; transform:translateY(0) scale(1); } }
   @media (prefers-reduced-motion: reduce) {
@@ -2521,6 +2533,7 @@
              built; the other three fall through to the "not built yet" toast
              on purpose, so the submenu can be checked before they exist. -->
         <div class="xquixHomeTutorialBanners" id="xquixHomeGametrackerBanners">
+          <div class="xquixHomeSubHead"><button type="button" id="xquixHomeGametrackerBack">‹ Back</button><span>Game Tracker · pick one</span></div>
           <img class="xquixHomeTutorialBanner" id="xquixHomeBanner_gametracker_field" src="xquixHomeBanner_gametracker_field.webp" data-tutorial="gametracker-field" alt="Game Tracker tutorial: Field Player" tabindex="0" role="button">
           <img class="xquixHomeTutorialBanner" id="xquixHomeBanner_gametracker_goalkeeper" src="xquixHomeBanner_gametracker_goalkeeper.webp" data-tutorial="gametracker-goalkeeper" alt="Game Tracker tutorial: Goalkeeper" tabindex="0" role="button">
           <img class="xquixHomeTutorialBanner" id="xquixHomeBanner_gametracker_team" src="xquixHomeBanner_gametracker_team.webp" data-tutorial="gametracker-team" alt="Game Tracker tutorial: Your Team" tabindex="0" role="button">
@@ -4098,7 +4111,9 @@ function xquixHomeToggleTooltip(circleEl){
 }
 document.getElementById('xquixHomeCircle_tutorials')?.addEventListener('click', function(){
   if(this.classList.contains('locked')){ xquixHomeToggleTooltip(this); return; }
-  document.getElementById('xquixHomeTutorialBanners')?.classList.toggle('open');
+  const g = document.getElementById('xquixHomeTutorialBanners');
+  const opened = g?.classList.toggle('open');
+  if(opened) requestAnimationFrame(()=>{ g.scrollIntoView({ block:'end', behavior:'smooth' }); });
 });
 ['coaching','gametracker','presenting','practice'].forEach(mode => {
   document.getElementById('xquixHomeCircle_' + mode)?.addEventListener('click', function(){
@@ -4115,11 +4130,34 @@ document.querySelectorAll('.xquixHomeTutorialBanner').forEach(el => {
     // anything -- one more level of exactly the mechanism the Tutorials circle
     // already uses. Everything else dispatches as before.
     const sub = this.dataset.submenu;
-    if(sub){ document.getElementById(sub)?.classList.toggle('open'); return; }
+    if(sub){
+      const group = document.getElementById(sub);
+      const parent = this.parentElement;
+      group?.classList.add('open');
+      parent?.classList.add('drilled');   // hide the top level while drilled in
+      // The five mode circles already fill a phone screen, so anything opened
+      // below them lands under the fold -- which is what made four banners feel
+      // like a long list rather than a choice. Bring the whole group into view.
+      requestAnimationFrame(()=>{ group?.scrollIntoView({ block:'end', behavior:'smooth' }); });
+      return;
+    }
     document.dispatchEvent(new CustomEvent('xquixHomeTutorialSelected', { detail: { tutorial: this.dataset.tutorial } }));
   };
   el.addEventListener('click', handler);
   el.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); handler.call(el); } });
+});
+document.getElementById('xquixHomeGametrackerBack')?.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  const group = document.getElementById('xquixHomeGametrackerBanners');
+  group?.classList.remove('open');
+  group?.parentElement?.classList.remove('drilled');
+});
+// Leaving the Tutorials group entirely must not strand it drilled in, or the
+// next open shows the sub-level with no way to tell how you got there.
+document.getElementById('xquixHomeCircle_tutorials')?.addEventListener('click', ()=>{
+  const group = document.getElementById('xquixHomeGametrackerBanners');
+  group?.classList.remove('open');
+  group?.parentElement?.classList.remove('drilled');
 });
 document.getElementById('xquixHomeScreen')?.addEventListener('click', (e)=>{
   if(!e.target.closest('.xquixHomeCircle')){
