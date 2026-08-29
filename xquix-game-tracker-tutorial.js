@@ -10,12 +10,17 @@
  * Design context: gametracker/TUTORIAL-STORYBOARD.md in the project.
  * Three decisions from that document shape everything here:
  *
- * WATCH, DON'T GATE. The board tutorials lock input (body.tutorialLockActive).
- * That cannot work here: the tracker lays a full-screen pointer shield over
- * everything and Studio's guard sits underneath it. So this never blocks a tap.
- * It states what to do, watches for it, and notices when something else
- * happens. That also suits the subject — the tracker is used beside a live pool
- * where nothing stops a wrong tap.
+ * ONE THING IS POSSIBLE AT A TIME. Studio's board tutorials lock input through
+ * body.tutorialLockActive; that mechanism cannot reach here, because the tracker
+ * lays a full-screen pointer shield over everything and Studio's guard sits
+ * underneath it. An early version of this file therefore did not gate at all --
+ * it only watched. Tested on a device that was wrong: you could start the clock
+ * three steps before the tutorial asked, and wander off the path with no way
+ * back. So the guard is rebuilt here instead, at the level that works: a
+ * capture-phase click listener on window, which fires before the shield's own
+ * handler. Only the current step's target is clickable; everything else is
+ * swallowed and the ring nudges. Deliberately 'click' and not 'pointerdown',
+ * so scrolling the stats panel and typing into fields still work.
  *
  * VALIDATE THE RECORD, NOT THE SCREEN. The tracker builds its UI at runtime and
  * rewrites one sheet's innerHTML per step, so there is almost nothing durable to
@@ -48,7 +53,7 @@ var practice = null;  // scratch state for the final lesson
 
 /* ------------------------------------------------------------------- css */
 var CSS = [
-'#xgtuBox{position:fixed;left:12px;right:12px;max-width:560px;margin:0 auto;',
+'#xgtuBox{position:fixed;left:12px;width:min(370px,calc(100vw - 24px));',
 '  z-index:' + Z_BOX + ';background:#0d2422;border:1px solid #2a5f5c;border-radius:14px;',
 '  padding:13px 15px;box-shadow:0 10px 30px rgba(0,0,0,.45);color:#eaf6f5;',
 '  font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:auto;}',
@@ -64,7 +69,9 @@ var CSS = [
 '#xgtuAck{background:#1b7373;}',
 '#xgtuRing{position:fixed;z-index:' + Z_RING + ';border:3px solid #ff3b30;border-radius:12px;',
 '  pointer-events:none;box-shadow:0 0 0 3px rgba(255,59,48,.25);animation:xgtuPulse 1.3s ease-in-out infinite;display:none;}',
+'#xgtuRing.nudge{animation:xgtuNudge .45s ease;}',
 '@keyframes xgtuPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.55;transform:scale(1.04);}}',
+'@keyframes xgtuNudge{0%,100%{transform:scale(1);}25%{transform:scale(1.14);}60%{transform:scale(.97);}}',
 '#xgtuFlash{position:fixed;left:0;right:0;z-index:' + Z_BOX + ';text-align:center;pointer-events:none;',
 '  font:800 22px system-ui;color:#4bb8bd;text-shadow:0 2px 12px rgba(0,0,0,.6);opacity:0;transition:opacity .25s;}',
 '#xgtuFlash.on{opacity:1;}',
@@ -179,6 +186,68 @@ function chain(items) {
   })();
 }
 
+/* ------------------------------------------------------------------ gate */
+/* Everything the current step does not need is unclickable. Runs in the
+   CAPTURE phase on window, so it fires before the tracker's shield handler and
+   before any button's own onclick -- which is the only place a guard can sit
+   given the shield swallows events on the way down. */
+var allowedNow = null;   // { sels: [..], zone: 'z3' | '*' | null }
+
+function insideAny(node, sels) {
+  for (var i = 0; i < sels.length; i++) {
+    try { if (node.closest && node.closest(sels[i])) return true; } catch (err) {}
+  }
+  return false;
+}
+
+function clickAllowed(e) {
+  var box = el('xgtuBox'), dlg = el('xgtuDlg');
+  if (dlg && dlg.contains(e.target)) return true;         // the exit / complete dialogue
+  if (box && box.contains(e.target)) return true;         // the tutorial's own controls
+  if (!allowedNow) return false;
+  var shield = el('xgtShield');
+  if (allowedNow.zone && shield && (e.target === shield || shield.contains(e.target))) {
+    // A zone tap is allowed only where the step actually asked for it, resolved
+    // through the tracker's own hit-test rather than a second copy of the maths.
+    var b = T && T.screenToBoard(e.clientX, e.clientY);
+    var z = b && T.hitZone(b.x, b.y);
+    return !!z && (allowedNow.zone === '*' || z === allowedNow.zone);
+  }
+  return allowedNow.sels.length ? insideAny(e.target, allowedNow.sels) : false;
+}
+
+function interactionGuard(e) {
+  if (!running) return;
+  if (clickAllowed(e)) return;
+  e.stopPropagation();
+  e.preventDefault();
+  nudgeRing();
+}
+
+function nudgeRing() {
+  var r = el('xgtuRing');
+  if (!r || r.style.display === 'none') return;
+  r.classList.remove('nudge');
+  void r.offsetWidth;                                     // restart the animation
+  r.classList.add('nudge');
+}
+
+/* A step is finished the moment the field is committed -- Enter, Tab, or moving
+   away from it -- rather than on the first keystroke, which would advance on the
+   '1' of '17'. */
+var inputCommitted = false;
+function armCommit(sel) {
+  var e = q(sel);
+  if (!e) return;
+  var fire = function () { if ((e.value || '').trim()) inputCommitted = true; };
+  e.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' || ev.key === 'Tab') setTimeout(fire, 0);
+  });
+  e.addEventListener('blur', fire);
+  e.addEventListener('change', fire);
+}
+function fieldValue(sel) { var e = q(sel); return e ? (e.value || '').trim() : ''; }
+
 /* ---------------------------------------------------------------- chrome */
 function injectCss() {
   if (el('xgtuStyle')) return;
@@ -253,12 +322,21 @@ function flash(msg) {
 
 /* ----------------------------------------------------------- step walker */
 function goTo(i) {
+  // A success flash or an auto-complete fallback can still be in flight when
+  // the coach exits; without this the queued advance lands on removed chrome.
+  if (!running || !el('xgtuBox')) return;
   if (i >= steps.length) { openDialog('complete'); return; }
   idx = i;
   advancing = false;
   var s = steps[idx];
 
-  var box = el('xgtuBox');
+  // What the coach may touch on this step, and nothing else.
+  var sels = s.allow ? (typeof s.allow === 'string' ? [s.allow] : s.allow.slice()) : [];
+  if (!sels.length && typeof s.highlight === 'string') sels.push(s.highlight);
+  allowedNow = { sels: sels, zone: s.allowZone || null };
+  inputCommitted = false;
+  if (s.commit) setTimeout(function () { armCommit(s.commit); }, 0);
+
   el('xgtuLesson').textContent = s._lessonTitle + '  ·  step ' + (s._nInLesson) + ' of ' + s._ofLesson;
   el('xgtuText').innerHTML = s.instruction;
   el('xgtuAck').style.display = s.ack ? '' : 'none';
@@ -268,7 +346,7 @@ function goTo(i) {
 }
 
 function succeed() {
-  if (advancing) return;
+  if (!running || advancing) return;
   advancing = true;
   var s = step();
   if (s && s.success) flash(s.success);
@@ -411,6 +489,7 @@ function start(which) {
   flatten(buildLessons(which || 'field'));
   if (!T.isOpen()) T.open();
   buildChrome();
+  window.addEventListener('click', interactionGuard, true);
   goTo(0);
   rafHandle = requestAnimationFrame(tick);
   return true;
@@ -419,6 +498,8 @@ function start(which) {
 function stop() {
   if (!running) return;
   running = false;
+  allowedNow = null;
+  window.removeEventListener('click', interactionGuard, true);
   if (rafHandle) cancelAnimationFrame(rafHandle);
   rafHandle = null;
   removeChrome();
@@ -451,18 +532,20 @@ function buildLessons(which) {
   return [
   { title: 'Set up a session', steps: [
     { ack: true,
-      instruction: 'This runs on the real Game Tracker, so everything you do here is exactly how it works in a game.\n\n' +
-        '<b>Nothing you do is saved.</b> If you have a game in progress it stays untouched.\n\n' +
-        'Watch for the <b>pulsing red ring</b> — it marks what to tap next.' },
+      instruction: 'Welcome to the <b>Game Tracker</b>.\n\n' +
+        'In about ten minutes you will have tracked a full game — every shot, foul and steal, with the stats building themselves as you go.\n\n' +
+        'You will do it on the real thing, not a demo. Watch for the <b>pulsing red ring</b>: it marks what to tap next, and only that will respond.' },
 
     { instruction: 'This is the start screen. <b>Resume</b> comes back to a game you left; a session survives closing the app.\n\nTap <b>Start a new game</b>.',
       highlight: '#xgtFresh',
+      allow: '#xgtFresh',
       validate: function () { return sheetOpen() && !!el('xgtGo'); },
       autoComplete: function () { click('#xgtFresh'); } },
 
     { instruction: 'Two switches at the top.\n\n<b>Tracking role</b> is the one that matters — it decides what you tap during the game. Choose <b>Field Player</b>.\n\n' +
         '<b>Who is tracking</b> is only a label on the record. A parent and a coach following one player use an identical tracker.',
       highlight: '#xgtRl',
+      allow: '#xgtRl',
       validate: function () { return T.state.playerRole === 'field'; },
       autoComplete: function () { click('#xgtRl [data-role="field"]'); },
       success: 'Field Player' },
@@ -470,27 +553,39 @@ function buildLessons(which) {
     { instruction: 'Type your team’s name. Worth the four seconds: it replaces <b>Us</b> and <b>Them</b> on every button and in every export.\n\n' +
         '<b>Track game score</b> below is off by default — the score is worked out from your events either way, this only decides whether it sits on screen.',
       highlight: '#xgtHome',
-      validate: function () { return !!(T.state.game.home || '').trim(); },
+      allow: '#xgtHome',
+      commit: '#xgtHome',
+      // Commits on Enter, Tab or moving away -- not on the first keystroke,
+      // which would advance mid-word. S.game is only read on the tracker's own
+      // redraws, so the field itself is the source of truth here.
+      validate: function () { return inputCommitted && !!fieldValue('#xgtHome'); },
       autoComplete: function () {
         var i = el('xgtHome'); if (!i) return;
-        i.value = 'Marin'; i.dispatchEvent(new Event('input', { bubbles: true }));
-        var go = el('xgtGo'); if (go) go.focus();   // blur, so the tracker reads the field
+        i.value = 'Marin';
+        i.dispatchEvent(new Event('input', { bubbles: true }));
+        i.dispatchEvent(new Event('change', { bubbles: true }));
       } },
 
     { instruction: 'Now the player you are tracking — enter their cap number.',
       highlight: '#xgtNum',
-      validate: function () { return T.state.me.number != null; },
+      allow: '#xgtNum',
+      commit: '#xgtNum',
+      validate: function () { return inputCommitted && !!fieldValue('#xgtNum'); },
       autoComplete: function () {
         var i = el('xgtNum'); if (!i) return;
-        i.value = '7'; i.dispatchEvent(new Event('input', { bubbles: true }));
-        var go = el('xgtGo'); if (go) go.focus();
+        i.value = '7';
+        i.dispatchEvent(new Event('input', { bubbles: true }));
+        i.dispatchEvent(new Event('change', { bubbles: true }));
       } },
 
     { instruction: 'Tap <b>Start tracking</b>.\n\nThe view switches to Front Court by itself — that is expected, not something going wrong.',
       highlight: '#xgtGo',
-      // #xgtPres is the in-water pill renderBar() draws once tracking is
-      // actually running -- a positive signal, unlike "the setup sheet is gone".
-      validate: function () { return !!el('xgtPres'); },
+      allow: '#xgtGo',
+      // NOT #xgtPres: the bar renders as soon as the tracker opens, so that was
+      // already true before this button was pressed -- which is why the tutorial
+      // jumped to lesson 2 on its own. go() closes the setup sheet and commits
+      // the cap number, so those two together are the real signal.
+      validate: function () { return !sheetOpen() && T.state.me.number != null; },
       autoComplete: function () { click('#xgtGo'); },
       success: 'Tracking' }
   ]},
@@ -502,6 +597,7 @@ function buildLessons(which) {
 
     { instruction: 'Tap the clock to start it.',
       highlight: '#xgtT',
+      allow: '#xgtT',
       validate: function () { return T.state.running === true; },
       autoComplete: function () { click('#xgtT'); },
       success: 'Running' },
@@ -513,10 +609,12 @@ function buildLessons(which) {
 
     { instruction: 'Let’s watch that happen. Tap anywhere on the field, in front of the goal.',
       onEnter: mark,
+      allowZone: '*',
       validate: function () { return !!(T.state.draft && T.state.draft.fieldZone); },
       autoComplete: function () { tapZone('z3'); } },
 
     { instruction: 'Now log a goal: <b>Shot</b>, then <b>Goal</b>, then tap roughly where in the net it went.\n\nIf it then asks who assisted, name them or skip — speed beats completeness during a game.',
+      allow: '#xgtSheet',
       validate: function () { return loggedSince(base, { action: 'shot', outcome: 'goal' }); },
       autoComplete: function () {
         // The assist sheet only appears where Advanced Tracking Actions are
@@ -531,12 +629,14 @@ function buildLessons(which) {
 
     { instruction: 'To correct the clock or change quarter, tap the quarter button.',
       highlight: '#xgtQ',
+      allow: '#xgtQ',
       validate: function () { return !!el('xgtDone'); },
       autoComplete: function () { click('#xgtQ'); } },
 
     { instruction: 'Quarter chips along the top, then plus and minus to match the pool clock. <b>SO</b> is the penalty shootout — we come back to that.\n\n' +
         'Adjust the time however you like, then tap <b>Done</b>.\n\nEvents you have already logged keep their own timestamps; this only moves the clock.',
       highlight: '#xgtDone',
+      allow: '#xgtSheet',
       validate: function () { return !sheetOpen(); },
       autoComplete: function () { chain(['[data-d="-60"]', '#xgtDone']); } }
   ]},
@@ -550,12 +650,14 @@ function buildLessons(which) {
       highlight: '#xgtZoneLayer' },
 
     { instruction: 'Tap <b>zone 3</b> — straight out from the goal.',
+      allowZone: 'z3',
       validate: function () { return !!(T.state.draft && T.state.draft.fieldZone === 'z3'); },
       autoComplete: function () { tapZone('z3'); },
       success: 'Zone 3' },
 
     { instruction: 'Tapped the wrong place? Close the sheet with the ✕ and nothing is recorded.\n\nDo that now.',
       highlight: '#xgtX',
+      allow: '#xgtX',
       validate: function () { return !T.state.draft; },
       autoComplete: function () { click('#xgtX'); },
       success: 'Nothing logged' },
@@ -568,6 +670,7 @@ function buildLessons(which) {
   { title: 'Actions and outcomes', steps: [
     { instruction: 'Tap zone 2 to open the action sheet again.',
       onEnter: mark,
+      allowZone: '*',
       validate: function () { return !!(T.state.draft && T.state.draft.fieldZone); },
       autoComplete: function () { tapZone('z2'); } },
 
@@ -576,18 +679,22 @@ function buildLessons(which) {
       highlight: '#xgtAttr' },
 
     { instruction: 'Log a blocked shot: <b>Shot</b>, then <b>Blocked Shot</b>.',
+      allow: '#xgtSheet',
       validate: function () { return !!(T.state.draft && T.state.draft.outcome === 'blocked') || loggedSince(base, { action: 'shot', outcome: 'blocked' }); },
       autoComplete: function () {
         chain(['.xgtOpts [data-a="shot"]', '[data-s="blocked"]']);
       } },
 
     { instruction: 'Now the follow-up most people miss — <b>who</b> blocked it, and did the ball stay in play. Pick whichever you like.\n\nThat is the difference between a save and a field block, and it is what makes the numbers honest later.',
+      allow: '#xgtSheet',
       validate: function () { return loggedSince(base, { action: 'shot', outcome: 'blocked' }); },
       autoComplete: function () { click('[data-br="gk_in"]'); },
       success: 'Blocked shot logged' },
 
     { instruction: 'Next: a miss. Tap a zone, then <b>Shot</b>, then <b>Missed Shot</b>, and tap where it went.\n\nThe miss map is not the goal grid — it has the posts, the bar, wide, and short into the water.',
       onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
       validate: function () { return loggedSince(base, { action: 'shot', outcome: 'missed' }); },
       autoComplete: function () {
         chain([function () { tapZone('z4'); }, '.xgtOpts [data-a="shot"]', '[data-s="missed"]', '.gz[data-p="crossbar"]']);
@@ -596,6 +703,8 @@ function buildLessons(which) {
 
     { instruction: 'Now a foul. Tap a zone, then <b>Personal Foul</b>, then <b>Exclusion</b>.\n\nThe player you tapped is always the one who <b>committed</b> it — there is no drawn-or-committed choice to make.\n\nPick <b>Penalty</b> instead and the tracker opens the resulting penalty shot straight away, by itself. Worth expecting, so it does not feel like the app running away with you.',
       onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
       validate: function () { return loggedSince(base, { action: 'exclusion' }); },
       autoComplete: function () {
         chain([function () { tapZone('z5'); }, '.xgtOpts [data-a="exclusion"]', '[data-s="exclusion"]']);
@@ -604,6 +713,8 @@ function buildLessons(which) {
 
     { instruction: 'One more: a <b>Steal</b>. Tap a zone and pick it — there is no outcome to choose, it is a single tap.',
       onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
       validate: function () { return loggedSince(base, { action: 'steal' }); },
       autoComplete: function () {
         chain([function () { tapZone('z6'); }, '.xgtOpts [data-a="steal"]']);
@@ -621,6 +732,7 @@ function buildLessons(which) {
   { title: 'Reading the stats', steps: [
     { instruction: 'You can read the numbers mid-game, without stopping. Tap <b>Stats</b>.',
       highlight: '#xgtStatsBtn',
+      allow: '#xgtStatsBtn',
       validate: statsOpen,
       autoComplete: function () { click('#xgtStatsBtn'); } },
 
@@ -638,6 +750,7 @@ function buildLessons(which) {
 
     { instruction: 'Close the stats with <b>‹ Back</b>.',
       highlight: '#xgtSb',
+      allow: ['#xgtSb', '#xgtStats'],
       validate: function () { return !statsOpen(); },
       autoComplete: function () { click('#xgtSb'); } }
   ]},
@@ -655,6 +768,7 @@ function buildLessons(which) {
 
     { instruction: 'Open the <b>Menu</b>.',
       highlight: '#xgtOptionsBtn',
+      allow: '#xgtOptionsBtn',
       validate: function () { return sheetOpen() && !!el('xgtOptEndSave'); },
       autoComplete: function () { click('#xgtOptionsBtn'); } },
 
@@ -664,6 +778,7 @@ function buildLessons(which) {
 
     { instruction: 'Close the menu with the ✕.',
       highlight: '#xgtX',
+      allow: '#xgtX',
       validate: function () { return !sheetOpen(); },
       autoComplete: function () { click('#xgtX'); } },
 
@@ -677,6 +792,8 @@ function buildLessons(which) {
 
     { instruction: 'Your player <b>scores from zone 3</b>.',
       onEnter: function () { mark(); practice = { done: [] }; },
+      allowZone: '*',
+      allow: '#xgtSheet',
       validate: function () {
         var a = actions();
         for (var i = base; i < a.length; i++)
@@ -691,6 +808,8 @@ function buildLessons(which) {
 
     { instruction: 'Their shot <b>from the left wing is blocked</b>.',
       onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
       validate: function () {
         var a = actions();
         for (var i = base; i < a.length; i++)
@@ -704,6 +823,8 @@ function buildLessons(which) {
 
     { instruction: 'Your player <b>steals the ball</b> anywhere you like.',
       onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
       validate: function () { return loggedSince(base, { action: 'steal' }); },
       autoComplete: function () {
         chain([function () { tapZone('z13'); }, '.xgtOpts [data-a="steal"]']);
@@ -726,6 +847,15 @@ var API = {
   lessonStarts: function () { return lessonStarts.slice(); },
   stepCount: function () { return steps.length; },
   stepIndex: function () { return idx; },
+  // Harness introspection: proves every interactive step leaves the coach
+  // something to touch. A step with no ack button and no allowed target would
+  // be a dead end reachable only through "Next step".
+  stepInfo: function (i) {
+    var s = steps[i];
+    if (!s) return null;
+    return { ack: !!s.ack, lesson: s._lessonTitle,
+             hasTarget: !!(s.allow || s.allowZone || typeof s.highlight === 'string') };
+  },
   goToStep: function (i) { if (running) goTo(i); },
   next: nextStep
 };
