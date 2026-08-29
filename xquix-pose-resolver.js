@@ -276,13 +276,6 @@
     return out;
   }
 
-  // A pose carries two maps: the in-plane angles, and how far each joint is
-  // lifted out of the water. They travel together everywhere — a stroke that
-  // blended the angles but snapped the elevation would have the arm reach the
-  // right direction and jump out of the water to get there.
-  function anglesOfRef(p) { return (p && p.angles) || {}; }
-  function elevOfRef(p)   { return (p && p.elev)   || {}; }
-
   // A cycle is a repeating motion, not a position: a swimmer interpolating
   // toward one frozen "swimming" pose would simply stop moving once it arrived.
   // Phase comes from the wall clock so every player on the same cycle strokes
@@ -298,8 +291,8 @@
 
   function cycleAngles(c, el, now) {
     const ids = (c.poses || []).filter(id => byId[id]);
-    if (!ids.length) return { angles: {}, elev: {} };
-    if (ids.length === 1) return { angles: anglesOfRef(byId[ids[0]]), elev: elevOfRef(byId[ids[0]]) };
+    if (!ids.length) return {};
+    if (ids.length === 1) return byId[ids[0]].angles || {};
     const step = Math.max(60, num(c.stepMs) || 420);
     const sub = subStepsFor(step);
     const total = ids.length * sub;
@@ -307,9 +300,7 @@
     const k = (Math.floor(now / (step / sub)) + phaseOffset(el, total)) % total;
     const i = Math.floor(k / sub) % ids.length;
     const j = (i + 1) % ids.length;
-    const u = ease((k % sub) / sub);
-    return { angles: blend(anglesOfRef(byId[ids[i]]), anglesOfRef(byId[ids[j]]), u),
-             elev:   blend(elevOfRef(byId[ids[i]]),   elevOfRef(byId[ids[j]]),   u) };
+    return blend(byId[ids[i]].angles, byId[ids[j]].angles, ease((k % sub) / sub));
   }
 
   // Deterministic per player, so it does not shuffle between ticks — and landed
@@ -333,10 +324,8 @@
     const manual = el.dataset.poseId && byId[el.dataset.poseId];
     if (manual && manual.body === body) {
       const isCycle = Array.isArray(manual.poses);
-      const r = isCycle ? cycleAngles(manual, el, now)
-                        : { angles: anglesOfRef(manual), elev: elevOfRef(manual) };
       return { trigger: 'manual', id: manual.id, name: manual.name,
-               angles: r.angles, elev: r.elev };
+               angles: isCycle ? cycleAngles(manual, el, now) : (manual.angles || {}) };
     }
 
     const want = triggerFor(el, now);
@@ -349,12 +338,10 @@
     for (let i = from; i < ORDER.length; i++) {
       const hit = pick(ORDER[i], body, hand);
       if (!hit) continue;
-      const r = hit.kind === 'cycle' ? cycleAngles(hit.ref, el, now)
-                                     : { angles: anglesOfRef(hit.ref), elev: elevOfRef(hit.ref) };
-      return { trigger: want, used: ORDER[i], hand, id: hit.ref.id, name: hit.ref.name,
-               angles: r.angles, elev: r.elev };
+      const angles = hit.kind === 'cycle' ? cycleAngles(hit.ref, el, now) : (hit.ref.angles || {});
+      return { trigger: want, used: ORDER[i], hand, id: hit.ref.id, name: hit.ref.name, angles };
     }
-    return { trigger: want, used: null, hand, id: null, name: null, angles: {}, elev: {} };
+    return { trigger: want, used: null, hand, id: null, name: null, angles: {} };
   }
 
   /* --------------------------------------------------------------- tick */
@@ -368,9 +355,6 @@
     let s = (r.id || '-') + '|';
     const ks = Object.keys(r.angles).sort();
     for (const k of ks) { const v = Math.round(num(r.angles[k]) * 2) / 2; if (v) s += k + v + ';'; }
-    s += '^';
-    const es = Object.keys(r.elev || {}).sort();
-    for (const k of es) { const v = Math.round(num(r.elev[k]) * 2) / 2; if (v) s += k + v + ';'; }
     return s;
   }
 
@@ -384,12 +368,7 @@
       const s = sig(r);
       if (lastSig.get(el) === s) continue;      // nothing to redraw
       lastSig.set(el, s);
-      try {
-        Rig.setAngles(el,
-          Object.keys(r.angles).length ? r.angles : null,
-          Object.keys(r.elev || {}).length ? r.elev : null);
-        wrote++;
-      } catch (e) {}
+      try { Rig.setAngles(el, Object.keys(r.angles).length ? r.angles : null); wrote++; } catch (e) {}
     }
     return wrote;
   }
@@ -407,7 +386,7 @@
     const Rig = window.MIZE && window.MIZE.PlayerRig;
     for (const el of document.querySelectorAll('.player')) {
       lastSig.delete(el);
-      if (Rig && Rig.setAngles) { try { Rig.setAngles(el, null, null); } catch (e) {} }
+      if (Rig && Rig.setAngles) { try { Rig.setAngles(el, null); } catch (e) {} }
     }
   }
 
