@@ -7,3 +7,10 @@
 wrangler.jsonc
 .DS_Store
 Archive
+
+# Working documents and tooling. Nothing in the app fetches these at runtime
+# (checked), and without these lines they are publicly readable at
+# app.xquix.com/<filename> -- these are internal engineering notes.
+*.md
+*.sh
+_inlined_*
