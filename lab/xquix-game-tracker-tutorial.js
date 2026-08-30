@@ -150,16 +150,13 @@ function reveal(fn) {
   };
 }
 
-/* What the field actually SAYS this zone is. Any coach can renumber a field
-   zone for their own device -- and this tutorial invites them to, in Lesson 3 --
-   so a step that hard-codes "field zone 3" is wrong for anyone who has. The
-   default is the number in the id, which is how ZONES is built. */
-function zoneLabel(id) {
-  var o = T && T.state && T.state.zoneNumberOverrides;
-  if (o && o[id] != null) return String(o[id]);
-  return String(parseInt(String(id).replace(/^z/, ''), 10));
-}
-function zoneRef(id) { return '<b>field zone ' + zoneLabel(id) + '</b>'; }
+/* NO STEP NAMES A FIELD ZONE NUMBER, and that is a rule rather than a habit.
+   The numbering is per-device: any coach can renumber a field zone, and this
+   tutorial invites them to in Lesson 3, so "tap field zone 3" is wrong for
+   anyone who has. Resolving the number at runtime was tried and dropped -- it
+   was correct but it made the lesson about the numbering rather than about the
+   idea. Steps ask for ANY field zone instead; the zoning itself is explained
+   once, without numbers, as a way of saying where something happened. */
 
 /* The most recent action logged since `baseline` that is NOT the one the step
    asked for. Practice steps use it to say what actually went in, rather than
@@ -184,7 +181,6 @@ function nameOf(e) {
   if (e.action === 'steal') return 'steal';
   return EVENT_NAMES[e.outcome] || EVENT_NAMES[e.action] || e.action || 'event';
 }
-function zoneNameOf(e) { return e && e.fieldZone ? ('field zone ' + String(e.fieldZone).replace(/^z/, '')) : 'that field zone'; }
 
 /* True once an action event matching every key in `want` exists that was not
    already there when the step began. Steps record their own baseline in
@@ -1078,14 +1074,13 @@ function stop() {
         'Field zone → action → outcome. Every event starts with the field zone; there is no other way in.' },
 
     { ack: true,
-      instruction: 'The numbers you can see on the water are the <b>field zones</b>. They are there to help you say exactly where something happened.\n\n' +
-        '<b>6</b> is the center, right in front of the goal. <b>1</b> to <b>5</b> run across the arc in front of it, wing to wing. <b>12</b>, <b>13</b> and <b>14</b> sit further out.\n\n' +
-        'Anything in the opposite half is the little <b>OPPO</b> area.',
+      instruction: 'The water is divided into <b>field zones</b>: the area right in front of the goal, a ring of zones around it, and the wider areas further out. Anything in the opposite half is the little <b>OPPO</b> area.\n\n' +
+        'They are there so you can say exactly <b>where</b> something happened — to yourself when you read the stats back, and to anyone else you share them with.',
       highlight: '#xgtZoneLayer' },
 
-    { instruction: function () { return 'Tap ' + zoneRef('z3') + ' — straight out from the goal.'; },
-      allowZone: 'z3',
-      validate: function () { return !!(T.state.draft && T.state.draft.fieldZone === 'z3'); },
+    { instruction: 'Tap any <b>field zone</b> — wherever you like.',
+      allowZone: '*',
+      validate: function () { return !!(T.state.draft && T.state.draft.fieldZone); },
       autoComplete: function () { tapZone('z3'); },
       success: 'Logged the zone' },
 
@@ -1147,7 +1142,7 @@ function stop() {
       autoComplete: function () { click('#xgtX'); } }
   ]},
   { title: 'Actions and outcomes', steps: [
-    { instruction: function () { return 'Tap ' + zoneRef('z2') + ' to open the action sheet again.'; },
+    { instruction: 'Tap any <b>field zone</b> to open the action sheet again.',
       onEnter: mark,
       allowZone: '*',
       validate: function () { return !!(T.state.draft && T.state.draft.fieldZone); },
@@ -1361,31 +1356,24 @@ function stop() {
       instruction: 'Last part. From here the tutorial stops pointing at buttons — you get told what happened in the game, and you log it.\n\n' +
         'Three moments, one at a time. If you get stuck, wait a few seconds and a hint appears.' },
 
-    // Field zones are named by number only, and the number is read off the field
-    // at the moment the step is shown -- never described in words like "the left
-    // wing", and never hard-coded, since any coach can renumber a field zone for
-    // their own device.
-    { instruction: function () { return 'Now try it yourself. Your player <b>scores</b> from ' + zoneRef('z3') + '.'; },
+    // No zone is named, by number or by position. What is being practised is the
+    // order -- field zone, then action, then outcome -- and naming a particular
+    // zone would make the exercise about finding it instead.
+    { instruction: 'Now try it yourself. Your player <b>scores</b>.',
       onEnter: function () { mark(); practice = { done: [] }; },
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
       hints: [
         'Start with the <b>field zone</b> — the water is where every event begins.',
-        function () { return 'It is the field zone showing <b>' + zoneLabel('z3') + '</b>, straight out from the goal.'; },
-        'Then <b>Shot</b>, then <b>Goal</b>, then roughly where in the net it went.'
+        'Tap the field zone the shot was taken from, then <b>Shot</b>.',
+        'Then <b>Goal</b>, and roughly where in the net it went.'
       ],
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'goal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b> in ' + zoneNameOf(e) + '. Tap <b>↩</b> at the bottom to undo it, then log a goal from field zone ' + zoneLabel('z3') + '.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log a goal.';
       },
-      validate: function () {
-        if (T.state.draft) return false;
-        var a = actions();
-        for (var i = base; i < a.length; i++)
-          if (a[i].action === 'shot' && a[i].outcome === 'goal' && a[i].fieldZone === 'z3') return true;
-        return false;
-      },
+      validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
         chainFrom([function () { if (!sheetOpen()) tapZone('z3'); }, '.xgtOpts [data-a="shot"]', '[data-s="goal"]',
                    '.gz[data-p="top_right"]', '?#xgtAssistSkip']);
@@ -1395,26 +1383,20 @@ function stop() {
     // Own-team events only. An opponent's shot that the tracked player was not
     // part of is not something a single-player tracker records at all, so using
     // one as practice teaches the wrong instinct.
-    { instruction: function () { return 'Your player shoots from ' + zoneRef('z1') + ' and it is <b>blocked</b>.'; },
+    { instruction: 'Your player takes a shot and it is <b>blocked</b>.',
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
       hints: [
-        function () { return 'Field zone first — the one showing <b>' + zoneLabel('z1') + '</b>.'; },
+        'Field zone first — wherever the shot came from.',
         'Then <b>Shot</b>, then <b>Blocked Shot</b>, then where in the goal the keeper stopped it.'
       ],
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'blocked' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b> in ' + zoneNameOf(e) + '. Tap <b>↩</b> at the bottom to undo it, then log a blocked shot from field zone ' + zoneLabel('z1') + '.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log a blocked shot.';
       },
-      validate: function () {
-        if (T.state.draft) return false;
-        var a = actions();
-        for (var i = base; i < a.length; i++)
-          if (a[i].action === 'shot' && a[i].outcome === 'blocked' && a[i].fieldZone === 'z1') return true;
-        return false;
-      },
+      validate: logged({ action: 'shot', outcome: 'blocked' }),
       autoComplete: function () {
         chainFrom([function () { if (!sheetOpen()) tapZone('z1'); }, '.xgtOpts [data-a="shot"]', '[data-s="blocked"]',
                    '.gz[data-p="middle_center"]', '?[data-br="gk_in"]']);
