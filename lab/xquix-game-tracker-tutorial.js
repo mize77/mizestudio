@@ -239,7 +239,12 @@ var inputCommitted = false;
 function armCommit(sel) {
   var e = q(sel);
   if (!e) return;
-  var fire = function () { if ((e.value || '').trim()) inputCommitted = true; };
+  var fire = function () {
+    if (!(e.value || '').trim()) return;
+    inputCommitted = true;
+    e.readOnly = true;          // confirmed; move to the next field, not back into this one
+    e.blur();
+  };
   e.addEventListener('keydown', function (ev) {
     if (ev.key === 'Enter' || ev.key === 'Tab') setTimeout(fire, 0);
   });
@@ -247,6 +252,25 @@ function armCommit(sel) {
   e.addEventListener('change', fire);
 }
 function fieldValue(sel) { var e = q(sel); return e ? (e.value || '').trim() : ''; }
+
+/* Types into a field a character at a time, with the ring on it, so the coach
+   sees which field is being filled rather than watching values appear from
+   nowhere. Roughly two seconds per field. */
+function autoType(sel, text, done) {
+  var e = q(sel);
+  if (!e) { if (done) done(); return; }
+  ringOverride = sel;
+  var i = 0, per = Math.max(35, Math.min(90, Math.round(1500 / text.length)));
+  (function tick() {
+    if (!running) { ringOverride = null; return; }
+    e.value = text.slice(0, ++i);
+    e.dispatchEvent(new Event('input', { bubbles: true }));
+    if (i < text.length) { setTimeout(tick, per); return; }
+    e.dispatchEvent(new Event('change', { bubbles: true }));
+    setTimeout(function () { if (done) done(); }, 300);
+  })();
+}
+var demoDone = false;
 
 /* ---------------------------------------------------------------- chrome */
 function injectCss() {
@@ -299,10 +323,13 @@ function removeChrome() {
 }
 
 /* ------------------------------------------------------------------ ring */
+var ringOverride = null;   // set while a demo animation is leading the eye
+
 function paintRing() {
   var ring = el('xgtuRing'); if (!ring) return;
   var s = step();
-  var target = s && s.highlight ? (typeof s.highlight === 'function' ? s.highlight() : q(s.highlight)) : null;
+  var sel = ringOverride || (s && s.highlight);
+  var target = sel ? (typeof sel === 'function' ? sel() : q(sel)) : null;
   if (!target) { ring.style.display = 'none'; return; }
   var r = target.getBoundingClientRect();
   if (!r.width && !r.height) { ring.style.display = 'none'; return; }
@@ -332,12 +359,17 @@ function goTo(i) {
 
   // What the coach may touch on this step, and nothing else.
   var sels = s.allow ? (typeof s.allow === 'string' ? [s.allow] : s.allow.slice()) : [];
-  if (!sels.length && typeof s.highlight === 'string') sels.push(s.highlight);
+  // An ack step is read-and-continue: the ring points at something, but nothing
+  // on screen should respond. Falling back to the highlight here was a bug --
+  // "here is the clock" let the clock be started three steps early.
+  if (!sels.length && !s.ack && typeof s.highlight === 'string') sels.push(s.highlight);
   allowedNow = { sels: sels, zone: s.allowZone || null };
   inputCommitted = false;
+  ringOverride = null;
   if (s.commit) setTimeout(function () { armCommit(s.commit); }, 0);
 
-  el('xgtuLesson').textContent = s._lessonTitle + '  ·  step ' + (s._nInLesson) + ' of ' + s._ofLesson;
+  el('xgtuLesson').textContent =
+    'L' + s._lessonNo + ' · S' + s._nInLesson + ' of ' + s._ofLesson + '  ·  ' + s._lessonTitle;
   el('xgtuText').innerHTML = s.instruction;
   el('xgtuAck').style.display = s.ack ? '' : 'none';
   el('xgtuNext').style.display = s.ack ? 'none' : '';
@@ -459,11 +491,12 @@ function currentLesson() {
 function flatten(ls) {
   lessons = ls;
   steps = []; lessonStarts = []; lessonTitles = [];
-  ls.forEach(function (lesson) {
+  ls.forEach(function (lesson, li) {
     lessonStarts.push(steps.length);
     lessonTitles.push(lesson.title);
     lesson.steps.forEach(function (s, i) {
       s._lessonTitle = lesson.title;
+      s._lessonNo = li + 1;
       s._nInLesson = i + 1;
       s._ofLesson = lesson.steps.length;
       steps.push(s);
@@ -526,65 +559,72 @@ function stop() {
 /* ======================================================================= */
 function buildLessons(which) {
   if (which !== 'field') throw new Error('Only the Field Player tutorial is built yet');
-  var base = 0;   // action-count baseline, reset per step that needs one
+  var base = 0;         // action-count baseline, reset per step that needs one
+  var clockTarget = 0;  // the exact time L2 asks the coach to dial in
   var mark = function () { base = actions().length; };
 
   return [
   { title: 'Set up a session', steps: [
     { ack: true,
       instruction: 'Welcome to the <b>Game Tracker</b>.\n\n' +
-        'In about ten minutes you will have tracked a full game — every shot, foul and steal, with the stats building themselves as you go.\n\n' +
-        'You will do it on the real thing, not a demo. Watch for the <b>pulsing red ring</b>: it marks what to tap next, and only that will respond.' },
+        'By the end you will have tracked a full game — shots, fouls, steals — and taken the same realistic stats you would take from the side of a real pool.' },
 
-    { instruction: 'This is the start screen. <b>Resume</b> comes back to a game you left; a session survives closing the app.\n\nTap <b>Start a new game</b>.',
+    { ack: true,
+      // The ring is pointed at the button the coach is about to press, so the
+      // sentence explaining it is demonstrated by the thing itself.
+      highlight: '#xgtuAck',
+      instruction: 'Two things about how this works.\n\n' +
+        'Watch for the <b>pulsing red ring</b> — like the one around <b>Got it</b> right now. It marks the only thing that will respond.\n\n' +
+        'Each step moves on by itself the moment you have done it. If you would rather not, <b>Next step →</b> does it for you.' },
+
+    { instruction: 'Tap <b>Start a new game</b> to set up a fresh one.\n\n' +
+        'If you had left a game unfinished, <b>Resume</b> would be here too — a session survives closing the app.',
       highlight: '#xgtFresh',
       allow: '#xgtFresh',
       validate: function () { return sheetOpen() && !!el('xgtGo'); },
       autoComplete: function () { click('#xgtFresh'); } },
 
-    { instruction: 'Two switches at the top.\n\n<b>Tracking role</b> is the one that matters — it decides what you tap during the game. Choose <b>Field Player</b>.\n\n' +
-        '<b>Who is tracking</b> is only a label on the record. A parent and a coach following one player use an identical tracker.',
+    { instruction: 'This is the whole setup. <b>Tracking role</b> is the one that decides what you tap during the game — choose <b>Field Player</b>.\n\n' +
+        '<b>Who is tracking</b> is only a label on the record; a parent and a coach following one player use an identical tracker.',
       highlight: '#xgtRl',
       allow: '#xgtRl',
       validate: function () { return T.state.playerRole === 'field'; },
       autoComplete: function () { click('#xgtRl [data-role="field"]'); },
       success: 'Field Player' },
 
-    { instruction: 'Type your team’s name. Worth the four seconds: it replaces <b>Us</b> and <b>Them</b> on every button and in every export.\n\n' +
-        '<b>Track game score</b> below is off by default — the score is worked out from your events either way, this only decides whether it sits on screen.',
+    { instruction: 'Now the game itself. Watch — the location and the opponent fill themselves in.\n\n' +
+        'Worth entering for real: these names replace <b>Us</b> and <b>Them</b> on every button and in every export.',
+      auto: true,
+      onEnter: function () {
+        demoDone = false;
+        autoType('#xgtLoc', 'Marin Aquatic Center', function () {
+          autoType('#xgtAway', 'Diablo', function () { ringOverride = null; demoDone = true; });
+        });
+      },
+      validate: function () { return demoDone; },
+      autoComplete: function () { demoDone = true; } },
+
+    { instruction: 'Your turn. Type <b>your own team’s name</b>, then press <b>Enter</b> to confirm it.',
       highlight: '#xgtHome',
       allow: '#xgtHome',
       commit: '#xgtHome',
-      // Commits on Enter, Tab or moving away -- not on the first keystroke,
-      // which would advance mid-word. S.game is only read on the tracker's own
-      // redraws, so the field itself is the source of truth here.
       validate: function () { return inputCommitted && !!fieldValue('#xgtHome'); },
-      autoComplete: function () {
-        var i = el('xgtHome'); if (!i) return;
-        i.value = 'Marin';
-        i.dispatchEvent(new Event('input', { bubbles: true }));
-        i.dispatchEvent(new Event('change', { bubbles: true }));
-      } },
+      autoComplete: function () { autoType('#xgtHome', 'Marin', function () {}); } },
 
-    { instruction: 'Now the player you are tracking — enter their cap number.',
+    { instruction: 'And the <b>cap number</b> of the player you are tracking. <b>Enter</b> to confirm.',
       highlight: '#xgtNum',
       allow: '#xgtNum',
       commit: '#xgtNum',
       validate: function () { return inputCommitted && !!fieldValue('#xgtNum'); },
-      autoComplete: function () {
-        var i = el('xgtNum'); if (!i) return;
-        i.value = '7';
-        i.dispatchEvent(new Event('input', { bubbles: true }));
-        i.dispatchEvent(new Event('change', { bubbles: true }));
-      } },
+      autoComplete: function () { autoType('#xgtNum', '7', function () {}); } },
 
     { instruction: 'Tap <b>Start tracking</b>.\n\nThe view switches to Front Court by itself — that is expected, not something going wrong.',
       highlight: '#xgtGo',
       allow: '#xgtGo',
       // NOT #xgtPres: the bar renders as soon as the tracker opens, so that was
       // already true before this button was pressed -- which is why the tutorial
-      // jumped to lesson 2 on its own. go() closes the setup sheet and commits
-      // the cap number, so those two together are the real signal.
+      // once jumped to lesson 2 on its own. go() closes the setup sheet and
+      // commits the cap number, so those two together are the real signal.
       validate: function () { return !sheetOpen() && T.state.me.number != null; },
       autoComplete: function () { click('#xgtGo'); },
       success: 'Tracking' }
@@ -592,6 +632,7 @@ function buildLessons(which) {
 
   { title: 'The clock', steps: [
     { ack: true,
+      // Nothing is clickable on an ack step, so the clock cannot be started here.
       instruction: 'Top of the screen: the <b>quarter</b> and the <b>clock</b>. The clock counts down from 8:00.',
       highlight: '#xgtClock' },
 
@@ -603,11 +644,13 @@ function buildLessons(which) {
       success: 'Running' },
 
     { ack: true,
+      // Deliberately no mention of zones -- those are Lesson 3, and naming them
+      // here explains one unknown thing with another.
       instruction: 'Here is the part nobody expects, and it is worth knowing.\n\n' +
-        'When you tap a zone the tracker <b>remembers the clock at that instant</b> but keeps it running — it does not freeze while you choose.\n\n' +
-        'When you finish, if what you logged <b>stops play</b> (a goal, or a personal foul) the clock jumps back to the moment you tapped, and stops there. If it does not stop play — a blocked shot, say — the clock is left alone, because it was right all along.' },
+        'When you <b>start entering an event</b>, the tracker remembers the clock at that instant but keeps it running — it does not freeze while you choose.\n\n' +
+        'When you finish, if what you logged <b>stops play</b> (a goal, or a personal foul) the clock jumps back to the moment you started, and stops there. If it does not stop play — a blocked shot, say — the clock is left alone, because it was right all along.' },
 
-    { instruction: 'Let’s watch that happen. Tap anywhere on the field, in front of the goal.',
+    { instruction: 'Let’s watch that happen. Tap the water in front of the goal to start an event.',
       onEnter: mark,
       allowZone: '*',
       validate: function () { return !!(T.state.draft && T.state.draft.fieldZone); },
@@ -617,14 +660,12 @@ function buildLessons(which) {
       allow: '#xgtSheet',
       validate: function () { return loggedSince(base, { action: 'shot', outcome: 'goal' }); },
       autoComplete: function () {
-        // The assist sheet only appears where Advanced Tracking Actions are
-        // available, so it is optional, never an assumption.
         chain(['.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="low_left"]', '?#xgtAssistSkip']);
       },
       success: 'Goal logged' },
 
     { ack: true,
-      instruction: 'Look at the clock — it stopped on its own, at the moment you tapped the zone. The seconds you spent choosing were not taken off the game.',
+      instruction: 'Look at the clock — it stopped on its own, at the moment you started the event. The seconds you spent choosing were not taken off the game.',
       highlight: '#xgtT' },
 
     { instruction: 'To correct the clock or change quarter, tap the quarter button.',
@@ -633,12 +674,17 @@ function buildLessons(which) {
       validate: function () { return !!el('xgtDone'); },
       autoComplete: function () { click('#xgtQ'); } },
 
-    { instruction: 'Quarter chips along the top, then plus and minus to match the pool clock. <b>SO</b> is the penalty shootout — we come back to that.\n\n' +
-        'Adjust the time however you like, then tap <b>Done</b>.\n\nEvents you have already logged keep their own timestamps; this only moves the clock.',
-      highlight: '#xgtDone',
-      allow: '#xgtSheet',
-      validate: function () { return !sheetOpen(); },
-      autoComplete: function () { chain(['[data-d="-60"]', '#xgtDone']); } }
+    { instruction: 'The referee’s clock is <b>11 seconds behind</b> yours. Take exactly 11 seconds off — <b>−0:10</b> then <b>−0:01</b> — and tap <b>Done</b>.\n\nQuarter chips are along the top, and <b>SO</b> is the penalty shootout, which we come back to.\n\nEvents you have already logged keep their own timestamps; this only moves the clock.',
+      onEnter: function () { clockTarget = Math.max(0, T.state.clock - 11); },
+      // #xgtQ as well as the sheet: tap Done at the wrong time and you need a
+      // way back in to correct it. Without this the step could only be escaped
+      // with "Next step", which is a rescue, not a route.
+      allow: ['#xgtSheet', '#xgtQ'],
+      // Both the exact time AND the sheet being closed: adjusting without
+      // confirming is not the same as finishing the step.
+      validate: function () { return !sheetOpen() && T.state.clock === clockTarget; },
+      autoComplete: function () { chain(['[data-d="-10"]', '[data-d="-1"]', '#xgtDone']); },
+      success: 'Clock corrected' }
   ]},
 
   { title: 'Zones', steps: [
@@ -853,8 +899,8 @@ var API = {
   stepInfo: function (i) {
     var s = steps[i];
     if (!s) return null;
-    return { ack: !!s.ack, lesson: s._lessonTitle,
-             hasTarget: !!(s.allow || s.allowZone || typeof s.highlight === 'string') };
+    return { ack: !!(s.ack || s.auto), lesson: s._lessonTitle,
+             hasTarget: !!(s.allow || s.allowZone || s.auto || typeof s.highlight === 'string') };
   },
   goToStep: function (i) { if (running) goTo(i); },
   next: nextStep
