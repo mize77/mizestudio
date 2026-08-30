@@ -70,6 +70,7 @@ var CSS = [
 '#xgtuRing{position:fixed;z-index:' + Z_RING + ';border:3px solid #ff3b30;border-radius:12px;',
 '  pointer-events:none;box-shadow:0 0 0 3px rgba(255,59,48,.25);animation:xgtuPulse 1.3s ease-in-out infinite;display:none;}',
 '#xgtuRing.nudge{animation:xgtuNudge .45s ease;}',
+'#xgtuRing.look{border-color:#4bb8bd;box-shadow:0 0 0 3px rgba(75,184,189,.22);animation:none;}',
 '@keyframes xgtuPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.55;transform:scale(1.04);}}',
 '@keyframes xgtuNudge{0%,100%{transform:scale(1);}25%{transform:scale(1.14);}60%{transform:scale(.97);}}',
 '#xgtuFlash{position:fixed;left:0;right:0;z-index:' + Z_BOX + ';text-align:center;pointer-events:none;',
@@ -230,6 +231,7 @@ function nudgeRing() {
   r.classList.remove('nudge');
   void r.offsetWidth;                                     // restart the animation
   r.classList.add('nudge');
+  setTimeout(function () { r.classList.remove('nudge'); }, 500);
 }
 
 /* A step is finished the moment the field is committed -- Enter, Tab, or moving
@@ -334,6 +336,14 @@ function paintRing() {
   var r = target.getBoundingClientRect();
   if (!r.width && !r.height) { ring.style.display = 'none'; return; }
   ring.style.display = 'block';
+  // Above the instruction box only when the thing being ringed is inside it,
+  // so a ring around a tracker control never draws over the instructions.
+  var box = el('xgtuBox');
+  ring.style.zIndex = (box && box.contains(target)) ? (Z_BOX + 2) : Z_RING;
+  // Red means "tap this". An ack step is read-only, so its ring is teal and
+  // calm -- pointing at something that is deliberately not clickable with the
+  // same urgent red is what made a blocked Menu feel broken rather than inert.
+  ring.className = (s && s.ack) ? 'look' : '';
   ring.style.left = (r.left - 5) + 'px';
   ring.style.top = (r.top - 5) + 'px';
   ring.style.width = (r.width + 10) + 'px';
@@ -574,7 +584,7 @@ function buildLessons(which) {
       // sentence explaining it is demonstrated by the thing itself.
       highlight: '#xgtuAck',
       instruction: 'Two things about how this works.\n\n' +
-        'Watch for the <b>pulsing red ring</b> — like the one around <b>Got it</b> right now. It marks the only thing that will respond.\n\n' +
+        'A <b>pulsing red ring</b> marks the one thing to tap — like the one around <b>Got it</b> right now. A calm <b>teal ring</b> just means "look here", nothing to press.\n\n' +
         'Each step moves on by itself the moment you have done it. If you would rather not, <b>Next step →</b> does it for you.' },
 
     { instruction: 'Tap <b>Start a new game</b> to set up a fresh one.\n\n' +
@@ -604,14 +614,14 @@ function buildLessons(which) {
       validate: function () { return demoDone; },
       autoComplete: function () { demoDone = true; } },
 
-    { instruction: 'Your turn. Type <b>your own team’s name</b>, then press <b>Enter</b> to confirm it.',
+    { instruction: 'Your turn. <b>Tap the field</b>, type <b>your own team’s name</b>, then press <b>Enter</b> to confirm it.',
       highlight: '#xgtHome',
       allow: '#xgtHome',
       commit: '#xgtHome',
       validate: function () { return inputCommitted && !!fieldValue('#xgtHome'); },
       autoComplete: function () { autoType('#xgtHome', 'Marin', function () {}); } },
 
-    { instruction: 'And the <b>cap number</b> of the player you are tracking. <b>Enter</b> to confirm.',
+    { instruction: '<b>Tap the next field</b> and enter the <b>cap number</b> of the player you are tracking, then <b>Enter</b> to confirm.',
       highlight: '#xgtNum',
       allow: '#xgtNum',
       commit: '#xgtNum',
@@ -689,7 +699,7 @@ function buildLessons(which) {
 
   { title: 'Zones', steps: [
     { ack: true,
-      instruction: 'One rule makes the whole tracker make sense:\n\n<b>Every event starts by tapping where on the field it began.</b>\n\nZone, then what happened, then the outcome. There is no other way in.' },
+      instruction: 'One pattern logs almost everything:\n\n<b>Tap the zone</b> where it happened, <b>tap the action</b>, then <b>tap the outcome</b>.\n\nZone → action → outcome. Every event starts with the zone; there is no other way in.' },
 
     { ack: true,
       instruction: 'The numbers on the water are the zones: the centre, the five around the arc, and three further out. Anything in the far half is <b>OPPO</b>.',
@@ -708,9 +718,17 @@ function buildLessons(which) {
       autoComplete: function () { click('#xgtX'); },
       success: 'Nothing logged' },
 
-    { ack: true,
-      instruction: 'Your club numbers its zones differently? <b>Menu → Rename Field Zones</b>, and tap any zone to renumber it. That is personal to this device, not a team setting. <b>Hide Field Zones</b> is next to it if you would rather see clean water.',
-      highlight: '#xgtOptionsBtn' }
+    { instruction: 'Last thing. Open the <b>Menu</b>.',
+      highlight: '#xgtOptionsBtn',
+      allow: '#xgtOptionsBtn',
+      validate: function () { return sheetOpen() && !!el('xgtOptEditNums'); },
+      autoComplete: function () { click('#xgtOptionsBtn'); } },
+
+    { instruction: '<b>Rename Field Zones</b> is here — your club numbers them differently, so change them and tap any zone to renumber it. That is personal to this device, not a team setting.\n\n<b>Hide Field Zones</b> is next to it if you would rather see clean water.\n\nClose the menu with the ✕.',
+      highlight: '#xgtOptEditNums',
+      allow: '#xgtX',
+      validate: function () { return !sheetOpen(); },
+      autoComplete: function () { click('#xgtX'); } }
   ]},
 
   { title: 'Actions and outcomes', steps: [
