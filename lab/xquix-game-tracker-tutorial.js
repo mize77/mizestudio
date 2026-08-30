@@ -228,7 +228,7 @@ function chain(items) {
    CAPTURE phase on window, so it fires before the tracker's shield handler and
    before any button's own onclick -- which is the only place a guard can sit
    given the shield swallows events on the way down. */
-var allowedNow = null;   // { sels: [..], zone: 'z3' | '*' | null }
+var allowedNow = null;   // { sels: [..], deny: [..], zone: 'z3' | '*' | null }
 
 function insideAny(node, sels) {
   for (var i = 0; i < sels.length; i++) {
@@ -242,6 +242,13 @@ function clickAllowed(e) {
   if (dlg && dlg.contains(e.target)) return true;         // the exit / complete dialogue
   if (box && box.contains(e.target)) return true;         // the tutorial's own controls
   if (!allowedNow) return false;
+  // A deny list, checked first. Some steps need the whole sheet reachable so a
+  // mis-tap can be backed out of, minus one or two buttons that would take the
+  // coach somewhere the lesson has not prepared them for -- Penalty, which
+  // launches the penalty-shot flow, and the field-defender block options, which
+  // contradict what this lesson teaches. Narrowing `allow` instead would also
+  // remove the ✕ and the back arrow, and leave a mis-tap with nowhere to go.
+  if (allowedNow.deny && allowedNow.deny.length && insideAny(e.target, allowedNow.deny)) return false;
   var shield = el('xgtShield');
   if (allowedNow.zone && shield && (e.target === shield || shield.contains(e.target))) {
     // A zone tap is allowed only where the step actually asked for it, resolved
@@ -477,7 +484,8 @@ function goTo(i) {
   // on screen should respond. Falling back to the highlight here was a bug --
   // "here is the clock" let the clock be started three steps early.
   if (!sels.length && !s.ack && typeof s.highlight === 'string') sels.push(s.highlight);
-  allowedNow = { sels: sels, zone: s.allowZone || null };
+  var denies = s.deny ? (typeof s.deny === 'string' ? [s.deny] : s.deny.slice()) : [];
+  allowedNow = { sels: sels, deny: denies, zone: s.allowZone || null };
   inputCommitted = false;
   ringOverride = null;
   clearHints();
@@ -965,28 +973,40 @@ function stop() {
         'It defaults to your player, so the usual case needs no tap — but it is how you log the shot your player did <i>not</i> take.',
       highlight: '#xgtAttr' },
 
-    { instruction: 'Log a shot the opponent’s <b>goalkeeper blocks</b>: tap <b>Shot</b>, then <b>Blocked Shot</b>.\n\n' +
-        'On <b>Pro</b> one more question follows — who stopped it, and whether the ball stayed in play. Pick whichever you like.',
+    // A blocked shot is a shot that REACHED the goal and was stopped there, so
+    // it takes the in-goal grid (FIELD_PLAYER_ACTIONS: blocked carries
+    // placement:'in'). Only the goalkeeper can do that. A field player's block
+    // stops the ball on the way in, so it never reaches the goal at all -- that
+    // is a missed shot, and it is what the miss map's in-cage BLOCKED BY FIELD
+    // PLAYER target exists for. The two are different events, not two labels
+    // for one.
+    { instruction: 'Log a <b>blocked shot</b>: tap <b>Shot</b>, then <b>Blocked Shot</b>, then tap the part of the goal where it was stopped.\n\n' +
+        'A blocked shot is a shot that <b>reached the goal</b> — so it is the opponent’s <b>goalkeeper</b> who stopped it. That is why this one asks you where in the goal.',
       allow: '#xgtSheet',
+      // The Pro follow-up asks who blocked it, and offers a field defender.
+      // Per the tracker's own placement grid that cannot be right here, and it
+      // is not what this lesson teaches -- so those two are inert.
+      deny: ['[data-br="fp_in"]', '[data-br="fp_out"]'],
       validate: function () { return loggedSince(base, { action: 'shot', outcome: 'blocked' }); },
       autoComplete: function () {
-        chain(['.xgtOpts [data-a="shot"]', '[data-s="blocked"]', '?[data-br="gk_in"]']);
+        chain(['.xgtOpts [data-a="shot"]', '[data-s="blocked"]', '.gz[data-p="middle_center"]', '?[data-br="gk_in"]']);
       },
-      success: 'Blocked shot logged' },
+      success: 'Save logged' },
 
     { ack: true,
-      instruction: 'That follow-up is the one most people skip, and it is the difference between a <b>save</b> and a <b>field block</b> — and between a corner throw and a goalie ball.\n\n' +
-        'It is what makes the numbers honest later. On the free tier a blocked shot is simply recorded as blocked, with no follow-up.' },
+      instruction: 'So what about a shot a <b>field player</b> blocks?\n\n' +
+        'That ball never reaches the goal — so it is a <b>Missed Shot</b>, not a blocked one. That is the next step, and it is where you say so.\n\n' +
+        'On <b>Pro</b>, a save is followed by one more question: did the ball stay in play, or go out for a corner throw. It is what makes the numbers honest later.' },
 
-    { instruction: 'Next: a miss. Tap a field zone, then <b>Shot</b>, then <b>Missed Shot</b>, and tap where it went.\n\n' +
+    { instruction: 'Now a miss. Tap a field zone, then <b>Shot</b>, then <b>Missed Shot</b>, and tap where it went.\n\n' +
         'This map is not the goal grid — it has the posts, the crossbar, wide on either side, over the bar, and short into the water.\n\n' +
-        'And if a <b>field player</b> blocked the shot on its way in, tap <b>inside the goal</b> on this map — that is what the BLOCKED BY FIELD PLAYER area is for.',
+        'And if a <b>field player</b> blocked the shot on its way in, tap <b>inside the goal</b> on this map. The ball was on target; the block is why it never arrived.',
       onEnter: mark,
       allowZone: '*',
       allow: '#xgtSheet',
       validate: function () { return loggedSince(base, { action: 'shot', outcome: 'missed' }); },
       autoComplete: function () {
-        chain([function () { tapZone('z4'); }, '.xgtOpts [data-a="shot"]', '[data-s="missed"]', '.gz[data-p="crossbar"]']);
+        chain([function () { tapZone('z4'); }, '.xgtOpts [data-a="shot"]', '[data-s="missed"]', '.gz[data-p="blocked_field"]']);
       },
       success: 'Miss logged' },
 
@@ -998,7 +1018,8 @@ function stop() {
         '<b>Penalty (5 m)</b> sits in the same list. In a real game, choosing it opens the resulting penalty shot straight away, by itself — worth expecting, so it does not feel like the app running away with you.',
       onEnter: mark,
       allowZone: '*',
-      allow: ['[data-a="exclusion"]', '[data-s="exclusion"]'],
+      allow: '#xgtSheet',
+      deny: '[data-s="penalty"]',
       validate: function () { return loggedSince(base, { action: 'exclusion' }); },
       autoComplete: function () {
         chain([function () { tapZone('z5'); }, '.xgtOpts [data-a="exclusion"]', '[data-s="exclusion"]']);
@@ -1121,9 +1142,10 @@ function stop() {
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
+      deny: ['[data-br="fp_in"]', '[data-br="fp_out"]'],
       hints: [
         'Field zone first. The left wing is <b>field zone 1</b> — the far left of the five in front of the goal.',
-        'Then <b>Shot</b>, then <b>Blocked Shot</b>.'
+        'Then <b>Shot</b>, then <b>Blocked Shot</b>, then where in the goal the keeper stopped it.'
       ],
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'blocked' });
@@ -1137,7 +1159,8 @@ function stop() {
         return false;
       },
       autoComplete: function () {
-        chain([function () { tapZone('z1'); }, '.xgtOpts [data-a="shot"]', '[data-s="blocked"]', '?[data-br="gk_in"]']);
+        chain([function () { tapZone('z1'); }, '.xgtOpts [data-a="shot"]', '[data-s="blocked"]',
+               '.gz[data-p="middle_center"]', '?[data-br="gk_in"]']);
       },
       success: 'Blocked, from the wing' },
 
