@@ -206,6 +206,33 @@ function statsOpen() {
    selector prefixed '?' (optional -- click it if it turns up quickly, carry on
    if it never does). Optional covers sheets that only appear on some tiers,
    like the assist step, which exists on Pro and not on Basic. */
+/* Visible *now* -- not merely present. closeSheet() leaves the last sheet's
+   innerHTML in the DOM, so q() happily finds buttons from a screen that is no
+   longer on screen. */
+function vis(sel) {
+  if (!sheetOpen()) return false;
+  var e = q(sel);
+  if (!e) return false;
+  var r = e.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+}
+
+/* Start a chain wherever the sheet actually is, rather than always at the first
+   tap. "Next step" gets pressed just as often three taps into a sequence as at
+   its start -- and a chain that begins from scratch then spends 1.3 seconds
+   polling for a button that is long gone, three times over, while the advance
+   fallback fires underneath it. That is exactly how the blocked-shot step left
+   its follow-up sheet open over a step that allowed nothing, with no way to
+   close it. */
+function chainFrom(items) {
+  for (var i = items.length - 1; i > 0; i--) {
+    var it = items[i];
+    if (typeof it !== 'string') continue;
+    if (vis(it.charAt(0) === '?' ? it.slice(1) : it)) { chain(items.slice(i)); return; }
+  }
+  chain(items);
+}
+
 function chain(items) {
   var i = 0;
   (function step_() {
@@ -260,7 +287,19 @@ function clickAllowed(e) {
   return allowedNow.sels.length ? insideAny(e.target, allowedNow.sels) : false;
 }
 
+/* The tutorial's own rescue taps go through the guard like everyone else's, so
+   they need a way past it -- closing a sheet the coach was never allowed to
+   close is the whole point of a rescue. Set only around a synchronous dispatch. */
+var bypassGuard = false;
+function clickThrough(sel) {
+  bypassGuard = true;
+  var r = click(sel);
+  bypassGuard = false;
+  return r;
+}
+
 function interactionGuard(e) {
+  if (bypassGuard) return;
   if (!running) return;
   restartHints();                       // any tap counts as "they are trying"
   if (clickAllowed(e)) return;
@@ -484,6 +523,11 @@ function goTo(i) {
   // on screen should respond. Falling back to the highlight here was a bug --
   // "here is the clock" let the clock be started three steps early.
   if (!sels.length && !s.ack && typeof s.highlight === 'string') sels.push(s.highlight);
+  // An ack step allows nothing -- with one exception. If a sheet is open when
+  // one begins, the ✕ stays live, because otherwise a sheet left over from the
+  // step before is a box on screen that cannot be dismissed and a lesson that
+  // cannot continue. Closing it is always safe: it is a cancel, never a record.
+  if (s.ack && !sels.length) sels.push('#xgtX');
   var denies = s.deny ? (typeof s.deny === 'string' ? [s.deny] : s.deny.slice()) : [];
   allowedNow = { sels: sels, deny: denies, zone: s.allowZone || null };
   inputCommitted = false;
@@ -550,14 +594,25 @@ function nextStep() {
   if (s.autoComplete) {
     var from = idx;
     try { s.autoComplete(); } catch (err) { console.error('XquiX tutorial: autoComplete threw', err); }
-    // Fall through only if we are STILL on the step this was pressed for.
-    // Without the idx check, a fallback armed for one step fires after normal
-    // validation has already advanced, and silently skips the next step --
-    // which is exactly how several action steps appeared to pass while
-    // recording nothing at all.
-    setTimeout(function () {
-      if (idx === from && !advancing) succeed();
-    }, 1800);
+    // Wait for the auto-complete to actually land rather than advancing on a
+    // fixed timer. A chain can take several seconds when it starts mid-sequence,
+    // and a timer that fires underneath it advances the tutorial while a sheet
+    // is still open -- onto a step that may allow nothing, which strands the
+    // whole lesson with a box that cannot be closed.
+    //
+    // If it has not landed by the deadline, close whatever is open before
+    // moving on, so the next step starts from a clean screen either way. No
+    // step is ever a dead end, and none leaves a sheet behind.
+    var t0 = Date.now();
+    (function waitOut() {
+      if (!running || idx !== from || advancing) return;   // it advanced on its own
+      var ok = false;
+      try { ok = s.validate ? !!s.validate() : true; } catch (err) { ok = false; }
+      if (ok) return;                                      // tick() will advance it
+      if (Date.now() - t0 < 5000) { setTimeout(waitOut, 180); return; }
+      if (sheetOpen() || (T && T.state.draft)) clickThrough('#xgtX');
+      setTimeout(function () { if (running && idx === from && !advancing) succeed(); }, 150);
+    })();
     return;
   }
   succeed();
@@ -725,6 +780,14 @@ function stop() {
   var scrollFrom = 0;   // #stageWrap scroll position when the scroll step began
   var renameBase = 0;   // how many zone renames existed before L3 asked for one
   var mark = function () { base = actions().length; };
+  /* "Done" means the event is COMMITTED, not merely that a matching one exists.
+     With an open draft still on screen, a baseline left over from an earlier
+     step reads as success and advances the tutorial with a sheet the next step
+     may not allow anyone to close. Every event step marks its own baseline and
+     waits for the draft to clear. */
+  var logged = function (want) {
+    return function () { return !T.state.draft && loggedSince(base, want); };
+  };
   var scrollStrip = function () {
     var r = document.getElementById('fcScrollZoneRight');
     if (r && r.style.display === 'block') return r;
@@ -740,8 +803,7 @@ function stop() {
       // full game sets up the wrong expectation for what the next ten minutes
       // actually are.
       instruction: 'Welcome to the <b>Game Tracker</b>.\n\n' +
-        'These lessons teach you the <b>workflow</b> and the <b>main functions</b>: how an event gets logged, how the clock behaves, what the stats show you while you track, and how a game is closed out.\n\n' +
-        'Nothing you do here is saved.' },
+        'These lessons teach you the <b>workflow</b> and the <b>main functions</b>: how an event gets logged, how the clock behaves, what the stats show you while you track, and how a game is closed out.' },
 
     { ack: true,
       // The ring is pointed at the button the coach is about to press, so the
@@ -754,7 +816,7 @@ function stop() {
         'Each step moves on by itself the moment you have done it. If you would rather not, <b>Next step →</b> does it for you.' },
 
     { instruction: 'Tap <b>Start a new game</b> to set up a fresh one.\n\n' +
-        'If you had left a game unfinished, <b>Resume</b> would be here too — a session survives closing the app.',
+        'If you had left a game unfinished, a <b>Resume this game</b> option would be here too — a session survives closing the app.',
       highlight: '#xgtFresh',
       allow: '#xgtFresh',
       validate: function () { return sheetOpen() && !!el('xgtGo'); },
@@ -773,8 +835,8 @@ function stop() {
       auto: true,
       onEnter: function () {
         demoDone = false;
-        autoType('#xgtLoc', 'Marin Aquatic Center', function () {
-          autoType('#xgtAway', 'Diablo', function () { ringOverride = null; demoDone = true; });
+        autoType('#xgtLoc', 'WP City', function () {
+          autoType('#xgtAway', 'Black Octopus', function () { ringOverride = null; demoDone = true; });
         });
       },
       validate: function () { return demoDone; },
@@ -785,7 +847,7 @@ function stop() {
       allow: '#xgtHome',
       commit: '#xgtHome',
       validate: function () { return inputCommitted && !!fieldValue('#xgtHome'); },
-      autoComplete: function () { autoType('#xgtHome', 'Marin', function () {}); } },
+      autoComplete: function () { autoType('#xgtHome', 'WP City Waves', function () {}); } },
 
     { instruction: '<b>Tap the next field</b> and enter the <b>cap number</b> of the player you are tracking, then <b>Enter</b> to confirm.',
       highlight: '#xgtNum',
@@ -834,7 +896,7 @@ function stop() {
     { ack: true,
       // Nothing is clickable on an ack step, so the clock cannot be started here.
       instruction: 'At the top of the screen you can see the current <b>quarter</b> and the <b>game clock</b>.\n\n' +
-        'The clock counts down from <b>8:00</b>. If your competition plays shorter quarters you can set it to whatever you need — that comes later in this lesson.',
+        'The clock counts down from <b>8:00</b>. If your competition plays shorter quarters, the quarter time can be adjusted — in the time sheet behind the quarter button, which this lesson comes to shortly.',
       highlight: '#xgtClock' },
 
     { instruction: 'Tap the clock to start it.',
@@ -863,10 +925,13 @@ function stop() {
 
     { instruction: 'Now log a <b>Shot</b> by tapping that button, then log a <b>Goal</b> with the button that appears next, and tap roughly where in the net it went.\n\n' +
         'On <b>Pro</b> you then get the chance to log the <b>assist giver</b> — or to skip that step.',
+      onEnter: mark,
+      allowZone: '*',
       allow: '#xgtSheet',
-      validate: function () { return loggedSince(base, { action: 'shot', outcome: 'goal' }); },
+      validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
-        chain(['.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="low_left"]', '?#xgtAssistSkip']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z3'); },
+                   '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="low_left"]', '?#xgtAssistSkip']);
       },
       success: 'Goal logged' },
 
@@ -880,13 +945,20 @@ function stop() {
       validate: function () { return !!el('xgtDone'); },
       autoComplete: function () { click('#xgtQ'); } },
 
+    { ack: true,
+      instruction: '',   // written by onEnter, which knows the real target time
+      onEnter: function () {
+        clockTarget = Math.max(0, T.state.clock - 11);
+        setText('This is the sheet. The <b>quarter chips</b> are along the top, and <b>SO</b> is there for a potential penalty shootout.\n\n' +
+          'Say the official pool clock is <b>11 seconds behind</b> yours. You would take 11 seconds off here — which is the next step.\n\n' +
+          'Events you have already logged keep their own timestamps; this only moves the clock.');
+      } },
+
     { instruction: '',   // written by onEnter, which knows the real target time
       onEnter: function () {
         clockTarget = Math.max(0, T.state.clock - 11);
-        setText('In this scenario the official pool clock is <b>11 seconds behind</b> yours, so take 11 seconds off.\n\n' +
-          'Tap <b>−0:10</b>, then <b>−0:01</b>, then <b>Done</b>. You are aiming for <b>' + mmss(clockTarget) + '</b> — check the display against that before you tap Done.\n\n' +
-          'The quarter chips are along the top, and <b>SO</b> is there for a potential penalty shootout.\n\n' +
-          'Events you have already logged keep their own timestamps; this only moves the clock.');
+        setText('Tap <b>−0:10</b>, then <b>−0:01</b>, then <b>Done</b>.\n\n' +
+          'You are aiming for <b>' + mmss(clockTarget) + '</b> — check the display against that before you tap Done.');
       },
       // #xgtQ as well as the sheet: tap Done at the wrong time and you need a
       // way back in to correct it. Without this the step could only be escaped
@@ -907,7 +979,7 @@ function stop() {
 
     { ack: true,
       instruction: 'The numbers you can see on the water are the <b>field zones</b>. They are there to help you say exactly where something happened.\n\n' +
-        '<b>6</b> is the centre, right in front of the goal. <b>1</b> to <b>5</b> run across the arc in front of it, wing to wing. <b>12</b>, <b>13</b> and <b>14</b> sit further out.\n\n' +
+        '<b>6</b> is the center, right in front of the goal. <b>1</b> to <b>5</b> run across the arc in front of it, wing to wing. <b>12</b>, <b>13</b> and <b>14</b> sit further out.\n\n' +
         'Anything in the opposite half is the little <b>OPPO</b> area.',
       highlight: '#xgtZoneLayer' },
 
@@ -969,7 +1041,7 @@ function stop() {
       autoComplete: function () { tapZone('z2'); } },
 
     { ack: true,
-      instruction: 'The row at the top is easy to miss and worth knowing: <b>mine / Team-mate / Opponent</b>.\n\n' +
+      instruction: 'The row at the top is easy to miss and worth knowing: <b>Mine / Teammate / Opponent</b>.\n\n' +
         'It defaults to your player, so the usual case needs no tap — but it is how you log the shot your player did <i>not</i> take.',
       highlight: '#xgtAttr' },
 
@@ -982,21 +1054,25 @@ function stop() {
     // for one.
     { instruction: 'Log a <b>blocked shot</b>: tap <b>Shot</b>, then <b>Blocked Shot</b>, then tap the part of the goal where it was stopped.\n\n' +
         'A blocked shot is a shot that <b>reached the goal</b> — so it is the opponent’s <b>goalkeeper</b> who stopped it. That is why this one asks you where in the goal.',
+      onEnter: mark,
+      allowZone: '*',
       allow: '#xgtSheet',
-      // The Pro follow-up asks who blocked it, and offers a field defender.
-      // Per the tracker's own placement grid that cannot be right here, and it
-      // is not what this lesson teaches -- so those two are inert.
-      deny: ['[data-br="fp_in"]', '[data-br="fp_out"]'],
-      validate: function () { return loggedSince(base, { action: 'shot', outcome: 'blocked' }); },
+      validate: logged({ action: 'shot', outcome: 'blocked' }),
       autoComplete: function () {
-        chain(['.xgtOpts [data-a="shot"]', '[data-s="blocked"]', '.gz[data-p="middle_center"]', '?[data-br="gk_in"]']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z2'); },
+                   '.xgtOpts [data-a="shot"]', '[data-s="blocked"]', '.gz[data-p="middle_center"]', '?[data-br="gk_in"]']);
       },
       success: 'Save logged' },
 
+    // Two separate points that are easy to run together. The first is the
+    // blocked/missed boundary. The second is that a save does not end the play:
+    // stepBlockResult asks what became of the BALL, and a rebound reaching a
+    // field player is an ordinary outcome of a keeper's save -- not a claim
+    // about who made it.
     { ack: true,
-      instruction: 'So what about a shot a <b>field player</b> blocks?\n\n' +
-        'That ball never reaches the goal — so it is a <b>Missed Shot</b>, not a blocked one. That is the next step, and it is where you say so.\n\n' +
-        'On <b>Pro</b>, a save is followed by one more question: did the ball stay in play, or go out for a corner throw. It is what makes the numbers honest later.' },
+      instruction: 'Two things worth holding on to.\n\n' +
+        'A shot a <b>field player</b> blocks never reaches the goal, so it is not a blocked shot at all — it is a <b>Missed Shot</b>, and you say so on the miss map. That is the next step.\n\n' +
+        'And a save does not end the play. The ball can rebound and stay in the water. On <b>Pro</b> the tracker asks what became of it — <b>stayed in play</b>, or <b>went out</b> — which is what puts a corner throw or a goalie ball into the numbers later.' },
 
     { instruction: 'Now a miss. Tap a field zone, then <b>Shot</b>, then <b>Missed Shot</b>, and tap where it went.\n\n' +
         'This map is not the goal grid — it has the posts, the crossbar, wide on either side, over the bar, and short into the water.\n\n' +
@@ -1004,9 +1080,10 @@ function stop() {
       onEnter: mark,
       allowZone: '*',
       allow: '#xgtSheet',
-      validate: function () { return loggedSince(base, { action: 'shot', outcome: 'missed' }); },
+      validate: logged({ action: 'shot', outcome: 'missed' }),
       autoComplete: function () {
-        chain([function () { tapZone('z4'); }, '.xgtOpts [data-a="shot"]', '[data-s="missed"]', '.gz[data-p="blocked_field"]']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z4'); },
+                   '.xgtOpts [data-a="shot"]', '[data-s="missed"]', '.gz[data-p="blocked_field"]']);
       },
       success: 'Miss logged' },
 
@@ -1020,9 +1097,10 @@ function stop() {
       allowZone: '*',
       allow: '#xgtSheet',
       deny: '[data-s="penalty"]',
-      validate: function () { return loggedSince(base, { action: 'exclusion' }); },
+      validate: logged({ action: 'exclusion' }),
       autoComplete: function () {
-        chain([function () { tapZone('z5'); }, '.xgtOpts [data-a="exclusion"]', '[data-s="exclusion"]']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z5'); },
+                   '.xgtOpts [data-a="exclusion"]', '[data-s="exclusion"]']);
       },
       success: 'Foul logged' },
 
@@ -1030,9 +1108,9 @@ function stop() {
       onEnter: mark,
       allowZone: '*',
       allow: '#xgtSheet',
-      validate: function () { return loggedSince(base, { action: 'steal' }); },
+      validate: logged({ action: 'steal' }),
       autoComplete: function () {
-        chain([function () { tapZone('z6'); }, '.xgtOpts [data-a="steal"]']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z6'); }, '.xgtOpts [data-a="steal"]']);
       },
       success: 'Steal logged' },
 
@@ -1124,14 +1202,15 @@ function stop() {
         return 'That logged a <b>' + nameOf(e) + '</b> in ' + zoneNameOf(e) + '. Tap <b>↩</b> at the bottom to undo it, then log a goal from field zone 3.';
       },
       validate: function () {
+        if (T.state.draft) return false;
         var a = actions();
         for (var i = base; i < a.length; i++)
           if (a[i].action === 'shot' && a[i].outcome === 'goal' && a[i].fieldZone === 'z3') return true;
         return false;
       },
       autoComplete: function () {
-        chain([function () { tapZone('z3'); }, '.xgtOpts [data-a="shot"]', '[data-s="goal"]',
-               '.gz[data-p="top_right"]', '?#xgtAssistSkip']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z3'); }, '.xgtOpts [data-a="shot"]', '[data-s="goal"]',
+                   '.gz[data-p="top_right"]', '?#xgtAssistSkip']);
       },
       success: 'That is the one' },
 
@@ -1142,7 +1221,6 @@ function stop() {
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      deny: ['[data-br="fp_in"]', '[data-br="fp_out"]'],
       hints: [
         'Field zone first. The left wing is <b>field zone 1</b> — the far left of the five in front of the goal.',
         'Then <b>Shot</b>, then <b>Blocked Shot</b>, then where in the goal the keeper stopped it.'
@@ -1153,14 +1231,15 @@ function stop() {
         return 'That logged a <b>' + nameOf(e) + '</b> in ' + zoneNameOf(e) + '. Tap <b>↩</b> at the bottom to undo it, then log a blocked shot from field zone 1.';
       },
       validate: function () {
+        if (T.state.draft) return false;
         var a = actions();
         for (var i = base; i < a.length; i++)
           if (a[i].action === 'shot' && a[i].outcome === 'blocked' && a[i].fieldZone === 'z1') return true;
         return false;
       },
       autoComplete: function () {
-        chain([function () { tapZone('z1'); }, '.xgtOpts [data-a="shot"]', '[data-s="blocked"]',
-               '.gz[data-p="middle_center"]', '?[data-br="gk_in"]']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z1'); }, '.xgtOpts [data-a="shot"]', '[data-s="blocked"]',
+                   '.gz[data-p="middle_center"]', '?[data-br="gk_in"]']);
       },
       success: 'Blocked, from the wing' },
 
@@ -1177,9 +1256,9 @@ function stop() {
         if (!e) return null;
         return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log a steal.';
       },
-      validate: function () { return loggedSince(base, { action: 'steal' }); },
+      validate: logged({ action: 'steal' }),
       autoComplete: function () {
-        chain([function () { tapZone('z13'); }, '.xgtOpts [data-a="steal"]']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z13'); }, '.xgtOpts [data-a="steal"]']);
       },
       success: 'Steal' },
 
