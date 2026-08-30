@@ -403,20 +403,49 @@ function fieldValue(sel) { var e = q(sel); return e ? (e.value || '').trim() : '
    per-character delay is capped for readability and whatever time is left over
    is spent holding the finished field, ringed, before moving on. */
 var DEMO_MS = 2000;
+/* Bumped on every step change. A demo animation captures it and stops the
+   moment it no longer belongs to the step on screen -- otherwise pressing
+   "Next step" mid-demo leaves it typing into the setup sheet two steps later,
+   with the ring wandering off after it. */
+var demoToken = 0;
+
+/* Selects a control the way a finger does: ring first, then the tap, then a
+   beat to see the result. Same two seconds as a typed field, for the same
+   reason -- a selection that snaps into place is one the eye misses entirely. */
+function autoTap(sel, done) {
+  var e = q(sel);
+  if (!e) { if (done) done(); return; }
+  var tok = demoToken;
+  ringOverride = sel;
+  setTimeout(function () {
+    if (!running || tok !== demoToken) { ringOverride = null; return; }
+    var t = q(sel);
+    if (t) { bypassGuard = true; t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); bypassGuard = false; }
+    setTimeout(function () {
+      if (!running || tok !== demoToken) { ringOverride = null; return; }
+      if (done) done();
+    }, Math.max(400, DEMO_MS - 1200));
+  }, 1200);
+}
+
 function autoType(sel, text, done) {
   var e = q(sel);
   if (!e) { if (done) done(); return; }
+  var tok = demoToken;
   ringOverride = sel;
   var started = Date.now();
   var i = 0, per = Math.max(55, Math.min(140, Math.round((DEMO_MS - 400) / text.length)));
   (function tick() {
-    if (!running) { ringOverride = null; return; }
+    if (!running || tok !== demoToken) { ringOverride = null; return; }
     e.value = text.slice(0, ++i);
     e.dispatchEvent(new Event('input', { bubbles: true }));
     if (i < text.length) { setTimeout(tick, per); return; }
     e.dispatchEvent(new Event('change', { bubbles: true }));
     var left = Math.max(350, DEMO_MS - (Date.now() - started));
-    setTimeout(function () { if (done) done(); }, left);
+    setTimeout(function () {
+      if (!running || tok !== demoToken) { ringOverride = null; return; }
+      if (done) done();
+    }, left);
   })();
 }
 var demoDone = false;
@@ -474,11 +503,17 @@ function removeChrome() {
 
 /* ------------------------------------------------------------------ ring */
 var ringOverride = null;   // set while a demo animation is leading the eye
+var stepAt = 0;            // when the current step began, for the ring handover
 
 function paintRing() {
   var ring = el('xgtuRing'); if (!ring) return;
   var s = step();
   var sel = ringOverride || (s && s.highlight);
+  // A step can point at one thing to read and then, after a beat, at the thing
+  // to tap. Without the handover the ring has to choose between explaining and
+  // instructing, and whichever it picks the other reads as missing.
+  var handed = !!(s && s.then && !ringOverride && Date.now() - stepAt >= (s.thenAfter || 3000));
+  if (handed) sel = s.then;
   var target = sel ? (typeof sel === 'function' ? sel() : q(sel)) : null;
   if (!target) { ring.style.display = 'none'; return; }
   var r = target.getBoundingClientRect();
@@ -493,7 +528,7 @@ function paintRing() {
   // same urgent red is what made a blocked Menu feel broken rather than inert.
   // redRing overrides that for the one ack step whose target IS pressable: the
   // ring around "Got it", which the step's own text calls out as red.
-  ring.className = (s && s.ack && !s.redRing) ? 'look' : '';
+  ring.className = (!handed && s && ((s.ack && !s.redRing) || s.calmRing)) ? 'look' : '';
   ring.style.left = (r.left - 5) + 'px';
   ring.style.top = (r.top - 5) + 'px';
   ring.style.width = (r.width + 10) + 'px';
@@ -515,6 +550,8 @@ function goTo(i) {
   if (i >= steps.length) { openDialog('complete'); return; }
   idx = i;
   advancing = false;
+  stepAt = Date.now();
+  demoToken++;               // any animation still running belongs to the old step
   var s = steps[idx];
 
   // What the coach may touch on this step, and nothing else.
@@ -803,7 +840,7 @@ function stop() {
       // full game sets up the wrong expectation for what the next ten minutes
       // actually are.
       instruction: 'Welcome to the <b>Game Tracker</b>.\n\n' +
-        'These lessons teach you the <b>workflow</b> and the <b>main functions</b>: how an event gets logged, how the clock behaves, what the stats show you while you track, and how a game is closed out.' },
+        'These lessons teach you the <b>workflow</b> and the <b>main functions</b>: how an event gets logged, how the clock works, what the stats show you while you track, and how a game is closed out.' },
 
     { ack: true,
       // The ring is pointed at the button the coach is about to press, so the
@@ -822,25 +859,32 @@ function stop() {
       validate: function () { return sheetOpen() && !!el('xgtGo'); },
       autoComplete: function () { click('#xgtFresh'); } },
 
-    { instruction: 'This is the whole setup. <b>Tracking role</b> is the one that decides what you tap during the game — choose <b>Field Player</b>.\n\n' +
-        '<b>Who is tracking</b> is only a label on the record; a parent and a coach following one player use an identical tracker.',
-      highlight: '#xgtRl',
-      allow: '#xgtRl',
-      validate: function () { return T.state.playerRole === 'field'; },
-      autoComplete: function () { click('#xgtRl [data-role="field"]'); },
-      success: 'Field Player' },
-
-    { instruction: 'Now the game itself. Watch — the <b>location</b> fills itself in first, then the <b>opponent</b>. The ring shows you which field is being filled.\n\n' +
-        'Worth entering for real: these names replace <b>Us</b> and <b>Them</b> on every button and in every export.',
+    // Four beats, two seconds each, ringed one at a time. The two segments used
+    // to be a step of their own, chosen by the coach; MIZE asked for them
+    // demonstrated at the same pace as the typed fields, and a step that only
+    // re-selects what the demo has already selected is a step for nothing.
+    { instruction: 'Watch — the top of the setup fills itself in, one thing at a time.\n\n' +
+        '<b>Who is tracking</b> is only a label on the record. <b>Tracking role</b> is the one that decides what you tap during the game — and this tutorial is the <b>Field Player</b> one.\n\n' +
+        'Then the game itself. Worth entering for real: these names replace <b>Us</b> and <b>Them</b> on every button and in every export.',
       auto: true,
       onEnter: function () {
         demoDone = false;
-        autoType('#xgtLoc', 'WP City', function () {
-          autoType('#xgtAway', 'Black Octopus', function () { ringOverride = null; demoDone = true; });
+        autoTap('#xgtTm [data-tm="parent"]', function () {
+          autoTap('#xgtRl [data-role="field"]', function () {
+            autoType('#xgtLoc', 'WP City', function () {
+              autoType('#xgtAway', 'Black Octopus', function () { ringOverride = null; demoDone = true; });
+            });
+          });
         });
       },
       validate: function () { return demoDone; },
-      autoComplete: function () { demoDone = true; } },
+      autoComplete: function () {
+        ringOverride = null;
+        // Skipping the demo must still leave the role set -- every lesson after
+        // this one is the field-player flow.
+        if (T.state.playerRole !== 'field') clickThrough('#xgtRl [data-role="field"]');
+        demoDone = true;
+      } },
 
     { instruction: 'Your turn. <b>Tap the field</b>, type <b>your own team’s name</b>, then press <b>Enter</b> to confirm it.',
       highlight: '#xgtHome',
@@ -915,7 +959,7 @@ function stop() {
     { ack: true,
       instruction: 'What happens when you finish depends on what you logged.\n\n' +
         'If it <b>stops play</b> — a goal, or a personal foul — the clock jumps back to the moment you started, and stops there.\n\n' +
-        'If it does not stop play — a blocked shot, say — the clock is left alone, because it was right all along.' },
+        'If it does not stop play — a blocked shot — the clock is left alone, because it was right all along.' },
 
     { instruction: 'Let’s watch that happen. <b>Tap the water anywhere in front of the goal</b> — never mind the field zones and the numbers for now.',
       onEnter: mark,
@@ -1026,8 +1070,11 @@ function stop() {
       autoComplete: function () { chain(['#xgtOptionsBtn', '#xgtOptEditNums']); },
       success: 'Back to logging' },
 
-    { instruction: '<b>Hide Field Zones</b> is here as well, if you find the numbers distracting and would rather see clean water. The zones still work; you just stop seeing them.\n\nClose the menu with the ✕.',
+    { instruction: '<b>Hide Field Zones</b> is in the Menu as well, if you find the numbers distracting and would rather see clean water. The field zones still work; you just stop seeing them.\n\nThen close the menu with the ✕.',
       highlight: '#xgtOptZones',
+      calmRing: true,          // amber: this one is being pointed out, not asked for
+      then: '#xgtX',           // …and after a beat the ring moves to what to tap
+      thenAfter: 3000,
       allow: '#xgtX',
       validate: function () { return !sheetOpen(); },
       autoComplete: function () { click('#xgtX'); } }
