@@ -122,14 +122,25 @@ function labSay(msg) {
     (msg ? msg + '\n' : '') +
     'tracker: ' + (T ? (T.isOpen() ? 'open' : 'closed') : 'not loaded') +
     '  ·  tutorial mode: ' + (T ? T.state.tutorialMode : '—') +
-    '\ntutorial: ' + (U && U.isRunning() ? ('step ' + (U.stepIndex() + 1) + ' of ' + U.stepCount()) : 'not running') +
+    '\nbuild: ' + (U ? (U.stepCount() + ' steps · ' + U.lessonTitles().length + ' lessons') : '—') +
+    '\ntutorial: ' + (U && U.isRunning() ? ('L' + '' + (U.stepIndex() + 1) + ' of ' + U.stepCount() + ' steps in') : 'not running') +
     '\nevents: ' + (T ? T.events().filter(function (e) { return e.context && e.context.kind === 'action'; }).length : 0) +
     '  ·  saved game: ' + (localStorage.getItem('xquixGameTrackerV1') ? 'present' : 'none');
 }
 </script>
 
-<script src="xquix-game-tracker.js"></script>
-<script src="xquix-game-tracker-tutorial.js"></script>
+<script>
+/* Cache-busted on every load. The lab exists to see a change immediately; a
+   stale cached copy silently showing yesterday's build is the one failure that
+   wastes the most time here -- it looks exactly like "the change didn't work".
+   document.write keeps these synchronous and in order, which a dev page can
+   afford and which src-swapping cannot guarantee. */
+(function () {
+  var bust = '?t=' + Date.now();
+  document.write('<scr' + 'ipt src="xquix-game-tracker.js' + bust + '"><\/scr' + 'ipt>');
+  document.write('<scr' + 'ipt src="xquix-game-tracker-tutorial.js' + bust + '"><\/scr' + 'ipt>');
+})();
+</script>
 
 <script>
 document.getElementById('labTutorial').onclick = function () {
