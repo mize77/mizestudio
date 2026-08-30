@@ -835,8 +835,10 @@ function stop() {
   idx = -1;
   try {
     if (T) {
-      // Leave renaming mode off however the tutorial was left, or every zone
-      // tap afterwards would open the renumber prompt instead of logging.
+      // The tutorial never turns renaming on any more, but a coach can have
+      // left it on before starting one -- and with it on, every zone tap
+      // renumbers instead of logging, which would make the whole tutorial
+      // silently do nothing. Cheap to guarantee, expensive to diagnose.
       T.state.editingZoneNumbers = false;
       if (zoneNumBackup === null) localStorage.removeItem(ZONE_NUM_KEY);
       else localStorage.setItem(ZONE_NUM_KEY, zoneNumBackup);
@@ -867,7 +869,6 @@ function stop() {
   var base = 0;         // action-count baseline, reset per step that needs one
   var clockTarget = 0;  // the exact time L2 asks the coach to dial in
   var scrollFrom = 0;   // #stageWrap scroll position when the scroll step began
-  var renameBase = 0;   // how many zone renames existed before L3 asked for one
   var mark = function () { base = actions().length; };
   /* "Done" means the event is COMMITTED, not merely that a matching one exists.
      With an open draft still on screen, a baseline left over from an earlier
@@ -892,7 +893,8 @@ function stop() {
       // full game sets up the wrong expectation for what the next ten minutes
       // actually are.
       instruction: 'Welcome to the <b>Game Tracker</b>.\n\n' +
-        'These lessons teach you the <b>workflow</b> and the <b>main functions</b>: how an event gets logged, how the clock works, what the stats show you while you track, and how a game is closed out.' },
+        'These lessons teach you the <b>workflow</b> and the <b>main functions</b>: how an event gets logged, how the clock works, what the stats show you while you track, and how a game is closed out.\n\n' +
+        'The Game Tracker is part of the <b>free version</b>. A few of the functions along the way are <b>Pro</b> only — the lessons say so when one comes up, and Pro can be booked at any time.' },
 
     { ack: true,
       // The ring is pointed at the button the coach is about to press, so the
@@ -1060,6 +1062,16 @@ function stop() {
       // way back in to correct it. Without this the step could only be escaped
       // with "Next step", which is a rescue, not a route.
       allow: ['#xgtSheet', '#xgtQ'],
+      // Three taps in a fixed order, and all three buttons are on screen at
+      // once -- so the ring is driven by how far the clock has actually come,
+      // not by which of them happens to be visible.
+      highlight: function () {
+        var c = T.state.clock;
+        if (c < clockTarget) return q('[data-d="1"]');    // overshot: come back up
+        if (c > clockTarget + 1) return q('[data-d="-10"]');
+        if (c > clockTarget) return q('[data-d="-1"]');
+        return q('#xgtDone');
+      },
       // Both the exact time AND the sheet being closed: adjusting without
       // confirming is not the same as finishing the step.
       validate: function () { return !sheetOpen() && T.state.clock === clockTarget; },
@@ -1078,10 +1090,15 @@ function stop() {
         'They are there so you can say exactly <b>where</b> something happened — to yourself when you read the stats back, and to anyone else you share them with.',
       highlight: '#xgtZoneLayer' },
 
-    { instruction: 'Tap any <b>field zone</b> — wherever you like.',
-      allowZone: '*',
-      validate: function () { return !!(T.state.draft && T.state.draft.fieldZone); },
-      autoComplete: function () { tapZone('z3'); },
+    // The zone itself is ringed, which is only possible because every wedge
+    // carries data-zone. It is the semi-circle right in front of the goal --
+    // named by where it is on the field, never by its number, which is
+    // per-device (rule 7.9).
+    { instruction: 'Tap the <b>field zone</b> right in front of the goal — the semi-circle the ring is around.',
+      highlight: '#xgtZoneLayer path[data-zone="z6"]',
+      allowZone: 'z6',
+      validate: function () { return !!(T.state.draft && T.state.draft.fieldZone === 'z6'); },
+      autoComplete: function () { tapZone('z6'); },
       success: 'Logged the zone' },
 
     { instruction: 'Tapped the wrong place? Close the sheet with the ✕ and nothing is recorded.\n\nDo that now.',
@@ -1091,56 +1108,25 @@ function stop() {
       autoComplete: function () { click('#xgtX'); },
       success: 'Nothing logged' },
 
-    { instruction: 'Open the <b>Menu</b>.',
+    { instruction: 'Last thing in this lesson. Open the <b>Menu</b>.',
       highlight: '#xgtOptionsBtn',
       allow: '#xgtOptionsBtn',
       validate: function () { return sheetOpen() && !!el('xgtOptEditNums'); },
       autoComplete: function () { click('#xgtOptionsBtn'); } },
 
-    { instruction: 'Your club may number the field zones differently. You can change them — tap <b>Rename Field Zones</b>.',
-      highlight: '#xgtOptEditNums',
-      allow: '#xgtOptEditNums',
-      onEnter: function () { renameBase = Object.keys(T.state.zoneNumberOverrides || {}).length; },
-      validate: function () { return T.state.editingZoneNumbers === true; },
-      autoComplete: function () { click('#xgtOptEditNums'); } },
-
-    { instruction: 'Now <b>tap any field zone</b> and give it a new number.\n\n' +
-        'This only changes what you see on this device. It is not a team setting, and nobody needs to approve it.',
-      allowZone: '*',
-      validate: function () { return Object.keys(T.state.zoneNumberOverrides || {}).length > renameBase; },
-      // No prompt() to drive from here, so this only satisfies the step; the
-      // number on screen refreshes at the next redraw.
-      autoComplete: function () { T.state.zoneNumberOverrides.z1 = 21; },
-      success: 'Renamed' },
-
-    { instruction: 'Renaming stays switched on until you turn it off — and while it is on, tapping a field zone renumbers it instead of logging an event.\n\n' +
-        'Open the <b>Menu</b> again and tap <b>Done Renaming Zones</b>.',
-      highlight: '#xgtOptionsBtn',
-      allow: ['#xgtOptionsBtn', '#xgtOptEditNums'],
-      validate: function () { return sheetOpen() && T.state.editingZoneNumbers === false; },
-      autoComplete: function () { chain(['#xgtOptionsBtn', '#xgtOptEditNums']); },
-      // Put the coach's own numbering back the moment the practice is over, so
-      // no later step can be describing a field zone by a number the tutorial
-      // itself changed two minutes ago. Toggling Hide/Show Field Zones is the
-      // app's own redraw path -- two taps, same state, freshly drawn labels.
-      onLeave: function () {
-        try {
-          T.state.zoneNumberOverrides = JSON.parse(zoneNumBackup || '{}');
-        } catch (err) { T.state.zoneNumberOverrides = {}; }
-        clickThrough('#xgtOptZones');
-        clickThrough('#xgtOptZones');
-      },
-      success: 'Back to logging' },
-
-    { instruction: '<b>Hide Field Zones</b> is in the Menu as well, if you find the numbers distracting and would rather see clean water. The field zones still work; you just stop seeing them.\n\nThen close the menu with the ✕.',
+    // Renaming and hiding used to be practised here, three steps of it. They are
+    // mentioned instead: neither changes how anything is logged, and the rename
+    // flow left a mode switched on that quietly broke every later zone tap.
+    { instruction: 'The field zones have two options in here. You can <b>rename</b> them, if your club numbers them differently — and you can <b>hide</b> them, if you find the numbers distracting. Both are personal to this device.\n\nThen close the menu with the ✕.',
       highlight: '#xgtOptZones',
-      calmRing: true,          // amber: this one is being pointed out, not asked for
+      calmRing: true,          // amber: this is being pointed out, not asked for
       then: '#xgtX',           // …and after a beat the ring moves to what to tap
       thenAfter: 3000,
       allow: '#xgtX',
       validate: function () { return !sheetOpen(); },
       autoComplete: function () { click('#xgtX'); } }
   ]},
+
   { title: 'Actions and outcomes', steps: [
     { instruction: 'Tap any <b>field zone</b> to open the action sheet again.',
       onEnter: mark,
@@ -1180,14 +1166,13 @@ function stop() {
     { ack: true,
       allow: '#xgtSheet',
       instruction: 'On <b>Pro</b>, a blocked or missed shot is followed by one more question: <b>how the situation went on</b>.\n\n' +
-        'A save does not end the play — the ball can rebound and stay in the water, or go out. That is what puts a corner throw or a goalie ball into the numbers later.\n\n' +
-        'Answer it if it is on screen, then carry on.',
+        'A save does not end the play — the ball can rebound and stay in the water, or go out. That is what puts a corner throw or a goalie ball into the numbers later.',
       // Whatever is left open when they move on gets cancelled, so the next
       // step starts from a clean field.
       onLeave: function () { if (T.state.draft) clickThrough('#xgtX'); } },
 
     { ack: true,
-      instruction: 'Any shot that does <b>not</b> reach the goal is a <b>Missed Shot</b> — blocked by a field player, or hitting the frame of the goal.' },
+      instruction: 'Any shot that does <b>not</b> reach the goal is a <b>Missed Shot</b> — including a blocked shot by a field player, or hitting the frame of the goal.' },
 
     { instruction: 'Let’s log a <b>Missed Shot</b> now to test it.\n\nTap a field zone, then <b>Shot</b>, then <b>Missed Shot</b>.',
       onEnter: mark,
@@ -1203,14 +1188,12 @@ function stop() {
     { ack: true,
       calmRing: true,
       highlight: '.xgtGoal',
-      instruction: 'This map is the goal and everything around it — the posts, the crossbar, wide on either side, over the bar, and short into the water.\n\n' +
-        'Every way a shot can miss the goal on its own has a place here.' },
+      instruction: 'This map is the goal and everything around it — the posts, the crossbar, wide on either side, over the bar, and short into the water.' },
 
     { ack: true,
       calmRing: true,
       highlight: '.gz[data-p="blocked_field"]',
-      instruction: 'And the area <b>inside the goal</b> is the one for a shot a <b>field player</b> blocked on its way in.\n\n' +
-        'The ball was on target; the block is why it never arrived.' },
+      instruction: 'And the area <b>inside the goal</b> is the one for a shot a <b>field player</b> blocked on its way in.' },
 
     { instruction: 'Now tap where the shot went.',
       allowZone: '*',
@@ -1241,8 +1224,8 @@ function stop() {
       success: 'Foul logged' },
 
     { ack: true,
-      instruction: '<b>Penalty (5 m)</b> sits in that same list.\n\n' +
-        'In a real game, choosing it opens the resulting penalty shot straight away, by itself — worth expecting, so it does not feel like the app running away with you.' },
+      instruction: '<b>Penalty (5 m)</b> sits in that same list — pick it when the foul was a penalty rather than an exclusion.\n\n' +
+        'The tracker then opens the resulting penalty shot by itself. That shot belongs to the <b>other team</b>, so following one of your own field players you can simply close it — it is there for tracking a whole game.' },
 
     { instruction: 'One more: a <b>Steal</b>. Tap a field zone and pick it — there is no outcome to choose, it is a single tap.',
       onEnter: mark,
@@ -1325,7 +1308,7 @@ function stop() {
       instruction: 'But since there is the chance that misconducts happen after the buzzer, certain options stay available: <b>Menu → Log Post-Game Foul</b> appears at that point, and only then.',
       highlight: '#xgtOptionsBtn' },
 
-    { instruction: 'Open the <b>Menu</b>.',
+    { instruction: 'To finish a game, open the <b>Menu</b> again.',
       highlight: '#xgtOptionsBtn',
       allow: '#xgtOptionsBtn',
       validate: function () { return sheetOpen() && !!el('xgtOptEndSave'); },
