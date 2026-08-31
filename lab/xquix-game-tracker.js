@@ -2522,6 +2522,30 @@ function shootoutTally() {
 function shootoutAttempts() {
   return S.events.filter(function (e) { return e.context && e.context.shootout; });
 }
+/* Shootout attempts OUR OWN keeper faced, counted separately and on purpose.
+   actionEvents() excludes everything carrying context.shootout, and that single
+   exclusion feeds both the stats panel and scoreOf() -- so a shootout changes
+   neither the four-quarter score nor save percentage, which is correct and is
+   what every game tracked so far already means. Folding shootout saves into
+   SAVE % would silently redefine that number retroactively. These get their own
+   two tiles instead, so a goalkeeper's parent can see them without any other
+   figure moving.
+   Attributed by actor.side rather than by the event's `goalkeeper` field:
+   shootoutGoalkeepers.us comes from S.keepers[0], which single-player
+   goalkeeper mode never populates, so it is null exactly where these tiles
+   matter most. Every 'them' attempt is one our keeper faced regardless.
+   Takes an events array so the live panel and the saved/combined session views
+   can share it -- the latter never see the live S. */
+function shootoutFacedFrom(events) {
+  var a = (events || []).filter(function (e) {
+    return e.context && e.context.shootout && e.actor && e.actor.side === 'them';
+  });
+  return {
+    any: (events || []).some(function (e) { return e.context && e.context.shootout; }),
+    faced: a.length,
+    saved: a.filter(function (e) { return e.outcome === 'blocked'; }).length
+  };
+}
 // Whose turn it is is always derived, never its own separate flag --
 // even count of attempts so far means the side that started is up
 // again, odd means the other side. Nothing to keep in sync, nothing
@@ -3580,6 +3604,10 @@ function openStats() {
              [g.penFaced, 'PENALTIES FACED'], [g.penSaves, 'PENALTY SAVES'], [g.attempts, 'TOTAL ATTEMPTS'],
              [g.steals, 'STEALS'], [g.turnovers, 'TURNOVERS'], [g.exDrawn, 'EXCL. DRAWN'],
              [g.outletCompleted, 'OUTLETS COMPLETED'], [g.outletTurnovers, 'OUTLET TURNOVERS']];
+    // Only once a shootout has actually happened -- two permanent zeroes on
+    // every other game would be noise.
+    var so = shootoutFacedFrom(S.events);
+    if (so.any) tiles = tiles.concat([[so.faced, 'SHOOTOUT FACED'], [so.saved, 'SHOOTOUT SAVED']]);
     extra = gkTypeTable(g);
   } else {
     var f = fieldPlayerStats(evs);
@@ -4148,6 +4176,8 @@ function xgtStatsBodyParts(evs, playerRole, trackingMode) {
              [g.penFaced, 'PENALTIES FACED'], [g.penSaves, 'PENALTY SAVES'], [g.attempts, 'TOTAL ATTEMPTS'],
              [g.steals, 'STEALS'], [g.turnovers, 'TURNOVERS'], [g.exDrawn, 'EXCL. DRAWN'],
              [g.outletCompleted, 'OUTLETS COMPLETED'], [g.outletTurnovers, 'OUTLET TURNOVERS']];
+    var so = shootoutFacedFrom(evs);
+    if (so.any) tiles = tiles.concat([[so.faced, 'SHOOTOUT FACED'], [so.saved, 'SHOOTOUT SAVED']]);
     extra = gkTypeTable(g);
   } else {
     var f = fieldPlayerStats(filteredEvs);
