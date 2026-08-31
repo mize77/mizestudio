@@ -57,6 +57,48 @@ if [ -n "$missing" ]; then
 fi
 echo "    ok  tutorial wired into index.html"
 
+# ---------------------------------------------------------------------------
+# Home's routing and the tutorial module are promoted independently, and a
+# mismatch fails in opposite directions:
+#
+#   Home routes it, the module cannot build it  -> start() THROWS, after
+#       tutorial mode is already on and the tracker is already opening. The
+#       banner is a crash. This is fatal here.
+#   The module builds it, Home does not route it -> the banner still says "not
+#       built yet". Harmless, but it means a finished tutorial nobody can reach,
+#       which is the state that gets forgotten after a promote. Warned about.
+#
+# Both halves live in files this script is about to publish, so this is the last
+# place either can be checked.
+# ---------------------------------------------------------------------------
+crash=""
+unreachable=""
+for w in field goalkeeper team fullgame; do
+  routes=no; builds=no
+  grep -q "tutorial === 'gametracker-$w'"        index.html                       && routes=yes
+  # Two spellings, both meaning "this module builds $w": the current
+  # `which === 'x'` dispatch, and the original single-tutorial guard
+  # `if (which !== 'field') throw`, which is how the shipping copy still reads.
+  grep -q "which === '$w'"                       xquix-game-tracker-tutorial.js   && builds=yes
+  grep -q "which !== '$w'"                       xquix-game-tracker-tutorial.js   && builds=yes
+  [ "$routes" = yes ] && [ "$builds" = no ]  && crash="$crash\n    - $w: Home routes it, the shipping tutorial cannot build it"
+  [ "$routes" = no ]  && [ "$builds" = yes ] && unreachable="$unreachable\n    - $w: built, but Home still shows \"not built yet\""
+done
+if [ -n "$crash" ]; then
+  echo "!! Home routes a tutorial the shipping module cannot build:" >&2
+  printf "$crash\n" >&2
+  echo "   Tapping that banner would throw inside start(), with tutorial mode" >&2
+  echo "   already on. Promote the tutorial first:  ./promote.sh --apply" >&2
+  echo "   Nothing pushed." >&2
+  exit 1
+fi
+if [ -n "$unreachable" ]; then
+  echo "   NOTE - a finished tutorial is not reachable from Home:" >&2
+  printf "$unreachable\n" >&2
+  echo "   Add its branch in index.html when you want it live. Not fatal." >&2
+fi
+echo "    ok  every tutorial Home routes is one the shipping module can build"
+
 echo "==> Changes to publish"
 git status --short
 if [ -z "$(git status --porcelain)" ]; then

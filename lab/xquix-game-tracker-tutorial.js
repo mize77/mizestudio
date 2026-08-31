@@ -562,6 +562,28 @@ function buildChrome() {
  * and a target inside the box itself, which is the "Got it" ring. */
 var ANCHOR_GAP = 10;
 
+/* WHEN THE BOX MOVES AT ALL: portrait only.
+ *
+ * On a phone held in portrait the box has to dodge. The screen is one column
+ * wide, the instructions and whatever the step points at are competing for the
+ * same strip of space, and a box parked anywhere covers something.
+ *
+ * On a wide screen it stays where it has always been, top left. Reported from a
+ * Mac: the dodging there is "unnecessary and looks very hectic", and that is
+ * right -- there is room for both, so the motion carries no information.
+ *
+ * A first attempt kept the dodge in landscape "only when the box would actually
+ * cover the target". It moved almost as much: the tracker's own bar, sheets and
+ * stats panel all span the full width on a desktop, so their targets share the
+ * box's column constantly. Half a rule was worse than either whole one.
+ *
+ * The trade, stated plainly: on a wide screen the box can sit over a corner of
+ * what a step describes. That was true of every build before this, was never
+ * reported, and the ring stays visible around it. The tutorial is a
+ * portrait-phone experience -- that is the only way the Game Tracker is usable
+ * -- and that is where the effort belongs. */
+function isPortrait() { return window.innerHeight > window.innerWidth; }
+
 /* A resize or a rotation invalidates every measurement the layout was based on,
    so it starts from scratch rather than deciding nothing moved. */
 function onViewportResize() { placedAt = null; positionChrome(true); }
@@ -612,8 +634,9 @@ function positionChrome(force) {
   var h = box.offsetHeight;
 
   var y;
-  if (!r) {
-    y = lim.top;                                   // nothing to avoid
+  if (!r || !isPortrait()) {
+    // Nothing to avoid, or a screen with room for both. Stay home.
+    y = lim.top;
   } else {
     var above = (r.top - ANCHOR_GAP) - lim.top;    // room in the band above
     var below = lim.bottom - (r.bottom + ANCHOR_GAP);
@@ -636,10 +659,11 @@ function positionChrome(force) {
     }
   }
   y = Math.max(lim.top, Math.min(y, lim.bottom - h));
-  // Last line of defence. If clamping to the viewport has just put the box back
-  // over the anchor -- which can only happen when neither band could hold it --
-  // give the anchor the room and let the box run to the screen edge instead.
-  if (r && y < r.bottom && y + h > r.top) {
+  // Last line of defence, and portrait only for the same reason as the dodge
+  // itself: in landscape this was still re-placing the box on most steps, which
+  // is exactly the motion that was reported as hectic. Skipping the dodge but
+  // leaving this in place meant the rule only half applied.
+  if (isPortrait() && r && y < r.bottom && y + h > r.top) {
     y = (r.top - lim.top >= lim.bottom - r.bottom)
       ? Math.max(lim.top, r.top - ANCHOR_GAP - h)
       : Math.min(lim.bottom - h, r.bottom + ANCHOR_GAP);
