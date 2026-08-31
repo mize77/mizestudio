@@ -1717,6 +1717,7 @@
           <button id="addPlayerFromMovementBtn" data-tip="Add a player to the field -- also useful when there are no players at all to mark or select.">Add Player</button>
           <button id="multiSelectBtn" data-tip="Turn on to tap multiple players/ball to select them together, like holding ⌘/Ctrl while clicking.">Multi-Select: Off</button>
           <button id="smartPositioningToggleBtn" class="active" data-tip="When on, the ball carrier automatically faces the goal they're attacking while being moved, and a vertical defender within 2m of the ball carrier automatically stays squared to them while being moved. You can always override this afterward with the rotate handle.">Smart Positioning: On</button>
+          <button id="attackDirectionBtn" data-tip="Which goal each team is currently attacking. Tap to flip. Affects Smart Positioning and Auto-Face. Persists across page reloads.">Blue attacks: Right &#8594;</button>
           <button id="applySmartPositioningBtn" data-tip="Select any players (goalkeepers excluded) and tap this to instantly correct their facing: every selected player on the ball carrier's team faces their attacking goal, and every selected vertical defender squares up to whichever attacking player is actually nearest to them (not necessarily the ball carrier), if within 2m. No one's position changes, only their rotation.">Auto-Face Selected</button>
         </div>
       </div>
@@ -3076,6 +3077,10 @@ MIZE.State.shotClock = {
   position: 'corners'
 };
 let smartPositioningActive=true;
+// false = blue attacks the right goal (default);
+// true  = blue attacks the left goal.
+// Persisted to localStorage so it survives reload.
+let attackDirectionFlipped = (localStorage.getItem('xquixAttackDir')==='1');
 let frontCourtActive=false;
 let frontCourtZoomed=false;
 let multiSelectMode=false;
@@ -15637,7 +15642,7 @@ document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)').forEach(b=>{
 });
 
 // --- Floating quick-command bar: 5 fixed presets (Photoshop-style) + 3 recently-used ---
-const QUICKBAR_PRESETS=['selectBtn','freeDrawBtn','fieldZonesToggleBtn','textBoxBtn','shotClockToggleBtn','quickViewToggleBtn','shootingAngleToggleBtn','shotBlockToggleBtn','goalieVisionToggleBtn','smartPositioningToggleBtn','smartGoaliePositioningToggleBtn','clearBtn'];
+const QUICKBAR_PRESETS=['selectBtn','freeDrawBtn','fieldZonesToggleBtn','textBoxBtn','shotClockToggleBtn','quickViewToggleBtn','shootingAngleToggleBtn','shotBlockToggleBtn','goalieVisionToggleBtn','smartPositioningToggleBtn','attackDirectionBtn','smartGoaliePositioningToggleBtn','clearBtn'];
 const QCB_DRAWING_TOOLS=['passBtn','swimBtn','driveBtn','shotBtn','screenBtn','highlightBtn','noteBtn','measureBtn','freeDrawBtn','eraseBtn','clearBtn'];
 const QUICKBAR_ICONS={
   shotClockToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2"/><path d="M9 2h6M12 2v3" stroke-width="1.6"/></svg>',
@@ -15661,6 +15666,7 @@ const QUICKBAR_ICONS={
   passBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="16" r="2.6"/><circle cx="19" cy="16" r="2.6"/><path d="M7.3,14.2 Q12,4 16.7,14.2" stroke-dasharray="1.6 1.6"/><circle r="1.6" fill="currentColor" stroke="none"><animateMotion dur="1.6s" repeatCount="indefinite" keyPoints="0;1;0" keyTimes="0;0.5;1" calcMode="linear" path="M7.3,14.2 Q12,4 16.7,14.2"/></circle></svg>',
   clearBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 6"/></svg>',
   smartPositioningToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7l2.5 4.5L9.5 15 12 7z"/></svg>',
+  attackDirectionBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M15 7l5 5-5 5"/><rect x="2" y="9" width="3" height="6" rx="1"/></svg>',
   fieldZonesToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="1"/><line x1="8.7" y1="4" x2="8.7" y2="20"/><line x1="15.3" y1="4" x2="15.3" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/><text x="5.3" y="9.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">1</text><text x="12" y="9.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">2</text><text x="18.7" y="9.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">3</text><text x="5.3" y="17.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">4</text><text x="12" y="17.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">5</text><text x="18.7" y="17.6" font-size="5.4" fill="currentColor" stroke="none" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700">6</text></svg>',
   playerSetupsToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><path d="M2 20c0-4 2.7-6.5 6-6.5s6 2.5 6 6.5"/><circle cx="17.5" cy="8.5" r="2.3"/><path d="M14.7 14.2c2.6 0 5 2.1 5.5 5.8"/></svg>',
   smartGoaliePositioningToggleBtn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7,6 L3,6 L3,18 L7,18"/><path d="M8.657,6.343 A8,8 0 0,1 8.657,17.657" stroke-dasharray="1.6 1.6"/><circle r="1.7" fill="currentColor" stroke="none"><animateMotion dur="2.4s" repeatCount="indefinite" keyPoints="0;1;0" keyTimes="0;0.5;1" calcMode="linear" path="M8.657,6.343 A8,8 0 0,1 8.657,17.657"/></circle></svg>',
@@ -18010,9 +18016,15 @@ function armWorldPos(el, hand){
 }
 function goalPointFor(attackingSide){
   // attackingSide is the ball carrier's side; they shoot at the OTHER side's goal.
-  return attackingSide==='blue'
-    ? { x: M.fieldX+M.fieldW, y: M.fieldY+M.fieldH/2 }   // blue attacks the right goal
-    : { x: M.fieldX,          y: M.fieldY+M.fieldH/2 };  // white attacks the left goal
+  // attackDirectionFlipped swaps which goal each team attacks.
+  const blueRight = !attackDirectionFlipped;
+  const blueGoal  = blueRight
+    ? { x: M.fieldX+M.fieldW, y: M.fieldY+M.fieldH/2 }
+    : { x: M.fieldX,          y: M.fieldY+M.fieldH/2 };
+  const whiteGoal = blueRight
+    ? { x: M.fieldX,          y: M.fieldY+M.fieldH/2 }
+    : { x: M.fieldX+M.fieldW, y: M.fieldY+M.fieldH/2 };
+  return attackingSide==='blue' ? blueGoal : whiteGoal;
 }
 
 // ===== Smart Positioning =====
@@ -18087,6 +18099,36 @@ MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange, gateFun
 const _smartPositioningUI=MIZE.UI.ToggleButton('smartPositioningToggleBtn', 'Smart Positioning',
   ()=>smartPositioningActive, v=>{ smartPositioningActive=v; }, null, 'Smart Positioning');
 function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
+
+// ===== Attack Direction toggle =====
+(function(){
+  function label(){ return attackDirectionFlipped ? '\u2190 Blue attacks Left' : 'Blue attacks Right \u2192'; }
+  function render(){
+    const btn=document.getElementById('attackDirectionBtn');
+    if(!btn) return;
+    btn.textContent=label();
+    btn.classList.toggle('active',!attackDirectionFlipped);
+    if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
+  }
+  function apply(){
+    // Immediately re-face the ball carrier for the new direction.
+    if(typeof ballCarrier!=='undefined' && ballCarrier && typeof goalPointFor==='function'){
+      const side=playerSide(ballCarrier);
+      const g=goalPointFor(side);
+      const r=faceRotationTo(+ballCarrier.dataset.x,+ballCarrier.dataset.y,g.x,g.y);
+      if(r!==null){ ballCarrier.dataset.rot=r; if(typeof place==='function') place(ballCarrier); }
+    }
+  }
+  function flip(){
+    attackDirectionFlipped=!attackDirectionFlipped;
+    localStorage.setItem('xquixAttackDir', attackDirectionFlipped?'1':'0');
+    render();
+    apply();
+  }
+  document.getElementById('attackDirectionBtn')?.addEventListener('click', flip);
+  render();
+  window.flipAttackDirection=flip;
+})();
 // Smart Positioning is uniquely on-by-default (smartPositioningActive
 // starts true, unlike every other teaching-tool toggle here, which all
 // start false) -- so gating only the toggle-button's click, as the
