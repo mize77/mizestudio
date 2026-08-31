@@ -1066,19 +1066,38 @@ function stop() {
   } catch (err) { console.error('XquiX tutorial: teardown threw', err); }
   if (typeof window.xquixShowHome === 'function') { try { window.xquixShowHome(); } catch (err) {} }
 }
-
 /* ======================================================================= */
-/* A · FIELD PLAYER                                                        */
-/* Tracking one specific field player. The setup screen's Parent / Coach   */
-/* switch does not change this flow at all -- singlePlayerMode() is true   */
-/* for every combination except Coach + Team -- so the tutorial says that  */
-/* once and moves on.                                                      */
+/* THE LESSONS                                                             */
 /*                                                                         */
-/* Every required action is Shot, Personal Foul or Steal: the three the    */
-/* Basic tier has. No step counts buttons or names positions, because a    */
-/* Pro user sees a longer action list than a Basic one.                    */
-/* ======================================================================= */function buildLessons(which) {
-  if (which !== 'field') throw new Error('Only the Field Player tutorial is built yet');
+/* Two tutorials so far, and deliberately not one tutorial with branches.  */
+/* A goalkeeper coach may never take the field-player one, so B has to     */
+/* stand alone: the same seven lessons, the same shape, its own content    */
+/* wherever the tracker actually behaves differently.                      */
+/*                                                                         */
+/* Three lessons ARE identical and are built once, below: setting a        */
+/* session up, the clock, and ending the game. What they differ in is      */
+/* passed in -- which role button the demo taps, and which event the clock */
+/* lesson logs. The rest is written out per tutorial, because sharing      */
+/* lessons that merely look alike is how one tutorial's feedback silently  */
+/* edits the other.                                                       */
+/*                                                                         */
+/* A - FIELD PLAYER: tracking one specific field player. The Parent /      */
+/* Coach switch does not change this flow at all (singlePlayerMode() is    */
+/* true for every combination except Coach + Team), so it is said once.    */
+/*                                                                         */
+/* B - GOALKEEPER: the same tracker from the other end. The field zone     */
+/* means WHERE THE OPPONENT SHOT FROM; there is no Mine / Teammate /       */
+/* Opponent row (stepAction renders it only for !gk); a shot belongs to    */
+/* the opponent and everything else to the keeper; and the tree carries    */
+/* shot types, Defender Block and the outlet pass.                         */
+/*                                                                         */
+/* No required step in either uses a gated action. On the free tier the    */
+/* keeper tree is trimmed to shot / personal foul / steal and the          */
+/* shot-type step is dropped entirely (freeTierActions), so every Pro-only */
+/* screen is either described in a read-only step or reached through an    */
+/* OPTIONAL '?' link in an auto-complete chain -- never asked for.         */
+/* ======================================================================= */
+function buildLessons(which) {
   var base = 0;         // action-count baseline, reset per step that needs one
   var clockTarget = 0;  // the exact time L2 asks the coach to dial in
   var scrollFrom = 0;   // #stageWrap scroll position when the scroll step began
@@ -1098,8 +1117,9 @@ function stop() {
     return (l && l.style.display === 'block') ? l : null;
   };
 
-  return [
-  { title: 'Set up a session', steps: [
+  /* ---- the three lessons both tutorials share, built once -------------- */
+  function lessonSetup(opts) {
+    return   { title: 'Set up a session', steps: [
     { ack: true,
       // Deliberately not "you will track a full game". You will not -- you will
       // log a handful of events to learn the shape of the thing. Promising a
@@ -1131,13 +1151,13 @@ function stop() {
     // demonstrated at the same pace as the typed fields, and a step that only
     // re-selects what the demo has already selected is a step for nothing.
     { instruction: 'Watch — the top of the setup fills itself in, one thing at a time.\n\n' +
-        '<b>Who is tracking</b> is only a label on the record. <b>Tracking role</b> is the one that decides what you tap during the game — and this tutorial is the <b>Field Player</b> one.\n\n' +
+        '<b>Who is tracking</b> is only a label on the record. <b>Tracking role</b> is the one that decides what you tap during the game — and this tutorial is the <b>' + opts.roleName + '</b> one.\n\n' +
         'Then the game itself. Worth entering for real: these names replace <b>Us</b> and <b>Them</b> on every button and in every export.',
       auto: true,
       onEnter: function () {
         demoDone = false;
         autoTap('#xgtTm [data-tm="parent"]', function () {
-          autoTap('#xgtRl [data-role="field"]', function () {
+          autoTap('#xgtRl [data-role="' + opts.role + '"]', function () {
             autoType('#xgtLoc', 'WP City', function () {
               autoType('#xgtAway', 'Black Octopus', function () { ringOverride = null; demoDone = true; });
             });
@@ -1149,7 +1169,7 @@ function stop() {
         ringOverride = null;
         // Skipping the demo must still leave the role set -- every lesson after
         // this one is the field-player flow.
-        if (T.state.playerRole !== 'field') clickThrough('#xgtRl [data-role="field"]');
+        if (T.state.playerRole !== opts.role) clickThrough('#xgtRl [data-role="' + opts.role + '"]');
         demoDone = true;
       } },
 
@@ -1160,7 +1180,7 @@ function stop() {
       validate: function () { return inputCommitted && !!fieldValue('#xgtHome'); },
       autoComplete: function () { autoType('#xgtHome', 'WP City Waves', function () {}); } },
 
-    { instruction: '<b>Tap the next field</b> and enter the <b>cap number</b> of the player you are tracking, then <b>Enter</b> to confirm.',
+    { instruction: '<b>Tap the next field</b> and enter the <b>cap number</b> of the ' + opts.who + ' you are tracking, then <b>Enter</b> to confirm.',
       highlight: '#xgtNum',
       allow: '#xgtNum',
       commit: '#xgtNum',
@@ -1201,9 +1221,11 @@ function stop() {
         if (w) w.scrollTop = w.scrollTop + Math.min(120, Math.max(20, w.scrollHeight - w.clientHeight));
       },
       success: 'That is the pool' }
-  ]},
+  ]};
+  }
 
-  { title: 'The clock', steps: [
+  function lessonClock(opts) {
+    return   { title: 'The clock', steps: [
     { ack: true,
       // Nothing is clickable on an ack step, so the clock cannot be started here.
       instruction: 'At the top of the screen you can see the current <b>quarter</b> and the <b>game clock</b>.\n\n' +
@@ -1234,15 +1256,13 @@ function stop() {
       validate: function () { return !!(T.state.draft && T.state.draft.fieldZone); },
       autoComplete: function () { tapZone('z3'); } },
 
-    { instruction: 'Now log a <b>Shot</b> by tapping that button, then log a <b>Goal</b> with the button that appears next, and tap roughly where in the net it went.\n\n' +
-        'On <b>Pro</b> you then get the chance to log the <b>assist giver</b> — or to skip that step.',
+    { instruction: opts.goalInstruction,
       onEnter: mark,
       allowZone: '*',
       allow: '#xgtSheet',
       validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
-        chainFrom([function () { if (!sheetOpen()) tapZone('z3'); },
-                   '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="low_left"]', '?#xgtAssistSkip']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z3'); }].concat(opts.goalChain));
       },
       success: 'Goal logged' },
 
@@ -1290,8 +1310,56 @@ function stop() {
       validate: function () { return !sheetOpen() && T.state.clock === clockTarget; },
       autoComplete: function () { chain(['[data-d="-10"]', '[data-d="-1"]', '#xgtDone']); },
       success: 'Clock corrected' }
-  ]},
+  ]};
+  }
 
+  function lessonEnding() {
+    return   { title: 'Ending the game', steps: [
+    { ack: true,
+      instruction: 'Four quarters — and you change quarter from the same time sheet you used earlier, on the <b>quarter button</b> at the top left.',
+      highlight: '#xgtQ' },
+
+    { ack: true,
+      instruction: 'When the clock hits 0:00 in Q4, regulation ends by itself and the field stops taking taps — there is no meaningful "where on the field" once it is over.' },
+
+    { ack: true,
+      instruction: 'But since there is the chance that misconducts happen after the buzzer, certain options stay available: <b>Menu → Log Post-Game Foul</b> appears at that point, and only then.',
+      highlight: '#xgtOptionsBtn' },
+
+    { instruction: 'To finish a game, open the <b>Menu</b> again.',
+      highlight: '#xgtOptionsBtn',
+      allow: '#xgtOptionsBtn',
+      validate: function () { return sheetOpen() && !!el('xgtOptEndSave'); },
+      autoComplete: function () { click('#xgtOptionsBtn'); } },
+
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtOptEndSave',
+      instruction: '<b>End &amp; Save Session</b> is here. Be reassured rather than anxious about it: the session has been saved after every single tap, so this saves nothing new — it marks the game finished.' },
+
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtOptCsv',
+      instruction: '<b>Export CSV</b> and <b>Export JSON</b> are free on every tier, for the game in front of you.\n\nCSV opens in a spreadsheet; JSON keeps every field including coordinates.' },
+
+    { instruction: 'Close the menu with the ✕.',
+      highlight: '#xgtX',
+      allow: '#xgtX',
+      validate: function () { return !sheetOpen(); },
+      autoComplete: function () { click('#xgtX'); } },
+
+    { ack: true,
+      instruction: 'On <b>Pro</b>, sessions also get saved into your online library, to be accessible across any device and to be able to see combined stats across multiple games you have tracked — and the heat map and goal map export as a PDF you can hand a player.' }
+  ]};
+  }
+
+  if (which === 'field') return [
+    lessonSetup({ role: 'field', roleName: 'Field Player', who: 'player' }),
+    lessonClock({
+      goalInstruction: 'Now log a <b>Shot</b> by tapping that button, then log a <b>Goal</b> with the button that appears next, and tap roughly where in the net it went.\n\n' +
+        'On <b>Pro</b> you then get the chance to log the <b>assist giver</b> \u2014 or to skip that step.',
+      goalChain: ['.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="low_left"]', '?#xgtAssistSkip']
+    }),
   { title: 'Field zones', steps: [
     { ack: true,
       instruction: 'The core idea of the Game Tracker is simple:\n\n' +
@@ -1339,7 +1407,6 @@ function stop() {
       validate: function () { return !sheetOpen(); },
       autoComplete: function () { click('#xgtX'); } }
   ]},
-
   { title: 'Actions and outcomes', steps: [
     { instruction: 'Tap any <b>field zone</b> to open the action sheet again.',
       onEnter: mark,
@@ -1458,7 +1525,6 @@ function stop() {
     { ack: true,
       instruction: 'On <b>Pro</b> the same sheet also carries <b>Turnover</b> as its own action — offensive foul, pass intercepted, shot clock — plus more detailed options for foul outcomes.' }
   ]},
-
   { title: 'Reading the stats', steps: [
     { instruction: 'You can read the live statistics during the game, without stopping it. Tap <b>Stats</b>.\n\n' +
         'Depending on your screen size you may have to scroll up and down to follow the next steps.',
@@ -1508,45 +1574,7 @@ function stop() {
       validate: function () { return !statsOpen(); },
       autoComplete: function () { click('#xgtSb'); } }
   ]},
-
-  { title: 'Ending the game', steps: [
-    { ack: true,
-      instruction: 'Four quarters — and you change quarter from the same time sheet you used earlier, on the <b>quarter button</b> at the top left.',
-      highlight: '#xgtQ' },
-
-    { ack: true,
-      instruction: 'When the clock hits 0:00 in Q4, regulation ends by itself and the field stops taking taps — there is no meaningful "where on the field" once it is over.' },
-
-    { ack: true,
-      instruction: 'But since there is the chance that misconducts happen after the buzzer, certain options stay available: <b>Menu → Log Post-Game Foul</b> appears at that point, and only then.',
-      highlight: '#xgtOptionsBtn' },
-
-    { instruction: 'To finish a game, open the <b>Menu</b> again.',
-      highlight: '#xgtOptionsBtn',
-      allow: '#xgtOptionsBtn',
-      validate: function () { return sheetOpen() && !!el('xgtOptEndSave'); },
-      autoComplete: function () { click('#xgtOptionsBtn'); } },
-
-    { ack: true,
-      calmRing: true,
-      highlight: '#xgtOptEndSave',
-      instruction: '<b>End &amp; Save Session</b> is here. Be reassured rather than anxious about it: the session has been saved after every single tap, so this saves nothing new — it marks the game finished.' },
-
-    { ack: true,
-      calmRing: true,
-      highlight: '#xgtOptCsv',
-      instruction: '<b>Export CSV</b> and <b>Export JSON</b> are free on every tier, for the game in front of you.\n\nCSV opens in a spreadsheet; JSON keeps every field including coordinates.' },
-
-    { instruction: 'Close the menu with the ✕.',
-      highlight: '#xgtX',
-      allow: '#xgtX',
-      validate: function () { return !sheetOpen(); },
-      autoComplete: function () { click('#xgtX'); } },
-
-    { ack: true,
-      instruction: 'On <b>Pro</b>, sessions also get saved into your online library, to be accessible across any device and to be able to see combined stats across multiple games you have tracked — and the heat map and goal map export as a PDF you can hand a player.' }
-  ]},
-
+    lessonEnding(),
   { title: 'Track it yourself', steps: [
     { ack: true,
       instruction: 'Last part. From here the tutorial stops pointing at buttons — you get told what happened in the game, and you log it.\n\n' +
@@ -1622,6 +1650,296 @@ function stop() {
       instruction: 'That is the tracker.\n\n<b>Field zone, what happened, outcome</b> — and the stats build themselves while you watch the game.' }
   ]}
   ];
+
+  if (which === 'goalkeeper') return [
+    lessonSetup({ role: 'goalkeeper', roleName: 'Goalkeeper', who: 'goalkeeper' }),
+    lessonClock({
+      // A goal against is the keeper's own stopping event. On Pro the shot-type
+      // step sits between Shot and Goal, so it is optional in the chain and
+      // named in the text rather than assumed away.
+      goalInstruction: 'Now log the goal: tap <b>Shot</b>, then <b>Goal</b>, and tap roughly where in the net it went.\n\n' +
+        'On <b>Pro</b> the tracker asks what kind of shot it was first \u2014 Regular, Skip, Lob or Penalty.',
+      goalChain: ['.xgtOpts [data-a="shot"]', '?[data-v="regular"]', '[data-s="goal"]', '.gz[data-p="low_left"]']
+    }),
+  { title: 'Field zones', steps: [
+    { ack: true,
+      instruction: 'The core idea of the Game Tracker is simple:\n\n' +
+        '<b>Tap the field zone</b> where the event happened, then tap the <b>action</b>, then the <b>outcome</b> — and any follow-up the tracker asks for.\n\n' +
+        'Field zone → action → outcome. Every event starts with the field zone; there is no other way in.' },
+
+    // The one reframe this whole tutorial turns on. Said here, done in the next
+    // step, and said again in Lesson 4 -- a keeper who reads the field zone as
+    // "where my keeper was" records every shot in the same place.
+    { ack: true,
+      instruction: 'And here is the part that is different for a goalkeeper.\n\n' +
+        'For a shot, the field zone is <b>where the opponent shot from</b> — not where your keeper was standing.\n\n' +
+        'That is what turns a season of saves into a picture of where the danger comes from.' },
+
+    { ack: true,
+      instruction: 'The water is divided into <b>field zones</b>: the area right in front of the goal, a ring of zones around it, and the wider areas further out. Anything in the opposite half is the little <b>OPPO</b> area.\n\n' +
+        'They are there so you can say exactly <b>where</b> a shot came from — to yourself when you read the stats back, and to anyone else you share them with.',
+      highlight: '#xgtZoneLayer' },
+
+    { instruction: 'Tap the <b>field zone</b> right in front of the goal — the semi-circle the ring is around. That is a shot from close range.',
+      highlight: '#xgtZoneLayer path[data-zone="z6"]',
+      allowZone: 'z6',
+      validate: function () { return !!(T.state.draft && T.state.draft.fieldZone === 'z6'); },
+      autoComplete: function () { tapZone('z6'); },
+      success: 'Logged the zone' },
+
+    { instruction: 'Tapped the wrong place? Close the sheet with the ✕ and nothing is recorded.\n\nDo that now.',
+      highlight: '#xgtX',
+      allow: '#xgtX',
+      validate: function () { return !T.state.draft; },
+      autoComplete: function () { click('#xgtX'); },
+      success: 'Nothing logged' },
+
+    { instruction: 'Last thing in this lesson. Open the <b>Menu</b>.',
+      highlight: '#xgtOptionsBtn',
+      allow: '#xgtOptionsBtn',
+      validate: function () { return sheetOpen() && !!el('xgtOptEditNums'); },
+      autoComplete: function () { click('#xgtOptionsBtn'); } },
+
+    { instruction: 'The field zones have two options in here. You can <b>rename</b> them, if your club numbers them differently — and you can <b>hide</b> them, if you find the numbers distracting. Both are personal to this device.\n\nThen close the menu with the ✕.',
+      highlight: '#xgtOptZones',
+      calmRing: true,
+      then: '#xgtX',
+      thenAfter: 3000,
+      allow: '#xgtX',
+      validate: function () { return !sheetOpen(); },
+      autoComplete: function () { click('#xgtX'); } }
+  ]},
+
+  { title: 'Actions and outcomes', steps: [
+    { instruction: 'Tap any <b>field zone</b> — the spot the opponent is shooting from.',
+      onEnter: mark,
+      allowZone: '*',
+      validate: function () { return !!(T.state.draft && T.state.draft.fieldZone); },
+      autoComplete: function () { tapZone('z3'); } },
+
+    // No attribution row in this tree, by design: stepAction() only renders it
+    // for singlePlayerMode() && !gk. Worth pointing out, because a coach who
+    // took the Field Player tutorial will look for it.
+    { ack: true,
+      instruction: 'Look at the header: <b>Opponent action from here</b>.\n\n' +
+        'There is no Mine / Teammate / Opponent row in this mode, and there does not need to be — the tracker already knows. A <b>shot</b> is the opponent’s. Everything else in the list is your keeper’s.' },
+
+    { instruction: 'Log a save. Tap <b>Shot</b>, then <b>Blocked / Save</b>, then tap the part of the goal where your keeper stopped it.\n\n' +
+        'On <b>Pro</b>, one extra question comes first: what kind of shot it was — Regular, Skip, Lob or Penalty.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
+      highlight: firstVisible(['.xgtOpts [data-a="shot"]', '[data-v="regular"]', '[data-s="blocked"]', '.xgtGoal']),
+      validate: function () {
+        return (T.state.draft && T.state.draft.goalPlacement) ||
+               loggedSince(base, { action: 'shot', outcome: 'blocked' });
+      },
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z3'); },
+                   '.xgtOpts [data-a="shot"]', '?[data-v="regular"]', '[data-s="blocked"]',
+                   '.gz[data-p="middle_center"]']);
+      },
+      success: 'Save logged' },
+
+    { ack: true,
+      allow: '#xgtSheet',
+      instruction: 'On <b>Pro</b> a save is followed by one more question: did the ball <b>stay in play</b>, or <b>go out</b> for a corner throw.\n\n' +
+        'A save does not end the play, and which of those happened is what a rebound count is made of.',
+      onLeave: function () { if (T.state.draft) clickThrough('#xgtX'); } },
+
+    // The outcome that keeps save percentage honest, and the reason the keeper
+    // tree has no in-cage "blocked by a field player" miss target.
+    { ack: true,
+      instruction: '<b>Defender Block</b> is its own outcome in that list — a shot one of <i>your own</i> field players stopped, not your keeper.\n\n' +
+        'Keeping it separate from a save is the whole point: a block your keeper never made should not flatter their save percentage. (<b>Pro</b>.)' },
+
+    { instruction: 'Now a goal against. Tap a field zone, then <b>Shot</b>, then <b>Goal</b>, and tap where in the net it went.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
+      highlight: firstVisible(['.xgtOpts [data-a="shot"]', '[data-v="regular"]', '[data-s="goal"]', '.xgtGoal']),
+      validate: logged({ action: 'shot', outcome: 'goal' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z4'); },
+                   '.xgtOpts [data-a="shot"]', '?[data-v="regular"]', '[data-s="goal"]',
+                   '.gz[data-p="low_left"]']);
+      },
+      success: 'Goal against logged' },
+
+    { instruction: 'And a shot that misses. Tap a field zone, then <b>Shot</b>, then <b>Missed</b>, and tap where it went.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
+      highlight: firstVisible(['.xgtOpts [data-a="shot"]', '[data-v="regular"]', '[data-s="missed"]', '.xgtGoal']),
+      validate: logged({ action: 'shot', outcome: 'missed' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z2'); },
+                   '.xgtOpts [data-a="shot"]', '?[data-v="regular"]', '[data-s="missed"]',
+                   '.gz[data-p="crossbar"]']);
+      },
+      success: 'Miss logged' },
+
+    { ack: true,
+      calmRing: true,
+      highlight: '.xgtGoal',
+      instruction: 'That map is the goal and everything around it — the posts, the crossbar, wide on either side, over the bar, and short into the water.\n\n' +
+        'It has no in-goal area for a block by a field player, because for a keeper that is <b>Defender Block</b> instead.' },
+
+    { instruction: 'Your keeper’s own actions are in the same list. Log a <b>Steal</b>: tap a field zone, then <b>Steal</b>.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
+      highlight: firstVisible(['.xgtOpts [data-a="steal"]', '[data-sr="gk_has_ball"]', '[data-ot="lead"]', '[data-oo="regular"]']),
+      validate: logged({ action: 'steal' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z13'); }, '.xgtOpts [data-a="steal"]',
+                   '?[data-sr="gk_has_ball"]', '?[data-ot="lead"]', '?[data-oo="regular"]']);
+      },
+      success: 'Steal logged' },
+
+    { ack: true,
+      instruction: 'On <b>Pro</b> that steal is followed by <b>what happened to the ball</b> — your keeper has it, a teammate picked it up, the opponent recovered, or it went out.\n\n' +
+        'And if your keeper came away with it, the <b>outlet pass</b> opens by itself: what kind (Lead, Dry or Wet) and how it ended (Advantage / Goal, Regular Possession, or Turnover).' },
+
+    { ack: true,
+      instruction: 'That outlet pass is recorded as its own event, with its own time — because it is the start of the counter-attack, not a footnote to the steal.' },
+
+    { ack: true,
+      instruction: 'The pill at the bottom is your keeper going in and out of the water. Tap it when they get subbed in or out, so that you can log the playing time.',
+      highlight: '#xgtPres' },
+
+    { ack: true,
+      instruction: 'On <b>Pro</b> this tree also carries the <b>shot types</b>, <b>Defender Block</b>, <b>Outlet Pass</b> as an action of its own, <b>Turnover</b>, and more detailed options for foul outcomes.' }
+  ]},
+
+  { title: 'Reading the stats', steps: [
+    { instruction: 'You can read the live statistics during the game, without stopping it. Tap <b>Stats</b>.\n\n' +
+        'Depending on your screen size you may have to scroll up and down to follow the next steps.',
+      highlight: '#xgtStatsBtn',
+      allow: '#xgtStatsBtn',
+      validate: statsOpen,
+      autoComplete: function () { click('#xgtStatsBtn'); } },
+
+    { ack: true,
+      calmRing: true,
+      highlight: statsTiles,
+      onEnter: reveal(statsTiles),
+      instruction: 'Shots on goal faced, saves, <b>save percentage</b>, goals allowed, off target, defender blocks, post and crossbar, penalties faced and saved, steals, turnovers, exclusions drawn — and outlets.' },
+
+    // gkTypeTable() is inserted straight after the tiles with no heading of its
+    // own, so it cannot be found by heading text the way the others are.
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtStats .xgtTiles + .xgtCard',
+      onEnter: reveal('#xgtStats .xgtTiles + .xgtCard'),
+      instruction: 'Under them, the <b>save rate by shot type</b>: how many Regular, Skip, Lob and Penalty attempts were on goal, how many your keeper saved, and how many went off.\n\n' +
+        'This is the table that answers "what do they actually beat us with".' },
+
+    { ack: true,
+      calmRing: true,
+      highlight: statsSection(/shot origin/i),
+      onEnter: reveal(statsSection(/shot origin/i)),
+      instruction: 'The heat diagram shows <b>where they shot from</b>. The darker the field zone, the more attempts came from there.' },
+
+    { ack: true,
+      calmRing: true,
+      highlight: statsSection(/goal placement/i),
+      onEnter: reveal(statsSection(/goal placement/i)),
+      instruction: 'Below that is your <b>own goal</b>, seen from the front, with every shot placed on it.\n\n' +
+        'For a shooter this picture shows a habit. For a keeper it shows a hole.' },
+
+    { ack: true,
+      calmRing: true,
+      highlight: statsSection(/origin/i),
+      onEnter: reveal(statsSection(/origin/i)),
+      instruction: '<b>Origin → outcome → placement</b> is stored per event, not worked out afterwards.\n\nThat is exactly why the tracker asks you for a field zone every single time.' },
+
+    { ack: true,
+      calmRing: true,
+      highlight: statsSection(/full log/i),
+      onEnter: reveal(statsSection(/full log/i)),
+      instruction: 'Under it is the <b>full log</b>. Tap any line to correct or delete it, and <b>+ Add Event</b> for the one you missed.' },
+
+    { instruction: 'Scroll back up to the top, then close the stats with <b>‹ Back</b>.',
+      highlight: '#xgtSb',
+      onEnter: reveal('#xgtSb'),
+      allow: ['#xgtSb', '#xgtStats'],
+      validate: function () { return !statsOpen(); },
+      autoComplete: function () { click('#xgtSb'); } }
+  ]},
+    lessonEnding(),
+  { title: 'Track it yourself', steps: [
+    { ack: true,
+      instruction: 'Last part. From here the tutorial stops pointing at buttons — you get told what happened in the game, and you log it.\n\n' +
+        'Three moments, one at a time. If you get stuck, wait a few seconds and a hint appears.' },
+
+    { instruction: 'Now try it yourself. The opponent shoots, and your keeper <b>saves</b> it.',
+      onEnter: function () { mark(); practice = { done: [] }; },
+      allowZone: '*',
+      allow: ['#xgtSheet', '#xgtUn'],
+      hints: [
+        'Start with the <b>field zone</b> — and for a shot, that is where the <b>opponent shot from</b>.',
+        'Then <b>Shot</b>. On Pro you say what kind of shot it was first.',
+        'Then <b>Blocked / Save</b>, and where in the goal your keeper stopped it.'
+      ],
+      misstep: function () {
+        var e = stray(base, { action: 'shot', outcome: 'blocked' });
+        if (!e) return null;
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log the save.';
+      },
+      validate: logged({ action: 'shot', outcome: 'blocked' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z2'); }, '.xgtOpts [data-a="shot"]',
+                   '?[data-v="regular"]', '[data-s="blocked"]', '.gz[data-p="top_left"]', '?[data-br="gk_in"]']);
+      },
+      success: 'Saved' },
+
+    { instruction: 'This time the opponent <b>scores</b>.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: ['#xgtSheet', '#xgtUn'],
+      hints: [
+        'Field zone first — wherever the shot came from.',
+        'Then <b>Shot</b>, then <b>Goal</b>, then where in the net it went.'
+      ],
+      misstep: function () {
+        var e = stray(base, { action: 'shot', outcome: 'goal' });
+        if (!e) return null;
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log the goal.';
+      },
+      validate: logged({ action: 'shot', outcome: 'goal' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z5'); }, '.xgtOpts [data-a="shot"]',
+                   '?[data-v="regular"]', '[data-s="goal"]', '.gz[data-p="low_right"]']);
+      },
+      success: 'Goal against' },
+
+    { instruction: 'Your keeper <b>steals the ball</b> — anywhere on the field you like.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: ['#xgtSheet', '#xgtUn'],
+      hints: [
+        'Tap any <b>field zone</b> first.',
+        '<b>Steal</b> is one tap. On Pro you are then asked what became of the ball — and an outlet pass may follow.'
+      ],
+      misstep: function () {
+        var e = stray(base, { action: 'steal' });
+        if (!e) return null;
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log a steal.';
+      },
+      validate: logged({ action: 'steal' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z13'); }, '.xgtOpts [data-a="steal"]',
+                   '?[data-sr="gk_has_ball"]', '?[data-ot="lead"]', '?[data-oo="regular"]']);
+      },
+      success: 'Steal' },
+
+    { ack: true,
+      instruction: 'That is the tracker, from your keeper’s end.\n\n<b>Where the shot came from, what happened, outcome</b> — and the save percentage builds itself while you watch the game.' }
+  ]}
+  ];
+
+  throw new Error('Only the Field Player and Goalkeeper tutorials are built yet');
 }
 
 /* ------------------------------------------------------------------- api */

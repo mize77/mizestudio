@@ -85,6 +85,36 @@ else:
 src = src.replace('?pin"', '?t=" + Date.now() + "') if False else src.replace(
     '?pin"', '?pin=PINSTAMP"').replace('PINSTAMP', stamp.replace(' ', '_'))
 
+# --- 2b. LAB-ONLY: let Home launch every tutorial this module has built.
+#         The shipping index.html only routes 'gametracker-field', because the
+#         shipping xquix-game-tracker-tutorial.js is the only thing it can
+#         safely route to -- a banner that calls start('goalkeeper') on a module
+#         without that tutorial throws mid-open and leaves the tracker in
+#         tutorial mode. So the branch is widened HERE, in the lab copy, where
+#         the lab's own newer module is what answers.
+#
+#         This is the one place the lab deliberately differs from production,
+#         and it is temporary by construction: the moment the real branch is
+#         promoted into index.html, the pattern below stops matching and this
+#         becomes a no-op. It prints which of the two happened, so the
+#         divergence can never be silent.
+OLD_BRANCH = """  } else if(tutorial === 'gametracker-field' && typeof MIZE !== 'undefined' && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start === 'function'){
+    xquixHideHome();
+    closeToolPanels();
+    MIZE.GameTrackerTutorial.start('field');"""
+NEW_BRANCH = """  } else if((tutorial === 'gametracker-field' || tutorial === 'gametracker-goalkeeper')
+            && typeof MIZE !== 'undefined' && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start === 'function'){
+    xquixHideHome();
+    closeToolPanels();
+    MIZE.GameTrackerTutorial.start(tutorial === 'gametracker-goalkeeper' ? 'goalkeeper' : 'field');"""
+if OLD_BRANCH in src:
+    src = src.replace(OLD_BRANCH, NEW_BRANCH, 1)
+    print('    patched lab Home to route GOALKEEPER too (production still routes FIELD PLAYER only)')
+elif "gametracker-goalkeeper'" in src:
+    print('    Home already routes GOALKEEPER in index.html itself - no lab patch needed')
+else:
+    print('    !! could not find the tutorial branch in index.html - GOALKEEPER will toast "not built yet"')
+
 # --- 3. An unmistakable banner. This is not the Studio.
 banner = """<div id="labBanner">Game Tracker Lab · pinned Studio snapshot · not the live app</div>
 <style>
