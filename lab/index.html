@@ -17,7 +17,7 @@
   P.setItem    = function (k, v) { return s.call(this, NS + k, v); };
   P.removeItem = function (k) { return r.call(this, NS + k); };
   window.LAB_NS = NS;
-  window.LAB_PINNED = '2026-08-31 06:00';
+  window.LAB_PINNED = '2026-08-31 15:33';
 })();
 </script>
 <meta charset="utf-8" />
@@ -21246,10 +21246,30 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 </script>
 
 
-<script src="lab/xquix-game-tracker.js?pin=2026-08-31_06:00"></script>
-<script src="lab/xquix-game-tracker-tutorial.js?pin=2026-08-31_06:00"></script>
-<script src="lab/xquix-player-rig.js?pin=2026-08-31_06:00"></script>
-<script src="lab/xquix-pose-resolver.js?pin=2026-08-31_06:00"></script>
+<script>
+/* Lab only: every reload fetches the current file. See pin-lab.sh. */
+(function () { var d = document, t = Date.now();
+  d.write('<scr' + 'ipt src="lab/xquix-game-tracker.js?t=' + t + '"><\/scr' + 'ipt>');
+})();
+</script>
+<script>
+/* Lab only: every reload fetches the current file. See pin-lab.sh. */
+(function () { var d = document, t = Date.now();
+  d.write('<scr' + 'ipt src="lab/xquix-game-tracker-tutorial.js?t=' + t + '"><\/scr' + 'ipt>');
+})();
+</script>
+<script>
+/* Lab only: every reload fetches the current file. See pin-lab.sh. */
+(function () { var d = document, t = Date.now();
+  d.write('<scr' + 'ipt src="lab/xquix-player-rig.js?t=' + t + '"><\/scr' + 'ipt>');
+})();
+</script>
+<script>
+/* Lab only: every reload fetches the current file. See pin-lab.sh. */
+(function () { var d = document, t = Date.now();
+  d.write('<scr' + 'ipt src="lab/xquix-pose-resolver.js?t=' + t + '"><\/scr' + 'ipt>');
+})();
+</script>
 <script>
 
 
@@ -22228,7 +22248,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 
    HOW TO INCLUDE (Studio thread — 4 wiring points)
    1) Load AFTER the Studio engine, as its own classic script tag:
-        <script src="lab/parent-experience.js?pin=2026-08-31_06:00">   (add the matching close tag)
+        <script src="parent-experience.js">   (add the matching close tag)
       (or paste its contents inside a script block near the end of <body>).
       Engine globals it needs (M, board, place, moveBallTo, ball, ballCarrier,
       tutorialSteps, goToTutorialStep, selectFieldZoneSet, ...) live at

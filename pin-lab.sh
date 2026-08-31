@@ -68,22 +68,48 @@ head = """<head>
 assert src.count('<head>') == 1
 src = src.replace('<head>', head, 1)
 
-# --- 2. Lab-owned modules load from lab/, cache-busted so a stale copy can
-#        never masquerade as "the change didn't work".
+# --- 2. Lab-owned modules load from lab/, with a buster that changes EVERY LOAD.
+#
+#        This used to be "?pin=<the pin stamp>", which is worthless: the stamp
+#        only changes when THIS SCRIPT runs, while the files it points at change
+#        every time work is committed to lab/. On 2026-08-31 the tutorial was
+#        rewritten four times against one 06:00 stamp, so a browser that had
+#        fetched it once kept serving the 06:00 copy all day, and real changes
+#        looked like they had not been made. Exactly the failure the old comment
+#        here claimed to prevent.
+#
+#        document.write is the right tool on a dev page: it keeps these modules
+#        synchronous and in source order, which swapping src cannot promise, and
+#        Date.now() means a reload can never be handed a stale file. The lab is
+#        not production; production keeps its ordinary, cacheable tags.
 OWNED = ['xquix-game-tracker.js', 'xquix-player-rig.js', 'xquix-pose-resolver.js', 'parent-experience.js']
+
+def loader(files):
+    """A <script> that writes the given lab-owned modules, cache-busted per load."""
+    lines = ''.join(
+        """  d.write('<scr' + 'ipt src="lab/%s?t=' + t + '"><\\/scr' + 'ipt>');\n""" % f
+        for f in files)
+    return ('<script>\n'
+            '/* Lab only: every reload fetches the current file. See pin-lab.sh. */\n'
+            '(function () { var d = document, t = Date.now();\n' + lines + '})();\n'
+            '</script>')
+
 for f in OWNED:
-    src = src.replace('<script src="%s">' % f, '<script src="lab/%s?pin">' % f)
-# the tutorial too, and it must exist even if the live index has not wired it yet
-if 'xquix-game-tracker-tutorial.js' in src:
-    src = src.replace('<script src="xquix-game-tracker-tutorial.js">',
-                      '<script src="lab/xquix-game-tracker-tutorial.js?pin">')
+    tag = '<script src="%s"></script>' % f
+    if tag in src:
+        src = src.replace(tag, loader([f]), 1)
+
+TUT = '<script src="xquix-game-tracker-tutorial.js"></script>'
+if TUT in src:
+    src = src.replace(TUT, loader(['xquix-game-tracker-tutorial.js']), 1)
 else:
-    src = src.replace('<script src="lab/xquix-game-tracker.js?pin"></script>',
-                      '<script src="lab/xquix-game-tracker.js?pin"></script>\\n'
-                      '<script src="lab/xquix-game-tracker-tutorial.js?pin"></script>', 1)
-# a real timestamp, so every load fetches the current lab build
-src = src.replace('?pin"', '?t=" + Date.now() + "') if False else src.replace(
-    '?pin"', '?pin=PINSTAMP"').replace('PINSTAMP', stamp.replace(' ', '_'))
+    # The live index has not wired the tutorial yet -- load it directly after the
+    # tracker, whose tag the loop above has already replaced.
+    anchor = loader(['xquix-game-tracker.js'])
+    assert anchor in src, 'tracker script tag not found - cannot place the tutorial'
+    src = src.replace(anchor, loader(['xquix-game-tracker.js', 'xquix-game-tracker-tutorial.js']), 1)
+
+assert '?pin' not in src, 'a stale ?pin buster survived the rewrite'
 
 # --- 2b. LAB-ONLY: let Home launch every tutorial this module has built.
 #         The shipping index.html only routes 'gametracker-field', because the
