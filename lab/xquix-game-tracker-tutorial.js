@@ -1313,7 +1313,11 @@ function buildLessons(which) {
   ]};
   }
 
-  function lessonEnding() {
+  /* opts.extraSteps land after the post-game-foul step and before the Menu --
+     which is where the shootout belongs, because it is the other thing that can
+     still happen once regulation is over. A has none; B has the shootout. */
+  function lessonEnding(opts) {
+    opts = opts || {};
     return   { title: 'Ending the game', steps: [
     { ack: true,
       instruction: 'Four quarters — and you change quarter from the same time sheet you used earlier, on the <b>quarter button</b> at the top left.',
@@ -1324,7 +1328,8 @@ function buildLessons(which) {
 
     { ack: true,
       instruction: 'But since there is the chance that misconducts happen after the buzzer, certain options stay available: <b>Menu → Log Post-Game Foul</b> appears at that point, and only then.',
-      highlight: '#xgtOptionsBtn' },
+      highlight: '#xgtOptionsBtn' }
+  ].concat(opts.extraSteps || []).concat([
 
     { instruction: 'To finish a game, open the <b>Menu</b> again.',
       highlight: '#xgtOptionsBtn',
@@ -1350,8 +1355,29 @@ function buildLessons(which) {
 
     { ack: true,
       instruction: 'On <b>Pro</b>, sessions also get saved into your online library, to be accessible across any device and to be able to see combined stats across multiple games you have tracked — and the heat map and goal map export as a PDF you can hand a player.' }
-  ]};
+  ])};
   }
+
+  /* The shootout, for the goalkeeper tutorial only. A keeper faces it, so it
+     belongs here -- but what the tracker does with it has to be said straight.
+     actionEvents() excludes anything carrying context.shootout, and that one
+     filter feeds BOTH the live stats panel and the four-quarter score. So the
+     attempts are recorded, tallied and exported, and they do NOT move the save
+     percentage. Saying otherwise would be the kind of promise a parent checks. */
+  var shootoutSteps = [
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtQ',
+      instruction: 'And then there is the <b>penalty shootout</b>. It lives on the time sheet, as an <b>SO</b> chip beside the quarter chips.\n\n' +
+        'Nobody finds it by accident — but "we have moved past regulation" is the same kind of decision as picking a quarter, so that is where it sits.' },
+
+    { ack: true,
+      instruction: 'Every attempt is recorded: who took it, and whether your keeper saved it. Shooting order is enforced for you, with an override for competitions that do it differently.' },
+
+    { ack: true,
+      instruction: 'One thing to know about the numbers. A shootout keeps its <b>own score</b>, separate from the four quarters — so it does not change the game score, and it does not move the save percentage in your stats.\n\n' +
+        'The attempts are all there in the <b>full log</b> and in the <b>export</b>.' }
+  ];
 
   if (which === 'field') return [
     lessonSetup({ role: 'field', roleName: 'Field Player', who: 'player' }),
@@ -1867,7 +1893,7 @@ function buildLessons(which) {
       validate: function () { return !statsOpen(); },
       autoComplete: function () { click('#xgtSb'); } }
   ]},
-    lessonEnding(),
+    lessonEnding({ extraSteps: shootoutSteps }),
   { title: 'Track it yourself', steps: [
     { ack: true,
       instruction: 'Last part. From here the tutorial stops pointing at buttons — you get told what happened in the game, and you log it.\n\n' +
