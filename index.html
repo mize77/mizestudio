@@ -11858,14 +11858,23 @@ function animateToFrame(targetIndex, durationSec, onDone, endProgress=1){
       const s=startPlayers[p.label] || { x:p.x, y:p.y, rot:p.rot, pose:p.pose };
       el.dataset.x=lerp(s.x, p.x, t);
       el.dataset.y=lerp(s.y, p.y, t);
-      el.dataset.rot=lerpAngle(s.rot, p.rot, t);
-      // When the pose type changes (v↔h), the rotation must happen while
-      // the player is vertical -- a treading player spins to face their new
-      // direction, then starts (or stops) swimming. Snapping to horizontal
-      // at the start produced the opposite: they became a swimmer and then
-      // visually spun as a swimmer. loadState() at the end of the transition
-      // snaps to the exact target pose regardless of what we set here.
-      el.dataset.pose = (s.pose !== p.pose) ? 'v' : p.pose;
+      if(s.pose !== p.pose){
+        // Split the transition so the pose switch is visible AND the spin
+        // always happens while the player is vertical.
+        //   v→h: spin in vertical (first half) → become horizontal (second half)
+        //   h→v: stay horizontal (first half, visible switch) → become vertical and spin
+        const SPLIT=0.5;
+        if(p.pose==='h'){
+          if(t<SPLIT){ el.dataset.pose='v'; el.dataset.rot=lerpAngle(s.rot,p.rot,t/SPLIT); }
+          else        { el.dataset.pose='h'; el.dataset.rot=p.rot; }
+        } else {
+          if(t<SPLIT){ el.dataset.pose='h'; el.dataset.rot=s.rot; }
+          else        { el.dataset.pose='v'; el.dataset.rot=lerpAngle(s.rot,p.rot,(t-SPLIT)/(1-SPLIT)); }
+        }
+      } else {
+        el.dataset.rot=lerpAngle(s.rot,p.rot,t);
+        el.dataset.pose=p.pose;
+      }
       place(el);
     });
     const tb=target.ball||startBall;
