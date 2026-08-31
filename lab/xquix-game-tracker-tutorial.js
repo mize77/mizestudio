@@ -56,7 +56,16 @@ var CSS = [
 '#xgtuBox{position:fixed;left:12px;width:min(370px,calc(100vw - 24px));',
 '  z-index:' + Z_BOX + ';background:#0d2422;border:1px solid #2a5f5c;border-radius:14px;',
 '  padding:13px 15px;box-shadow:0 10px 30px rgba(0,0,0,.45);color:#eaf6f5;',
-'  font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:auto;}',
+'  font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:auto;',
+// The box moves out of the way of whatever the step is pointing at, so it has
+// to move visibly rather than teleport -- a box that jumps is one the eye has
+// to find again on every step.
+'  transition:top .28s cubic-bezier(.22,.61,.36,1);}',
+'@media (prefers-reduced-motion: reduce){#xgtuBox{transition:none;}}',
+// On a small portrait phone a long step can be taller than the band it has to
+// fit in. Capped and scrollable beats overflowing off the screen, which is how
+// the Exit and Next buttons would end up unreachable.
+'#xgtuScroll{overflow-y:auto;-webkit-overflow-scrolling:touch;}',
 '#xgtuLesson{font:800 10.5px system-ui;letter-spacing:.09em;text-transform:uppercase;color:#4bb8bd;margin-bottom:5px;}',
 '#xgtuText{white-space:pre-wrap;}',
 '#xgtuText b{color:#7fd6da;font-weight:700;}',
@@ -146,7 +155,7 @@ function statsTiles() { return q('#xgtStats .xgtTiles'); }
 function reveal(fn) {
   return function () {
     var e = typeof fn === 'function' ? fn() : q(fn);
-    if (e && e.scrollIntoView) { try { e.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) { e.scrollIntoView(); } }
+    if (e && e.scrollIntoView) { try { e.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (err) { e.scrollIntoView(); } }
   };
 }
 
@@ -391,7 +400,7 @@ function showHint(html) {
   if (!h) return;
   h.innerHTML = html;
   h.style.display = '';
-  positionChrome();
+  positionChrome(true);         // the box just got taller
 }
 function clearHints() {
   clearTimeout(hintTimer); hintTimer = null; hintN = 0;
@@ -514,8 +523,8 @@ function buildChrome() {
   var box = make('div', 'xgtuBox');
   box.innerHTML =
     '<div id="xgtuLesson"></div>' +
-    '<div id="xgtuText"></div>' +
-    '<div id="xgtuHint" style="display:none"></div>' +
+    '<div id="xgtuScroll"><div id="xgtuText"></div>' +
+    '<div id="xgtuHint" style="display:none"></div></div>' +
     '<div id="xgtuRow">' +
       '<button class="xgtuBtn" id="xgtuExit">Exit / Skip Lesson</button>' +
       '<span class="sp"></span>' +
@@ -528,25 +537,126 @@ function buildChrome() {
   el('xgtuExit').onclick = function () { openDialog('exit'); };
   el('xgtuNext').onclick = nextStep;
   el('xgtuAck').onclick = function () { succeed(); };
-  positionChrome();
-  window.addEventListener('resize', positionChrome);
+  positionChrome(true);
+  window.addEventListener('resize', onViewportResize);
+  window.addEventListener('orientationchange', onViewportResize);
 }
 
-/* Sits below the tracker's own top pane so the clock and score stay visible --
-   deliberately NOT at the bottom, where the action sheet slides up and this
-   box (being higher in the stack) would cover the very buttons it is asking
-   the coach to tap. */
-function positionChrome() {
+/* WHERE THE BOX GOES, and why it cannot be one fixed place.
+ *
+ * The tutorial runs on a phone held in portrait -- the only orientation the
+ * Game Tracker is usable in -- and over the course of a lesson it points at the
+ * clock at the very top, the action sheet at the very bottom, a wedge in the
+ * middle of the water, and sections of a full-screen stats panel. A box parked
+ * under the top bar covers the clock explanation's own subject on one step and
+ * the goal grid on another; parked at the bottom it covers the action sheet it
+ * is asking the coach to tap.
+ *
+ * So it is placed per step, against the one thing that step is about: the ring
+ * target. Above it if there is room above, below it if there is room below,
+ * whichever band is roomier when both work. The band is measured from the real
+ * chrome -- the top pane's actual height, the real safe-area insets -- rather
+ * than from guessed constants, because those differ on every handset.
+ *
+ * Two cases deliberately do not move it: no target at all (nothing to avoid),
+ * and a target inside the box itself, which is the "Got it" ring. */
+var ANCHOR_GAP = 10;
+
+/* A resize or a rotation invalidates every measurement the layout was based on,
+   so it starts from scratch rather than deciding nothing moved. */
+function onViewportResize() { placedAt = null; positionChrome(true); }
+
+function bandLimits() {
+  var vh = window.innerHeight;
+  var topBar = el('xgtTop');
+  var safeTop = topBar ? topBar.getBoundingClientRect().bottom : 12;
+  return { top: Math.max(8, Math.round(safeTop) + 8), bottom: vh - 10 };
+}
+
+/* The rectangle this step is about, if any. The ring's target is the honest
+   answer: it is what the step points at, and it is resolved from the live DOM
+   every frame, so it follows the sheet through its own screens. */
+function anchorRect() {
+  var s = step();
+  if (!s) return null;
+  var sel = ringOverride || s.highlight;
+  var handed = s.then && Date.now() - stepAt >= (s.thenAfter || 3000);
+  if (handed) sel = s.then;
+  if (!sel) return null;
+  var e = typeof sel === 'function' ? sel() : q(sel);
+  if (!e) return null;
+  var box = el('xgtuBox');
+  if (box && box.contains(e)) return null;          // the ring around "Got it"
+  var r = e.getBoundingClientRect();
+  if (!r.width && !r.height) return null;
+  if (r.bottom < 0 || r.top > window.innerHeight) return null;   // scrolled away
+  return r;
+}
+
+var placedAt = null;      // the anchor we last laid out against
+
+function positionChrome(force) {
   var box = el('xgtuBox'); if (!box) return;
-  var top = el('xgtTop');
-  var y = top ? Math.round(top.getBoundingClientRect().bottom) + 8 : 12;
-  box.style.top = y + 'px';
+  var lim = bandLimits();
+  var r = anchorRect();
+
+  // Only re-lay-out when the thing being pointed at has actually moved. Doing
+  // it every frame fights the CSS transition and jitters.
+  var key = r ? [Math.round(r.top / 3), Math.round(r.bottom / 3)].join(':') : 'none';
+  if (!force && key === placedAt) return;
+  placedAt = key;
+
+  box.style.maxHeight = '';
+  var scroll = el('xgtuScroll');
+  if (scroll) scroll.style.maxHeight = '';
+  var h = box.offsetHeight;
+
+  var y;
+  if (!r) {
+    y = lim.top;                                   // nothing to avoid
+  } else {
+    var above = (r.top - ANCHOR_GAP) - lim.top;    // room in the band above
+    var below = lim.bottom - (r.bottom + ANCHOR_GAP);
+    var fitsAbove = h <= above, fitsBelow = h <= below;
+    if (fitsAbove && (!fitsBelow || above >= below)) y = r.top - ANCHOR_GAP - h;
+    else if (fitsBelow) y = r.bottom + ANCHOR_GAP;
+    else {
+      // Neither band fits the box whole. Take the roomier one and let the text
+      // scroll inside it, so the buttons stay on screen either way.
+      // Take the roomier band and let the text scroll inside it. The cap is the
+      // band itself, never a floor above it -- a floor is how the box ends up
+      // taller than the space it was being fitted into, and back over the
+      // anchor it was supposed to clear.
+      var room = Math.max(above, below);
+      var useAbove = above >= below;
+      box.style.maxHeight = room + 'px';
+      if (scroll) scroll.style.maxHeight = Math.max(30, room - 78) + 'px';
+      h = Math.min(box.offsetHeight, room);
+      y = useAbove ? (r.top - ANCHOR_GAP - h) : (r.bottom + ANCHOR_GAP);
+    }
+  }
+  y = Math.max(lim.top, Math.min(y, lim.bottom - h));
+  // Last line of defence. If clamping to the viewport has just put the box back
+  // over the anchor -- which can only happen when neither band could hold it --
+  // give the anchor the room and let the box run to the screen edge instead.
+  if (r && y < r.bottom && y + h > r.top) {
+    y = (r.top - lim.top >= lim.bottom - r.bottom)
+      ? Math.max(lim.top, r.top - ANCHOR_GAP - h)
+      : Math.min(lim.bottom - h, r.bottom + ANCHOR_GAP);
+  }
+  box.style.top = Math.round(y) + 'px';
+
   var flash = el('xgtuFlash');
-  if (flash) flash.style.top = (y + box.offsetHeight + 14) + 'px';
+  if (flash) {
+    // Under the box, unless that would put it off the bottom.
+    var fy = y + h + 14;
+    flash.style.top = Math.round(fy + 40 > window.innerHeight ? Math.max(lim.top, y - 40) : fy) + 'px';
+  }
 }
 
 function removeChrome() {
-  window.removeEventListener('resize', positionChrome);
+  window.removeEventListener('resize', onViewportResize);
+  window.removeEventListener('orientationchange', onViewportResize);
   ['xgtuBox', 'xgtuRing', 'xgtuFlash', 'xgtuDlg'].forEach(function (id) {
     var e = el(id); if (e) e.remove();
   });
@@ -630,7 +740,8 @@ function goTo(i) {
   el('xgtuNext').style.display = s.ack ? 'none' : '';
   if (s.onEnter) { try { s.onEnter(); } catch (err) { console.error('XquiX tutorial: onEnter threw', err); } }
   restartHints();
-  positionChrome();
+  placedAt = null;              // a new step lays out from scratch
+  positionChrome(true);
 }
 
 /* A step's instruction, rewritten after onEnter has worked something out that
@@ -639,7 +750,7 @@ function goTo(i) {
    asked for instead of counting taps and hoping. */
 function setText(html) {
   var t = el('xgtuText');
-  if (t) { t.innerHTML = html; positionChrome(); }
+  if (t) { t.innerHTML = html; positionChrome(true); }
 }
 
 function succeed() {
@@ -658,6 +769,7 @@ function tick() {
   if (!running) return;
   rafHandle = requestAnimationFrame(tick);
   paintRing();
+  positionChrome();
   var s = step();
   if (!s || s.ack || advancing) return;
   // A practice step can notice that something was logged, but the wrong thing.
@@ -707,6 +819,107 @@ function nextStep() {
   succeed();
 }
 
+/* ------------------------------------------------------------ lesson jump */
+/* SKIPPING TO A LESSON REBUILDS THE SCREEN THAT LESSON STARTS ON.
+ *
+ * Moving the step pointer is the easy half and on its own it strands people.
+ * Skip out of Lesson 4 with an action sheet half filled in and Lesson 2 opens
+ * behind it, asking you to look at a clock you cannot see and blocking the one
+ * control that would close the sheet. Reported from a device, twice.
+ *
+ * So a jump throws away whatever the previous lesson was in the middle of and
+ * puts the tracker into the state that lesson's first step assumes:
+ *
+ *   Lesson 1  the landing screen -- close the tracker and reopen it, which is
+ *             the only honest way back to "no game set up yet".
+ *   Lesson 2+ a set-up session, tracking, nothing open over it. If no session
+ *             exists (jumping forward from Lesson 1) one is created silently,
+ *             the same way the lesson's own steps would have.
+ *   Lesson 2  additionally stops the clock, because its second step asks you to
+ *             start it -- and a clock already running would satisfy that step
+ *             before the coach touched anything.
+ *
+ * Everything here goes through clickThrough(), because the interaction guard
+ * blocks the tutorial's own taps exactly as it blocks anyone else's. */
+function setField(sel, v) {
+  var e = q(sel);
+  if (!e) return;
+  e.readOnly = false;
+  e.value = v;
+  e.dispatchEvent(new Event('input', { bubbles: true }));
+  e.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/* One tick of the state machine that gets from wherever we are to "tracking".
+   Written as a poll rather than a fixed sequence because each tap re-renders
+   the sheet, and the next thing to do is decided from what is on screen. */
+function setUpTick() {
+  if (!T.isOpen()) { T.open(); return; }
+  if (sheetOpen() && q('#xgtGo')) {
+    if (T.state.playerRole !== 'field') { clickThrough('#xgtRl [data-role="field"]'); return; }
+    if (!fieldValue('#xgtHome') || !fieldValue('#xgtNum')) {
+      setField('#xgtLoc', 'WP City');
+      setField('#xgtAway', 'Black Octopus');
+      setField('#xgtHome', 'WP City Waves');
+      setField('#xgtNum', '7');
+      return;
+    }
+    clickThrough('#xgtGo');
+    return;
+  }
+  if (sheetOpen() && q('#xgtFresh')) { clickThrough('#xgtFresh'); return; }
+  // No session and no way in to make one -- the landing screen has been closed
+  // at some point. Reopening the tracker is the only route back to it.
+  if (!sheetOpen()) { T.close(); T.open(); }
+}
+
+function goToLesson(n) {
+  var startIdx = lessonStarts[n];
+  if (!running || startIdx == null) return;
+
+  // Everything still in flight belongs to the lesson being left.
+  demoToken++;
+  clearHints();
+  advancing = false;
+  idx = -1;                 // no current step, so nothing validates or advances
+  allowedNow = null;        // and nothing on screen is tappable meanwhile
+  ringOverride = null;
+  var ring = el('xgtuRing'); if (ring) ring.style.display = 'none';
+  el('xgtuLesson').textContent = 'Going to lesson ' + (n + 1);
+  el('xgtuText').innerHTML = 'Setting the screen up…';
+  el('xgtuAck').style.display = 'none';
+  el('xgtuNext').style.display = 'none';
+  positionChrome(true);
+
+  var tries = 0;
+  (function settle() {
+    if (!running || idx !== -1) return;         // exited, or a second jump won
+    if (++tries > 70) { finishJump(); return; } // never hang on this screen
+    // Order matters. The landing screen and the setup form are themselves
+    // sheets, so sheets are only force-closed once a session exists -- closing
+    // them first is how the rebuild used to shut the very screen it then needed.
+    if (statsOpen()) { clickThrough('#xgtSb'); setTimeout(settle, 90); return; }
+    if (T.state.draft) { clickThrough('#xgtX'); setTimeout(settle, 90); return; }
+    T.state.editingZoneNumbers = false;
+
+    if (n === 0) {
+      if (T.isOpen()) { T.close(); setTimeout(settle, 160); return; }
+      if (!q('#xgtFresh')) { T.open(); setTimeout(settle, 240); return; }
+      finishJump(); return;
+    }
+    if (!T.isOpen() || T.state.me.number == null) { setUpTick(); setTimeout(settle, 130); return; }
+    if (sheetOpen()) { clickThrough('#xgtX'); setTimeout(settle, 90); return; }
+    if (n === 1 && T.state.running) { clickThrough('#xgtT'); setTimeout(settle, 110); return; }
+    finishJump();
+  })();
+
+  function finishJump() {
+    el('xgtuAck').style.display = '';
+    el('xgtuNext').style.display = '';
+    goTo(startIdx);
+  }
+}
+
 /* -------------------------------------------------------------- dialogue */
 function openDialog(kind) {
   if (el('xgtuDlg')) return;
@@ -747,7 +960,7 @@ function openDialog(kind) {
   if (lessonStarts.length > 1) row.appendChild(dlgBtn('Go to lesson', '#1b7373', '#fff', function () {
     var v = parseInt(el('xgtuLessonSelect').value, 10) || 0;
     dlg.remove();
-    goTo(lessonStarts[v]);
+    goToLesson(v);
   }));
   row.appendChild(dlgBtn(complete ? 'Close' : 'Leave tutorial', '#8a3a3a', '#fff', function () {
     dlg.remove();
@@ -1434,6 +1647,9 @@ var API = {
              hasTarget: !!(s.allow || s.allowZone || s.auto || s.gesture || typeof s.highlight === 'string') };
   },
   goToStep: function (i) { if (running) goTo(i); },
+  // The difference matters: goToStep moves the pointer, goToLesson rebuilds the
+  // screen first. Anything a person can press goes through goToLesson.
+  goToLesson: goToLesson,
   next: nextStep
 };
 
