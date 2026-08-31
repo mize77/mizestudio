@@ -11764,7 +11764,19 @@ document.getElementById('timelineCommandsBar')?.addEventListener('contextmenu', 
 // ===== Animated frame-to-frame playback (interpolated, not jump-cut) =====
 let animFrameHandle=null;
 function lerp(a,b,t){ return a+(b-a)*t; }
-function lerpAngle(a,b,t){ let diff=((b-a+540)%360)-180; return a+diff*t; }
+// Shortest-path angle interpolation. Uses the double-modulo form
+// (((b-a)%360)+360)%360 to guarantee a non-negative intermediate
+// before mapping to [-180,180]. The single-modulo variant
+// ((b-a+540)%360)-180 is correct when |b-a|<540 but breaks for
+// accumulated rotation values (repeated S-key spins) because
+// JavaScript's % returns negative results for negative operands,
+// pushing diff outside [-180,180] and making the player spin the
+// long way round instead of the short way.
+function lerpAngle(a,b,t){
+  let diff=(((b-a)%360)+360)%360;
+  if(diff>180) diff-=360;
+  return a+diff*t;
+}
 
 let pausedAtProgress=0, pausedTargetIndex=null;
 function animateToFrame(targetIndex, durationSec, onDone, endProgress=1){
