@@ -672,8 +672,23 @@
   }
   /* Seat the surface in the arena. Overrides the flat presentation shadow. */
   body.presentation.field3d #board {
+    background: transparent;  /* gaps now show the dark arena background, not white */
+    overflow: visible;         /* overflow:hidden flattens 3D in Safari/Firefox --
+                                  this is the single fix for both the frame and the
+                                  positioning bug. In presentation mode nothing needs
+                                  clipping at the board edge. */
     box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 46px 110px rgba(75,184,189,.20);
   }
+  /* Venue deck: the SVG fill="#ffffff" on #fieldBgRect makes the surround read
+     as paper rather than as an arena floor. Darken it to match the atmosphere. */
+  body.presentation.field3d #fieldBgRect { fill: #0c1e2a; }
+  /* Goal-line frame panels on the left and right are also white by default. */
+  body.presentation.field3d #goalFrameL1,
+  body.presentation.field3d #goalFrameL2,
+  body.presentation.field3d #goalFrameR1,
+  body.presentation.field3d #goalFrameR2 { fill: #0c1e2a; }
+  /* Sideline bands stay, but softer against the dark deck. */
+  body.presentation.field3d #fieldSideBands { opacity:.72; }
   /* Darken the water backdrop -- the white venue deck reads as paper not pool
      without this, and depth is mostly light falloff not shape. */
   body.presentation.field3d #presentationWaterBackdrop { filter:brightness(.55); }
@@ -1402,6 +1417,8 @@
   </button>
   <div class="modeSwitcherDivider"></div>
   <button class="modeSwitcherExit" id="modeSwitcherExitBtn" role="menuitem">&#10005;&nbsp; Exit to board</button>
+  <div class="modeSwitcherDivider"></div>
+  <button class="modeSwitcherExit" id="modeSwitcher3dBtn" role="menuitem">&#9707;&nbsp; 3D View: Off</button>
 </div>
 <div id="presentationTextSlide">
   <div class="presTextSlideRole"></div>
@@ -11535,6 +11552,12 @@ document.getElementById('presentationRealBtn').onclick=()=>togglePresentation('r
     panel.querySelectorAll('.modeSwitcherOption').forEach(function (btn) {
       btn.classList.toggle('active', btn.dataset.switchMode === cur);
     });
+    // Sync the 3D toggle label to current state each time the panel opens
+    var d3btn = document.getElementById('modeSwitcher3dBtn');
+    if (d3btn) {
+      var on = document.body.classList.contains('field3d');
+      d3btn.textContent = '\u29C7\u00A0 3D View: ' + (on ? 'On \u2014 tap to turn off' : 'Off');
+    }
     panel.classList.add('open');
     backdrop.classList.add('open');
   }
@@ -11577,6 +11600,21 @@ document.getElementById('presentationRealBtn').onclick=()=>togglePresentation('r
   document.getElementById('modeSwitcherExitBtn').onclick = function () {
     closeSwitcher();
     if (document.body.classList.contains('presentation')) togglePresentation();
+  };
+
+  // 3D toggle — the exit scenario: always reachable from the ⊡ button
+  document.getElementById('modeSwitcher3dBtn').onclick = function () {
+    closeSwitcher();
+    document.body.classList.toggle('field3d');
+    localStorage.setItem('xquixField3d', document.body.classList.contains('field3d') ? '1' : '0');
+    // Keep the sidebar button label in sync
+    var sideBtn = document.getElementById('field3dToggleBtn');
+    if (sideBtn) {
+      var on = document.body.classList.contains('field3d');
+      sideBtn.textContent = on ? '3D View: On' : '3D View: Off';
+      sideBtn.classList.toggle('active', on);
+    }
+    if (typeof fitBoardToScreen === 'function') fitBoardToScreen();
   };
 })();
 function toggleMultiSelect(){
