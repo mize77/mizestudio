@@ -680,6 +680,10 @@
   /* Toggle button: visible in the sidebar always; only has visual effect in
      presentation mode, which the label makes clear. */
   #field3dToggleBtn { margin-top:2px; }
+
+  /* ---- Presentation audio ---- */
+  .audioPresentationBtn.playing { outline:2px solid #01b4c8; outline-offset:1px; }
+  #audioMuteToggle.muted { opacity:.55; }
   .fieldZoneLine { fill:none; stroke:#6b6b6b; stroke-width:.06; stroke-dasharray:.3 .2; }
   .fieldZoneLabel { text-anchor:middle; dominant-baseline:central; font-family:Arial, sans-serif; fill:#6b6b6b; fill-opacity:.7; }
   .setupButtonList { display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto; padding:2px; }
@@ -1927,6 +1931,19 @@
           <button id="spotlightToggleBtn" data-tip="Spotlight tool: click a screen to place a spotlight, dimming the rest of the board.">Spotlight</button>
           <button id="studioWindowDarkenBtn" data-tip="Darken/brighten the studio windows behind the board.">Darken Studio Windows</button>
           <button id="field3dToggleBtn" data-tip="3D Presentation View: tilts the field on a perspective camera for an arena look. Only visible in Presentation mode.">3D View: Off</button>
+        </div>
+      </div>
+
+      <div class="subGroup">
+        <button type="button" class="subGroupHeader">Presentation Sound <span class="chev">&#9656;</span></button>
+        <div class="subGroupFlyout">
+          <button id="audioMuteToggle" data-tip="Mute or unmute all presentation audio. The intro jingle, when enabled, plays automatically each time you enter Presentation mode.">&#128266; Sound: On</button>
+          <div style="font-size:11px;color:#7a8a8a;margin:6px 0 3px;font-weight:600;">Play a section manually:</div>
+          <button class="audioPresentationBtn" data-section="dramatic1" data-tip="First dramatic section of the XquiX Studio Theme (~33s). Tap again to stop.">Dramatic I</button>
+          <button class="audioPresentationBtn" data-section="dramatic2" data-tip="Second dramatic section, more instruments added (~35s). Tap again to stop.">Dramatic II</button>
+          <button class="audioPresentationBtn" data-section="dramatic3" data-tip="Third dramatic section, full arrangement (~21s). Tap again to stop.">Dramatic III</button>
+          <button class="audioPresentationBtn" data-section="outro" data-tip="Closing outro (~5s) — for a deliberate, well-timed finish.">Outro</button>
+          <button id="audioStopBtn" data-tip="Stop whatever is currently playing.">&#9632; Stop</button>
         </div>
       </div>
     </div>
@@ -11235,6 +11252,9 @@ function togglePresentation(mode){
     fitBtn.textContent = mode==='real' ? 'Presentation Mode' : 'Exit Presentation';
     realBtn.textContent = mode==='real' ? 'Exit Presentation' : 'Presentation Mode (Realistic Field)';
     modeHandle?.classList.add('active');
+    // Auto-intro jingle: first 5 s of the calm intro section, so everyone
+    // in the room knows the presentation has started. Respects the mute flag.
+    if (window.MIZE?.Audio) MIZE.Audio.playIntro();
   }
   fitBoardToScreen();
 }
@@ -18251,7 +18271,6 @@ function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
     if (typeof fitBoardToScreen === 'function') fitBoardToScreen();
   });
 })();
-
 // ===== Attack Direction toggle =====
 (function(){
   function label(){ return attackDirectionFlipped ? '\u2190 Blue attacks Left' : 'Blue attacks Right \u2192'; }
@@ -25945,6 +25964,143 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
   else wire();
+})();
+
+
+// ===== Presentation Audio =====
+(function(){
+  'use strict';
+
+  // Section timestamps (seconds). All values are approximate; tune here if
+  // the track is re-exported and timings shift. The coach hears these live —
+  // they do not need to match a stored constant anywhere else.
+  const SECTIONS = {
+    intro:     { start:  0,   end:  5    },  // calm intro — auto-plays on Presentation entry
+    dramatic1: { start: 10,   end: 43   },   // first dramatic section
+    dramatic2: { start: 43,   end: 78   },   // second dramatic section (more instruments)
+    dramatic3: { start: 78,   end: 99   },   // third dramatic section (full arrangement)
+    outro:     { start: 99,   end: 104.95 }  // closing outro
+  };
+
+  const TRACK      = 'XquiX_Studio_Theme.mp3';
+  const FADE_S     = 1.5;    // fade-in / fade-out duration in seconds
+  const FADE_STEPS = 40;     // smoothness of each fade
+
+  let _audio       = null;
+  let _fadeHandle  = null;
+  let _endHandle   = null;
+  let _current     = null;   // section key currently playing, or null
+  let _muted       = localStorage.getItem('xquixAudioMuted') === '1';
+
+  // Lazy-create the Audio element so the file is only fetched when first used.
+  function getAudio() {
+    if (!_audio) {
+      _audio = new Audio(TRACK);
+      _audio.preload = 'auto';
+    }
+    return _audio;
+  }
+
+  function clearTimers() {
+    if (_fadeHandle) { clearInterval(_fadeHandle); _fadeHandle = null; }
+    if (_endHandle)  { clearTimeout(_endHandle);   _endHandle  = null; }
+  }
+
+  function stopAll() {
+    clearTimers();
+    if (_audio) { _audio.pause(); _audio.volume = 1; }
+    _current = null;
+    renderBtns();
+  }
+
+  function fadeIn(a, target) {
+    const interval = (FADE_S * 1000) / FADE_STEPS;
+    const step     = target / FADE_STEPS;
+    a.volume = 0;
+    clearTimers();
+    _fadeHandle = setInterval(() => {
+      a.volume = Math.min(target, a.volume + step);
+      if (a.volume >= target) { clearInterval(_fadeHandle); _fadeHandle = null; }
+    }, interval);
+  }
+
+  function fadeOut(a, cb) {
+    const startVol = a.volume;
+    const interval = (FADE_S * 1000) / FADE_STEPS;
+    const step     = startVol / FADE_STEPS;
+    clearTimers();
+    _fadeHandle = setInterval(() => {
+      a.volume = Math.max(0, a.volume - step);
+      if (a.volume <= 0) {
+        clearInterval(_fadeHandle); _fadeHandle = null;
+        a.pause();
+        if (cb) cb();
+      }
+    }, interval);
+  }
+
+  function playSection(key) {
+    if (_muted) return;
+    const sec = SECTIONS[key];
+    if (!sec) return;
+
+    stopAll();
+    _current = key;
+    renderBtns();
+
+    const a   = getAudio();
+    a.currentTime = sec.start;
+    a.play().catch(() => {});   // browsers may block autoplay; silence the rejected promise
+
+    const sectionDur  = sec.end - sec.start;
+    const fadeInDur   = Math.min(FADE_S, sectionDur * 0.25);
+    const fadeOutAt   = Math.max(0, (sectionDur - FADE_S) * 1000);
+
+    fadeIn(a, 1);
+
+    _endHandle = setTimeout(() => {
+      fadeOut(a, () => { _current = null; renderBtns(); });
+    }, fadeOutAt);
+  }
+
+  function renderBtns() {
+    document.querySelectorAll('.audioPresentationBtn').forEach(b => {
+      b.classList.toggle('playing', b.dataset.section === _current);
+    });
+    const muteBtn = document.getElementById('audioMuteToggle');
+    if (muteBtn) {
+      muteBtn.textContent = _muted ? '\uD83D\uDD07 Sound: Off' : '\uD83D\uDD0A Sound: On';
+      muteBtn.classList.toggle('muted', _muted);
+    }
+  }
+  renderBtns();
+
+  // Mute toggle
+  document.getElementById('audioMuteToggle')?.addEventListener('click', () => {
+    _muted = !_muted;
+    localStorage.setItem('xquixAudioMuted', _muted ? '1' : '0');
+    if (_muted) stopAll();
+    renderBtns();
+  });
+
+  // Section buttons — tap to play, tap again to stop
+  document.querySelectorAll('.audioPresentationBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.section === _current) { stopAll(); }
+      else { playSection(btn.dataset.section); }
+    });
+  });
+
+  document.getElementById('audioStopBtn')?.addEventListener('click', stopAll);
+
+  // Public API used by togglePresentation for the auto-intro
+  window.MIZE = window.MIZE || {};
+  window.MIZE.Audio = {
+    playIntro:   () => playSection('intro'),
+    playSection,
+    stopAll,
+    isMuted:     () => _muted,
+  };
 })();
 </script>
 </body></html>
