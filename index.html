@@ -655,95 +655,114 @@
     z-index:1; pointer-events:none;
   }
   body.presentation.field3d #arenaAtmosphere { display:block; }
-  /* Shared transition so every layer animates together when slider moves */
-  #arenaCeiling, #arenaCrowd, #arenaSides, #arenaGlow, #arenaFloor {
+  /* Shared defaults for all atmosphere layers */
+  #arenaCeiling, #arenaCrowd, #arenaSides, #arenaGlow, #arenaFloor, #arenaVignette {
     position:absolute; inset:0;
     transition: opacity .35s ease;
   }
+  /* ---- Frame vignette ---- */
+  /* Darkens the perimeter of the whole stage regardless of tilt so the pool
+     feels spot-lit. This is the most immediately visible effect because it
+     covers the board edges, not just the gaps. Radial gradient centred
+     on the pool's near half (lower 65%) to leave the playing surface bright. */
+  /* #arenaOverlay sits ABOVE #board (z-index:5 vs board's z-index:2) so the
+     vignette is visible over the pool surface, not just in the gaps around it.
+     pointer-events:none ensures nothing is blocked. */
+  #arenaOverlay {
+    display:none; position:absolute; inset:0;
+    z-index:5; pointer-events:none;
+  }
+  body.presentation.field3d #arenaOverlay { display:block; }
+  #arenaVignette {
+    background:
+      radial-gradient(ellipse 64% 52% at 50% 64%,
+        transparent 0%, transparent 30%,
+        rgba(3,8,14,.28) 50%, rgba(3,8,14,.68) 73%, rgba(3,8,14,.88) 100%);
+    opacity: var(--arena-i, 0);
+  }
   /* ---- Ceiling + fixture lights ---- */
-  /* Dark roof gradient with 3-4 warm radial blobs simulating overhead
-     fixtures. The gradient goes from near-opaque at the very top to
-     transparent about 55% down so it doesn't touch the pool surface. */
+  /* Dark roof from the top, fading to transparent at ~65%. Warm radial
+     blobs simulate suspended arena fixtures. */
   #arenaCeiling {
     background:
       linear-gradient(to bottom,
-        rgba(3,7,11,.92) 0%,
-        rgba(3,7,11,.72) 18%,
-        rgba(3,7,11,.38) 38%,
-        rgba(3,7,11,.08) 54%,
-        transparent 62%),
-      radial-gradient(ellipse 10% 7% at 22%  5%, rgba(220,170,70,.22), transparent 80%),
-      radial-gradient(ellipse 10% 7% at 78%  5%, rgba(220,170,70,.22), transparent 80%),
-      radial-gradient(ellipse  8% 5% at 50%  3%, rgba(200,150,60,.16), transparent 80%),
-      radial-gradient(ellipse  7% 5% at 10%  9%, rgba(180,130,50,.13), transparent 80%),
-      radial-gradient(ellipse  7% 5% at 90%  9%, rgba(180,130,50,.13), transparent 80%);
+        rgba(3,7,11,.97) 0%,
+        rgba(3,7,11,.88) 14%,
+        rgba(3,7,11,.62) 32%,
+        rgba(3,7,11,.28) 50%,
+        rgba(3,7,11,.08) 62%,
+        transparent 70%),
+      radial-gradient(ellipse 14% 10% at 22%  6%, rgba(220,170,70,.38), transparent 80%),
+      radial-gradient(ellipse 14% 10% at 78%  6%, rgba(220,170,70,.38), transparent 80%),
+      radial-gradient(ellipse 11%  7% at 50%  4%, rgba(210,155,55,.28), transparent 80%),
+      radial-gradient(ellipse 10%  7% at 10% 12%, rgba(190,135,45,.22), transparent 80%),
+      radial-gradient(ellipse 10%  7% at 90% 12%, rgba(190,135,45,.22), transparent 80%);
     opacity: var(--arena-i, 0);
   }
   /* ---- Far-end seating rows ---- */
-  /* Subtle 1px horizontal lines in the upper 42% only — repeating pattern
-     reads as tiered seating at a distance. Masked to fade in/out so lines
-     don't cut hard at the edge. Controlled by --arena-c which only opens
-     fully at steeper angles. */
+  /* 1 px horizontal lines in the upper portion only, masked so they
+     fade smoothly at top and bottom. */
   #arenaCrowd {
-    top:0; bottom:58%; left:0; right:0; /* upper 42% of stage */
-    position:absolute;
+    top:0; bottom:60%; left:0; right:0;
+    position:absolute; inset:auto;
     background:
       repeating-linear-gradient(
         to bottom,
-        transparent   0px, transparent  10px,
-        rgba(18,32,44,.28) 10px, rgba(18,32,44,.28) 11px
+        transparent           0px, transparent          10px,
+        rgba(22,40,55,.38)   10px, rgba(22,40,55,.38)  11px
       );
-    -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.7) 12%, rgba(0,0,0,.7) 72%, transparent 100%);
-    mask:         linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.7) 12%, rgba(0,0,0,.7) 72%, transparent 100%);
+    -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.8) 15%, rgba(0,0,0,.8) 68%, transparent 100%);
+    mask:         linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.8) 15%, rgba(0,0,0,.8) 68%, transparent 100%);
     opacity: var(--arena-c, 0);
   }
   /* ---- Side-wall vignette ---- */
-  /* Darkens left and right to suggest the arena walls receding on either
-     side. Deeper in the corners at the top. */
+  /* Strong left/right darkening for the arena walls. Upper corners are
+     deepest — that is where the ceiling meets the distant side stands. */
   #arenaSides {
     background:
       linear-gradient(to right,
-        rgba(3,8,13,.60) 0%,
-        rgba(3,8,13,.25) 16%,
-        transparent 30%,
-        transparent 70%,
-        rgba(3,8,13,.25) 84%,
-        rgba(3,8,13,.60) 100%),
-      linear-gradient(to bottom,
-        rgba(3,8,13,.30) 0%,
+        rgba(3,8,14,.78) 0%,
+        rgba(3,8,14,.40) 15%,
+        rgba(3,8,14,.10) 27%,
         transparent 35%,
-        transparent 100%);
+        transparent 65%,
+        rgba(3,8,14,.10) 73%,
+        rgba(3,8,14,.40) 85%,
+        rgba(3,8,14,.78) 100%),
+      linear-gradient(to bottom,
+        rgba(3,8,14,.50) 0%,
+        rgba(3,8,14,.22) 22%,
+        transparent 40%);
     opacity: var(--arena-i, 0);
   }
   /* ---- Pool ambient uplight ---- */
-  /* Real arena pools cast teal/cyan light upward into the lower ceiling —
-     one of the most distinctive visual signatures. Placed at ~62% height
-     (near the bottom-centre of the stage, where the pool surface is). */
+  /* Teal/cyan glow rising from the pool — the most distinctive indoor
+     water polo arena signature. Two overlapping radials for a soft bloom. */
   #arenaGlow {
     background:
-      radial-gradient(ellipse 55% 24% at 50% 64%,
-        rgba(0,175,205,.18) 0%,
-        rgba(0,110,155,.09) 45%,
-        transparent 70%),
-      radial-gradient(ellipse 70% 18% at 50% 72%,
-        rgba(0,140,180,.10) 0%,
-        transparent 65%);
+      radial-gradient(ellipse 60% 30% at 50% 65%,
+        rgba(0,185,215,.30) 0%,
+        rgba(0,125,170,.16) 42%,
+        transparent 68%),
+      radial-gradient(ellipse 78% 22% at 50% 74%,
+        rgba(0,155,195,.18) 0%,
+        transparent 62%);
     opacity: var(--arena-i, 0);
   }
   /* ---- Near-end floor ---- */
-  /* At steeper angles the near-end deck becomes visible below the board.
-     A dark wet-deck gradient fills that gap. Also slightly darkens the
-     bottom corners for depth. */
+  /* Dark wet-deck gradient for the near-end pool surround visible at
+     steep angles. Hint of teal pool light on the deck itself. */
   #arenaFloor {
     background:
       linear-gradient(to top,
-        rgba(5,10,16,.82) 0%,
-        rgba(5,10,16,.45) 30%,
-        rgba(5,10,16,.12) 55%,
-        transparent 70%),
+        rgba(4,9,15,.92) 0%,
+        rgba(4,9,15,.60) 28%,
+        rgba(4,9,15,.25) 50%,
+        rgba(4,9,15,.06) 65%,
+        transparent 75%),
       linear-gradient(to top,
-        rgba(0,120,160,.06) 0%,    /* faint pool light on the deck */
-        transparent 30%);
+        rgba(0,135,175,.12) 0%,
+        transparent 28%);
     opacity: var(--arena-i, 0);
   }
   /* #boardTilt is the layer that tilts. #board stays flat so rect() and
@@ -1757,7 +1776,8 @@
   <div id="arenaSides"></div>
   <div id="arenaGlow"></div>
   <div id="arenaFloor"></div>
-</div><div id="board">
+</div>
+<div id="arenaOverlay" aria-hidden="true"><div id="arenaVignette"></div></div><div id="board">
 <div id="boardTilt">
   <div id="xquixCopyrightNotice" style="position:absolute;right:6px;bottom:4px;font-size:9.5px;color:rgba(0,0,0,.38);pointer-events:none;z-index:5;text-align:right;line-height:1.3;white-space:nowrap;"></div>
   <svg id="fieldSvg" viewBox="0 0 29 24" preserveAspectRatio="none">
@@ -18451,12 +18471,14 @@ function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
   function updateArenaAtmosphere(deg) {
     var atm = document.getElementById('arenaAtmosphere');
     if (!atm) return;
-    // Overall intensity: 0 at 3°, ramps to 1 at 45°
-    var i = Math.min(1, Math.max(0, (deg - 3) / 42));
-    // Crowd rows: 0 at 22°, ramps to 1 at 55°
-    var c = Math.min(1, Math.max(0, (deg - 22) / 33));
+    // Full intensity at 20° (was 45°) — so the default 13° already shows ~65%
+    var i = Math.min(1, Math.max(0, deg / 20));
+    // Crowd rows: 0 at 8°, full at 30° — appear sooner than before
+    var c = Math.min(1, Math.max(0, (deg - 8) / 22));
     atm.style.setProperty('--arena-i', i.toFixed(3));
     atm.style.setProperty('--arena-c', c.toFixed(3));
+    var ov = document.getElementById('arenaOverlay');
+    if (ov) ov.style.setProperty('--arena-i', i.toFixed(3));
   }
 
   function apply() {
