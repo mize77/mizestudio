@@ -1953,7 +1953,7 @@
               <span style="font-size:11px;color:#7a8a8a;font-weight:600;">3D tilt angle</span>
               <span id="tiltAngleDisplay" style="font-size:12px;color:#4bb8bd;font-weight:700;min-width:30px;text-align:right;">13°</span>
             </div>
-            <input type="range" id="tiltAngleSlider" min="0" max="45" value="13"
+            <input type="range" id="tiltAngleSlider" min="0" max="75" value="13"
               style="width:100%;accent-color:#01b4c8;cursor:pointer;"
               data-tip="Drag to change the 3D tilt angle (0° = flat, 45° = steep). Takes effect immediately. Works with 3D View on.">
           </div>
@@ -9316,7 +9316,7 @@ function makeExtraBall(x, y, id){
   el.className='extraBall';
   el.dataset.id=id||genObjectId();
   el.dataset.x=x; el.dataset.y=y;
-  board.appendChild(el);
+  (document.getElementById('boardTilt')||board).appendChild(el);
   place(el);
   el.addEventListener('pointerdown', e=>{
     if(layerState.lockBall || el.dataset.locked==='true') return;
@@ -9363,7 +9363,7 @@ function makePlayer([label,team,x,y,pose,rot]) {
   const num=document.createElement('div'); num.className='capNumber'; num.textContent=capText(label); body.appendChild(num);
   const handle=document.createElement('div'); handle.className='rotateHandle'; body.appendChild(handle);
   const lab=document.createElement('div'); lab.className='label'; lab.textContent=label;
-  el.appendChild(body); el.appendChild(lab); board.appendChild(el); place(el);
+  el.appendChild(body); el.appendChild(lab); (document.getElementById('boardTilt')||board).appendChild(el); place(el);
   el.addEventListener('pointerdown', e=>{
     if(layerState.lockPlayers || el.dataset.locked==='true') return;
     if(mode==='ball') { recordHistory(); moveBallTo(el); updateInspector(); return; }
