@@ -645,6 +645,41 @@
      position as in the normal Studio view. */
   body.presentation #shotClockLeft  { position:fixed; top:3%; left:3%;  z-index:1450; }
   body.presentation #shotClockRight { position:fixed; top:3%; right:3%; z-index:1450; }
+
+  /* ---- 3D Presentation Field ---------------------------------------- */
+  /* #boardTilt is the layer that tilts. #board stays flat so rect() and
+     getBoundingClientRect() keep returning the true untransformed frame,
+     which the projection math in pxToM / mToScreenPx depends on. */
+  #boardTilt { position:absolute; inset:0; transform-origin:50% 100%; }
+  body.presentation.field3d #boardTilt {
+    transform: perspective(var(--xq-persp,1650px)) rotateX(var(--xq-tilt,13deg));
+  }
+  /* Light landing on the surface. screen blend = additive light only. */
+  body.presentation.field3d #boardTilt::after {
+    content:""; position:absolute; inset:0; pointer-events:none; z-index:3;
+    background:
+      radial-gradient(38% 46% at 27% 34%, rgba(190,244,247,.19), rgba(190,244,247,0) 68%),
+      radial-gradient(38% 46% at 73% 34%, rgba(190,244,247,.19), rgba(190,244,247,0) 68%);
+    mix-blend-mode: screen;
+  }
+  /* Far-end falloff. Normal blending -- screen cannot darken -- so this must
+     be a separate element from the light pools above. */
+  body.presentation.field3d #boardTilt::before {
+    content:""; position:absolute; inset:0; pointer-events:none; z-index:4;
+    background: linear-gradient(to bottom,
+      rgba(3,7,8,.40) 0%, rgba(3,7,8,.16) 22%, rgba(3,7,8,0) 48%,
+      rgba(3,7,8,.06) 78%, rgba(3,7,8,.22) 100%);
+  }
+  /* Seat the surface in the arena. Overrides the flat presentation shadow. */
+  body.presentation.field3d #board {
+    box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 46px 110px rgba(75,184,189,.20);
+  }
+  /* Darken the water backdrop -- the white venue deck reads as paper not pool
+     without this, and depth is mostly light falloff not shape. */
+  body.presentation.field3d #presentationWaterBackdrop { filter:brightness(.55); }
+  /* Toggle button: visible in the sidebar always; only has visual effect in
+     presentation mode, which the label makes clear. */
+  #field3dToggleBtn { margin-top:2px; }
   .fieldZoneLine { fill:none; stroke:#6b6b6b; stroke-width:.06; stroke-dasharray:.3 .2; }
   .fieldZoneLabel { text-anchor:middle; dominant-baseline:central; font-family:Arial, sans-serif; fill:#6b6b6b; fill-opacity:.7; }
   .setupButtonList { display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto; padding:2px; }
@@ -1596,6 +1631,7 @@
   <button id="videoClearBtn" class="studioFrameClearBtn" title="Clear and load something else">&#10005;</button>
 </div>
 <div id="stageWrap"><div id="presentationWaterBackdrop"></div><div id="board">
+<div id="boardTilt">
   <div id="xquixCopyrightNotice" style="position:absolute;right:6px;bottom:4px;font-size:9.5px;color:rgba(0,0,0,.38);pointer-events:none;z-index:5;text-align:right;line-height:1.3;white-space:nowrap;"></div>
   <svg id="fieldSvg" viewBox="0 0 29 24" preserveAspectRatio="none">
     <defs>
@@ -1668,6 +1704,7 @@
   <div id="fcScrollZoneLeft" class="fcScrollZone"></div>
   <div id="fcScrollZoneRight" class="fcScrollZone"></div>
   <div id="copyrightText">© 2026 XquiX LLC / The Perfect Goalie. All rights reserved.</div>
+</div>
   <div id="shotClockLeft" class="shotClockCorner">
     <div class="shotClockNumber">28</div>
     <div class="shotClockMiniControls">
@@ -1889,6 +1926,7 @@
           <button id="shotClockToggleBtn" data-tip="Shot Clock: shows a countdown on the board. Click again to hide it.">Shot Clock</button>
           <button id="spotlightToggleBtn" data-tip="Spotlight tool: click a screen to place a spotlight, dimming the rest of the board.">Spotlight</button>
           <button id="studioWindowDarkenBtn" data-tip="Darken/brighten the studio windows behind the board.">Darken Studio Windows</button>
+          <button id="field3dToggleBtn" data-tip="3D Presentation View: tilts the field on a perspective camera for an arena look. Only visible in Presentation mode.">3D View: Off</button>
         </div>
       </div>
     </div>
@@ -8957,6 +8995,19 @@ let FC_TOTAL = FC_CROPX1 - FC_LOW;        // total depth mapped to screen height
 let FC_FULL_MIN_Y = FC_CROPX1 - M.W;
 let FC_FULL_HEIGHT = M.W - FC_LOW;
 function rect() { return board.getBoundingClientRect(); }
+// Returns the tilt parameters when body.field3d is active and boardTilt exists,
+// null otherwise. Reads the angle and perspective distance from computed style
+// so tuning the CSS vars is the single source of truth -- never duplicate the
+// numbers in JS. OY=1 because transform-origin is 50% 100% (bottom edge).
+function tiltParams() {
+  if (!document.body.classList.contains('field3d')) return null;
+  const bt = document.getElementById('boardTilt');
+  if (!bt) return null;
+  const cs  = getComputedStyle(bt);
+  const thDeg = parseFloat(cs.getPropertyValue('--xq-tilt')) || 13;
+  const P     = parseFloat(cs.getPropertyValue('--xq-persp')) || 1650;
+  return { th: thDeg * Math.PI / 180, P, OY: 1 };
+}
 let presentationFieldWidened=false;
 const PRESENT_VIEWBOX_W=35, PRESENT_VIEWBOX_H=28, PRESENT_SHIFT_X=3, PRESENT_SHIFT_Y=2;
 function toPctX(x) { if(presentationFieldWidened) return ((x+PRESENT_SHIFT_X)/PRESENT_VIEWBOX_W*100)+'%'; return (x/M.W*100)+'%'; }
@@ -8973,7 +9024,18 @@ function frontCourtScreenPercent(x, y){
 }
 function pxToM(e) {
   const r=rect();
-  const fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
+  let px=e.clientX-r.left, py=e.clientY-r.top;
+  // Apply inverse perspective projection when the board is tilted.
+  // Skipped for front court: it has its own non-rectilinear mapping.
+  const t = (!frontCourtActive) ? tiltParams() : null;
+  if (t) {
+    const X=px-r.width/2, Y=py-t.OY*r.height;
+    const b=Y*t.P/(t.P*Math.cos(t.th)+Y*Math.sin(t.th));
+    const s=t.P/(t.P-b*Math.sin(t.th));
+    px=X/s+r.width/2;
+    py=b+t.OY*r.height;
+  }
+  const fx=px/r.width, fy=py/r.height;
   if(frontCourtActive) return { x: FC_CROPX1 - FC_FULL_MIN_Y - fy*FC_FULL_HEIGHT, y: fx*M.fieldH + M.fieldY };
   if(presentationFieldWidened) return { x: fx*PRESENT_VIEWBOX_W - PRESENT_SHIFT_X, y: fy*PRESENT_VIEWBOX_H - PRESENT_SHIFT_Y };
   return { x: fx*M.W, y: fy*M.H };
@@ -8987,7 +9049,18 @@ function mToScreenPx(x, y){
   if(frontCourtActive){ fy=(FC_CROPX1-FC_FULL_MIN_Y-x)/FC_FULL_HEIGHT; fx=(y-M.fieldY)/M.fieldH; }
   else if(presentationFieldWidened){ fx=(x+PRESENT_SHIFT_X)/PRESENT_VIEWBOX_W; fy=(y+PRESENT_SHIFT_Y)/PRESENT_VIEWBOX_H; }
   else { fx=x/M.W; fy=y/M.H; }
-  return { clientX: r.left+fx*r.width, clientY: r.top+fy*r.height };
+  let cx=r.left+fx*r.width, cy=r.top+fy*r.height;
+  // Apply forward perspective projection to map board-local px back to
+  // the tilted screen position. Skipped for front court (same guard as pxToM).
+  const t = (!frontCourtActive) ? tiltParams() : null;
+  if (t) {
+    const u=fx*r.width, v=fy*r.height;
+    const a=u-r.width/2, b=v-t.OY*r.height;
+    const s=t.P/(t.P-b*Math.sin(t.th));
+    cx=r.left+a*s+r.width/2;
+    cy=r.top+b*Math.cos(t.th)*s+t.OY*r.height;
+  }
+  return { clientX: cx, clientY: cy };
 }
 // Rotates a vector by deg degrees -- used to translate a pointer-movement
 // delta into a rotated text box's own local coordinate space, so the
@@ -18158,6 +18231,26 @@ MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange, gateFun
 const _smartPositioningUI=MIZE.UI.ToggleButton('smartPositioningToggleBtn', 'Smart Positioning',
   ()=>smartPositioningActive, v=>{ smartPositioningActive=v; }, null, 'Smart Positioning');
 function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
+
+// ===== 3D Presentation Field toggle =====
+(function(){
+  const btn = document.getElementById('field3dToggleBtn');
+  if (!btn) return;
+  // Restore persisted state on load.
+  if (localStorage.getItem('xquixField3d') === '1') document.body.classList.add('field3d');
+  function render(){
+    const on = document.body.classList.contains('field3d');
+    btn.textContent = on ? '3D View: On' : '3D View: Off';
+    btn.classList.toggle('active', on);
+  }
+  render();
+  btn.addEventListener('click', () => {
+    document.body.classList.toggle('field3d');
+    localStorage.setItem('xquixField3d', document.body.classList.contains('field3d') ? '1' : '0');
+    render();
+    if (typeof fitBoardToScreen === 'function') fitBoardToScreen();
+  });
+})();
 
 // ===== Attack Direction toggle =====
 (function(){
