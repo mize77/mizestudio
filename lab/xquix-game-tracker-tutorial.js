@@ -50,11 +50,23 @@ var rafHandle = null;
 var running = false;
 var advancing = false;
 var practice = null;  // scratch state for the final lesson
-/* Which tutorial is running, as a tracker role. setUpTick() used to hard-code
-   'field', so jumping to a lesson in the Goalkeeper tutorial built a FIELD
-   PLAYER session underneath it -- every keeper-only thing the lesson then talks
-   about (the Opponent header, Defender Block, the outlet pass) was missing. */
+/* Which tutorial is running, as tracker setup state. setUpTick() used to
+   hard-code 'field', so jumping to a lesson in the Goalkeeper tutorial built a
+   FIELD PLAYER session underneath it -- every keeper-only thing the lesson then
+   talks about (the Opponent header, Defender Block, the outlet pass) was
+   missing. The team tutorials make this worse again: squad tracking is
+   `trackingMode === 'coach' && playerRole === 'team'` and NOTHING else, so a
+   jump has to reproduce both halves, plus a squad of at least seven, or
+   go() refuses to start and the lesson opens onto the setup sheet. */
 var tutorialRole = 'field';
+var tutorialMode = 'parent';    // 'parent' | 'coach'
+var tutorialOpp = false;        // D only: the opposing squad is tracked too
+/* The squad the demo and the jump-setup use. Seven is the minimum go() accepts
+   and also exactly a starting seven, so nobody has to wonder why an eighth
+   number is or is not in the water. #1 is first because the tracker marks it as
+   the goalkeeper by itself, which is a thing the lesson points out. */
+var DEMO_SQUAD = [1, 2, 3, 4, 5, 6, 7];
+var DEMO_OPP_SQUAD = [1, 2, 3, 4, 5, 6, 7];
 
 /* ------------------------------------------------------------------- css */
 var CSS = [
@@ -588,7 +600,13 @@ function buildChrome() {
  *
  * Two cases deliberately do not move it: no target at all (nothing to avoid),
  * and a target inside the box itself, which is the "Got it" ring. */
-var ANCHOR_GAP = 10;
+/* The gap is measured from the ANCHOR, but what the eye sees -- and what a
+   layout test measures -- is the RING, which paintRing() draws 5px proud of the
+   anchor on every side. At 10 the real clearance was 5px, and on the sideline
+   scroll step, where the strip's rect shifts by a few pixels while the field
+   settles, that was close enough to zero to show up as the box sitting on the
+   ring. 16 leaves 11px of actual daylight. */
+var ANCHOR_GAP = 16;
 
 /* WHEN THE BOX MOVES AT ALL: portrait only.
  *
@@ -629,6 +647,13 @@ function bandLimits() {
 function anchorRect() {
   var s = step();
   if (!s) return null;
+  // A quiet step does not dodge. It is two lines tall -- a lesson label and the
+  // two buttons -- and there is no instruction competing for attention, so the
+  // dodging only finds somewhere else on the same small screen to sit. Parked
+  // home it stays clear of the sheet the ring is working in; dodging put it
+  // straight over the big CLOCK REMAINING readout, which is the one number the
+  // coach is watching change.
+  if (s.quiet) return null;
   var sel = ringOverride || s.highlight;
   var handed = s.then && Date.now() - stepAt >= (s.thenAfter || 3000);
   if (handed) sel = s.then;
@@ -790,6 +815,17 @@ function goTo(i) {
   el('xgtuLesson').textContent =
     'L' + s._lessonNo + ' · S' + s._nInLesson + ' of ' + s._ofLesson + '  ·  ' + s._lessonTitle;
   el('xgtuText').innerHTML = (typeof s.instruction === 'function') ? s.instruction() : s.instruction;
+  /* A QUIET STEP shows no words at all -- just the ring, and the two buttons
+     that must never disappear. Two things asked for it, and both are the same
+     complaint from opposite directions:
+       - the auto-fill demo in Lesson 1: text arriving while an animation plays
+         reads as something you are missing while you watch;
+       - correcting the clock in Lesson 2: on a phone the instruction box covers
+         half the very time sheet the coach is learning to recognise.
+     In both cases the words belong on the step BEFORE, behind a Got it, and the
+     doing or the watching happens with the screen clear. */
+  var scroll = el('xgtuScroll');
+  if (scroll) scroll.style.display = s.quiet ? 'none' : '';
   el('xgtuAck').style.display = s.ack ? '' : 'none';
   el('xgtuNext').style.display = s.ack ? 'none' : '';
   if (s.onEnter) { try { s.onEnter(); } catch (err) { console.error('XquiX tutorial: onEnter threw', err); } }
@@ -895,6 +931,31 @@ function nextStep() {
  *
  * Everything here goes through clickThrough(), because the interaction guard
  * blocks the tutorial's own taps exactly as it blocks anyone else's. */
+/* "A session is set up and running." In team mode there is no cap number to
+   look at -- go() skips that check entirely for coach + team and S.me stays
+   {number:null} -- so the signal is the starting seven it puts in the water
+   instead. Reading me.number here made a jump into a team lesson spin through
+   its whole retry budget and then open the lesson on a half-filled setup sheet. */
+function sessionReady() {
+  if (!T || !T.state) return false;
+  if (tutorialRole === 'team') {
+    return (T.state.water || []).length > 0 &&
+           (!tutorialOpp || (T.state.oppWater || []).length > 0);
+  }
+  return T.state.me.number != null;
+}
+
+/* The first chip in `want` that is not yet in `have`, as a selector. One per
+   call on purpose: every chip tap re-renders the whole setup sheet, so a loop
+   that tapped all seven would be tapping six orphaned nodes. */
+function pickMissing(container, attr, want, have) {
+  have = have || [];
+  for (var i = 0; i < want.length; i++) {
+    if (have.indexOf(want[i]) < 0) return container + ' [data-' + attr + '="' + want[i] + '"]';
+  }
+  return null;
+}
+
 function setField(sel, v) {
   var e = q(sel);
   if (!e) return;
@@ -910,13 +971,29 @@ function setField(sel, v) {
 function setUpTick() {
   if (!T.isOpen()) { T.open(); return; }
   if (sheetOpen() && q('#xgtGo')) {
+    // Both halves, and in this order: the squad chips only exist once the sheet
+    // is in coach + team, and every one of these taps re-renders the sheet.
+    if (T.state.trackingMode !== tutorialMode) {
+      clickThrough('#xgtTm [data-tm="' + tutorialMode + '"]'); return;
+    }
     if (T.state.playerRole !== tutorialRole) {
       clickThrough('#xgtRl [data-role="' + tutorialRole + '"]'); return;
     }
-    if (!fieldValue('#xgtHome') || !fieldValue('#xgtNum')) {
+    if (!fieldValue('#xgtHome')) {
       setField('#xgtLoc', 'WP City');
       setField('#xgtAway', 'Black Octopus');
       setField('#xgtHome', 'WP City Waves');
+      return;
+    }
+    if (tutorialRole === 'team') {
+      var missing = pickMissing('#xgtSquad', 'n', DEMO_SQUAD, T.state.squad);
+      if (missing) { clickThrough(missing); return; }
+      if (tutorialOpp) {
+        if (!T.state.opponentTracked) { clickThrough('#xgtOppToggle'); return; }
+        var missingOpp = pickMissing('#xgtOppSquad', 'opp-n', DEMO_OPP_SQUAD, T.state.oppSquad);
+        if (missingOpp) { clickThrough(missingOpp); return; }
+      }
+    } else if (!fieldValue('#xgtNum')) {
       setField('#xgtNum', tutorialRole === 'goalkeeper' ? '1' : '7');
       return;
     }
@@ -963,7 +1040,7 @@ function goToLesson(n) {
       if (!q('#xgtFresh')) { T.open(); setTimeout(settle, 240); return; }
       finishJump(); return;
     }
-    if (!T.isOpen() || T.state.me.number == null) { setUpTick(); setTimeout(settle, 130); return; }
+    if (!T.isOpen() || !sessionReady()) { setUpTick(); setTimeout(settle, 130); return; }
     if (sheetOpen()) { clickThrough('#xgtX'); setTimeout(settle, 90); return; }
     if (n === 1 && T.state.running) { clickThrough('#xgtT'); setTimeout(settle, 110); return; }
     finishJump();
@@ -1073,7 +1150,10 @@ function start(which) {
   T.setTutorialMode(true);
 
   injectCss();
-  tutorialRole = (which === 'goalkeeper') ? 'goalkeeper' : 'field';
+  tutorialRole = (which === 'goalkeeper') ? 'goalkeeper'
+               : (which === 'team' || which === 'fullgame') ? 'team' : 'field';
+  tutorialMode = (tutorialRole === 'team') ? 'coach' : 'parent';
+  tutorialOpp = (which === 'fullgame');
   flatten(buildLessons(which || 'field'));
   if (!T.isOpen()) T.open();
   buildChrome();
@@ -1167,14 +1247,116 @@ function buildLessons(which) {
   var logged = function (want) {
     return function () { return !T.state.draft && loggedSince(base, want); };
   };
+  /* The sideline scroll strip -- but only its upper half, as a plain rectangle.
+     The strip itself runs almost the full height of the water, and a box that
+     has to clear something 600px tall on an 844px phone has nowhere to go: in
+     the team tutorials, where the roster bar is two columns and the band is
+     shorter still, it ended up overlapping the very thing it was pointing at.
+     Half a strip is still unmistakably "this edge", and it leaves the box a
+     place to stand. */
   var scrollStrip = function () {
+    var e = null;
     var r = document.getElementById('fcScrollZoneRight');
-    if (r && r.style.display === 'block') return r;
-    var l = document.getElementById('fcScrollZoneLeft');
-    return (l && l.style.display === 'block') ? l : null;
+    if (r && r.style.display === 'block') e = r;
+    else {
+      var l = document.getElementById('fcScrollZoneLeft');
+      if (l && l.style.display === 'block') e = l;
+    }
+    if (!e) return null;
+    var b = e.getBoundingClientRect();
+    if (!b.height) return e;
+    return { top: b.top, left: b.left, right: b.right, bottom: b.top + b.height * 0.5,
+             width: b.width, height: b.height * 0.5 };
   };
 
-  /* ---- the three lessons both tutorials share, built once -------------- */
+  /* A squad chip that has not been picked yet, for the demo and for the ring.
+     The setup sheet is re-rendered on every chip tap, so this is re-evaluated
+     each time rather than held. */
+  var nextSquadChip = function () {
+    return pickMissing('#xgtSquad', 'n', DEMO_SQUAD, T.state.squad);
+  };
+  var nextOppChip = function () {
+    return pickMissing('#xgtOppSquad', 'opp-n', DEMO_OPP_SQUAD, T.state.oppSquad);
+  };
+  /* Tap what is still missing, one chip at a time, re-querying between taps.
+     Used by the squad steps' autoComplete -- "Next step" has to be able to
+     finish a step the coach started half-way through. */
+  var fillChips = function (pick) {
+    return function () {
+      (function once() {
+        if (!running) return;
+        var sel = pick();
+        if (!sel) return;
+        clickThrough(sel);
+        setTimeout(once, 90);
+      })();
+    };
+  };
+
+  /* ---- C and D only: the squad, the keepers, and (D) the other squad ----
+     Where A and B ask for one cap number, the team tutorials build a roster.
+     go() enforces a real minimum here -- SEVEN numbers, and seven more for the
+     opposing squad when it is tracked -- and refuses with an error message
+     otherwise, so these steps are the only ones in any tutorial whose
+     requirement comes from the tracker rather than from the lesson. */
+  function squadSteps(opts) {
+    var steps = [
+
+    { instruction: 'Now the squad. <b>Tap every cap number that is dressed today</b> — at least <b>seven</b>, or the tracker will not start.\n\nTap <b>1</b> through <b>7</b> for now.',
+      highlight: nextSquadChip,
+      allow: '#xgtSquad',
+      validate: function () { return T.state.squad.length >= 7; },
+      autoComplete: fillChips(nextSquadChip),
+      success: 'Squad in' },
+
+    // #1 auto-marks as a goalkeeper the moment it enters the squad, which is
+    // right almost always and wrong often enough to be worth a sentence -- some
+    // clubs cap their keeper 13.
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtKeepers',
+      instruction: 'Under the squad are the same numbers again, for the <b>goalkeepers</b>. <b>#1 marked itself</b> when it went into the squad — tap it again to un-mark it if your keeper wears something else, and tap any number to add a second keeper.\n\n' +
+        'This matters more than it looks: every opponent action you log is credited to whichever keeper is <b>in the water at the time</b>. Their whole game comes free.' },
+
+    { ack: true,
+      instruction: 'If your competition labels a backup keeper <b>1A</b> or <b>1B</b> instead of giving them their own cap number, there is a box for that under each keeper. Optional — leave it blank and the number shows.' }
+
+    ];
+
+    if (!opts.opponent) return steps;
+
+    return steps.concat([
+
+    { instruction: 'This is the tutorial that tracks <b>both</b> teams, so switch on <b>Track opposing team too</b>.',
+      highlight: '#xgtOppToggle',
+      allow: '#xgtOppToggle',
+      validate: function () { return T.state.opponentTracked === true; },
+      autoComplete: function () { click('#xgtOppToggle'); },
+      success: 'Both teams' },
+
+    { ack: true,
+      instruction: 'Be honest with yourself about what you just took on: <b>roughly twice the taps</b>, for a whole game, on your own.\n\n' +
+        'What you get back is the other half of the picture — every shot your keeper faces has a name on it, and you can read the opponent’s game the same way you read your own.' },
+
+    { instruction: 'Their squad works the same way. <b>Tap at least seven</b> of their numbers — <b>1</b> through <b>7</b> again is fine.',
+      highlight: nextOppChip,
+      allow: '#xgtOppSquad',
+      validate: function () { return (T.state.oppSquad || []).length >= 7; },
+      autoComplete: fillChips(nextOppChip),
+      success: 'Their squad in' },
+
+    // Deliberately an ack, not a task: nothing downstream needs their keeper
+    // marked, and #1 does NOT auto-mark on the opponent side, so asking for it
+    // would be asking for a tap the tracker does not require.
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtOppKeepers',
+      instruction: 'And their <b>goalkeepers</b>, from the numbers you just picked. Nothing marks itself on this side, so if you know which one it is, tap it — that is what puts a name on the keeper who stops your shots.' }
+
+    ]);
+  }
+
+  /* ---- the three lessons all four tutorials share, built once ---------- */
   function lessonSetup(opts) {
     return   { title: 'Set up a session', steps: [
     { ack: true,
@@ -1207,13 +1389,30 @@ function buildLessons(which) {
     // to be a step of their own, chosen by the coach; MIZE asked for them
     // demonstrated at the same pace as the typed fields, and a step that only
     // re-selects what the demo has already selected is a step for nothing.
-    { instruction: 'Watch — the top of the setup fills itself in, one thing at a time.\n\n' +
-        '<b>Who is tracking</b> is only a label on the record. <b>Tracking role</b> is the one that decides what you tap during the game — and this tutorial is the <b>' + opts.roleName + '</b> one.\n\n' +
-        'Then the game itself. Worth entering for real: these names replace <b>Us</b> and <b>Them</b> on every button and in every export.',
+    // Read first, watch second. The animation used to start the moment the step
+    // arrived, with this text alongside it -- so the coach was reading and
+    // watching at once and felt they were missing whichever they were not doing.
+    // Now the words wait behind Got it, and the demo runs with the box silent.
+    { ack: true,
+      highlight: '#xgtuAck',
+      redRing: true,
+      instruction: 'Next, the top of the setup fills itself in — one thing at a time. Tap <b>Got it</b> and watch.\n\n' +
+        (opts.squad
+          // The one load-bearing instruction in C and D. A team parent who
+          // picks "Parent" never sees the squad UI -- it renders only for
+          // coach + team -- and gets stuck on the setup screen with nothing
+          // to enter and no explanation.
+          ? '<b>Who is tracking</b> has to be <b>Coach / Team</b> here, whoever you are. A parent keeping stats for the whole squad picks it too: the squad only appears in that combination.\n\n' +
+            '<b>Tracking role</b> is <b>Team</b> — that is what turns one player into a whole roster.\n\n'
+          : '<b>Who is tracking</b> is only a label on the record. <b>Tracking role</b> is the one that decides what you tap during the game — and this tutorial is the <b>' + opts.roleName + '</b> one.\n\n') +
+        'Then the game itself. Worth entering for real: these names replace <b>Us</b> and <b>Them</b> on every button and in every export.' },
+
+    { instruction: '',
+      quiet: true,
       auto: true,
       onEnter: function () {
         demoDone = false;
-        autoTap('#xgtTm [data-tm="parent"]', function () {
+        autoTap('#xgtTm [data-tm="' + (opts.mode || 'parent') + '"]', function () {
           autoTap('#xgtRl [data-role="' + opts.role + '"]', function () {
             autoType('#xgtLoc', 'WP City', function () {
               autoType('#xgtAway', 'Black Octopus', function () { ringOverride = null; demoDone = true; });
@@ -1224,8 +1423,10 @@ function buildLessons(which) {
       validate: function () { return demoDone; },
       autoComplete: function () {
         ringOverride = null;
-        // Skipping the demo must still leave the role set -- every lesson after
-        // this one is the field-player flow.
+        // Skipping the demo must still leave the mode AND the role set -- every
+        // lesson after this one depends on which flow the tracker is in, and
+        // squad tracking needs both halves.
+        if (T.state.trackingMode !== (opts.mode || 'parent')) clickThrough('#xgtTm [data-tm="' + (opts.mode || 'parent') + '"]');
         if (T.state.playerRole !== opts.role) clickThrough('#xgtRl [data-role="' + opts.role + '"]');
         demoDone = true;
       } },
@@ -1237,6 +1438,8 @@ function buildLessons(which) {
       validate: function () { return inputCommitted && !!fieldValue('#xgtHome'); },
       autoComplete: function () { autoType('#xgtHome', 'WP City Waves', function () {}); } },
 
+    ].concat(opts.squad ? squadSteps(opts) : [
+
     { instruction: '<b>Tap the next field</b> and enter the <b>cap number</b> of the ' + opts.who + ' you are tracking, then <b>Enter</b> to confirm.',
       highlight: '#xgtNum',
       allow: '#xgtNum',
@@ -1246,7 +1449,9 @@ function buildLessons(which) {
       // cap number no goalkeeper wears.
       autoComplete: function () {
         autoType('#xgtNum', opts.role === 'goalkeeper' ? '1' : '7', function () {});
-      } },
+      } }
+
+    ]).concat([
 
     { instruction: 'Tap <b>Start tracking</b>.',
       highlight: '#xgtGo',
@@ -1255,7 +1460,13 @@ function buildLessons(which) {
       // already true before this button was pressed -- which is why the tutorial
       // once jumped to lesson 2 on its own. go() closes the setup sheet and
       // commits the cap number, so those two together are the real signal.
-      validate: function () { return !sheetOpen() && T.state.me.number != null; },
+      //
+      // In team mode there IS no cap number -- go()'s own check is skipped for
+      // coach + team and S.me stays {number:null}. What go() commits instead is
+      // the starting seven, as presence events, so that is the signal there.
+      validate: opts.squad
+        ? function () { return !sheetOpen() && T.state.water.length > 0; }
+        : function () { return !sheetOpen() && T.state.me.number != null; },
       autoComplete: function () { click('#xgtGo'); },
       success: 'Tracking' },
 
@@ -1263,9 +1474,10 @@ function buildLessons(which) {
     // tracker's shield cuts a hole in itself for exactly this (positionShield's
     // clip-path). Without being told, nobody finds them -- they are 2m wide and
     // look like part of the deck.
-    { instruction: 'You are looking at the attacking half. The pool carries on past the top of the screen.\n\n' +
-        'To move up and down it, <b>drag on the narrow strip along either sideline</b> — the far left or far right edge of the water. The middle is for tapping field zones, so the scrolling lives at the edges.\n\n' +
-        'Try it now.',
+    // Kept short on purpose. This box has to share an 844px phone with a ring
+    // that runs down the whole sideline, and the team tutorials' two-column
+    // roster bar takes another slice off the bottom.
+    { instruction: 'The pool carries on past the top of the screen. To move up and down it, <b>drag on the narrow strip along either sideline</b> — the middle is for tapping field zones.\n\nTry it now.',
       gesture: true,
       highlight: scrollStrip,
       onEnter: function () { var w = stageWrap(); scrollFrom = w ? w.scrollTop : 0; },
@@ -1279,10 +1491,17 @@ function buildLessons(which) {
       },
       autoComplete: function () {
         var w = stageWrap();
-        if (w) w.scrollTop = w.scrollTop + Math.min(120, Math.max(20, w.scrollHeight - w.clientHeight));
+        if (!w) return;
+        // Whichever way there is room. Scrolling down unconditionally is a
+        // no-op when the field is already at the bottom -- which is where the
+        // two-column roster bar of the team tutorials happens to leave it, so
+        // "Next step" could not finish this step at all there.
+        var room = w.scrollHeight - w.clientHeight;
+        var by = Math.min(120, Math.max(20, room));
+        w.scrollTop = (w.scrollTop + by <= room) ? w.scrollTop + by : Math.max(0, w.scrollTop - by);
       },
       success: 'That is the pool' }
-  ]};
+  ])};
   }
 
   function lessonClock(opts) {
@@ -1342,16 +1561,17 @@ function buildLessons(which) {
       onEnter: function () {
         clockTarget = Math.max(0, T.state.clock - 11);
         setText('This is the sheet. The <b>quarter chips</b> are along the top, and <b>SO</b> is there for a potential penalty shootout.\n\n' +
-          'Say the official pool clock is <b>11 seconds behind</b> yours. You would take 11 seconds off here — which is the next step.\n\n' +
+          'Say the official pool clock is <b>11 seconds behind</b> yours. Take the 11 seconds off: tap <b>−0:10</b>, then <b>−0:01</b>, then <b>Done</b> — aiming for <b>' + mmss(clockTarget) + '</b>. The red ring leads.\n\n' +
           'Events you have already logged keep their own timestamps; this only moves the clock.');
       } },
 
-    { instruction: '',   // written by onEnter, which knows the real target time
-      onEnter: function () {
-        clockTarget = Math.max(0, T.state.clock - 11);
-        setText('Tap <b>−0:10</b>, then <b>−0:01</b>, then <b>Done</b>.\n\n' +
-          'You are aiming for <b>' + mmss(clockTarget) + '</b> — check the display against that before you tap Done.');
-      },
+    // Quiet on purpose. On a phone this box covered half the time sheet, and a
+    // coach who never sees the sheet whole does not recognise it when they meet
+    // it for real. The instruction is on the step above, behind Got it; here the
+    // ring alone leads -- and clockTarget is NOT recomputed, or the target would
+    // move with every tap.
+    { instruction: '',
+      quiet: true,
       // #xgtQ as well as the sheet: tap Done at the wrong time and you need a
       // way back in to correct it. Without this the step could only be escaped
       // with "Next step", which is a rescue, not a route.
@@ -1437,6 +1657,23 @@ function buildLessons(which) {
     { ack: true,
       instruction: 'One thing to know about the numbers. A shootout keeps its <b>own score</b>, separate from the four quarters — so it does not change the game score, and it does not move the save percentage in your stats.\n\n' +
         'The attempts are all there in the <b>full log</b> and in the <b>export</b>.' }
+  ];
+
+  /* The same three beats for a team. Wording differs because nothing here is
+     about one keeper's save percentage -- and because in team mode the panel
+     has no full log to point at (openTeamStats does not render one), so the
+     export is the only place to send someone. */
+  var teamShootoutSteps = [
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtQ',
+      instruction: 'And then there is the <b>penalty shootout</b>. It lives on the time sheet, as an <b>SO</b> chip beside the quarter chips.' },
+
+    { ack: true,
+      instruction: 'Every attempt is recorded: who took it, and whether it went in. Shooting order is enforced for you, with an override for competitions that do it differently.' },
+
+    { ack: true,
+      instruction: 'A shootout keeps its <b>own score</b>, separate from the four quarters. It does not move the game score and it does not move any player’s shooting percentage — the attempts are in the <b>export</b>, counted as their own thing.' }
   ];
 
   if (which === 'field') return [
@@ -2044,7 +2281,363 @@ function buildLessons(which) {
   ]}
   ];
 
-  throw new Error('Only the Field Player and Goalkeeper tutorials are built yet');
+  /* ===================================================================== */
+  /* C · YOUR TEAM  and  D · THE WHOLE GAME                                */
+  /*                                                                       */
+  /* One tutorial with one difference, and the difference is real enough   */
+  /* to be its own banner on Home: D tracks the opposing squad too. That   */
+  /* changes the setup (a second roster), the Who screen (their numbers    */
+  /* instead of one Opponent button), the roster bar (two columns), and    */
+  /* the stats panel (a side switcher). Everything else is identical, so   */
+  /* the lessons are built from one function with an `opp` flag rather     */
+  /* than written twice and drifting apart.                                */
+  /*                                                                       */
+  /* What team mode changes about the recording flow is ONE extra step:    */
+  /*   field zone -> WHO -> action -> outcome.                             */
+  /* And squad tracking is coach + team and nothing else -- which is why   */
+  /* Lesson 1 says so in the words a team parent needs to hear.            */
+  /*                                                                       */
+  /* Two things the team stats panel genuinely does not have, so no step   */
+  /* claims them: a full log, and any way to correct an event. Both are    */
+  /* single-player only (openStats' other branch). Flagged to MIZE rather  */
+  /* than papered over.                                                    */
+  /* ===================================================================== */
+  function teamLessons(opp) {
+    var them = opp ? 'their number' : 'the opponent';
+    return [
+    lessonSetup({ role: 'team', mode: 'coach', roleName: 'Team', who: 'player',
+                  squad: true, opponent: opp }),
+    lessonClock({
+      goalInstruction: 'Now log the goal. First <b>who</b> — tap <b>#7</b> under your own team — then <b>Shot</b>, then <b>Goal</b>, and tap roughly where in the net it went.\n\n' +
+        'On <b>Pro</b> you are then offered the <b>assist</b>, or you can skip it.',
+      goalChain: ['[data-us-n="7"]', '.xgtOpts [data-a="shot"]', '[data-s="goal"]',
+                  '.gz[data-p="low_left"]', '?#xgtAssistSkip']
+    }),
+
+  { title: 'Field zones', steps: [
+    { ack: true,
+      instruction: 'The core idea of the Game Tracker is simple, and in team mode it has one extra beat:\n\n' +
+        '<b>Tap the field zone</b> where it happened, tap <b>who</b> did it, then the <b>action</b>, then the <b>outcome</b>.\n\n' +
+        'Field zone → who → action → outcome. Every event starts with the field zone; there is no other way in.' },
+
+    { ack: true,
+      instruction: 'The water is divided into <b>field zones</b>: the area right in front of the goal, a ring of zones around it, and the wider areas further out. Anything in the opposite half is the little <b>OPPO</b> area.\n\n' +
+        'They are there so you can say exactly <b>where</b> something happened — to yourself when you read the stats back, and to anyone else you share them with.',
+      highlight: '#xgtZoneLayer' },
+
+    { instruction: 'Tap the <b>field zone</b> right in front of the goal — the semi-circle the ring is around.',
+      highlight: '#xgtZoneLayer path[data-zone="z6"]',
+      allowZone: 'z6',
+      validate: function () { return !!(T.state.draft && T.state.draft.fieldZone === 'z6'); },
+      autoComplete: function () { tapZone('z6'); },
+      success: 'Logged the zone' },
+
+    { instruction: 'Tapped the wrong place? Close the sheet with the ✕ and nothing is recorded.\n\nDo that now.',
+      highlight: '#xgtX',
+      allow: '#xgtX',
+      validate: function () { return !T.state.draft; },
+      autoComplete: function () { click('#xgtX'); },
+      success: 'Nothing logged' },
+
+    { instruction: 'Last thing in this lesson. Open the <b>Menu</b>.',
+      highlight: '#xgtOptionsBtn',
+      allow: '#xgtOptionsBtn',
+      validate: function () { return sheetOpen() && !!el('xgtOptEditNums'); },
+      autoComplete: function () { click('#xgtOptionsBtn'); } },
+
+    { instruction: 'The field zones have two options in here. You can <b>rename</b> them, if your club numbers them differently — and you can <b>hide</b> them, if you find the numbers distracting. Both are personal to this device, not a team setting.\n\nThen close the menu with the ✕.',
+      highlight: function () { return spanOf(['#xgtOptEditNums', '#xgtOptZones']); },
+      calmRing: true,
+      then: '#xgtX',
+      thenAfter: 3000,
+      allow: '#xgtX',
+      validate: function () { return !sheetOpen(); },
+      autoComplete: function () { click('#xgtX'); } }
+  ]},
+
+  { title: 'Who, and what they did', steps: [
+    { instruction: 'Tap any <b>field zone</b> to open a new event.',
+      onEnter: mark,
+      allowZone: '*',
+      validate: function () { return !!(T.state.draft && T.state.draft.fieldZone); },
+      autoComplete: function () { tapZone('z3'); } },
+
+    // The screen that IS team mode. stepPlayer() lists water rosters only --
+    // worth saying, because a coach looking for a benched number and not
+    // finding it will otherwise assume the tracker lost them.
+    { ack: true,
+      allow: '#xgtSheet',
+      instruction: 'This screen is the whole difference. <b>Who?</b>\n\n' +
+        'Your own numbers are at the top, ' + (opp ? 'theirs underneath' : 'and the other team underneath') + '. Only the players <b>in the water right now</b> are listed — the bench is not an option, because a player on the bench cannot have done it.' },
+
+    { ack: true,
+      allow: '#xgtSheet',
+      instruction: opp
+        ? 'Because you are tracking both squads, an opponent action gets <b>their cap number</b> too. That is what turns "a shot from the left" into "#4 shoots from the left, again".'
+        : 'You are not tracking their squad in this tutorial, so the other team is <b>one button</b>. The action is recorded as theirs, without a number — which is all you need for a shot your keeper faced.' },
+
+    { instruction: 'Log a goal by your own <b>#7</b>: tap <b>#7</b>, then <b>Shot</b>, then <b>Goal</b>, then where in the net it went.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
+      highlight: firstVisible(['[data-us-n="7"]', '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.xgtGoal']),
+      validate: logged({ action: 'shot', outcome: 'goal' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z3'); }, '[data-us-n="7"]',
+                   '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="low_left"]',
+                   '?#xgtAssistSkip']);
+      },
+      success: 'Goal logged' },
+
+    { ack: true,
+      instruction: 'On <b>Pro</b> a goal is followed by <b>who assisted</b> — the same water roster again, with <b>No assist / skip</b> for the times nobody did.' },
+
+    // The one thing about fouls a coach gets wrong: the player you tapped is
+    // always the one who COMMITTED it. stepOutcome() sets dc='committed' on any
+    // exclusion outcome; there is no drawn/committed choice on this screen.
+    { instruction: 'Now a foul. Tap a field zone, tap the player who <b>committed</b> it, then <b>Personal Foul</b>, then <b>Exclusion (20 s)</b>.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
+      // Penalty stays visible and inert, exactly as in A: choosing it launches
+      // the penalty-shot flow, which is somewhere this lesson has not prepared
+      // anyone for. The next step explains it instead.
+      deny: ['[data-s="penalty"]'],
+      highlight: firstVisible(['[data-us-n="3"]', '.xgtOpts [data-a="exclusion"]', '[data-s="exclusion"]', '#xgtFoulSkip']),
+      validate: logged({ action: 'exclusion' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z2'); }, '[data-us-n="3"]',
+                   '.xgtOpts [data-a="exclusion"]', '[data-s="exclusion"]', '?#xgtFoulSkip']);
+      },
+      success: 'Foul logged' },
+
+    { ack: true,
+      instruction: 'The player you tapped always <b>committed</b> the foul — there is no drawn-or-committed choice on that screen.\n\n' +
+        'On <b>Pro</b>, the tracker then asks <b>who drew it</b>, from the other team’s water roster, with <b>Unknown / skip</b>. That is how one tap becomes both an exclusion given and an exclusion drawn.' },
+
+    { ack: true,
+      instruction: '<b>Penalty (5 m)</b> is in that same list, and it is worth knowing what it does before you tap it: choosing it opens the penalty shot straight away and asks who is taking it. It belongs to tracking a real game, not to this lesson.' },
+
+    { instruction: 'One more. <b>Steal</b> is a single tap after the player — no outcome to choose.\n\nLog one: field zone, a player, then <b>Steal</b>.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: '#xgtSheet',
+      highlight: firstVisible(['[data-us-n="5"]', '.xgtOpts [data-a="steal"]']),
+      validate: logged({ action: 'steal' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z13'); }, '[data-us-n="5"]',
+                   '.xgtOpts [data-a="steal"]']);
+      },
+      success: 'Steal logged' },
+
+    { ack: true,
+      instruction: 'On <b>Pro</b> the action list also carries <b>Turnover</b> — offensive foul, offensive exclusion, pass intercepted, shot clock expired — plus <b>Excl. + Substitution</b> and <b>Brutality</b> as foul outcomes, and the follow-up questions that go with a blocked shot.' },
+
+    // The roster bar rides in this lesson rather than getting one of its own.
+    // Seven lessons is the shape all four tutorials share, and the bar is not a
+    // subject -- it is the other half of "who did it".
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtBar',
+      instruction: 'Along the bottom is the <b>roster bar</b>' + (opp ? ' — your squad on one side, theirs on the other, with the Menu and Stats between them.' : ', with the Menu and Stats beside it.') + '\n\n' +
+        'The header on each side counts who is in the water: <b>' + (opp ? '5/7' : '7/7') + '</b>.' },
+
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtBar',
+      instruction: 'Read the chips: <b>filled green</b> means in the water right now, a <b>red outline</b> marks a goalkeeper, and a <b>teal badge</b> counts that player’s goals while a <b>red badge</b> counts fouls they have committed.\n\n' +
+        'That is the live scoreboard for every player, without opening anything.' },
+
+    // The rescue is structural, not timed -- xgtUndoAccidentalResub walks back
+    // through presence events and only gives up if a DIFFERENT player has gone
+    // in since. Saying "straight back" would be wrong: it covers a flying
+    // substitution with minutes in between.
+    { instruction: 'Substitutions are roster taps, not field events. <b>Tap a green chip</b> to take that player out.',
+      onEnter: function () { base = evts().length; },
+      allow: '#xgtBar',
+      highlight: '#xgtBar .xgtChip.water',
+      validate: function () { return T.state.water.length < 7; },
+      autoComplete: function () {
+        var c = q('#xgtBar .xgtChip.water:not(.goalie)') || q('#xgtBar .xgtChip.water');
+        if (c) clickThrough('#xgtBar .xgtChip[data-n="' + c.getAttribute('data-n') + '"][data-side="us"]');
+      },
+      success: 'Out of the water' },
+
+    { instruction: 'Now tap that <b>same player</b> again to put them back.',
+      allow: '#xgtBar',
+      highlight: function () {
+        var w = T.state.squad.filter(function (n) { return T.state.water.indexOf(n) < 0; });
+        return w.length ? q('#xgtBar .xgtChip[data-n="' + w[0] + '"][data-side="us"]') : null;
+      },
+      validate: function () { return T.state.water.length >= 7; },
+      autoComplete: function () {
+        var w = T.state.squad.filter(function (n) { return T.state.water.indexOf(n) < 0; });
+        if (w.length) clickThrough('#xgtBar .xgtChip[data-n="' + w[0] + '"][data-side="us"]');
+      },
+      success: 'Back in' },
+
+    { ack: true,
+      instruction: 'Notice what the tracker said: it recognised that as a <b>mis-tap</b> and <b>removed the sub-out</b> rather than recording a player going out and back in.\n\n' +
+        'It is not a stopwatch — it works as long as no other player has gone in since, so it covers a flying substitution too.' },
+
+    { ack: true,
+      instruction: 'Two more things the bar does on its own. <b>Seven is the limit</b> — an eighth tap is refused and tells you to sub someone out first.\n\n' +
+        'And <b>three exclusions disqualifies</b> a player: the tracker takes them out of the water, greys the chip out so it cannot be tapped again, and marks it. <b>S</b> for exclusion with substitution, <b>X</b> for brutality, <b>R</b> for a red card.' }
+  ]},
+
+  { title: 'Reading the stats', steps: [
+    { instruction: 'You can read the live statistics during the game, without stopping it. Tap <b>Stats</b>.\n\n' +
+        'Depending on your screen size you may have to scroll up and down to follow the next steps.',
+      highlight: '#xgtStatsBtn',
+      allow: '#xgtStatsBtn',
+      validate: statsOpen,
+      autoComplete: function () { click('#xgtStatsBtn'); } },
+
+    { ack: true,
+      calmRing: true,
+      highlight: statsTiles,
+      onEnter: reveal(statsTiles),
+      instruction: 'The <b>team’s</b> totals first: goals, shots, shooting percentage, exclusions drawn and given, steals, turnovers and assists.' }
+
+  ].concat(opp ? [
+
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtStatsSide',
+      onEnter: reveal('#xgtStatsSide'),
+      instruction: 'And because you are tracking both squads, there is a <b>switch at the top</b>: the same panel, for either team. Everything below it follows whichever side is selected.' }
+
+  ] : []).concat([
+
+    { ack: true,
+      calmRing: true,
+      highlight: statsSection(/shots came from/i),
+      onEnter: reveal(statsSection(/shots came from/i)),
+      instruction: 'The heat diagram shows <b>where your shots came from</b>. The darker the field zone, the more attempts started there.' },
+
+    { ack: true,
+      calmRing: true,
+      highlight: statsSection(/shooting/i),
+      onEnter: reveal(statsSection(/shooting/i)),
+      instruction: 'Then <b>their goal</b>, with every shot your team took placed on it — and under that <b>your own goal</b>, with every shot you faced.\n\n' +
+        'Two pictures of the same game from both ends, which is something no single-player mode can show you.' },
+
+    { instruction: 'Under those, every player as a tile — cap number, goals, fouls. <b>Tap one</b> to open that player’s own statistics.',
+      highlight: '#xgtStats .xgtPlayerTiles',
+      onEnter: reveal('#xgtStats .xgtPlayerTiles'),
+      allow: ['#xgtStats', '#xgtSb'],
+      // openPlayerStats() replaces the whole panel, so the player grid being
+      // gone while the panel is still open is the signal that one was opened.
+      validate: function () { return statsOpen() && !q('#xgtStats .xgtPlayerTiles'); },
+      autoComplete: function () { click('#xgtStats [data-player-n]'); },
+      success: 'That player’s game' },
+
+    { ack: true,
+      calmRing: true,
+      highlight: statsTiles,
+      onEnter: reveal(statsTiles),
+      instruction: 'One player, the same shape as the whole team — and a <b>goalkeeper</b> opens with a keeper’s numbers instead: shots faced, saves, <b>save percentage</b>, and the save rate by shot type.\n\n' +
+        'That is the goalkeeper’s game, from a session where you never once tracked a keeper.' },
+
+    { instruction: 'Scroll back up and tap <b>‹ Back</b> — once for the team, once more to close the statistics.',
+      highlight: '#xgtSb',
+      onEnter: reveal('#xgtSb'),
+      allow: ['#xgtSb', '#xgtStats'],
+      validate: function () { return !statsOpen(); },
+      autoComplete: function () {
+        chainFrom(['#xgtSb', '?#xgtSb']);
+      } }
+
+  ])},
+    lessonEnding({ extraSteps: teamShootoutSteps }),
+  { title: 'Track it yourself', steps: [
+    { ack: true,
+      instruction: 'Last part. From here the tutorial stops pointing at buttons — you get told what happened in the game, and you log it.\n\n' +
+        'Three moments, one at a time. If you get stuck, wait a few seconds and a hint appears.' },
+
+    { instruction: 'Now try it yourself. <b>Your #4 scores</b>.',
+      onEnter: function () { mark(); practice = { done: [] }; },
+      allowZone: '*',
+      allow: ['#xgtSheet', '#xgtUn'],
+      hints: [
+        'Start with the <b>field zone</b> — wherever the shot came from.',
+        'Then <b>who</b>: #4, under your own team.',
+        'Then <b>Shot</b>, then <b>Goal</b>, and where in the net it went.'
+      ],
+      misstep: function () {
+        var e = stray(base, { action: 'shot', outcome: 'goal' });
+        if (!e) return null;
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log the goal.';
+      },
+      validate: logged({ action: 'shot', outcome: 'goal' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z4'); }, '[data-us-n="4"]',
+                   '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="top_right"]',
+                   '?#xgtAssistSkip']);
+      },
+      success: 'Goal' },
+
+    { instruction: 'Now the other way: <b>' + (opp ? 'their #6' : 'the other team') + ' scores</b>.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: ['#xgtSheet', '#xgtUn'],
+      hints: [
+        'Field zone first — where <b>they</b> shot from.',
+        opp ? 'Then their <b>#6</b>, in the lower group.'
+            : 'Then the <b>opponent</b> button under your own numbers.',
+        // The assist step fires for ANY goal, either side -- stepAssist() gates
+        // on the outcome, not on who scored. Leaving it out of the ladder was
+        // what stranded this step: the sheet sat open on "Who assisted?" and
+        // nothing after it could run.
+        'Then <b>Shot</b>, then <b>Goal</b> — and on Pro, <b>No assist / skip</b> to finish it.'
+      ],
+      validate: function () {
+        if (T.state.draft) return false;
+        var a = actions();
+        for (var i = base; i < a.length; i++) {
+          var e = a[i];
+          if (e.action === 'shot' && e.outcome === 'goal' && e.actor && e.actor.side === 'opp') return true;
+        }
+        return false;
+      },
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z2'); },
+                   opp ? '[data-opp-n="6"]' : '#xgtOpp',
+                   '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="low_left"]',
+                   '?#xgtAssistSkip']);
+      },
+      success: 'Goal against' },
+
+    { instruction: 'And one <b>steal</b>, by any of your own players.',
+      onEnter: mark,
+      allowZone: '*',
+      allow: ['#xgtSheet', '#xgtUn'],
+      hints: [
+        'Field zone, then <b>who</b>, then <b>Steal</b>.',
+        'Steal has no outcome to choose — it commits on that one tap.'
+      ],
+      misstep: function () {
+        var e = stray(base, { action: 'steal' });
+        if (!e) return null;
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log a steal.';
+      },
+      validate: logged({ action: 'steal' }),
+      autoComplete: function () {
+        chainFrom([function () { if (!sheetOpen()) tapZone('z12'); }, '[data-us-n="2"]',
+                   '.xgtOpts [data-a="steal"]']);
+      },
+      success: 'Steal' },
+
+    { ack: true,
+      instruction: 'That is the tracker, for a whole squad.\n\n<b>Where, who, what, outcome</b> — and every player’s game, ' + (opp ? 'on both teams, ' : '') + 'builds itself while you watch.' }
+  ]}
+  ];
+  }
+
+  if (which === 'team') return teamLessons(false);
+  if (which === 'fullgame') return teamLessons(true);
+
+  throw new Error('Only the Field Player, Goalkeeper, Your Team and Whole Game tutorials are built');
 }
 
 /* ------------------------------------------------------------------- api */

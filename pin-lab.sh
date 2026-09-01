@@ -128,18 +128,18 @@ OLD_BRANCH = """  } else if(tutorial === 'gametracker-field' && typeof MIZE !== 
     xquixHideHome();
     closeToolPanels();
     MIZE.GameTrackerTutorial.start('field');"""
-NEW_BRANCH = """  } else if((tutorial === 'gametracker-field' || tutorial === 'gametracker-goalkeeper')
+NEW_BRANCH = """  } else if(tutorial && tutorial.indexOf('gametracker-') === 0
             && typeof MIZE !== 'undefined' && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start === 'function'){
     xquixHideHome();
     closeToolPanels();
-    MIZE.GameTrackerTutorial.start(tutorial === 'gametracker-goalkeeper' ? 'goalkeeper' : 'field');"""
+    MIZE.GameTrackerTutorial.start(({'gametracker-goalkeeper':'goalkeeper','gametracker-team':'team','gametracker-fullgame':'fullgame'})[tutorial] || 'field');"""
 if OLD_BRANCH in src:
     src = src.replace(OLD_BRANCH, NEW_BRANCH, 1)
-    print('    patched lab Home to route GOALKEEPER too (production still routes FIELD PLAYER only)')
-elif "gametracker-goalkeeper'" in src:
-    print('    Home already routes GOALKEEPER in index.html itself - no lab patch needed')
+    print('    patched lab Home to route all four Game Tracker tutorials (production routes FIELD PLAYER only)')
+elif "gametracker-fullgame'" in src:
+    print('    Home already routes every Game Tracker tutorial in index.html itself - no lab patch needed')
 else:
-    print('    !! could not find the tutorial branch in index.html - GOALKEEPER will toast "not built yet"')
+    print('    !! could not find the tutorial branch in index.html - the other three will toast "not built yet"')
 
 # --- 3. An unmistakable banner. This is not the Studio.
 banner = """<div id="labBanner">Game Tracker Lab · pinned Studio snapshot · not the live app</div>
