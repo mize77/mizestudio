@@ -1948,6 +1948,15 @@
           <button id="spotlightToggleBtn" data-tip="Spotlight tool: click a screen to place a spotlight, dimming the rest of the board.">Spotlight</button>
           <button id="studioWindowDarkenBtn" data-tip="Darken/brighten the studio windows behind the board.">Darken Studio Windows</button>
           <button id="field3dToggleBtn" data-tip="3D Presentation View: tilts the field on a perspective camera for an arena look. Only visible in Presentation mode.">3D View: Off</button>
+          <div id="tiltSliderRow" style="display:flex;flex-direction:column;gap:3px;margin-top:2px;padding:4px 0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;color:#7a8a8a;font-weight:600;">3D tilt angle</span>
+              <span id="tiltAngleDisplay" style="font-size:12px;color:#4bb8bd;font-weight:700;min-width:30px;text-align:right;">13°</span>
+            </div>
+            <input type="range" id="tiltAngleSlider" min="0" max="45" value="13"
+              style="width:100%;accent-color:#01b4c8;cursor:pointer;"
+              data-tip="Drag to change the 3D tilt angle (0° = flat, 45° = steep). Takes effect immediately. Works with 3D View on.">
+          </div>
         </div>
       </div>
 
@@ -18308,6 +18317,35 @@ function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
     render();
     if (typeof fitBoardToScreen === 'function') fitBoardToScreen();
   });
+})();
+
+// ===== 3D tilt angle slider =====
+(function(){
+  var slider  = document.getElementById('tiltAngleSlider');
+  var display = document.getElementById('tiltAngleDisplay');
+  if (!slider || !display) return;
+
+  // Restore persisted angle (0–45 deg). Default 13 if nothing stored.
+  var stored = parseFloat(localStorage.getItem('xquixTiltAngle'));
+  var initial = (!isNaN(stored) && stored >= 0 && stored <= 45) ? stored : 13;
+  slider.value = initial;
+
+  function apply() {
+    var deg = parseFloat(slider.value);
+    display.textContent = deg + '\u00b0';
+    // Set the CSS variable directly on #boardTilt. tiltParams() reads it from
+    // getComputedStyle so both the visual transform and the projection math
+    // update with the same single value -- no duplication.
+    var bt = document.getElementById('boardTilt');
+    if (bt) bt.style.setProperty('--xq-tilt', deg + 'deg');
+    localStorage.setItem('xquixTiltAngle', deg);
+  }
+
+  apply(); // Apply saved value immediately on load
+  slider.addEventListener('input', apply);
+
+  // Expose so the 3D mode-switcher button can also reflect the stored angle
+  window._applyTiltAngle = apply;
 })();
 // ===== Attack Direction toggle =====
 (function(){
