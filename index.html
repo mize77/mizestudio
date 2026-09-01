@@ -654,7 +654,7 @@
     display:none; position:absolute; inset:0;
     z-index:1; pointer-events:none;
   }
-  body.presentation.field3d #arenaAtmosphere { display:block; }
+  body.presentation #arenaAtmosphere { display:block; }
   /* Shared defaults for all atmosphere layers */
   #arenaCeiling, #arenaCrowd, #arenaSides, #arenaGlow, #arenaFloor, #arenaVignette {
     position:absolute; inset:0;
@@ -667,12 +667,14 @@
      on the pool's near half (lower 65%) to leave the playing surface bright. */
   /* #arenaOverlay sits ABOVE #board (z-index:5 vs board's z-index:2) so the
      vignette is visible over the pool surface, not just in the gaps around it.
-     pointer-events:none ensures nothing is blocked. */
+     pointer-events:none ensures nothing is blocked. Applied to children too
+     so inheritance issues in Safari don't interfere with the rotate handle. */
   #arenaOverlay {
     display:none; position:absolute; inset:0;
     z-index:5; pointer-events:none;
   }
-  body.presentation.field3d #arenaOverlay { display:block; }
+  #arenaOverlay * { pointer-events:none; }
+  body.presentation #arenaOverlay { display:block; }
   #arenaVignette {
     background:
       radial-gradient(ellipse 64% 52% at 50% 64%,
@@ -11407,6 +11409,8 @@ function togglePresentation(mode){
     // Auto-intro jingle: first 5 s of the calm intro section, so everyone
     // in the room knows the presentation has started. Respects the mute flag.
     if (window.MIZE?.Audio) MIZE.Audio.playIntro();
+    // Ensure arena atmosphere is at correct intensity immediately on entry
+    if (typeof window._applyTiltAngle === 'function') window._applyTiltAngle();
   }
   fitBoardToScreen();
 }
@@ -18661,6 +18665,7 @@ function renderShotBlockCorridors(){
   if(!attacker) return;
   document.querySelectorAll('.player').forEach(el=>{
     if(el.dataset.hidden==='true') return;
+    if(el.dataset.role==='Goalkeeper') return;   // goalkeepers never carry a blocking corridor
     const result=computeShotBlockCorridor(el, attacker);
     if(!result.points) return;
     const poly=document.createElementNS('http://www.w3.org/2000/svg','polygon');
