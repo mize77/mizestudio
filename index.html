@@ -303,7 +303,7 @@
   header { top:24%; left:50%; width:min(640px,92vw); border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.45); transform:translate(-50%,-50%) translateY(-150vh); transition:transform .25s ease; padding-top:12px; pointer-events:none; }
   header.shown { transform:translate(-50%,-50%); pointer-events:auto; }
   #controlsPanel { z-index:1530; }
-  #controlsPanel { top:70%; left:50%; right:auto; width:min(420px,92vw); height:auto; max-height:90vh; max-height:90dvh; border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.45); transform:translate(-50%,-50%) translateX(150vw); transition:transform .25s ease; pointer-events:none; }
+  #controlsPanel { top:50%; left:50%; right:auto; width:min(420px,92vw); height:auto; max-height:90vh; max-height:90dvh; overflow-y:auto; border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.45); transform:translate(-50%,-50%) translateX(150vw); transition:transform .25s ease; pointer-events:none; }
   #controlsPanel.open { transform:translate(-50%,-50%); pointer-events:auto; }
   #controlsPanel .panelTitle { font-size:13px; font-weight:800; color:#5d6868; text-transform:uppercase; letter-spacing:.04em; margin:2px 0 4px; }
   #controlsPanel button { width:100%; text-align:left; }
@@ -18330,21 +18330,32 @@ function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
   var initial = (!isNaN(stored) && stored >= 0 && stored <= 45) ? stored : 13;
   slider.value = initial;
 
+  function updatePerspective() {
+    // Set perspective proportional to board height so horizontal convergence
+    // stays consistent across screen sizes. At 10× height, convergence is
+    // ~2 % at 13 ° and ~5 % at 30 °, vs ~7 % at the original fixed 1650 px.
+    var bt = document.getElementById('boardTilt');
+    if (!bt) return;
+    var r = typeof board !== 'undefined' ? board.getBoundingClientRect()
+          : (bt.parentElement ? bt.parentElement.getBoundingClientRect() : null);
+    if (!r || !r.height) return;
+    bt.style.setProperty('--xq-persp', (r.height * 10) + 'px');
+  }
+
   function apply() {
     var deg = parseFloat(slider.value);
     display.textContent = deg + '\u00b0';
-    // Set the CSS variable directly on #boardTilt. tiltParams() reads it from
-    // getComputedStyle so both the visual transform and the projection math
-    // update with the same single value -- no duplication.
     var bt = document.getElementById('boardTilt');
     if (bt) bt.style.setProperty('--xq-tilt', deg + 'deg');
+    updatePerspective();
     localStorage.setItem('xquixTiltAngle', deg);
   }
 
   apply(); // Apply saved value immediately on load
   slider.addEventListener('input', apply);
 
-  // Expose so the 3D mode-switcher button can also reflect the stored angle
+  // Expose so the 3D toggle and fitBoardToScreen can also refresh perspective
+  window._updateTiltPerspective = updatePerspective;
   window._applyTiltAngle = apply;
 })();
 // ===== Attack Direction toggle =====
@@ -21285,6 +21296,9 @@ function fitBoardToScreen(){
       window.scrollTo({ top: boardTop+excess/2, behavior:'auto' });
     }
   });
+  // Recompute perspective after the board has been resized, so --xq-persp
+  // stays proportional to the actual rendered height.
+  if(typeof window._updateTiltPerspective==='function') window._updateTiltPerspective();
 }
 let _fitBoardTimer=null;
 let _lastFitW=0, _lastFitH=0;
