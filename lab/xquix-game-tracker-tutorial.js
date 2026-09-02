@@ -398,7 +398,6 @@ function clickThrough(sel) {
 function interactionGuard(e) {
   if (bypassGuard) return;
   if (!running) return;
-  restartHints();                       // any tap counts as "they are trying"
   if (clickAllowed(e)) return;
   e.stopPropagation();
   e.preventDefault();
@@ -431,9 +430,67 @@ function keyGuard(e) {
    hints: one appears after three seconds of no tapping at all, the next after
    another three, and so on. Any tap resets the clock -- someone who is working
    through it is never nagged. */
-var HINT_MS = 3000;
 var DEFAULT_WRONG = 'Not that one. Start with the field zone where it happened, then the action, then the outcome.';
 var hintTimer = null, hintN = 0;
+
+/* THE PRACTICE GUIDE, which replaced a ladder of written hints.
+ *
+ * The ladder wrote a line of text after three seconds, another after three
+ * more, and so on. Reported from a Mac: "the animation of the hints is confusing
+ * and too fast" -- and it was doing the wrong thing twice over. It arrived while
+ * the coach was still reading the task, and it answered with words when the
+ * question was "which of these do I press".
+ *
+ * So a practice step now carries `guide`: the things to tap, in order. Nothing
+ * is shown while the coach is working. Go quiet, and the next thing to tap gets
+ * the ordinary pulsing red ring -- five seconds of quiet the first time, since
+ * the task still has to be read, and three seconds after every correct tap.
+ *
+ * "A correct tap" is inferred from the guide's own target moving on rather than
+ * from listening for clicks: the sheet redraws through its screens, so whichever
+ * guide entry is on screen IS how far the coach has got. A wrong tap does not
+ * move it, and so does not buy more silence. */
+var GUIDE_FIRST_MS = 5000;
+var GUIDE_NEXT_MS = 3000;
+var guideTarget = null;    // the element the guide is currently waiting on
+var guideSince = 0;        // when it started waiting on it
+var guideStage = 0;        // 0 while nothing has been tapped yet
+
+function guideReset() { guideTarget = null; guideSince = Date.now(); guideStage = 0; }
+
+/* The guide's current target, or null while the coach still has time. Entries
+   are ordinary selectors, plus {zone:'z4'} for the one thing that is not a
+   button -- the field itself, which is where every event starts. */
+function guidePick() {
+  var s = step();
+  if (!s || !s.guide || advancing) return null;
+  var found = null;
+  for (var i = 0; i < s.guide.length; i++) {
+    var g = s.guide[i];
+    // The field is still there behind an open sheet, so without this the guide
+    // would point at the water forever and never move on to the sheet's own
+    // buttons. A zone entry only counts while there is no event in progress.
+    if (g && g.zone && T.state.draft) continue;
+    var e = g && g.zone ? q('#xgtZoneLayer path[data-zone="' + g.zone + '"]') : q(g);
+    if (!e) continue;
+    var r = e.getBoundingClientRect();
+    if (!r.width && !r.height) continue;
+    if (r.bottom < 0 || r.top > window.innerHeight) continue;
+    found = e;
+    break;
+  }
+  if (found !== guideTarget) {
+    // The sheet moved on, so something correct was tapped: the clock restarts
+    // and, from here, three seconds is the wait rather than five.
+    if (guideTarget !== null) guideStage++;
+    guideTarget = found;
+    guideSince = Date.now();
+    return null;
+  }
+  if (!found) return null;
+  var wait = guideStage === 0 ? GUIDE_FIRST_MS : GUIDE_NEXT_MS;
+  return (Date.now() - guideSince >= wait) ? found : null;
+}
 
 function showHint(html) {
   var h = el('xgtuHint');
@@ -447,20 +504,10 @@ function clearHints() {
   var h = el('xgtuHint');
   if (h) { h.style.display = 'none'; h.innerHTML = ''; }
 }
-function restartHints() {
-  var s = step();
-  if (!s || !s.hints) return;
-  clearTimeout(hintTimer);
-  var from = idx;
-  hintTimer = setTimeout(function tickHint() {
-    if (!running || idx !== from) return;
-    if (hintN < s.hints.length) {
-      var h = s.hints[hintN++];
-      showHint(typeof h === 'function' ? h() : h);
-    }
-    if (hintN < s.hints.length) hintTimer = setTimeout(tickHint, HINT_MS);
-  }, HINT_MS);
-}
+/* The written-hint ladder is gone -- see the practice guide above, which points
+   instead of explaining. showHint() stays because `misstep` still needs it: when
+   the WRONG event gets logged, words are exactly right, since the thing to say
+   is what went in and how to take it back out. */
 
 function nudgeRing() {
   var r = el('xgtuRing');
@@ -763,6 +810,10 @@ function paintRing() {
   var handed = !!(s && s.then && !ringOverride && Date.now() - stepAt >= (s.thenAfter || 3000));
   if (handed) sel = s.then;
   var target = sel ? (typeof sel === 'function' ? sel() : q(sel)) : null;
+  // A practice step has no `highlight` at all -- the whole point is that it
+  // stops pointing at buttons. The guide supplies one only once the coach has
+  // gone quiet for long enough. See guidePick().
+  if (!target && s && s.guide) target = guidePick();
   if (!target) { ring.style.display = 'none'; return; }
   // A highlight can resolve to a plain rectangle rather than an element -- see
   // spanOf(), for pointing at two adjacent controls at once.
@@ -820,6 +871,7 @@ function goTo(i) {
   inputCommitted = false;
   ringOverride = null;
   clearHints();
+  guideReset();
   if (s.commit) setTimeout(function () { armCommit(s.commit); }, 0);
 
   el('xgtuLesson').textContent =
@@ -839,7 +891,6 @@ function goTo(i) {
   el('xgtuAck').style.display = s.ack ? '' : 'none';
   el('xgtuNext').style.display = s.ack ? 'none' : '';
   if (s.onEnter) { try { s.onEnter(); } catch (err) { console.error('XquiX tutorial: onEnter threw', err); } }
-  restartHints();
   placedAt = null;              // a new step lays out from scratch
   positionChrome(true);
 }
@@ -1646,11 +1697,11 @@ function buildLessons(which) {
     opts = opts || {};
     return   { title: 'Ending the game', steps: [
     { ack: true,
-      instruction: 'Four quarters — and you change quarter from the same time sheet you used earlier, on the <b>quarter button</b> at the top left.',
+      instruction: 'You can move on to the next quarter by tapping the <b>quarter button</b> at the top of the screen.',
       highlight: '#xgtQ' },
 
     { ack: true,
-      instruction: 'When the clock hits 0:00 in Q4, regulation ends by itself and the field stops taking taps — there is no meaningful "where on the field" once it is over.' },
+      instruction: 'When the clock hits 0:00 in Q4, regulation ends by itself and the field stops taking taps.' },
 
     { ack: true,
       instruction: 'But since there is the chance that misconducts happen after the buzzer, certain options stay available: <b>Menu → Log Post-Game Foul</b> appears at that point, and only then.',
@@ -1670,7 +1721,10 @@ function buildLessons(which) {
 
     { ack: true,
       calmRing: true,
-      highlight: '#xgtOptCsv',
+      // Both export buttons, not just CSV. The step talks about two of them and
+      // a ring around one says the other is not being discussed -- the same
+      // fault as the field-zone menu rows, in the same lesson family.
+      highlight: function () { return spanOf(['#xgtOptCsv', '#xgtOptJson']); },
       instruction: '<b>Export CSV</b> and <b>Export JSON</b> are free on every tier, for the game in front of you.\n\nCSV opens in a spreadsheet; JSON keeps every field including coordinates.' },
 
     { instruction: 'Close the menu with the ✕.',
@@ -1680,7 +1734,7 @@ function buildLessons(which) {
       autoComplete: function () { click('#xgtX'); } },
 
     { ack: true,
-      instruction: 'On <b>Pro</b>, sessions also get saved into your online library, to be accessible across any device and to be able to see combined stats across multiple games you have tracked — and the heat map and goal map export as a PDF you can hand a player.' }
+      instruction: 'On <b>Pro</b>, sessions also get saved into your online library, to be accessible across any device and to be able to see combined stats across multiple games you have tracked — and all stats including the heat map and goal map can be exported as a PDF that you can share with coaches and players.' }
   ])};
   }
 
@@ -1954,8 +2008,8 @@ function buildLessons(which) {
     lessonEnding(),
   { title: 'Track it yourself', steps: [
     { ack: true,
-      instruction: 'Last part. From here the tutorial stops pointing at buttons — you get told what happened in the game, and you log it.\n\n' +
-        'Three moments, one at a time. If you get stuck, wait a few seconds and a hint appears.' },
+      instruction: 'Last part. From here the tutorial stops pointing at buttons — you can log the events by yourself now.\n\n' +
+        'Three moments, one at a time. If you pause, the next thing to tap gets a pulsing red circle.' },
 
     // No zone is named, by number or by position. What is being practised is the
     // order -- field zone, then action, then outcome -- and naming a particular
@@ -1964,11 +2018,7 @@ function buildLessons(which) {
       onEnter: function () { mark(); practice = { done: [] }; },
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      hints: [
-        'Start with the <b>field zone</b> — the water is where every event begins.',
-        'Tap the field zone the shot was taken from, then <b>Shot</b>.',
-        'Then <b>Goal</b>, and roughly where in the net it went.'
-      ],
+      guide: [{ zone: 'z3' }, '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.xgtGoal', '#xgtAssistSkip'],
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'goal' });
         if (!e) return null;
@@ -1988,10 +2038,7 @@ function buildLessons(which) {
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      hints: [
-        'Field zone first — wherever the shot came from.',
-        'Then <b>Shot</b>, then <b>Blocked Shot</b>, then where in the goal the keeper stopped it.'
-      ],
+      guide: [{ zone: 'z1' }, '.xgtOpts [data-a="shot"]', '[data-s="blocked"]', '.xgtGoal', '.xgtOpts'],
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'blocked' });
         if (!e) return null;
@@ -2008,10 +2055,7 @@ function buildLessons(which) {
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      hints: [
-        'Tap any <b>field zone</b> first.',
-        '<b>Steal</b> is a single tap — there is no outcome to choose after it.'
-      ],
+      guide: [{ zone: 'z13' }, '.xgtOpts [data-a="steal"]'],
       misstep: function () {
         var e = stray(base, { action: 'steal' });
         if (!e) return null;
@@ -2269,18 +2313,14 @@ function buildLessons(which) {
     lessonEnding({ extraSteps: shootoutSteps }),
   { title: 'Track it yourself', steps: [
     { ack: true,
-      instruction: 'Last part. From here the tutorial stops pointing at buttons — you get told what happened in the game, and you log it.\n\n' +
-        'Three moments, one at a time. If you get stuck, wait a few seconds and a hint appears.' },
+      instruction: 'Last part. From here the tutorial stops pointing at buttons — you can log the events by yourself now.\n\n' +
+        'Three moments, one at a time. If you pause, the next thing to tap gets a pulsing red circle.' },
 
     { instruction: 'Now try it yourself. The opponent shoots, and your keeper <b>saves</b> it.',
       onEnter: function () { mark(); practice = { done: [] }; },
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      hints: [
-        'Start with the <b>field zone</b> — and for a shot, that is where the <b>opponent shot from</b>.',
-        'Then <b>Shot</b>. On Pro you say what kind of shot it was first.',
-        'Then <b>Blocked / Save</b>, and where in the goal your keeper stopped it.'
-      ],
+      guide: [{ zone: 'z2' }, '.xgtOpts [data-a="shot"]', '[data-v="regular"]', '[data-s="blocked"]', '.xgtGoal', '.xgtOpts'],
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'blocked' });
         if (!e) return null;
@@ -2297,10 +2337,7 @@ function buildLessons(which) {
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      hints: [
-        'Field zone first — wherever the shot came from.',
-        'Then <b>Shot</b>, then <b>Goal</b>, then where in the net it went.'
-      ],
+      guide: [{ zone: 'z5' }, '.xgtOpts [data-a="shot"]', '[data-v="regular"]', '[data-s="goal"]', '.xgtGoal'],
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'goal' });
         if (!e) return null;
@@ -2317,10 +2354,7 @@ function buildLessons(which) {
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      hints: [
-        'Tap any <b>field zone</b> first.',
-        '<b>Steal</b> is one tap. On Pro you are then asked what became of the ball — and an outlet pass may follow.'
-      ],
+      guide: [{ zone: 'z13' }, '.xgtOpts [data-a="steal"]', '.xgtOpts'],
       misstep: function () {
         var e = stray(base, { action: 'steal' });
         if (!e) return null;
@@ -2582,7 +2616,7 @@ function buildLessons(which) {
       calmRing: true,
       highlight: statsSection(/shooting/i),
       onEnter: reveal(statsSection(/shooting/i)),
-      instruction: 'Then <b>their goal</b>, with every shot your team took placed on it — and under that <b>your own goal</b>, with every shot you faced.\n\n' +
+      instruction: 'Then the <b>opposing goal</b>, with every shot you logged for your team — and underneath <b>your own goal</b>, with every shot you faced.\n\n' +
         'Two pictures of the same game from both ends, which is something no single-player mode can show you.' },
 
     { instruction: 'Under those, every player as a tile — cap number, goals, fouls. <b>Tap one</b> to open that player’s own statistics.',
@@ -2599,8 +2633,7 @@ function buildLessons(which) {
       calmRing: true,
       highlight: statsTiles,
       onEnter: reveal(statsTiles),
-      instruction: 'One player, the same shape as the whole team — and a <b>goalkeeper</b> opens with a keeper’s numbers instead: shots faced, saves, <b>save percentage</b>, and the save rate by shot type.\n\n' +
-        'That is the goalkeeper’s game, from a session where you never once tracked a keeper.' },
+      instruction: 'One player, the same shape as the whole team — and a <b>goalkeeper</b> opens with a keeper’s numbers instead: shots faced, saves, <b>save percentage</b>, and the save rate by shot type.' },
 
     { instruction: 'Scroll back up and tap <b>‹ Back</b> — once for the team, once more to close the statistics.',
       highlight: '#xgtSb',
@@ -2615,18 +2648,14 @@ function buildLessons(which) {
     lessonEnding({ extraSteps: teamShootoutSteps }),
   { title: 'Track it yourself', steps: [
     { ack: true,
-      instruction: 'Last part. From here the tutorial stops pointing at buttons — you get told what happened in the game, and you log it.\n\n' +
-        'Three moments, one at a time. If you get stuck, wait a few seconds and a hint appears.' },
+      instruction: 'Last part. From here the tutorial stops pointing at buttons — you can log the events by yourself now.\n\n' +
+        'Three moments, one at a time. If you pause, the next thing to tap gets a pulsing red circle.' },
 
     { instruction: 'Now try it yourself. <b>Your #4 scores</b>.',
       onEnter: function () { mark(); practice = { done: [] }; },
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      hints: [
-        'Start with the <b>field zone</b> — wherever the shot came from.',
-        'Then <b>who</b>: #4, under your own team.',
-        'Then <b>Shot</b>, then <b>Goal</b>, and where in the net it went.'
-      ],
+      guide: [{ zone: 'z4' }, '[data-us-n="4"]', '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.xgtGoal', '#xgtAssistSkip'],
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'goal' });
         if (!e) return null;
@@ -2644,16 +2673,7 @@ function buildLessons(which) {
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      hints: [
-        'Field zone first — where <b>they</b> shot from.',
-        opp ? 'Then their <b>#6</b>, in the lower group.'
-            : 'Then the <b>opponent</b> button under your own numbers.',
-        // The assist step fires for ANY goal, either side -- stepAssist() gates
-        // on the outcome, not on who scored. Leaving it out of the ladder was
-        // what stranded this step: the sheet sat open on "Who assisted?" and
-        // nothing after it could run.
-        'Then <b>Shot</b>, then <b>Goal</b> — and on Pro, <b>No assist / skip</b> to finish it.'
-      ],
+      guide: [{ zone: 'z2' }, (opp ? '[data-opp-n="6"]' : '#xgtOpp'), '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.xgtGoal', '#xgtAssistSkip'],
       validate: function () {
         if (T.state.draft) return false;
         var a = actions();
@@ -2675,10 +2695,7 @@ function buildLessons(which) {
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      hints: [
-        'Field zone, then <b>who</b>, then <b>Steal</b>.',
-        'Steal has no outcome to choose — it commits on that one tap.'
-      ],
+      guide: [{ zone: 'z12' }, '[data-us-n="2"]', '.xgtOpts [data-a="steal"]'],
       misstep: function () {
         var e = stray(base, { action: 'steal' });
         if (!e) return null;
