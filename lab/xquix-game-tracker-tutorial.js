@@ -654,6 +654,11 @@ function anchorRect() {
   // straight over the big CLOCK REMAINING readout, which is the one number the
   // coach is watching change.
   if (s.quiet) return null;
+  // And a step can say outright that it will not be dodged. The sideline scroll
+  // strip runs the full height of the water: on an 844px phone there is no band
+  // above or below it big enough for the box, so dodging can only fail. Parked
+  // home it covers a slice of a very long ring and leaves the rest obvious.
+  if (s.homeBox) return null;
   var sel = ringOverride || s.highlight;
   var handed = s.then && Date.now() - stepAt >= (s.thenAfter || 3000);
   if (handed) sel = s.then;
@@ -724,7 +729,12 @@ function positionChrome(force) {
   box.style.top = Math.round(y) + 'px';
 
   var flash = el('xgtuFlash');
-  if (flash) {
+  // NOT while it is showing. The flash belongs to the step that just succeeded,
+  // but the advance to the next step re-lays-out the chrome ~700ms later, in the
+  // middle of its 1100ms life -- so "Running" appeared at one height, jumped to
+  // another, and was reported from a Mac as popping up twice. It stays where it
+  // was raised and gets its position from the next step it precedes.
+  if (flash && !flash.classList.contains('on')) {
     // Under the box, unless that would put it off the bottom.
     var fy = y + h + 14;
     flash.style.top = Math.round(fy + 40 > window.innerHeight ? Math.max(lim.top, y - 40) : fy) + 'px';
@@ -1247,26 +1257,18 @@ function buildLessons(which) {
   var logged = function (want) {
     return function () { return !T.state.draft && loggedSince(base, want); };
   };
-  /* The sideline scroll strip -- but only its upper half, as a plain rectangle.
-     The strip itself runs almost the full height of the water, and a box that
-     has to clear something 600px tall on an 844px phone has nowhere to go: in
-     the team tutorials, where the roster bar is two columns and the band is
-     shorter still, it ended up overlapping the very thing it was pointing at.
-     Half a strip is still unmistakably "this edge", and it leaves the box a
-     place to stand. */
+  /* The sideline scroll strip, whole.
+     An earlier build ringed only its upper half so the instruction box had
+     somewhere to stand. Reported from a Mac: "the red circle is positioned too
+     high, it is not all the way along the side of the screen" -- and that is
+     right. The strip IS the full sideline; a ring around half of it describes
+     something that does not exist. The box gets out of the way instead: the
+     step carries `homeBox`, which parks it and lets it overlap. */
   var scrollStrip = function () {
-    var e = null;
     var r = document.getElementById('fcScrollZoneRight');
-    if (r && r.style.display === 'block') e = r;
-    else {
-      var l = document.getElementById('fcScrollZoneLeft');
-      if (l && l.style.display === 'block') e = l;
-    }
-    if (!e) return null;
-    var b = e.getBoundingClientRect();
-    if (!b.height) return e;
-    return { top: b.top, left: b.left, right: b.right, bottom: b.top + b.height * 0.5,
-             width: b.width, height: b.height * 0.5 };
+    if (r && r.style.display === 'block') return r;
+    var l = document.getElementById('fcScrollZoneLeft');
+    return (l && l.style.display === 'block') ? l : null;
   };
 
   /* A squad chip that has not been picked yet, for the demo and for the ring.
@@ -1278,11 +1280,32 @@ function buildLessons(which) {
   var nextOppChip = function () {
     return pickMissing('#xgtOppSquad', 'opp-n', DEMO_OPP_SQUAD, T.state.oppSquad);
   };
+  /* A count-based step that waits for the coach to STOP.
+     Reported from a Mac: the squad step moved on the instant the seventh cap
+     landed, which is wrong twice over -- seven is the tracker's minimum, not the
+     coach's squad, and a step that leaves while a finger is still going reads as
+     the tutorial taking the pen out of your hand. So: at least `min`, and two
+     seconds since the count last changed. Adding an eighth resets the wait. */
+  var SETTLE_MS = 2000;
+  var settleSeen = -1, settleAt = 0, settleSkip = false;
+  var settleReset = function () { settleSeen = -1; settleAt = 0; settleSkip = false; };
+  var settled = function (count, min) {
+    return function () {
+      var n = count();
+      if (n !== settleSeen) { settleSeen = n; settleAt = Date.now(); }
+      if (n < min) return false;
+      // "Next step" is an explicit request to move on. Making that wait out a
+      // pause meant for a finger still choosing caps is just a stall.
+      return settleSkip || (settleAt && Date.now() - settleAt >= SETTLE_MS);
+    };
+  };
+
   /* Tap what is still missing, one chip at a time, re-querying between taps.
      Used by the squad steps' autoComplete -- "Next step" has to be able to
      finish a step the coach started half-way through. */
   var fillChips = function (pick) {
     return function () {
+      settleSkip = true;          // this IS "Next step"; do not also make it wait
       (function once() {
         if (!running) return;
         var sel = pick();
@@ -1305,7 +1328,8 @@ function buildLessons(which) {
     { instruction: 'Now the squad. <b>Tap every cap number that is dressed today</b> — at least <b>seven</b>, or the tracker will not start.\n\nTap <b>1</b> through <b>7</b> for now.',
       highlight: nextSquadChip,
       allow: '#xgtSquad',
-      validate: function () { return T.state.squad.length >= 7; },
+      onEnter: settleReset,
+      validate: settled(function () { return T.state.squad.length; }, 7),
       autoComplete: fillChips(nextSquadChip),
       success: 'Squad in' },
 
@@ -1315,8 +1339,7 @@ function buildLessons(which) {
     { ack: true,
       calmRing: true,
       highlight: '#xgtKeepers',
-      instruction: 'Under the squad are the same numbers again, for the <b>goalkeepers</b>. <b>#1 marked itself</b> when it went into the squad — tap it again to un-mark it if your keeper wears something else, and tap any number to add a second keeper.\n\n' +
-        'This matters more than it looks: every opponent action you log is credited to whichever keeper is <b>in the water at the time</b>. Their whole game comes free.' },
+      instruction: 'Under the squad are the same numbers again, for the <b>goalkeepers</b>. <b>#1 marked itself</b> when it went into the squad — tap it again to un-mark it if your keeper wears something else, and tap any number to add a second keeper.' },
 
     { ack: true,
       instruction: 'If your competition labels a backup keeper <b>1A</b> or <b>1B</b> instead of giving them their own cap number, there is a box for that under each keeper. Optional — leave it blank and the number shows.' }
@@ -1341,7 +1364,8 @@ function buildLessons(which) {
     { instruction: 'Their squad works the same way. <b>Tap at least seven</b> of their numbers — <b>1</b> through <b>7</b> again is fine.',
       highlight: nextOppChip,
       allow: '#xgtOppSquad',
-      validate: function () { return (T.state.oppSquad || []).length >= 7; },
+      onEnter: settleReset,
+      validate: settled(function () { return (T.state.oppSquad || []).length; }, 7),
       autoComplete: fillChips(nextOppChip),
       success: 'Their squad in' },
 
@@ -1366,7 +1390,10 @@ function buildLessons(which) {
       // actually are.
       instruction: 'Welcome to the <b>Game Tracker</b>.\n\n' +
         'These lessons teach you the <b>workflow</b> and the <b>main functions</b>: how an event gets logged, how the clock works, what the stats show you while you track, and how a game is closed out.\n\n' +
-        'The Game Tracker is part of the <b>free version</b>. A few of the functions along the way are <b>Pro</b> only — the lessons say so when one comes up, and Pro can be booked at any time.' },
+        // "Free version" capitalised the same way "Pro" is -- they are the two
+        // names of the same thing, and one of them looking like a description
+        // while the other looks like a product reads as careless.
+        'The Game Tracker is part of the <b>Free version</b>. A few functions are <b>Pro</b> only; these lessons point each one out as it comes up, and Pro can be booked at any time.' },
 
     { ack: true,
       // The ring is pointed at the button the coach is about to press, so the
@@ -1396,16 +1423,18 @@ function buildLessons(which) {
     { ack: true,
       highlight: '#xgtuAck',
       redRing: true,
-      instruction: 'Next, the top of the setup fills itself in — one thing at a time. Tap <b>Got it</b> and watch.\n\n' +
+      // "Tap Got it" is the LAST line, not the first: the reader should know
+      // everything the step has to say before being told to move on.
+      instruction: 'Next, the top of the setup fills itself in — one thing at a time.\n\n' +
         (opts.squad
-          // The one load-bearing instruction in C and D. A team parent who
-          // picks "Parent" never sees the squad UI -- it renders only for
-          // coach + team -- and gets stuck on the setup screen with nothing
-          // to enter and no explanation.
-          ? '<b>Who is tracking</b> has to be <b>Coach / Team</b> here, whoever you are. A parent keeping stats for the whole squad picks it too: the squad only appears in that combination.\n\n' +
-            '<b>Tracking role</b> is <b>Team</b> — that is what turns one player into a whole roster.\n\n'
-          : '<b>Who is tracking</b> is only a label on the record. <b>Tracking role</b> is the one that decides what you tap during the game — and this tutorial is the <b>' + opts.roleName + '</b> one.\n\n') +
-        'Then the game itself. Worth entering for real: these names replace <b>Us</b> and <b>Them</b> on every button and in every export.' },
+          // The one load-bearing instruction in C and D: the squad UI renders
+          // only for coach + team, so any other combination leaves the coach on
+          // a setup screen with nothing to enter.
+          ? '<b>Who is tracking</b> has to be <b>Coach / Team</b> — the squad only appears in that combination.\n\n' +
+            '<b>Tracking role</b> is <b>Team</b>, and the game details below are worth entering for real: those names carry through every button and every export.\n\n'
+          : '<b>Who is tracking</b> is only a label on the record. <b>Tracking role</b> is what decides what you tap during the game — and this tutorial is the <b>' + opts.roleName + '</b> one.\n\n' +
+            'The game details are worth entering for real: those names carry through every button and every export.\n\n') +
+        'Tap <b>Got it</b> and watch.' },
 
     { instruction: '',
       quiet: true,
@@ -1479,6 +1508,7 @@ function buildLessons(which) {
     // roster bar takes another slice off the bottom.
     { instruction: 'The pool carries on past the top of the screen. To move up and down it, <b>drag on the narrow strip along either sideline</b> — the middle is for tapping field zones.\n\nTry it now.',
       gesture: true,
+      homeBox: true,
       highlight: scrollStrip,
       onEnter: function () { var w = stageWrap(); scrollFrom = w ? w.scrollTop : 0; },
       validate: function () {
@@ -1526,9 +1556,9 @@ function buildLessons(which) {
         'When you <b>start entering an event</b>, the tracker remembers the clock at that instant — but keeps it running. It does not freeze while you choose.' },
 
     { ack: true,
-      instruction: 'What happens when you finish depends on what you logged.\n\n' +
-        'If it <b>stops play</b> — a goal, or a personal foul — the clock jumps back to the moment you started, and stops there.\n\n' +
-        'If it does not stop play — a blocked shot — the clock is left alone, because it was right all along.' },
+      instruction: 'Which event you logged decides whether the official game clock stopped or kept running.\n\n' +
+        'For a <b>goal</b> or a <b>personal foul</b>, the clock jumps back to the moment you first tapped the field, and stops there.\n\n' +
+        'For something like a <b>blocked shot</b> or a <b>steal</b>, the clock just keeps running.' },
 
     { instruction: 'Let’s watch that happen. <b>Tap the water anywhere in front of the goal</b> — never mind the field zones and the numbers for now.',
       onEnter: mark,
@@ -1547,10 +1577,10 @@ function buildLessons(which) {
       success: 'Goal logged' },
 
     { ack: true,
-      instruction: 'Look at the clock — it stopped on its own, at the moment you started the event. The seconds you spent choosing were not taken off the game.',
+      instruction: 'Look at the clock — it stopped on its own, at the moment you started the event. The time you needed for logging the event was not taken off the game.',
       highlight: '#xgtT' },
 
-    { instruction: 'To correct the clock, or to change quarter, tap the <b>quarter button</b> at the top left — the one showing <b>Q1</b> with a pencil on it. The pencil is what marks it as editable.',
+    { instruction: 'To correct the clock, or to change a quarter, tap the <b>quarter button</b> at the top left — the one showing <b>Q1</b>.',
       highlight: '#xgtQ',
       allow: '#xgtQ',
       validate: function () { return !!el('xgtDone'); },
@@ -1560,9 +1590,8 @@ function buildLessons(which) {
       instruction: '',   // written by onEnter, which knows the real target time
       onEnter: function () {
         clockTarget = Math.max(0, T.state.clock - 11);
-        setText('This is the sheet. The <b>quarter chips</b> are along the top, and <b>SO</b> is there for a potential penalty shootout.\n\n' +
-          'Say the official pool clock is <b>11 seconds behind</b> yours. Take the 11 seconds off: tap <b>−0:10</b>, then <b>−0:01</b>, then <b>Done</b> — aiming for <b>' + mmss(clockTarget) + '</b>. The red ring leads.\n\n' +
-          'Events you have already logged keep their own timestamps; this only moves the clock.');
+        setText('The <b>quarter chips</b> are along the top, and <b>SO</b> is there for a potential penalty shootout.\n\n' +
+          'Here you can correct your game time and adjust the time for the quarter. Let’s assume we are <b>11 seconds ahead</b> of the game time because our logging took a little too long: tap <b>−0:10</b>, then <b>−0:01</b>, then <b>Done</b> — aiming for <b>' + mmss(clockTarget) + '</b>. The red ring leads.');
       } },
 
     // Quiet on purpose. On a phone this box covered half the time sheet, and a
@@ -2308,7 +2337,7 @@ function buildLessons(which) {
     lessonSetup({ role: 'team', mode: 'coach', roleName: 'Team', who: 'player',
                   squad: true, opponent: opp }),
     lessonClock({
-      goalInstruction: 'Now log the goal. First <b>who</b> — tap <b>#7</b> under your own team — then <b>Shot</b>, then <b>Goal</b>, and tap roughly where in the net it went.\n\n' +
+      goalInstruction: 'Now log a goal. First the <b>shooter</b> — tap <b>#7</b> under your own team — then <b>Shot</b>, then <b>Goal</b>, and tap roughly where in the net it went.\n\n' +
         'On <b>Pro</b> you are then offered the <b>assist</b>, or you can skip it.',
       goalChain: ['[data-us-n="7"]', '.xgtOpts [data-a="shot"]', '[data-s="goal"]',
                   '.gz[data-p="low_left"]', '?#xgtAssistSkip']
@@ -2657,6 +2686,10 @@ var API = {
     var s = steps[i];
     if (!s) return null;
     return { ack: !!(s.ack || s.auto), lesson: s._lessonTitle,
+             // A step that has opted out of the dodge, because what it points
+             // at is too big to dodge -- the layout test has to know, or it
+             // measures an overlap the step asked for. See anchorRect().
+             homeBox: !!s.homeBox,
              // `gesture` steps are finished by dragging, not tapping -- the
              // click guard never sees them, so "nothing is allowed" is correct
              // for them rather than a dead end.
