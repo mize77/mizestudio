@@ -1271,6 +1271,22 @@ function buildLessons(which) {
     return (l && l.style.display === 'block') ? l : null;
   };
 
+  /* The substitution demonstration works on ONE named player across two steps,
+     so both the ring and the validator have to agree on which. Captured on
+     entry rather than recomputed, because after the sub-out that player is no
+     longer in the water and "the third one in" would resolve to somebody else. */
+  var subTarget = null;
+  var chipSel = function (n) { return '#xgtBar .xgtChip[data-n="' + n + '"][data-side="us"]'; };
+  var subChip = function (n) { return n == null ? null : q(chipSel(n)); };
+  /* The nth chip from the left of our own roster that is currently in the water.
+     Read from the DOM, not from S.water, so "from the left" means what the coach
+     sees rather than what the array happens to be sorted by. */
+  var nthWater = function (nth) {
+    var chips = document.querySelectorAll('#xgtBar .xgtChip[data-side="us"].water');
+    var e = chips[Math.min(nth, chips.length) - 1];
+    return e ? parseInt(e.getAttribute('data-n'), 10) : null;
+  };
+
   /* A squad chip that has not been picked yet, for the demo and for the ring.
      The setup sheet is re-rendered on every chip tap, so this is re-evaluated
      each time rather than held. */
@@ -1750,14 +1766,20 @@ function buildLessons(which) {
     // Renaming and hiding used to be practised here, three steps of it. They are
     // mentioned instead: neither changes how anything is logged, and the rename
     // flow left a mode switched on that quietly broke every later zone tap.
-    { instruction: 'The field zones have two options in here. You can <b>rename</b> them, if your club numbers them differently — and you can <b>hide</b> them, if you find the numbers distracting. Both are personal to this device.\n\nThen close the menu with the ✕.',
+    // Read, then close -- two steps. As one, the ring had to hand over from the
+    // two menu rows to the ✕ on a timer, so the coach was being told about a
+    // thing and asked to leave it in the same breath.
+    { ack: true,
       // Both rows, not just one: a ring around Hide Field Zones alone reads as
       // "Rename is not what we are being told about", which is how it landed on
       // a device -- "there is no amber circle around Rename Field Zones".
       highlight: function () { return spanOf(['#xgtOptEditNums', '#xgtOptZones']); },
       calmRing: true,          // amber: this is being pointed out, not asked for
-      then: '#xgtX',           // …and after a beat the ring moves to what to tap
-      thenAfter: 3000,
+      allow: '#xgtSheet',
+      instruction: 'The field zones have two options in here. You can <b>rename</b> them, if your club numbers them differently — and you can <b>hide</b> them, if you find the numbers distracting. Both are personal to this device.' },
+
+    { instruction: 'Now close the menu with the ✕.',
+      highlight: '#xgtX',
       allow: '#xgtX',
       validate: function () { return !sheetOpen(); },
       autoComplete: function () { click('#xgtX'); } }
@@ -2053,14 +2075,20 @@ function buildLessons(which) {
       validate: function () { return sheetOpen() && !!el('xgtOptEditNums'); },
       autoComplete: function () { click('#xgtOptionsBtn'); } },
 
-    { instruction: 'The field zones have two options in here. You can <b>rename</b> them, if your club numbers them differently — and you can <b>hide</b> them, if you find the numbers distracting. Both are personal to this device.\n\nThen close the menu with the ✕.',
+    // Read, then close -- two steps. As one, the ring had to hand over from the
+    // two menu rows to the ✕ on a timer, so the coach was being told about a
+    // thing and asked to leave it in the same breath.
+    { ack: true,
       // Both rows, not just one: a ring around Hide Field Zones alone reads as
       // "Rename is not what we are being told about", which is how it landed on
       // a device -- "there is no amber circle around Rename Field Zones".
       highlight: function () { return spanOf(['#xgtOptEditNums', '#xgtOptZones']); },
-      calmRing: true,
-      then: '#xgtX',
-      thenAfter: 3000,
+      calmRing: true,          // amber: this is being pointed out, not asked for
+      allow: '#xgtSheet',
+      instruction: 'The field zones have two options in here. You can <b>rename</b> them, if your club numbers them differently — and you can <b>hide</b> them, if you find the numbers distracting. Both are personal to this device.' },
+
+    { instruction: 'Now close the menu with the ✕.',
+      highlight: '#xgtX',
       allow: '#xgtX',
       validate: function () { return !sheetOpen(); },
       autoComplete: function () { click('#xgtX'); } }
@@ -2374,11 +2402,20 @@ function buildLessons(which) {
       validate: function () { return sheetOpen() && !!el('xgtOptEditNums'); },
       autoComplete: function () { click('#xgtOptionsBtn'); } },
 
-    { instruction: 'The field zones have two options in here. You can <b>rename</b> them, if your club numbers them differently — and you can <b>hide</b> them, if you find the numbers distracting. Both are personal to this device, not a team setting.\n\nThen close the menu with the ✕.',
+    // Read, then close -- two steps. As one, the ring had to hand over from the
+    // two menu rows to the ✕ on a timer, so the coach was being told about a
+    // thing and asked to leave it in the same breath.
+    { ack: true,
+      // Both rows, not just one: a ring around Hide Field Zones alone reads as
+      // "Rename is not what we are being told about", which is how it landed on
+      // a device -- "there is no amber circle around Rename Field Zones".
       highlight: function () { return spanOf(['#xgtOptEditNums', '#xgtOptZones']); },
-      calmRing: true,
-      then: '#xgtX',
-      thenAfter: 3000,
+      calmRing: true,          // amber: this is being pointed out, not asked for
+      allow: '#xgtSheet',
+      instruction: 'The field zones have two options in here. You can <b>rename</b> them, if your club numbers them differently — and you can <b>hide</b> them, if you find the numbers distracting. Both are personal to this device, not a team setting.' },
+
+    { instruction: 'Now close the menu with the ✕.',
+      highlight: '#xgtX',
       allow: '#xgtX',
       validate: function () { return !sheetOpen(); },
       autoComplete: function () { click('#xgtX'); } }
@@ -2396,14 +2433,14 @@ function buildLessons(which) {
     // finding it will otherwise assume the tracker lost them.
     { ack: true,
       allow: '#xgtSheet',
-      instruction: 'This screen is the whole difference. <b>Who?</b>\n\n' +
-        'Your own numbers are at the top, ' + (opp ? 'theirs underneath' : 'and the other team underneath') + '. Only the players <b>in the water right now</b> are listed — the bench is not an option, because a player on the bench cannot have done it.' },
+      instruction: '<b>Who?</b>\n\n' +
+        'Your own numbers are at the top, ' + (opp ? 'theirs underneath' : 'and the other team underneath') + '. Only the players <b>in the water right now</b> are listed.' },
 
     { ack: true,
       allow: '#xgtSheet',
       instruction: opp
         ? 'Because you are tracking both squads, an opponent action gets <b>their cap number</b> too. That is what turns "a shot from the left" into "#4 shoots from the left, again".'
-        : 'You are not tracking their squad in this tutorial, so the other team is <b>one button</b>. The action is recorded as theirs, without a number — which is all you need for a shot your keeper faced.' },
+        : 'The opposing team is just one button, since you are not tracking that team. You still need it: that is what keeps the stats for your <b>goalkeeper</b> and your <b>defense</b> complete.' },
 
     { instruction: 'Log a goal by your own <b>#7</b>: tap <b>#7</b>, then <b>Shot</b>, then <b>Goal</b>, then where in the net it went.',
       onEnter: mark,
@@ -2419,7 +2456,7 @@ function buildLessons(which) {
       success: 'Goal logged' },
 
     { ack: true,
-      instruction: 'On <b>Pro</b> a goal is followed by <b>who assisted</b> — the same water roster again, with <b>No assist / skip</b> for the times nobody did.' },
+      instruction: 'On <b>Pro</b> a goal is followed by <b>who assisted</b> — in case there was an assist — so you keep track of that as well. It offers the same water roster, with <b>No assist / skip</b>.' },
 
     // The one thing about fouls a coach gets wrong: the player you tapped is
     // always the one who COMMITTED it. stepOutcome() sets dc='committed' on any
@@ -2428,9 +2465,12 @@ function buildLessons(which) {
       onEnter: mark,
       allowZone: '*',
       allow: '#xgtSheet',
-      // Penalty stays visible and inert, exactly as in A: choosing it launches
-      // the penalty-shot flow, which is somewhere this lesson has not prepared
-      // anyone for. The next step explains it instead.
+      // Penalty stays visible and inert: choosing it opens the penalty-shot
+      // flow straight away and asks who is taking it, which is somewhere this
+      // lesson has not prepared anyone for. It used to be explained in a step
+      // of its own; that was cut as belonging to a real game rather than here,
+      // so the guard is now the only thing standing between a curious tap and
+      // a screen the tutorial cannot get back from.
       deny: ['[data-s="penalty"]'],
       highlight: firstVisible(['[data-us-n="3"]', '.xgtOpts [data-a="exclusion"]', '[data-s="exclusion"]', '#xgtFoulSkip']),
       validate: logged({ action: 'exclusion' }),
@@ -2441,13 +2481,10 @@ function buildLessons(which) {
       success: 'Foul logged' },
 
     { ack: true,
-      instruction: 'The player you tapped always <b>committed</b> the foul — there is no drawn-or-committed choice on that screen.\n\n' +
-        'On <b>Pro</b>, the tracker then asks <b>who drew it</b>, from the other team’s water roster, with <b>Unknown / skip</b>. That is how one tap becomes both an exclusion given and an exclusion drawn.' },
+      instruction: 'The player you tapped always <b>committed</b> the foul.\n\n' +
+        'On <b>Pro</b>, you can enter who <b>drew</b> the personal foul as well. That is how one log becomes both a personal foul committed and drawn.' },
 
-    { ack: true,
-      instruction: '<b>Penalty (5 m)</b> is in that same list, and it is worth knowing what it does before you tap it: choosing it opens the penalty shot straight away and asks who is taking it. It belongs to tracking a real game, not to this lesson.' },
-
-    { instruction: 'One more. <b>Steal</b> is a single tap after the player — no outcome to choose.\n\nLog one: field zone, a player, then <b>Steal</b>.',
+    { instruction: 'To log a <b>Steal</b>, simply tap the field zone, the player, and <b>Steal</b>.',
       onEnter: mark,
       allowZone: '*',
       allow: '#xgtSheet',
@@ -2460,7 +2497,7 @@ function buildLessons(which) {
       success: 'Steal logged' },
 
     { ack: true,
-      instruction: 'On <b>Pro</b> the action list also carries <b>Turnover</b> — offensive foul, offensive exclusion, pass intercepted, shot clock expired — plus <b>Excl. + Substitution</b> and <b>Brutality</b> as foul outcomes, and the follow-up questions that go with a blocked shot.' },
+      instruction: 'On <b>Pro</b> the action list also carries <b>Turnover</b> — offensive foul, offensive exclusion, pass intercepted, shot clock expired — plus <b>Excl. + Substitution</b> and <b>Brutality</b> as foul outcomes, and the follow-up events that go with a blocked shot.' },
 
     // The roster bar rides in this lesson rather than getting one of its own.
     // Seven lessons is the shape all four tutorials share, and the bar is not a
@@ -2469,48 +2506,45 @@ function buildLessons(which) {
       calmRing: true,
       highlight: '#xgtBar',
       instruction: 'Along the bottom is the <b>roster bar</b>' + (opp ? ' — your squad on one side, theirs on the other, with the Menu and Stats between them.' : ', with the Menu and Stats beside it.') + '\n\n' +
-        'The header on each side counts who is in the water: <b>' + (opp ? '5/7' : '7/7') + '</b>.' },
+        'The number next to ' + (opp ? 'each team’s name counts how many of their players' : 'your team’s name counts how many players') + ' are in the water: <b>7/7</b>.' },
 
     { ack: true,
       calmRing: true,
       highlight: '#xgtBar',
-      instruction: 'Read the chips: <b>filled green</b> means in the water right now, a <b>red outline</b> marks a goalkeeper, and a <b>teal badge</b> counts that player’s goals while a <b>red badge</b> counts fouls they have committed.\n\n' +
+      instruction: 'The <b>green chips</b> mark the players in the water, a <b>red outline</b> marks a goalkeeper, and a <b>teal badge</b> counts that player’s goals while a <b>red badge</b> counts the fouls they have committed.\n\n' +
         'That is the live scoreboard for every player, without opening anything.' },
 
     // The rescue is structural, not timed -- xgtUndoAccidentalResub walks back
     // through presence events and only gives up if a DIFFERENT player has gone
     // in since. Saying "straight back" would be wrong: it covers a flying
     // substitution with minutes in between.
-    { instruction: 'Substitutions are roster taps, not field events. <b>Tap a green chip</b> to take that player out.',
-      onEnter: function () { base = evts().length; },
+    /* THE THIRD CHIP FROM THE LEFT, and one specific chip for both steps.
+       It used to say "tap a green chip", and its auto-complete picked whichever
+       non-goalie it found first. Two problems: a coach could pick the keeper,
+       and taking the goalkeeper out of the water for a demonstration teaches a
+       substitution nobody makes. The third number along is a field player in
+       every ordinary roster -- and if a coach has capped their keeper third, it
+       still works, which is why the step names a position rather than a number. */
+    { instruction: 'Substitutions are roster taps, not field events. <b>Tap the third green chip from the left</b> to take that player out.',
+      onEnter: function () { base = evts().length; subTarget = nthWater(3); },
       allow: '#xgtBar',
-      highlight: '#xgtBar .xgtChip.water',
-      validate: function () { return T.state.water.length < 7; },
-      autoComplete: function () {
-        var c = q('#xgtBar .xgtChip.water:not(.goalie)') || q('#xgtBar .xgtChip.water');
-        if (c) clickThrough('#xgtBar .xgtChip[data-n="' + c.getAttribute('data-n') + '"][data-side="us"]');
-      },
+      highlight: function () { return subChip(subTarget); },
+      validate: function () { return subTarget != null && T.state.water.indexOf(subTarget) < 0; },
+      autoComplete: function () { var c = subChip(subTarget); if (c) clickThrough(chipSel(subTarget)); },
       success: 'Out of the water' },
 
     { instruction: 'Now tap that <b>same player</b> again to put them back.',
       allow: '#xgtBar',
-      highlight: function () {
-        var w = T.state.squad.filter(function (n) { return T.state.water.indexOf(n) < 0; });
-        return w.length ? q('#xgtBar .xgtChip[data-n="' + w[0] + '"][data-side="us"]') : null;
-      },
-      validate: function () { return T.state.water.length >= 7; },
-      autoComplete: function () {
-        var w = T.state.squad.filter(function (n) { return T.state.water.indexOf(n) < 0; });
-        if (w.length) clickThrough('#xgtBar .xgtChip[data-n="' + w[0] + '"][data-side="us"]');
-      },
+      highlight: function () { return subChip(subTarget); },
+      validate: function () { return subTarget != null && T.state.water.indexOf(subTarget) >= 0; },
+      autoComplete: function () { var c = subChip(subTarget); if (c) clickThrough(chipSel(subTarget)); },
       success: 'Back in' },
 
     { ack: true,
-      instruction: 'Notice what the tracker said: it recognised that as a <b>mis-tap</b> and <b>removed the sub-out</b> rather than recording a player going out and back in.\n\n' +
-        'It is not a stopwatch — it works as long as no other player has gone in since, so it covers a flying substitution too.' },
+      instruction: 'Notice what the tracker said: it recognized that as a <b>mis-tap</b> and <b>removed the sub-out</b> rather than recording a player going out and back in.' },
 
     { ack: true,
-      instruction: 'Two more things the bar does on its own. <b>Seven is the limit</b> — an eighth tap is refused and tells you to sub someone out first.\n\n' +
+      instruction: 'The number of players per team in the water is limited to <b>7</b> — an eighth tap is refused and tells you to sub someone out first.\n\n' +
         'And <b>three exclusions disqualifies</b> a player: the tracker takes them out of the water, greys the chip out so it cannot be tapped again, and marks it. <b>S</b> for exclusion with substitution, <b>X</b> for brutality, <b>R</b> for a red card.' }
   ]},
 
