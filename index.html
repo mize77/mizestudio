@@ -656,7 +656,7 @@
   }
   body.presentation #arenaAtmosphere { display:block; }
   /* Shared defaults for all atmosphere layers */
-  #arenaCeiling, #arenaCrowd, #arenaSides, #arenaGlow, #arenaFloor, #arenaVignette {
+  #arenaCeiling, #arenaSides, #arenaGlow, #arenaFloor, #arenaVignette {
     position:absolute; inset:0;
     transition: opacity .35s ease;
   }
@@ -704,19 +704,6 @@
   /* ---- Far-end seating rows ---- */
   /* 1 px horizontal lines in the upper portion only, masked so they
      fade smoothly at top and bottom. */
-  #arenaCrowd {
-    top:0; bottom:60%; left:0; right:0;
-    position:absolute; inset:auto;
-    background:
-      repeating-linear-gradient(
-        to bottom,
-        transparent           0px, transparent          10px,
-        rgba(22,40,55,.38)   10px, rgba(22,40,55,.38)  11px
-      );
-    -webkit-mask: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.8) 15%, rgba(0,0,0,.8) 68%, transparent 100%);
-    mask:         linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.8) 15%, rgba(0,0,0,.8) 68%, transparent 100%);
-    opacity: var(--arena-c, 0);
-  }
   /* ---- Side-wall vignette ---- */
   /* Strong left/right darkening for the arena walls. Upper corners are
      deepest — that is where the ceiling meets the distant side stands. */
@@ -1774,7 +1761,6 @@
 <div id="stageWrap"><div id="presentationWaterBackdrop"></div>
 <div id="arenaAtmosphere" aria-hidden="true">
   <div id="arenaCeiling"></div>
-  <div id="arenaCrowd"></div>
   <div id="arenaSides"></div>
   <div id="arenaGlow"></div>
   <div id="arenaFloor"></div>
@@ -6434,7 +6420,17 @@ XQUIX.CloudProvider = (function(){
       if(typeof renderPackages==='function') renderPackages();
     },
 
-    async listStore(kind){ if(!this.isLoaded(kind)) await this.loadAll(); return ensureKindCache(kind); },
+    async listStore(kind){
+      // Only attempt cloud load when there is an authenticated user.
+      // Without this guard, the onChange listener ordering causes
+      // renderAccountUI → renderPackages → listStore to fire while
+      // XQUIX.StorageProvider still points here, before the
+      // xquixSwitchToLocalProvider call that comes later in the
+      // onChange chain -- producing a cascade of 400s on every auth
+      // state event with an expired or missing session.
+      if(!this.isLoaded(kind) && XQUIX.Auth.getCurrentUser()) await this.loadAll();
+      return ensureKindCache(kind);
+    },
     async getItem(kind, name){ if(!this.isLoaded(kind)) await this.loadAll(); return ensureKindCache(kind)[name] || null; },
     async saveItem(kind, name, record){
       const kindCache = ensureKindCache(kind);
