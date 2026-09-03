@@ -4763,10 +4763,10 @@ document.addEventListener('xquixHomeTutorialSelected', (e) => {
     xquixHideHome();
     closeToolPanels();
     MIZE.Parent.start();
-  } else if(tutorial === 'gametracker-field' && typeof MIZE !== 'undefined' && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start === 'function'){
+  } else if(tutorial.startsWith('gametracker-') && typeof MIZE !== 'undefined' && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start === 'function'){
     xquixHideHome();
     closeToolPanels();
-    MIZE.GameTrackerTutorial.start('field');
+    MIZE.GameTrackerTutorial.start(tutorial.slice('gametracker-'.length) || 'field');
   } else {
     xquixHomeShowToast('This tutorial isn\u2019t built yet \u2014 check back soon.');
   }
