@@ -6404,7 +6404,7 @@ XQUIX.CloudProvider = (function(){
                 opKindCache[conflictName] = conflictResult.record;
                 await XQUIX.OfflineDB.putItem(op.kind, conflictName, conflictResult.record);
               }
-              if(typeof MizeDialog!=='undefined') MizeDialog.alert('"'+op.name+'" was changed elsewhere while you were offline. Nothing was lost \u2014 "'+op.name+'" now shows that other version, and your changes were saved separately as "'+conflictName+'".', 'Changes saved elsewhere');
+              if(typeof MizeDialog!=='undefined') (function(msg){if(window._shouldDeferConflictAlert&&window._shouldDeferConflictAlert()){(window._deferredConflicts=window._deferredConflicts||[]).push(msg);}else if(typeof MizeDialog!=='undefined'){MizeDialog.alert(msg,'Changes saved elsewhere');}})('"'+op.name+'" was changed elsewhere while you were offline. Nothing was lost \u2014 "'+op.name+'" now shows that other version, and your changes were saved separately as "'+conflictName+'".');
             } else {
               opKindCache[op.name] = result.record;
               await XQUIX.OfflineDB.putItem(op.kind, op.name, result.record);
@@ -6466,7 +6466,7 @@ XQUIX.CloudProvider = (function(){
             XQUIX.LocalStorageProvider.saveItem(kind, conflictName, conflictResult.record);
             await XQUIX.OfflineDB.putItem(kind, conflictName, conflictResult.record);
           }
-          if(typeof MizeDialog!=='undefined') MizeDialog.alert('"'+name+'" was changed elsewhere since you last opened it. Nothing was lost \u2014 "'+name+'" now shows that other version, and your changes were saved separately as "'+conflictName+'".', 'Changes saved elsewhere');
+          if(typeof MizeDialog!=='undefined') (function(msg){if(window._shouldDeferConflictAlert&&window._shouldDeferConflictAlert()){(window._deferredConflicts=window._deferredConflicts||[]).push(msg);}else if(typeof MizeDialog!=='undefined'){MizeDialog.alert(msg,'Changes saved elsewhere');}})('"'+name+'" was changed elsewhere since you last opened it. Nothing was lost \u2014 "'+name+'" now shows that other version, and your changes were saved separately as "'+conflictName+'".');
           if(typeof renderCustomSystems==='function') renderCustomSystems();
           if(typeof renderPackages==='function') renderPackages();
           setSyncStatus('synced');
@@ -18423,6 +18423,15 @@ MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange, gateFun
 };
 const _smartPositioningUI=MIZE.UI.ToggleButton('smartPositioningToggleBtn', 'Smart Positioning',
   ()=>smartPositioningActive, v=>{ smartPositioningActive=v; }, null, 'Smart Positioning');
+// Conflict-resolution alerts are deferred when any full-screen flow owns
+// the UI.  Showing them mid-tutorial or mid-game-tracker is jarring and
+// the information is not actionable until the coach can open the Library.
+window._shouldDeferConflictAlert = function(){
+  return document.body.classList.contains('tutorialModeActive')
+      || document.body.classList.contains('pxParentMode')
+      || document.body.classList.contains('gameTrackerActive');
+};
+
 function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
 
 // ===== 3D Presentation Field toggle =====
@@ -19354,6 +19363,17 @@ function syncLibraryControlsFromState(){
 async function openCoachingLibrary(){
   if(libraryOpenInProgress) return;
   libraryOpenInProgress = true;
+  // Flush any conflict-resolution alerts that were deferred while a
+  // tutorial or game-tracker session was running.  Show them one at a
+  // time so they don't stack on top of each other.
+  if(window._deferredConflicts && window._deferredConflicts.length){
+    const queue = window._deferredConflicts.splice(0);
+    (async function flush(){
+      for(const msg of queue){
+        if(typeof MizeDialog!=='undefined') await MizeDialog.alert(msg,'Changes saved elsewhere');
+      }
+    })();
+  }
   try {
     // The panel now opens immediately, synchronously, before either
     // await below -- previously this waited invisibly on
