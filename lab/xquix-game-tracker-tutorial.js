@@ -99,6 +99,11 @@ var CSS = [
 '#xgtuRing{position:fixed;z-index:' + Z_RING + ';border:3px solid #ff3b30;border-radius:12px;',
 '  pointer-events:none;box-shadow:0 0 0 3px rgba(255,59,48,.25);animation:xgtuPulse 1.3s ease-in-out infinite;display:none;}',
 '#xgtuRing.nudge{animation:xgtuNudge .45s ease;}',
+// A BIG ring breathes instead of pulsing. xgtuPulse is scale(1.04), which is a
+// few pixels on a button and eighteen on a ring as tall as the window -- enough
+// to push its top and bottom edges back off the screen the clamp just pulled
+// them onto, and a large heaving rectangle besides. Same language, no geometry.
+'#xgtuRing[data-big="1"]{animation:xgtuBreathe 1.3s ease-in-out infinite;}',
 // Amber, not teal. Teal (#4bb8bd) is the tracker's own accent -- it is on the
 // chrome, the buttons and the labels -- so a teal ring read as part of the UI
 // and was reported three separate times as "there is no ring here". Amber
@@ -819,6 +824,24 @@ function paintRing() {
   // spanOf(), for pointing at two adjacent controls at once.
   var r = target.getBoundingClientRect ? target.getBoundingClientRect() : target;
   if (!r.width && !r.height) { ring.style.display = 'none'; return; }
+  /* CLAMPED TO THE SCREEN. The sideline scroll strip is as tall as the whole
+     pool -- on a Mac it measured -956 to 1245 against a 900px window -- so an
+     unclamped ring draws its top and bottom edges off-screen and what is left
+     is two vertical lines running the height of the display. Reported as "the
+     red circle should just be around the side of the field, not the full
+     screen". Clamping costs nothing anywhere else: a target that fits is
+     unchanged, and for one that does not, the visible part is all there is. */
+  // 14, not 5: the ring is drawn 5px outside the target, with a 3px border and
+  // a 3px glow beyond that, so its visible outer edge is 11px further out than
+  // the rect being clamped. Clamping to 6 left the border itself off-screen,
+  // which is the same "two lines down the display" it was meant to fix.
+  var pad = 14;
+  var top = Math.max(pad, r.top), left = Math.max(pad, r.left);
+  var bottom = Math.min(window.innerHeight - pad, r.bottom);
+  var right = Math.min(window.innerWidth - pad, r.right);
+  if (bottom <= top || right <= left) { ring.style.display = 'none'; return; }
+  r = { top: top, left: left, bottom: bottom, right: right,
+        width: right - left, height: bottom - top };
   ring.style.display = 'block';
   // Above the instruction box only when the thing being ringed is inside it,
   // so a ring around a tracker control never draws over the instructions.
@@ -830,6 +853,11 @@ function paintRing() {
   // redRing overrides that for the one ack step whose target IS pressable: the
   // ring around "Got it", which the step's own text calls out as red.
   ring.className = (!handed && s && ((s.ack && !s.redRing) || s.calmRing)) ? 'look' : '';
+  // Half the window in either direction is where a 4% scale stops being a
+  // pulse and starts being a lurch. Kept off className, which means the ring's
+  // colour and only that.
+  var big = r.height > window.innerHeight * 0.5 || r.width > window.innerWidth * 0.5;
+  if (big) ring.setAttribute('data-big', '1'); else ring.removeAttribute('data-big');
   ring.style.left = (r.left - 5) + 'px';
   ring.style.top = (r.top - 5) + 'px';
   ring.style.width = (r.width + 10) + 'px';
@@ -1322,6 +1350,21 @@ function buildLessons(which) {
     return (l && l.style.display === 'block') ? l : null;
   };
 
+  /* An auto-complete chain, read as an allow list: the selectors it taps, with
+     the leading '?' stripped off the optional ones and the functions dropped.
+     Deriving it means the buttons a step permits are the buttons its own text
+     describes, by construction rather than by somebody keeping two lists in
+     step. */
+  function chainAllow(chain) {
+    var out = [];
+    for (var i = 0; i < chain.length; i++) {
+      var c = chain[i];
+      if (typeof c !== 'string') continue;
+      out.push(c.charAt(0) === '?' ? c.slice(1) : c);
+    }
+    return out;
+  }
+
   /* The substitution demonstration works on ONE named player across two steps,
      so both the ring and the validator have to agree on which. Captured on
      entry rather than recomputed, because after the sub-out that player is no
@@ -1356,14 +1399,14 @@ function buildLessons(which) {
   var SETTLE_MS = 2000;
   var settleSeen = -1, settleAt = 0, settleSkip = false;
   var settleReset = function () { settleSeen = -1; settleAt = 0; settleSkip = false; };
-  var settled = function (count, min) {
+  var settled = function (count, min, ms) {
     return function () {
       var n = count();
       if (n !== settleSeen) { settleSeen = n; settleAt = Date.now(); }
       if (n < min) return false;
       // "Next step" is an explicit request to move on. Making that wait out a
       // pause meant for a finger still choosing caps is just a stall.
-      return settleSkip || (settleAt && Date.now() - settleAt >= SETTLE_MS);
+      return settleSkip || (settleAt && Date.now() - settleAt >= (ms || SETTLE_MS));
     };
   };
 
@@ -1395,7 +1438,11 @@ function buildLessons(which) {
     { instruction: 'Now the squad. <b>Tap every cap number that is dressed today</b> — at least <b>seven</b>, or the tracker will not start.\n\nTap <b>1</b> through <b>7</b> for now.',
       highlight: nextSquadChip,
       allow: '#xgtSquad',
-      onEnter: settleReset,
+      // The setup sheet is taller than the window on a laptop, and everything
+      // from the squad down starts below the fold. Reported from a Mac about
+      // the opponent checkbox -- "not visible without scrolling" -- and true of
+      // every step in this block, so they all bring their own subject into view.
+      onEnter: function () { reveal('#xgtSquad')(); settleReset(); },
       validate: settled(function () { return T.state.squad.length; }, 7),
       autoComplete: fillChips(nextSquadChip),
       success: 'Squad in' },
@@ -1403,12 +1450,21 @@ function buildLessons(which) {
     // #1 auto-marks as a goalkeeper the moment it enters the squad, which is
     // right almost always and wrong often enough to be worth a sentence -- some
     // clubs cap their keeper 13.
-    { ack: true,
-      calmRing: true,
+    /* Tappable, not a read-only aside. A squad of more than seven can carry a
+       second keeper, and the step used to describe that while refusing the tap.
+       It waits three seconds -- tap another cap and the wait restarts; tap
+       nothing and it moves on, since one keeper is the ordinary case. */
+    { instruction: 'Under the squad are the same numbers again, for the <b>goalkeepers</b>. <b>#1 marked itself</b> when it went into the squad — tap it again to un-mark it if your keeper wears something else, and <b>tap any number to add a second keeper</b>.',
       highlight: '#xgtKeepers',
-      instruction: 'Under the squad are the same numbers again, for the <b>goalkeepers</b>. <b>#1 marked itself</b> when it went into the squad — tap it again to un-mark it if your keeper wears something else, and tap any number to add a second keeper.' },
+      calmRing: true,
+      allow: '#xgtKeepers',
+      onEnter: function () { reveal('#xgtKeepers')(); settleReset(); },
+      validate: settled(function () { return T.state.keepers.length; }, 0, 3000),
+      autoComplete: function () { settleSkip = true; },
+      success: 'Keepers set' },
 
     { ack: true,
+      onEnter: reveal('#xgtKeeperLabels'),
       instruction: 'If your competition labels a backup keeper <b>1A</b> or <b>1B</b> instead of giving them their own cap number, there is a box for that under each keeper. Optional — leave it blank and the number shows.' }
 
     ];
@@ -1417,9 +1473,10 @@ function buildLessons(which) {
 
     return steps.concat([
 
-    { instruction: 'This is the tutorial that tracks <b>both</b> teams, so switch on <b>Track opposing team too</b>.',
+    { instruction: '<b>Check the box</b> to track the opposing team, to also have their cap numbers available for tracking the game.',
       highlight: '#xgtOppToggle',
       allow: '#xgtOppToggle',
+      onEnter: reveal('#xgtOppToggle'),
       validate: function () { return T.state.opponentTracked === true; },
       autoComplete: function () { click('#xgtOppToggle'); },
       success: 'Both teams' },
@@ -1431,18 +1488,23 @@ function buildLessons(which) {
     { instruction: 'Their squad works the same way. <b>Tap at least seven</b> of their numbers — <b>1</b> through <b>7</b> again is fine.',
       highlight: nextOppChip,
       allow: '#xgtOppSquad',
-      onEnter: settleReset,
+      onEnter: function () { reveal('#xgtOppSquad')(); settleReset(); },
       validate: settled(function () { return (T.state.oppSquad || []).length; }, 7),
       autoComplete: fillChips(nextOppChip),
       success: 'Their squad in' },
 
-    // Deliberately an ack, not a task: nothing downstream needs their keeper
-    // marked, and #1 does NOT auto-mark on the opponent side, so asking for it
-    // would be asking for a tap the tracker does not require.
-    { ack: true,
-      calmRing: true,
+    /* This was an ack, on the reasoning that nothing downstream needs their
+       keeper marked. Reported from a Mac as a bug, and fairly: the step says
+       "tap it" and then swallowed the tap. Same shape as our own keepers now --
+       tap one or more, or wait three seconds. */
+    { instruction: 'And their <b>goalkeepers</b>, from the numbers you just picked. Nothing marks itself on this side, so if you know which one it is, <b>tap it</b> — that is what puts a name on the keeper who stops your shots.',
       highlight: '#xgtOppKeepers',
-      instruction: 'And their <b>goalkeepers</b>, from the numbers you just picked. Nothing marks itself on this side, so if you know which one it is, tap it — that is what puts a name on the keeper who stops your shots.' }
+      calmRing: true,
+      allow: '#xgtOppKeepers',
+      onEnter: function () { reveal('#xgtOppKeepers')(); settleReset(); },
+      validate: settled(function () { return (T.state.oppKeepers || []).length; }, 0, 3000),
+      autoComplete: function () { settleSkip = true; },
+      success: 'Their keepers set' }
 
     ]);
   }
@@ -1552,6 +1614,8 @@ function buildLessons(which) {
     { instruction: 'Tap <b>Start tracking</b>.',
       highlight: '#xgtGo',
       allow: '#xgtGo',
+      // Last thing in a sheet that is taller than a laptop window.
+      onEnter: reveal('#xgtGo'),
       // NOT #xgtPres: the bar renders as soon as the tracker opens, so that was
       // already true before this button was pressed -- which is why the tutorial
       // once jumped to lesson 2 on its own. go() closes the setup sheet and
@@ -1633,10 +1697,17 @@ function buildLessons(which) {
       validate: function () { return !!(T.state.draft && T.state.draft.fieldZone); },
       autoComplete: function () { tapZone('z3'); } },
 
+    /* EXACTLY THE TAPS THE INSTRUCTION NAMES, and nothing else.
+       This step used to allow the whole sheet, so a coach could wander into
+       Missed, Blocked or a different player and end up somewhere the next step
+       does not expect. The allow list and the ring are both derived from the
+       step's own auto-complete chain, so they cannot drift from what the text
+       says: one source, three uses. The ✕ stays live as the way back out. */
     { instruction: opts.goalInstruction,
       onEnter: mark,
       allowZone: '*',
-      allow: '#xgtSheet',
+      allow: chainAllow(opts.goalChain).concat(['#xgtX', '#xgtBack']),
+      highlight: firstVisible(chainAllow(opts.goalChain)),
       validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
         chainFrom([function () { if (!sheetOpen()) tapZone('z3'); }].concat(opts.goalChain));
@@ -1778,9 +1849,10 @@ function buildLessons(which) {
   if (which === 'field') return [
     lessonSetup({ role: 'field', roleName: 'Field Player', who: 'player' }),
     lessonClock({
-      goalInstruction: 'Now log a <b>Shot</b> by tapping that button, then log a <b>Goal</b> with the button that appears next, and tap roughly where in the net it went.\n\n' +
-        'On <b>Pro</b> you then get the chance to log the <b>assist giver</b> \u2014 or to skip that step.',
-      goalChain: ['.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="low_left"]', '?#xgtAssistSkip']
+      goalInstruction: 'Now log a <b>Shot</b> by tapping that button, then log a <b>Goal</b> with the button that appears next, and tap the <b>top left</b> of the net.\n\n' +
+        'On <b>Pro</b> you then get the chance to log the <b>assist giver</b> \u2014 or to skip that step.' +
+        '\n\nWhen you tap the spot in the goal you are always <b>facing the goalkeeper</b>, so aim for <b>top left</b> as you see it.',
+      goalChain: ['.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="top_left"]', '?#xgtAssistSkip']
     }),
   { title: 'Field zones', steps: [
     { ack: true,
@@ -2078,9 +2150,10 @@ function buildLessons(which) {
       // A goal against is the keeper's own stopping event. On Pro the shot-type
       // step sits between Shot and Goal, so it is optional in the chain and
       // named in the text rather than assumed away.
-      goalInstruction: 'Now log the goal: tap <b>Shot</b>, then <b>Goal</b>, and tap roughly where in the net it went.\n\n' +
-        'On <b>Pro</b> the tracker asks what kind of shot it was first \u2014 Regular, Skip, Lob or Penalty.',
-      goalChain: ['.xgtOpts [data-a="shot"]', '?[data-v="regular"]', '[data-s="goal"]', '.gz[data-p="low_left"]']
+      goalInstruction: 'Now log the goal: tap <b>Shot</b>, then <b>Goal</b>, and tap the <b>top left</b> of the net.\n\n' +
+        'On <b>Pro</b> the tracker asks what kind of shot it was first \u2014 Regular, Skip, Lob or Penalty.' +
+        '\n\nWhen you tap the spot in the goal you are always <b>facing the goalkeeper</b>, so aim for <b>top left</b> as you see it.',
+      goalChain: ['.xgtOpts [data-a="shot"]', '?[data-v="regular"]', '[data-s="goal"]', '.gz[data-p="top_left"]']
     }),
   { title: 'Field zones', steps: [
     { ack: true,
@@ -2399,10 +2472,11 @@ function buildLessons(which) {
     lessonSetup({ role: 'team', mode: 'coach', roleName: 'Team', who: 'player',
                   squad: true, opponent: opp }),
     lessonClock({
-      goalInstruction: 'Now log a goal. First the <b>shooter</b> — tap <b>#7</b> under your own team — then <b>Shot</b>, then <b>Goal</b>, and tap roughly where in the net it went.\n\n' +
-        'On <b>Pro</b> you are then offered the <b>assist</b>, or you can skip it.',
+      goalInstruction: 'Now log a goal. First the <b>shooter</b> — tap <b>#7</b> under your own team — then <b>Shot</b>, then <b>Goal</b>, and tap the <b>top left</b> of the net.\n\n' +
+        'On <b>Pro</b> you are then offered the <b>assist</b>, or you can skip it.' +
+        '\n\nWhen you tap the spot in the goal you are always <b>facing the goalkeeper</b>, so aim for <b>top left</b> as you see it.',
       goalChain: ['[data-us-n="7"]', '.xgtOpts [data-a="shot"]', '[data-s="goal"]',
-                  '.gz[data-p="low_left"]', '?#xgtAssistSkip']
+                  '.gz[data-p="top_left"]', '?#xgtAssistSkip']
     }),
 
   { title: 'Field zones', steps: [
