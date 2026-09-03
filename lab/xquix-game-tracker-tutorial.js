@@ -1260,7 +1260,29 @@ function start(which) {
                : (which === 'team' || which === 'fullgame') ? 'team' : 'field';
   tutorialMode = (tutorialRole === 'team') ? 'coach' : 'parent';
   tutorialOpp = (which === 'fullgame');
-  flatten(buildLessons(which || 'field'));
+  /* A NAME THIS MODULE CANNOT BUILD MUST NOT BREAK THE TRACKER.
+     buildLessons() throws for an unknown name, and everything above has already
+     happened by then -- `running` is true and the tracker is in tutorial mode
+     with persistence suspended. Uncaught, that leaves the Studio in a state with
+     no chrome to exit from and saving quietly switched off.
+     Home's router defaults an unrecognised gametracker-* banner to 'field', so
+     this should be unreachable. It is caught anyway: a guarantee that depends on
+     every caller staying careful is not a guarantee. Asked for by the Studio
+     chat before widening that router, and fairly. */
+  try {
+    flatten(buildLessons(which || 'field'));
+  } catch (err) {
+    console.error('XquiX Game Tracker tutorial: no tutorial named "' + which + '" —', err && err.message);
+    running = false;
+    lessons = []; steps = []; lessonStarts = []; lessonTitles = []; idx = -1;
+    try { T.setTutorialMode(false); } catch (e2) {}
+    // The same words Home uses for a banner it cannot route, so the coach sees
+    // one message for one situation however they arrived at it.
+    if (typeof window.xquixHomeShowToast === 'function') {
+      try { window.xquixHomeShowToast('This tutorial isn\u2019t built yet \u2014 check back soon.'); } catch (e3) {}
+    }
+    return false;
+  }
   if (!T.isOpen()) T.open();
   buildChrome();
   window.addEventListener('click', interactionGuard, true);
