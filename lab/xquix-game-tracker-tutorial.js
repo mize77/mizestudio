@@ -144,9 +144,14 @@ function stageWrap() { return document.getElementById('stageWrap'); }
    two or three screens -- action, outcome, placement -- and a ring fixed to the
    first of them goes blank for the rest of the step, which reads as "there is
    nothing to tap here" at exactly the moment there is. */
+function selOf(s) { return typeof s === 'function' ? s() : s; }
+
 function firstVisible(sels) {
   return function () {
-    for (var i = 0; i < sels.length; i++) if (vis(sels[i])) return q(sels[i]);
+    for (var i = 0; i < sels.length; i++) {
+      var sel = selOf(sels[i]);
+      if (sel && vis(sel)) return q(sel);
+    }
     return null;
   };
 }
@@ -328,8 +333,8 @@ function vis(sel) {
    close it. */
 function chainFrom(items) {
   for (var i = items.length - 1; i > 0; i--) {
-    var it = items[i];
-    if (typeof it !== 'string') continue;
+    var it = selOf(items[i]);
+    if (typeof it !== 'string' || !it) continue;
     if (vis(it.charAt(0) === '?' ? it.slice(1) : it)) { chain(items.slice(i)); return; }
   }
   chain(items);
@@ -340,7 +345,15 @@ function chain(items) {
   (function step_() {
     if (i >= items.length) return;
     var it = items[i];
-    if (typeof it === 'function') { try { it(); } catch (err) {} i++; setTimeout(step_, 70); return; }
+    if (typeof it === 'function') {
+      // A function that RETURNS a selector is a late-resolved target -- see
+      // pickPlayer(), which cannot know the cap number until the Who screen is
+      // up. One that returns nothing is a side effect, as it always was.
+      var got = null;
+      try { got = it(); } catch (err) { got = null; }
+      if (typeof got === 'string' && got) { it = got; }
+      else { i++; setTimeout(step_, 70); return; }
+    }
     var optional = it.charAt(0) === '?';
     var sel = optional ? it.slice(1) : it;
     var limit = optional ? 6 : 24, tries = 0;
@@ -361,7 +374,9 @@ var allowedNow = null;   // { sels: [..], deny: [..], zone: 'z3' | '*' | null }
 
 function insideAny(node, sels) {
   for (var i = 0; i < sels.length; i++) {
-    try { if (node.closest && node.closest(sels[i])) return true; } catch (err) {}
+    var sel = selOf(sels[i]);
+    if (!sel) continue;
+    try { if (node.closest && node.closest(sel)) return true; } catch (err) {}
   }
   return false;
 }
@@ -950,7 +965,8 @@ function tick() {
   paintRing();
   positionChrome();
   var s = step();
-  if (!s || s.ack || advancing) return;
+  if (!s || advancing) return;
+  if (s.ack && !s.alsoValidate) return;
   // A practice step can notice that something was logged, but the wrong thing.
   // Saying so beats letting the coach tap on wondering why it has not moved.
   if (s.misstep) {
@@ -958,9 +974,10 @@ function tick() {
     try { m = s.misstep(); } catch (err) { m = null; }
     if (m) showHint(m);
   }
-  if (!s.validate) return;
+  var check = s.ack ? s.alsoValidate : s.validate;
+  if (!check) return;
   var ok = false;
-  try { ok = !!s.validate(); } catch (err) { ok = false; }
+  try { ok = !!check(); } catch (err) { ok = false; }
   if (ok) succeed();
 }
 
@@ -1350,6 +1367,28 @@ function buildLessons(which) {
     return (l && l.style.display === 'block') ? l : null;
   };
 
+  /* NAME A PLAYER BY POSITION, NEVER BY CAP NUMBER.
+     Steps used to say "tap #7". A coach whose seven in the water do not include
+     a 7 is then being asked for something that is not on screen -- and the
+     starting seven is whatever the squad's lowest numbers happen to be, so this
+     was luck rather than design. A step names the nth button in the Who screen
+     instead, and the number is resolved from the DOM the first time that screen
+     is up. Held for the rest of the step, because the same player has to be the
+     one the ring points at, the one the guard permits, and the one the
+     auto-complete taps. */
+  var pickedPlayer = null;
+  var pickPlayer = function (nth, side) {
+    return function () {
+      var attr = side === 'opp' ? 'data-opp-n' : 'data-us-n';
+      if (pickedPlayer == null) {
+        var b = document.querySelectorAll('#xgtSheet .xgtNums [' + attr + ']');
+        if (b.length) pickedPlayer = b[Math.min(nth, b.length) - 1].getAttribute(attr);
+      }
+      return pickedPlayer == null ? null : '[' + attr + '="' + pickedPlayer + '"]';
+    };
+  };
+  var forgetPlayer = function () { pickedPlayer = null; };
+
   /* An auto-complete chain, read as an allow list: the selectors it taps, with
      the leading '?' stripped off the optional ones and the functions dropped.
      Deriving it means the buttons a step permits are the buttons its own text
@@ -1359,7 +1398,8 @@ function buildLessons(which) {
     var out = [];
     for (var i = 0; i < chain.length; i++) {
       var c = chain[i];
-      if (typeof c !== 'string') continue;
+      if (typeof c === 'function') { out.push(c); continue; }   // "the nth player"
+      if (typeof c !== 'string') continue;                      // a step function
       out.push(c.charAt(0) === '?' ? c.slice(1) : c);
     }
     return out;
@@ -1704,7 +1744,9 @@ function buildLessons(which) {
        step's own auto-complete chain, so they cannot drift from what the text
        says: one source, three uses. The ✕ stays live as the way back out. */
     { instruction: opts.goalInstruction,
-      onEnter: mark,
+      // forgetPlayer, because the chain may name a player by position and the
+      // pick has to be made against THIS step's Who screen.
+      onEnter: function () { mark(); forgetPlayer(); },
       allowZone: '*',
       allow: chainAllow(opts.goalChain).concat(['#xgtX', '#xgtBack']),
       highlight: firstVisible(chainAllow(opts.goalChain)),
@@ -1724,12 +1766,22 @@ function buildLessons(which) {
       validate: function () { return !!el('xgtDone'); },
       autoComplete: function () { click('#xgtQ'); } },
 
+    /* An ack step whose subject is also live. The coach may read it and press
+       Got it, or simply tap -0:10 and get on with it -- and the second is
+       better, since the ten seconds come off either way and the next step then
+       opens with -0:01 already ringed. `alsoValidate` is what lets an ack step
+       be finished by doing rather than by acknowledging. */
     { ack: true,
+      redRing: true,                       // it is tappable, so it is not amber
+      highlight: '[data-d="-10"]',
+      allow: ['[data-d="-10"]', '#xgtX'],
+      alsoValidate: function () { return T.state.clock <= clockTarget + 1; },
       instruction: '',   // written by onEnter, which knows the real target time
       onEnter: function () {
         clockTarget = Math.max(0, T.state.clock - 11);
         setText('The <b>quarter chips</b> are along the top, and <b>SO</b> is there for a potential penalty shootout.\n\n' +
-          'Here you can correct your game time and adjust the time for the quarter. Let’s assume we are <b>11 seconds ahead</b> of the game time because our logging took a little too long: tap <b>−0:10</b>, then <b>−0:01</b>, then <b>Done</b> — aiming for <b>' + mmss(clockTarget) + '</b>. The red ring leads.');
+          'Here you can correct your game time and adjust the time for the quarter. Let’s assume we are <b>11 seconds ahead</b> of the game time because our logging took a little too long: tap <b>−0:10</b>, then <b>−0:01</b>, then <b>Done</b> — aiming for <b>' + mmss(clockTarget) + '</b>. The red ring leads.\n\n' +
+          'Go ahead and tap <b>−0:10</b> now — that counts as your <b>Got it</b>.');
       } },
 
     // Quiet on purpose. On a phone this box covered half the time sheet, and a
@@ -1858,11 +1910,11 @@ function buildLessons(which) {
     { ack: true,
       instruction: 'The core idea of the Game Tracker is simple:\n\n' +
         '<b>Tap the field zone</b> where the event happened, then tap the <b>action</b>, then the <b>outcome</b> — and any follow-up the tracker asks for.\n\n' +
-        'Field zone → action → outcome. Every event starts with the field zone; there is no other way in.' },
+        'Simply keep in mind: every event starts with tapping a field zone.' },
 
     { ack: true,
-      instruction: 'The water is divided into <b>field zones</b>: the area right in front of the goal, a ring of zones around it, and the wider areas further out. Anything in the opposite half is the little <b>OPPO</b> area.\n\n' +
-        'They are there so you can say exactly <b>where</b> something happened — to yourself when you read the stats back, and to anyone else you share them with.',
+      instruction: 'The field here is marked with <b>field zones</b>: the semi-circle in front of the goal is the <b>center &amp; post area</b>, the perimeter around it the <b>shooting zones</b>, and the areas further out the <b>outside field</b>. Additionally, there is the small <b>OPPO</b> circle that records events occurring in the other half of the field.\n\n' +
+        'The field zones are there to log <b>where</b> an event happened — for yourself when you read the stats back, and for anyone else you share them with.',
       highlight: '#xgtZoneLayer' },
 
     // The zone itself is ringed, which is only possible because every wedge
@@ -2094,7 +2146,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'goal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log a goal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log a goal.';
       },
       validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
@@ -2114,7 +2166,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'blocked' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log a blocked shot.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log a blocked shot.';
       },
       validate: logged({ action: 'shot', outcome: 'blocked' }),
       autoComplete: function () {
@@ -2131,7 +2183,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'steal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log a steal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log a steal.';
       },
       validate: logged({ action: 'steal' }),
       autoComplete: function () {
@@ -2159,7 +2211,7 @@ function buildLessons(which) {
     { ack: true,
       instruction: 'The core idea of the Game Tracker is simple:\n\n' +
         '<b>Tap the field zone</b> where the event happened, then tap the <b>action</b>, then the <b>outcome</b> — and any follow-up the tracker asks for.\n\n' +
-        'Field zone → action → outcome. Every event starts with the field zone; there is no other way in.' },
+        'Simply keep in mind: every event starts with tapping a field zone.' },
 
     // The one reframe this whole tutorial turns on. Said here, done in the next
     // step, and said again in Lesson 4 -- a keeper who reads the field zone as
@@ -2168,8 +2220,8 @@ function buildLessons(which) {
       instruction: 'For a goalkeeper, the field zone is <b>where the event starts</b> — for a shot, <b>where the opponent shot from</b>, not where your keeper was standing.' },
 
     { ack: true,
-      instruction: 'The water is divided into <b>field zones</b>: the area right in front of the goal, a ring of zones around it, and the wider areas further out. Anything in the opposite half is the little <b>OPPO</b> area.\n\n' +
-        'They are there so you can say exactly <b>where</b> a shot came from — to yourself when you read the stats back, and to anyone else you share them with.',
+      instruction: 'The field here is marked with <b>field zones</b>: the semi-circle in front of the goal is the <b>center &amp; post area</b>, the perimeter around it the <b>shooting zones</b>, and the areas further out the <b>outside field</b>. Additionally, there is the small <b>OPPO</b> circle that records events occurring in the other half of the field.\n\n' +
+        'The field zones are there to log <b>where</b> an event happened — for yourself when you read the stats back, and for anyone else you share them with.',
       highlight: '#xgtZoneLayer' },
 
     { instruction: 'Tap the <b>field zone</b> right in front of the goal — the semi-circle the ring is around. That is a shot from close range.',
@@ -2397,7 +2449,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'blocked' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log the save.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log the save.';
       },
       validate: logged({ action: 'shot', outcome: 'blocked' }),
       autoComplete: function () {
@@ -2414,7 +2466,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'goal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log the goal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log the goal.';
       },
       validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
@@ -2431,7 +2483,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'steal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log a steal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log a steal.';
       },
       validate: logged({ action: 'steal' }),
       autoComplete: function () {
@@ -2472,22 +2524,22 @@ function buildLessons(which) {
     lessonSetup({ role: 'team', mode: 'coach', roleName: 'Team', who: 'player',
                   squad: true, opponent: opp }),
     lessonClock({
-      goalInstruction: 'Now log a goal. First the <b>shooter</b> — tap <b>#7</b> under your own team — then <b>Shot</b>, then <b>Goal</b>, and tap the <b>top left</b> of the net.\n\n' +
+      goalInstruction: 'Now log a goal. First the <b>shooter</b> — tap the player the <b>red ring</b> marks, under your own team — then <b>Shot</b>, then <b>Goal</b>, and tap the <b>top left</b> of the net.\n\n' +
         'On <b>Pro</b> you are then offered the <b>assist</b>, or you can skip it.' +
         '\n\nWhen you tap the spot in the goal you are always <b>facing the goalkeeper</b>, so aim for <b>top left</b> as you see it.',
-      goalChain: ['[data-us-n="7"]', '.xgtOpts [data-a="shot"]', '[data-s="goal"]',
+      goalChain: [pickPlayer(5), '.xgtOpts [data-a="shot"]', '[data-s="goal"]',
                   '.gz[data-p="top_left"]', '?#xgtAssistSkip']
     }),
 
   { title: 'Field zones', steps: [
     { ack: true,
-      instruction: 'The core idea of the Game Tracker is simple, and in team mode it has one extra beat:\n\n' +
-        '<b>Tap the field zone</b> where it happened, tap <b>who</b> did it, then the <b>action</b>, then the <b>outcome</b>.\n\n' +
-        'Field zone → who → action → outcome. Every event starts with the field zone; there is no other way in.' },
+      instruction: 'The core idea of the Game Tracker is simple:\n\n' +
+        '<b>Tap the field zone</b> where it happened, tap <b>who committed the action</b>, then the <b>action</b>, then the <b>outcome</b>.\n\n' +
+        'Simply keep in mind: every event starts with tapping a field zone.' },
 
     { ack: true,
-      instruction: 'The water is divided into <b>field zones</b>: the area right in front of the goal, a ring of zones around it, and the wider areas further out. Anything in the opposite half is the little <b>OPPO</b> area.\n\n' +
-        'They are there so you can say exactly <b>where</b> something happened — to yourself when you read the stats back, and to anyone else you share them with.',
+      instruction: 'The field here is marked with <b>field zones</b>: the semi-circle in front of the goal is the <b>center &amp; post area</b>, the perimeter around it the <b>shooting zones</b>, and the areas further out the <b>outside field</b>. Additionally, there is the small <b>OPPO</b> circle that records events occurring in the other half of the field.\n\n' +
+        'The field zones are there to log <b>where</b> an event happened — for yourself when you read the stats back, and for anyone else you share them with.',
       highlight: '#xgtZoneLayer' },
 
     { instruction: 'Tap the <b>field zone</b> right in front of the goal — the semi-circle the ring is around.',
@@ -2541,24 +2593,19 @@ function buildLessons(which) {
     // finding it will otherwise assume the tracker lost them.
     { ack: true,
       allow: '#xgtSheet',
-      instruction: '<b>Who?</b>\n\n' +
-        'Your own numbers are at the top, ' + (opp ? 'theirs underneath' : 'and the other team underneath') + '. Only the players <b>in the water right now</b> are listed.' },
+      instruction: 'Your own numbers are at the top, ' + (opp ? 'the opponent’s underneath' : 'and the other team underneath') + '. Only the players <b>in the water right now</b> are listed.' },
 
-    { ack: true,
-      allow: '#xgtSheet',
-      instruction: opp
-        ? 'Because you are tracking both squads, an opponent action gets <b>their cap number</b> too. That is what turns "a shot from the left" into "#4 shoots from the left, again".'
-        : 'The opposing team is just one button, since you are not tracking that team. You still need it: that is what keeps the stats for your <b>goalkeeper</b> and your <b>defense</b> complete.' },
-
-    { instruction: 'Log a goal by your own <b>#7</b>: tap <b>#7</b>, then <b>Shot</b>, then <b>Goal</b>, then where in the net it went.',
-      onEnter: mark,
+    { instruction: 'Log a goal by one of your own players. The <b>red ring</b> leads: tap the player it marks, then <b>Shot</b>, then <b>Goal</b>, then the <b>top left</b> of the net.',
+      onEnter: function () { mark(); forgetPlayer(); },
       allowZone: '*',
-      allow: '#xgtSheet',
-      highlight: firstVisible(['[data-us-n="7"]', '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.xgtGoal']),
+      allow: [pickPlayer(5), '.xgtOpts [data-a="shot"]', '[data-s="goal"]',
+              '.gz[data-p="top_left"]', '#xgtAssistSkip', '#xgtX', '#xgtBack'],
+      highlight: firstVisible([pickPlayer(5), '.xgtOpts [data-a="shot"]', '[data-s="goal"]',
+                               '.gz[data-p="top_left"]', '#xgtAssistSkip']),
       validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
-        chainFrom([function () { if (!sheetOpen()) tapZone('z3'); }, '[data-us-n="7"]',
-                   '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="low_left"]',
+        chainFrom([function () { if (!sheetOpen()) tapZone('z3'); }, pickPlayer(5),
+                   '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="top_left"]',
                    '?#xgtAssistSkip']);
       },
       success: 'Goal logged' },
@@ -2569,8 +2616,8 @@ function buildLessons(which) {
     // The one thing about fouls a coach gets wrong: the player you tapped is
     // always the one who COMMITTED it. stepOutcome() sets dc='committed' on any
     // exclusion outcome; there is no drawn/committed choice on this screen.
-    { instruction: 'Now a foul. Tap a field zone, tap the player who <b>committed</b> it, then <b>Personal Foul</b>, then <b>Exclusion (20 s)</b>.',
-      onEnter: mark,
+    { instruction: 'Now a foul. Tap a field zone, tap the player the ring marks — the one who <b>committed</b> it — then <b>Personal Foul</b>, then <b>Exclusion (20 s)</b>.',
+      onEnter: function () { mark(); forgetPlayer(); },
       allowZone: '*',
       allow: '#xgtSheet',
       // Penalty stays visible and inert: choosing it opens the penalty-shot
@@ -2580,10 +2627,10 @@ function buildLessons(which) {
       // so the guard is now the only thing standing between a curious tap and
       // a screen the tutorial cannot get back from.
       deny: ['[data-s="penalty"]'],
-      highlight: firstVisible(['[data-us-n="3"]', '.xgtOpts [data-a="exclusion"]', '[data-s="exclusion"]', '#xgtFoulSkip']),
+      highlight: firstVisible([pickPlayer(3), '.xgtOpts [data-a="exclusion"]', '[data-s="exclusion"]', '#xgtFoulSkip']),
       validate: logged({ action: 'exclusion' }),
       autoComplete: function () {
-        chainFrom([function () { if (!sheetOpen()) tapZone('z2'); }, '[data-us-n="3"]',
+        chainFrom([function () { if (!sheetOpen()) tapZone('z2'); }, pickPlayer(3),
                    '.xgtOpts [data-a="exclusion"]', '[data-s="exclusion"]', '?#xgtFoulSkip']);
       },
       success: 'Foul logged' },
@@ -2592,15 +2639,16 @@ function buildLessons(which) {
       instruction: 'The player you tapped always <b>committed</b> the foul.\n\n' +
         'On <b>Pro</b>, you can enter who <b>drew</b> the personal foul as well. That is how one log becomes both a personal foul committed and drawn.' },
 
-    { instruction: 'To log a <b>Steal</b>, simply tap the field zone, the player, and <b>Steal</b>.',
-      onEnter: mark,
+    { instruction: 'To log a <b>Steal</b>, simply tap the field zone, the player the ring marks, and <b>Steal</b>.',
+      onEnter: function () { mark(); forgetPlayer(); },
       allowZone: '*',
-      allow: '#xgtSheet',
-      highlight: firstVisible(['[data-us-n="5"]', '.xgtOpts [data-a="steal"]']),
+      allow: [pickPlayer(2), '.xgtOpts [data-a="steal"]', '#xgtSheet', '#xgtX', '#xgtBack'],
+      highlight: firstVisible([pickPlayer(2), '.xgtOpts [data-a="steal"]']),
       validate: logged({ action: 'steal' }),
       autoComplete: function () {
-        chainFrom([function () { if (!sheetOpen()) tapZone('z13'); }, '[data-us-n="5"]',
-                   '.xgtOpts [data-a="steal"]']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z13'); }, pickPlayer(2),
+                   '.xgtOpts [data-a="steal"]',
+                   '?[data-sr="gk_has_ball"]', '?[data-ot="lead"]', '?[data-oo="regular"]']);
       },
       success: 'Steal logged' },
 
@@ -2633,7 +2681,7 @@ function buildLessons(which) {
        substitution nobody makes. The third number along is a field player in
        every ordinary roster -- and if a coach has capped their keeper third, it
        still works, which is why the step names a position rather than a number. */
-    { instruction: 'Substitutions are roster taps, not field events. <b>Tap the third green chip from the left</b> to take that player out.',
+    { instruction: 'Substitutions are roster taps, not field events. <b>Tap the cap number circled in red</b> to take that player out.',
       onEnter: function () { base = evts().length; subTarget = nthWater(3); },
       allow: '#xgtBar',
       highlight: function () { return subChip(subTarget); },
@@ -2652,8 +2700,12 @@ function buildLessons(which) {
       instruction: 'Notice what the tracker said: it recognized that as a <b>mis-tap</b> and <b>removed the sub-out</b> rather than recording a player going out and back in.' },
 
     { ack: true,
-      instruction: 'The number of players per team in the water is limited to <b>7</b> — an eighth tap is refused and tells you to sub someone out first.\n\n' +
-        'And <b>three exclusions disqualifies</b> a player: the tracker takes them out of the water, greys the chip out so it cannot be tapped again, and marks it. <b>S</b> for exclusion with substitution, <b>X</b> for brutality, <b>R</b> for a red card.' }
+      instruction: 'The number of players per team in the water is limited to <b>7</b> — an eighth tap is refused and tells you to sub someone out first.' },
+
+    { ack: true,
+      calmRing: true,
+      highlight: '#xgtBar',
+      instruction: '<b>Three exclusions disqualifies</b> a player. The tracker takes them out of the water, greys the chip out so it cannot be tapped again, and marks it: <b>S</b> for exclusion with substitution, <b>X</b> for brutality, <b>R</b> for a red card.' }
   ]},
 
   { title: 'Reading the stats', steps: [
@@ -2725,29 +2777,34 @@ function buildLessons(which) {
       instruction: 'Last part. From here the tutorial stops pointing at buttons — you can log the events by yourself now.\n\n' +
         'Three moments, one at a time. If you pause, the next thing to tap gets a pulsing red circle.' },
 
-    { instruction: 'Now try it yourself. <b>Your #4 scores</b>.',
+    /* No cap number is named here, and none can be: the starting seven is
+       whatever the squad's lowest numbers happen to be, so "your #4 scores" is
+       an instruction a coach may be unable to follow. Any player of the scoring
+       side who is in the water counts -- the goalkeeper included, since keepers
+       do score. The guide still rings one of them, as a suggestion. */
+    { instruction: 'Now try it yourself. <b>Your team scores</b> — any player in the water.',
       onEnter: function () { mark(); practice = { done: [] }; },
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      guide: [{ zone: 'z4' }, '[data-us-n="4"]', '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.xgtGoal', '#xgtAssistSkip'],
+      guide: [{ zone: 'z4' }, '.xgtNums [data-us-n]', '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.xgtGoal', '#xgtAssistSkip'],
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'goal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log the goal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log the goal.';
       },
       validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
-        chainFrom([function () { if (!sheetOpen()) tapZone('z4'); }, '[data-us-n="4"]',
+        chainFrom([function () { if (!sheetOpen()) tapZone('z4'); }, '.xgtNums [data-us-n]',
                    '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="top_right"]',
                    '?#xgtAssistSkip']);
       },
       success: 'Goal' },
 
-    { instruction: 'Now the other way: <b>' + (opp ? 'their #6' : 'the other team') + ' scores</b>.',
+    { instruction: 'Now the other way: <b>' + (opp ? 'the opponent' : 'the other team') + ' scores</b>' + (opp ? ' — any of their players in the water.' : '.'),
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      guide: [{ zone: 'z2' }, (opp ? '[data-opp-n="6"]' : '#xgtOpp'), '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.xgtGoal', '#xgtAssistSkip'],
+      guide: [{ zone: 'z2' }, (opp ? '.xgtNums [data-opp-n]' : '#xgtOpp'), '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.xgtGoal', '#xgtAssistSkip'],
       validate: function () {
         if (T.state.draft) return false;
         var a = actions();
@@ -2759,7 +2816,7 @@ function buildLessons(which) {
       },
       autoComplete: function () {
         chainFrom([function () { if (!sheetOpen()) tapZone('z2'); },
-                   opp ? '[data-opp-n="6"]' : '#xgtOpp',
+                   opp ? '.xgtNums [data-opp-n]' : '#xgtOpp',
                    '.xgtOpts [data-a="shot"]', '[data-s="goal"]', '.gz[data-p="low_left"]',
                    '?#xgtAssistSkip']);
       },
@@ -2769,16 +2826,19 @@ function buildLessons(which) {
       onEnter: mark,
       allowZone: '*',
       allow: ['#xgtSheet', '#xgtUn'],
-      guide: [{ zone: 'z12' }, '[data-us-n="2"]', '.xgtOpts [data-a="steal"]'],
+      guide: [{ zone: 'z12' }, '.xgtNums [data-us-n]', '.xgtOpts [data-a="steal"]', '.xgtOpts'],
       misstep: function () {
         var e = stray(base, { action: 'steal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↩</b> at the bottom to undo it, then log a steal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log a steal.';
       },
       validate: logged({ action: 'steal' }),
       autoComplete: function () {
-        chainFrom([function () { if (!sheetOpen()) tapZone('z12'); }, '[data-us-n="2"]',
-                   '.xgtOpts [data-a="steal"]']);
+        chainFrom([function () { if (!sheetOpen()) tapZone('z12'); }, '.xgtNums [data-us-n]',
+                   '.xgtOpts [data-a="steal"]',
+                   // If the picked player is the keeper, Pro asks what became of
+                   // the ball and then opens the outlet pass. All optional.
+                   '?[data-sr="gk_has_ball"]', '?[data-ot="lead"]', '?[data-oo="regular"]']);
       },
       success: 'Steal' },
 
