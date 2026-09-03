@@ -815,6 +815,74 @@ function xgtShouldShowSessionsEntry() {
     || Object.keys(XQUIX.StorageProvider.listStoreSync('gameTrackerSession')).length > 0
   ));
 }
+/* ---------------------------------------------------------------------------
+   TELLING THE COACH THE TRUTH ABOUT WHERE THE SESSION WENT.
+
+   A resolved XQUIX.Storage.save() is NOT proof the session reached the server.
+   Read out of index.html, the chain is:
+
+     CloudProvider.saveItem   catches every failure except code 'P0100',
+                              queues the op for retry, and RESOLVES with the
+                              record.
+     XQUIX.Storage.save       wraps that as { record } -- no `error` field.
+
+   So when a JWT expires mid-game, the write is rejected by RLS, quietly queued,
+   and handed back here looking exactly like a success. The end-session dialog
+   then said "You can find it later in the Coaching Library" about a session
+   that was never uploaded. Reproduced end to end before this was written.
+
+   Two signals close that gap, and both are read defensively: if either is
+   unavailable this behaves exactly as it did before, and a session is only ever
+   reported as NOT saved on positive evidence.
+
+     getSyncStatus()  'pending' means CloudProvider queued it rather than
+                      landing it.
+     getSession()     the honest test of whether the sign-in is still alive --
+                      getCurrentUser() keeps returning a stale cached user long
+                      after the token behind it has died, which is why the
+                      signed-out branch never fired. */
+function xgtCloudSyncStatus() {
+  try {
+    if (typeof XQUIX !== 'undefined' && XQUIX.Storage && typeof XQUIX.Storage.getSyncStatus === 'function') {
+      return XQUIX.Storage.getSyncStatus({ scope: 'personal' });
+    }
+  } catch (err) {}
+  return null;
+}
+
+/* true / false / null, where null means "cannot tell" -- never guessed. */
+function xgtSessionStillValid() {
+  try {
+    var client = (typeof XQUIX !== 'undefined' && XQUIX.Auth && typeof XQUIX.Auth.getClient === 'function')
+      ? XQUIX.Auth.getClient() : null;
+    if (!client || !client.auth || typeof client.auth.getSession !== 'function') return Promise.resolve(null);
+    return client.auth.getSession().then(function (r) {
+      var s = r && r.data && r.data.session;
+      if (!s) return false;                                    // refresh failed too
+      if (s.expires_at && (s.expires_at * 1000) <= Date.now()) return false;
+      return true;
+    }).catch(function () { return null; });
+  } catch (err) { return Promise.resolve(null); }
+}
+
+/* Why did it not land? An expired sign-in and a dead network need opposite
+   advice: one needs the coach to do something, the other needs them to do
+   nothing. Saying "it'll keep retrying automatically" about an auth failure is
+   the specific wrong answer -- the queue retries with the same dead token. */
+function xgtClassifySyncFailure(message) {
+  var text = String(message || '');
+  if (/jwt|token|401|not authenticated|invalid claim|unauthor/i.test(text)) {
+    return Promise.resolve({ status: 'error', reason: 'auth-expired', message: message });
+  }
+  return xgtSessionStillValid().then(function (valid) {
+    if (valid === false) return { status: 'error', reason: 'auth-expired', message: message };
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return { status: 'error', reason: 'offline', message: message };
+    }
+    return { status: 'error', reason: 'retrying', message: message };
+  });
+}
+
 function syncSessionToCloud() {
   if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Storage || typeof XQUIX.Storage.save !== 'function') return Promise.resolve({ status: 'skipped', reason: 'unavailable' });
   if (!XQUIX.Auth.getCurrentUser()) return Promise.resolve({ status: 'skipped', reason: 'signed-out' });
@@ -841,14 +909,20 @@ function syncSessionToCloud() {
     return XQUIX.Storage.save({ kind: 'gameTrackerSession', name: S.cloudSessionName, record: record, scope: 'personal' })
       .then(function (result) {
         if (result && result.error) {
-          console.error('XquiX Game Tracker: cloud session sync failed (queued for retry by CloudProvider):', result.error.message);
-          return { status: 'error', message: result.error.message };
+          console.error('XquiX Game Tracker: cloud session sync failed:', result.error.message);
+          return xgtClassifySyncFailure(result.error.message);
         }
+        // Resolving is not landing. CloudProvider queues a failed write and
+        // hands back the record, so the sync status is the only thing that
+        // knows the difference. Unknown status is treated as success, exactly
+        // as before -- this never invents a failure.
+        var st = xgtCloudSyncStatus();
+        if (st === 'pending' || st === 'error') return xgtClassifySyncFailure(null);
         return { status: 'success' };
       })
       .catch(function (err) {
         console.error('XquiX Game Tracker: cloud session sync threw:', err);
-        return { status: 'error', message: err && err.message };
+        return xgtClassifySyncFailure(err && err.message);
       });
   } catch (err) {
     // Defense in depth: even a synchronous throw here (e.g. a malformed
@@ -2676,6 +2750,12 @@ async function xgtOfferToFinishGame(force) {
   var message;
   if (syncResult.status === 'success') {
     message = 'Saved as ' + name + '. You can find it later in the Coaching Library.';
+  } else if (syncResult.status === 'error' && syncResult.reason === 'auth-expired') {
+    // NOT "it'll keep retrying": the queue would retry with the same dead
+    // token forever. This is the one failure the coach has to act on.
+    message = 'Saved as ' + name + ' on this device. Your sign-in session expired \u2014 sign back in to sync it to your Coaching Library.';
+  } else if (syncResult.status === 'error' && syncResult.reason === 'offline') {
+    message = 'Saved as ' + name + ' on this device. You\u2019re offline, so it hasn\u2019t reached the Coaching Library yet \u2014 it will upload by itself once you are back online.';
   } else if (syncResult.status === 'error') {
     message = 'Saved as ' + name + ' on this device. Uploading to the Coaching Library didn\u2019t go through just now, but it\u2019ll keep retrying automatically.';
   } else if (syncResult.reason === 'signed-out') {
