@@ -18423,6 +18423,19 @@ MIZE.UI.ToggleButton = function(buttonId, label, getFn, setFn, onChange, gateFun
 };
 const _smartPositioningUI=MIZE.UI.ToggleButton('smartPositioningToggleBtn', 'Smart Positioning',
   ()=>smartPositioningActive, v=>{ smartPositioningActive=v; }, null, 'Smart Positioning');
+// Proactive session refresh on app foreground.
+// Safari standalone (Add-to-Home-Screen) suspends JS timers when the
+// screen locks or the app is backgrounded, so the Supabase client's
+// built-in auto-refresh can miss its 1-hour window. Refreshing on
+// visibilitychange means the JWT is always renewed the moment the coach
+// picks up their device -- before any save attempt, not after it fails.
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState !== 'visible') return;
+  if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Auth.getCurrentUser()) return;
+  var client = XQUIX.Auth.getClient && XQUIX.Auth.getClient();
+  if (client && client.auth) client.auth.refreshSession().catch(function () {});
+});
+
 // Conflict-resolution alerts are deferred when any full-screen flow owns
 // the UI.  Showing them mid-tutorial or mid-game-tracker is jarring and
 // the information is not actionable until the coach can open the Library.

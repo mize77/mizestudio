@@ -265,15 +265,6 @@ var MISS_TARGETS = [
 /* -------------------------------------------------------------------- state */
 var S = {
   active: false,
-  // Set only by API.setTutorialMode(), while a Game Tracker tutorial is
-  // running. Suppresses ALL persistence: no localStorage write, no cloud
-  // sync, and no clearing of whatever real session the user already had
-  // saved. A tutorial session therefore lives entirely in memory and dies
-  // with it, and the user's own saved game is never touched -- not
-  // snapshot-and-restored, simply never written over. Without this, running
-  // a tutorial would overwrite a coach's in-progress game AND file its own
-  // invented events into their real cloud library.
-  tutorialMode: false,
   trackingMode: 'parent',      // parent | coach
   playerRole: 'field',         // field | goalkeeper | team
   game: { date: '', loc: '', home: '', away: '' },
@@ -452,13 +443,6 @@ function drawOverlay(counts) {
   clipped.setAttribute('clip-path', 'url(#xgtHalfClip)');
   g.appendChild(clipped);
   ZONES.forEach(function (z) {
-    // 'oppo' is deliberately not part of the polar system -- it has no
-    // r1/r2/a1/a2 and is drawn as its own button (#xgtOppoZone), not a wedge.
-    // Without this guard wedgePath()/labelPoint() are handed undefined and the
-    // browser logs an invalid path plus NaN label coordinates on EVERY redraw,
-    // which is every zone tap. Nothing was visibly wrong; the console was just
-    // permanently noisy, which is where a real error would go unnoticed.
-    if (z.r1 == null) return;
     var path = document.createElementNS(NS, 'path');
     path.setAttribute('d', wedgePath(z.r1, z.r2, z.a1, z.a2));
     path.setAttribute('class', 'xgtZone');
@@ -763,7 +747,6 @@ function openEditEvent(eventId) {
 
 /* ------------------------------------------------------------- persistence */
 function save() {
-  if (S.tutorialMode) return; // see S.tutorialMode -- skips the local write AND the cloud sync below
   try {
     localStorage.setItem(KEY, JSON.stringify({
       v: 1, savedAt: new Date().toISOString(),
@@ -815,74 +798,6 @@ function xgtShouldShowSessionsEntry() {
     || Object.keys(XQUIX.StorageProvider.listStoreSync('gameTrackerSession')).length > 0
   ));
 }
-/* ---------------------------------------------------------------------------
-   TELLING THE COACH THE TRUTH ABOUT WHERE THE SESSION WENT.
-
-   A resolved XQUIX.Storage.save() is NOT proof the session reached the server.
-   Read out of index.html, the chain is:
-
-     CloudProvider.saveItem   catches every failure except code 'P0100',
-                              queues the op for retry, and RESOLVES with the
-                              record.
-     XQUIX.Storage.save       wraps that as { record } -- no `error` field.
-
-   So when a JWT expires mid-game, the write is rejected by RLS, quietly queued,
-   and handed back here looking exactly like a success. The end-session dialog
-   then said "You can find it later in the Coaching Library" about a session
-   that was never uploaded. Reproduced end to end before this was written.
-
-   Two signals close that gap, and both are read defensively: if either is
-   unavailable this behaves exactly as it did before, and a session is only ever
-   reported as NOT saved on positive evidence.
-
-     getSyncStatus()  'pending' means CloudProvider queued it rather than
-                      landing it.
-     getSession()     the honest test of whether the sign-in is still alive --
-                      getCurrentUser() keeps returning a stale cached user long
-                      after the token behind it has died, which is why the
-                      signed-out branch never fired. */
-function xgtCloudSyncStatus() {
-  try {
-    if (typeof XQUIX !== 'undefined' && XQUIX.Storage && typeof XQUIX.Storage.getSyncStatus === 'function') {
-      return XQUIX.Storage.getSyncStatus({ scope: 'personal' });
-    }
-  } catch (err) {}
-  return null;
-}
-
-/* true / false / null, where null means "cannot tell" -- never guessed. */
-function xgtSessionStillValid() {
-  try {
-    var client = (typeof XQUIX !== 'undefined' && XQUIX.Auth && typeof XQUIX.Auth.getClient === 'function')
-      ? XQUIX.Auth.getClient() : null;
-    if (!client || !client.auth || typeof client.auth.getSession !== 'function') return Promise.resolve(null);
-    return client.auth.getSession().then(function (r) {
-      var s = r && r.data && r.data.session;
-      if (!s) return false;                                    // refresh failed too
-      if (s.expires_at && (s.expires_at * 1000) <= Date.now()) return false;
-      return true;
-    }).catch(function () { return null; });
-  } catch (err) { return Promise.resolve(null); }
-}
-
-/* Why did it not land? An expired sign-in and a dead network need opposite
-   advice: one needs the coach to do something, the other needs them to do
-   nothing. Saying "it'll keep retrying automatically" about an auth failure is
-   the specific wrong answer -- the queue retries with the same dead token. */
-function xgtClassifySyncFailure(message) {
-  var text = String(message || '');
-  if (/jwt|token|401|not authenticated|invalid claim|unauthor/i.test(text)) {
-    return Promise.resolve({ status: 'error', reason: 'auth-expired', message: message });
-  }
-  return xgtSessionStillValid().then(function (valid) {
-    if (valid === false) return { status: 'error', reason: 'auth-expired', message: message };
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      return { status: 'error', reason: 'offline', message: message };
-    }
-    return { status: 'error', reason: 'retrying', message: message };
-  });
-}
-
 function syncSessionToCloud() {
   if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Storage || typeof XQUIX.Storage.save !== 'function') return Promise.resolve({ status: 'skipped', reason: 'unavailable' });
   if (!XQUIX.Auth.getCurrentUser()) return Promise.resolve({ status: 'skipped', reason: 'signed-out' });
@@ -902,27 +817,41 @@ function syncSessionToCloud() {
       // (not a generic "description") -- confirmed by reading that function
       // directly rather than assuming, since guessing wrong here would have
       // meant the card silently showing no summary at all.
-      libraryDescription: 'Final ' + sc[0] + '–' + sc[1] + (hadShootout ? ' (SO ' + soTally.us + '-' + soTally.them + ')' : '') + ' · ' + S.events.length + ' actions logged',
+      libraryDescription: 'Final ' + sc[0] + '\u2013' + sc[1] + (hadShootout ? ' (SO ' + soTally.us + '-' + soTally.them + ')' : '') + ' \u00b7 ' + S.events.length + ' actions logged',
       shootout: soTally,
       events: S.events
     };
-    return XQUIX.Storage.save({ kind: 'gameTrackerSession', name: S.cloudSessionName, record: record, scope: 'personal' })
+    // Proactively refresh the JWT before saving. Safari standalone mode
+    // suspends background timers, so the Supabase client's auto-refresh
+    // timer can miss its window during a long game or when the app has
+    // been backgrounded. Refreshing here -- before the write, not after a
+    // failure -- ensures the token is always fresh at the moment of save.
+    // The refresh is best-effort: a failure is non-fatal and the save
+    // still proceeds with whatever session exists.
+    var preRefresh;
+    try {
+      var authClient = XQUIX.Auth.getClient && XQUIX.Auth.getClient();
+      preRefresh = (authClient && authClient.auth)
+        ? authClient.auth.refreshSession().catch(function () {})
+        : Promise.resolve();
+    } catch (e) { preRefresh = Promise.resolve(); }
+    return preRefresh.then(function () {
+      return XQUIX.Storage.save({ kind: 'gameTrackerSession', name: S.cloudSessionName, record: record, scope: 'personal' });
+    })
       .then(function (result) {
         if (result && result.error) {
-          console.error('XquiX Game Tracker: cloud session sync failed:', result.error.message);
-          return xgtClassifySyncFailure(result.error.message);
+          console.error('XquiX Game Tracker: cloud session sync failed (queued for retry by CloudProvider):', result.error.message);
+          return { status: 'error', message: result.error.message };
         }
-        // Resolving is not landing. CloudProvider queues a failed write and
-        // hands back the record, so the sync status is the only thing that
-        // knows the difference. Unknown status is treated as success, exactly
-        // as before -- this never invents a failure.
-        var st = xgtCloudSyncStatus();
-        if (st === 'pending' || st === 'error') return xgtClassifySyncFailure(null);
         return { status: 'success' };
       })
-      .catch(function (err) {
+      .catch(async function (err) {
+        // Last-resort catch: the proactive refresh above should have prevented
+        // this, but if it still throws (e.g. the refresh token itself is
+        // expired), report the error so the end-session dialog can offer an
+        // export rather than silently losing the data.
         console.error('XquiX Game Tracker: cloud session sync threw:', err);
-        return xgtClassifySyncFailure(err && err.message);
+        return { status: 'error', message: err && err.message };
       });
   } catch (err) {
     // Defense in depth: even a synchronous throw here (e.g. a malformed
@@ -964,7 +893,7 @@ function resetGameState() {
   // the last moment, not the primary save mechanism. Only bothers if
   // there's actually something to save; a session with no events yet
   // has nothing worth writing.
-  if (S.events.length && !S.tutorialMode) syncSessionToCloud();
+  if (S.events.length) syncSessionToCloud();
   S.game = { date: '', loc: '', home: '', away: '' };
   S.me = { number: null, name: '' };
   S.squad = []; S.water = []; S.keepers = [];
@@ -982,8 +911,7 @@ function resetGameState() {
   S.regulationEnded = false;
   S.officiallyEnded = false;
   S.finishPromptShown = false;
-  // Never clear the user's real saved session on a tutorial's behalf.
-  if (!S.tutorialMode) clearSaved();
+  clearSaved();
 }
 function restore(d) {
   S.game = d.game; S.trackingMode = d.trackingMode; S.playerRole = d.playerRole;
@@ -2596,30 +2524,6 @@ function shootoutTally() {
 function shootoutAttempts() {
   return S.events.filter(function (e) { return e.context && e.context.shootout; });
 }
-/* Shootout attempts OUR OWN keeper faced, counted separately and on purpose.
-   actionEvents() excludes everything carrying context.shootout, and that single
-   exclusion feeds both the stats panel and scoreOf() -- so a shootout changes
-   neither the four-quarter score nor save percentage, which is correct and is
-   what every game tracked so far already means. Folding shootout saves into
-   SAVE % would silently redefine that number retroactively. These get their own
-   two tiles instead, so a goalkeeper's parent can see them without any other
-   figure moving.
-   Attributed by actor.side rather than by the event's `goalkeeper` field:
-   shootoutGoalkeepers.us comes from S.keepers[0], which single-player
-   goalkeeper mode never populates, so it is null exactly where these tiles
-   matter most. Every 'them' attempt is one our keeper faced regardless.
-   Takes an events array so the live panel and the saved/combined session views
-   can share it -- the latter never see the live S. */
-function shootoutFacedFrom(events) {
-  var a = (events || []).filter(function (e) {
-    return e.context && e.context.shootout && e.actor && e.actor.side === 'them';
-  });
-  return {
-    any: (events || []).some(function (e) { return e.context && e.context.shootout; }),
-    faced: a.length,
-    saved: a.filter(function (e) { return e.outcome === 'blocked'; }).length
-  };
-}
 // Whose turn it is is always derived, never its own separate flag --
 // even count of attempts so far means the side that started is up
 // again, odd means the other side. Nothing to keep in sync, nothing
@@ -2747,25 +2651,38 @@ async function xgtOfferToFinishGame(force) {
   var syncResult = S.events.length ? await syncSessionToCloud() : { status: 'skipped', reason: 'no-events' };
   save();
   var name = '\u201c' + S.cloudSessionName + '\u201d';
-  var message;
+
   if (syncResult.status === 'success') {
-    message = 'Saved as ' + name + '. You can find it later in the Coaching Library.';
-  } else if (syncResult.status === 'error' && syncResult.reason === 'auth-expired') {
-    // NOT "it'll keep retrying": the queue would retry with the same dead
-    // token forever. This is the one failure the coach has to act on.
-    message = 'Saved as ' + name + ' on this device. Your sign-in session expired \u2014 sign back in to sync it to your Coaching Library.';
-  } else if (syncResult.status === 'error' && syncResult.reason === 'offline') {
-    message = 'Saved as ' + name + ' on this device. You\u2019re offline, so it hasn\u2019t reached the Coaching Library yet \u2014 it will upload by itself once you are back online.';
-  } else if (syncResult.status === 'error') {
-    message = 'Saved as ' + name + ' on this device. Uploading to the Coaching Library didn\u2019t go through just now, but it\u2019ll keep retrying automatically.';
+    await MizeDialog.alert('Saved as ' + name + '. You can find it later in the Coaching Library.', 'Session Saved');
+    API.close();
+    return;
+  }
+
+  // Cloud save failed or skipped -- auto-export CSV immediately before any
+  // dialog so the data is safe on disk regardless of what the coach does next.
+  // This is the unconditional safety net: it fires even if the dialog is
+  // dismissed without reading. The Library on this device still holds the
+  // local copy for PDF export or retry once the coach signs in again.
+  var cloudFailed = syncResult.status === 'error' || syncResult.reason === 'signed-out';
+  if (cloudFailed && S.events.length) {
+    API.exportSessionCsv(S.events.slice(), S.cloudSessionName);
+  }
+
+  var message;
+  if (syncResult.status === 'error') {
+    message = 'Saved as ' + name + ' on this device, but uploading to the Coaching Library failed \u2014 your sign-in session may have expired. '
+            + 'A CSV export was downloaded automatically. '
+            + 'Open the Library on this device to export a PDF, or sign in again and the session will sync.';
   } else if (syncResult.reason === 'signed-out') {
-    message = 'Saved as ' + name + ' on this device. Sign in to also save it to your Coaching Library.';
+    message = 'Saved as ' + name + ' on this device. '
+            + 'A CSV export was downloaded automatically. '
+            + 'Sign in to also save it to your Coaching Library.';
   } else if (syncResult.reason === 'no-entitlement') {
     message = 'Saved as ' + name + ' on this device. Cloud session storage isn\u2019t included in your current plan, so it won\u2019t appear in the Coaching Library.';
   } else {
     message = 'Saved as ' + name + ' on this device.';
   }
-  await MizeDialog.alert(message, 'Session Saved');
+  await MizeDialog.alert(message, cloudFailed ? 'Saved Locally \u2014 CSV Exported' : 'Session Saved');
   API.close();
 }
 function openShootout() {
@@ -3684,10 +3601,6 @@ function openStats() {
              [g.penFaced, 'PENALTIES FACED'], [g.penSaves, 'PENALTY SAVES'], [g.attempts, 'TOTAL ATTEMPTS'],
              [g.steals, 'STEALS'], [g.turnovers, 'TURNOVERS'], [g.exDrawn, 'EXCL. DRAWN'],
              [g.outletCompleted, 'OUTLETS COMPLETED'], [g.outletTurnovers, 'OUTLET TURNOVERS']];
-    // Only once a shootout has actually happened -- two permanent zeroes on
-    // every other game would be noise.
-    var so = shootoutFacedFrom(S.events);
-    if (so.any) tiles = tiles.concat([[so.faced, 'SHOOTOUT FACED'], [so.saved, 'SHOOTOUT SAVED']]);
     extra = gkTypeTable(g);
   } else {
     var f = fieldPlayerStats(evs);
@@ -4256,8 +4169,6 @@ function xgtStatsBodyParts(evs, playerRole, trackingMode) {
              [g.penFaced, 'PENALTIES FACED'], [g.penSaves, 'PENALTY SAVES'], [g.attempts, 'TOTAL ATTEMPTS'],
              [g.steals, 'STEALS'], [g.turnovers, 'TURNOVERS'], [g.exDrawn, 'EXCL. DRAWN'],
              [g.outletCompleted, 'OUTLETS COMPLETED'], [g.outletTurnovers, 'OUTLET TURNOVERS']];
-    var so = shootoutFacedFrom(evs);
-    if (so.any) tiles = tiles.concat([[so.faced, 'SHOOTOUT FACED'], [so.saved, 'SHOOTOUT SAVED']]);
     extra = gkTypeTable(g);
   } else {
     var f = fieldPlayerStats(filteredEvs);
@@ -4537,10 +4448,6 @@ var API = {
     }
   },
   isOpen: function () { return S.active; },
-  // The tutorial owns this; nothing else should set it. Deliberately a
-  // method rather than leaving callers to poke API.state, so the one
-  // switch that disables persistence stays greppable.
-  setTutorialMode: function (on) { S.tutorialMode = !!on; },
   state: S,
   zones: ZONES,
   hitZone: hitZone,
