@@ -349,7 +349,7 @@
   .viewOptionIcon { width:64px; height:auto; color:#124d4d; }
   .viewOptionCard.active .viewOptionIcon { color:#1b7a3d; }
   .frontCourtToggle input { width:auto; }
-  #fieldSvg, #arrows, #shotBlockSvg, #fieldZonesSvg { position:absolute; inset:0; width:100%; height:100%; }
+  #fieldSvg, #arrows, #shotBlockSvg, #fieldZonesSvg { position:absolute; top:0; left:0; width:100%; height:100%; }
   #fieldSvg { z-index:1; pointer-events:none; }
   #fieldZonesSvg { z-index:2; pointer-events:none; }
   #arrows { z-index:4; pointer-events:none; }
@@ -757,7 +757,7 @@
   /* #boardTilt is the layer that tilts. #board stays flat so rect() and
      getBoundingClientRect() keep returning the true untransformed frame,
      which the projection math in pxToM / mToScreenPx depends on. */
-  #boardTilt { position:absolute; inset:0; transform-origin:50% 100%; }
+  #boardTilt { position:absolute; top:0; right:0; bottom:0; left:0; transform-origin:50% 100%; }
   body.presentation.field3d #boardTilt {
     transform: perspective(var(--xq-persp,1650px)) rotateX(var(--xq-tilt,13deg));
   }
