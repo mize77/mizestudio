@@ -858,15 +858,38 @@
     box-shadow:0 8px 32px rgba(0,0,0,.6);
     flex-direction:column;
     gap:0;
-    min-width:160px;
+    min-width:200px;
     backdrop-filter:blur(12px);
     -webkit-backdrop-filter:blur(12px);
   }
   #modeSwitcherPanel.open { display:flex; }
-  #modeSwitcherPanel h4 {
-    font-size:10px; font-weight:700; letter-spacing:.08em;
+  /* Panel sub-view header: title + back + × in one row */
+  .msHeader { display:flex; align-items:center; gap:4px; margin-bottom:6px; }
+  .msTitle {
+    flex:1; font-size:10px; font-weight:700; letter-spacing:.08em;
     text-transform:uppercase; color:rgba(255,255,255,.38);
-    margin:0 0 8px 4px; padding:0;
+    margin:0 0 0 4px; padding:0;
+  }
+  .msCloseBtn {
+    background:none; border:none; color:rgba(255,255,255,.38); font-size:13px;
+    cursor:pointer; padding:3px 5px; border-radius:6px; line-height:1;
+    transition:color .12s, background .12s; flex-shrink:0;
+  }
+  .msCloseBtn:hover, .msCloseBtn:active { color:#fff; background:rgba(255,255,255,.1); }
+  .msBackBtn {
+    background:none; border:none; color:rgba(255,255,255,.5); font-size:20px;
+    cursor:pointer; padding:0 4px 0 0; line-height:1; font-weight:300;
+    transition:color .12s; flex-shrink:0;
+  }
+  .msBackBtn:hover, .msBackBtn:active { color:#fff; }
+  /* Qualification badge — subtle ✓ shown after modes the user has seen */
+  .msQual {
+    margin-left:auto; font-size:10px; color:#01b4c8; font-weight:700;
+    padding-right:2px;
+  }
+  /* Small note line above GT chooser list */
+  .msNote {
+    font-size:11px; color:rgba(255,255,255,.35); margin:0 0 6px 4px; padding:0;
   }
   .modeSwitcherOption {
     display:flex; align-items:center; gap:10px;
@@ -1508,24 +1531,75 @@
 </div>
 <button id="exitPresentationBtn" title="Switch Mode">&#9707;</button>
 <div id="modeSwitcherBackdrop"></div>
-<div id="modeSwitcherPanel" role="menu" aria-label="Switch mode">
-  <h4>Switch Mode</h4>
-  <button class="modeSwitcherOption" data-switch-mode="coaching" role="menuitem">
-    <span class="modeSwitcherDot"></span>Coaching
-  </button>
-  <button class="modeSwitcherOption" data-switch-mode="gametracker" role="menuitem">
-    <span class="modeSwitcherDot"></span>Game Tracker
-  </button>
-  <button class="modeSwitcherOption" data-switch-mode="presenting" role="menuitem">
-    <span class="modeSwitcherDot"></span>Presenting
-  </button>
-  <button class="modeSwitcherOption" data-switch-mode="practice" role="menuitem">
-    <span class="modeSwitcherDot"></span>Practice
-  </button>
-  <div class="modeSwitcherDivider"></div>
-  <button class="modeSwitcherExit" id="modeSwitcherExitBtn" role="menuitem">&#10005;&nbsp; Exit to board</button>
-  <div class="modeSwitcherDivider"></div>
-  <button class="modeSwitcherExit" id="modeSwitcher3dBtn" role="menuitem">&#9707;&nbsp; 3D View: Off</button>
+<div id="modeSwitcherPanel" role="dialog" aria-label="Switch mode">
+
+  <!-- ── Main view: four modes + Tutorials ── -->
+  <div id="msMain">
+    <div class="msHeader">
+      <span class="msTitle">Where to?</span>
+      <button class="msCloseBtn" id="modeSwitcherCloseBtn" aria-label="Close">&#10005;</button>
+    </div>
+    <button class="modeSwitcherOption" data-switch-mode="coaching" role="menuitem">
+      <span class="modeSwitcherDot"></span>Coaching
+    </button>
+    <button class="modeSwitcherOption" data-switch-mode="gametracker" role="menuitem">
+      <span class="modeSwitcherDot"></span>Game Tracker
+    </button>
+    <button class="modeSwitcherOption" data-switch-mode="presenting" role="menuitem">
+      <span class="modeSwitcherDot"></span>Presenting
+    </button>
+    <button class="modeSwitcherOption" data-switch-mode="practice" role="menuitem">
+      <span class="modeSwitcherDot"></span>Practice
+    </button>
+    <div class="modeSwitcherDivider"></div>
+    <button class="modeSwitcherOption" id="msTutorialsBtn" role="menuitem">
+      <span class="modeSwitcherDot" style="background:rgba(255,255,255,.14)"></span>Tutorials
+    </button>
+  </div>
+
+  <!-- ── Tutorials sub-panel: replay any tutorial ── -->
+  <div id="msTutorials" style="display:none">
+    <div class="msHeader">
+      <button class="msBackBtn" id="msTutorialsBack" aria-label="Back">&#8249;</button>
+      <span class="msTitle">Replay a tutorial</span>
+      <button class="msCloseBtn" id="msTutorialsCloseBtn" aria-label="Close">&#10005;</button>
+    </div>
+    <button class="modeSwitcherOption" data-replay-tutorial="coaching" role="menuitem">
+      <span class="modeSwitcherDot"></span>Coaching<span class="msQual" id="msq-coaching"></span>
+    </button>
+    <button class="modeSwitcherOption" data-replay-tutorial="gametracker" role="menuitem">
+      <span class="modeSwitcherDot"></span>Game Tracker<span class="msQual" id="msq-gametracker"></span>
+    </button>
+    <button class="modeSwitcherOption" data-replay-tutorial="presenting" role="menuitem">
+      <span class="modeSwitcherDot"></span>Presenting<span class="msQual" id="msq-presenting"></span>
+    </button>
+    <button class="modeSwitcherOption" data-replay-tutorial="practice" role="menuitem">
+      <span class="modeSwitcherDot"></span>Practice<span class="msQual" id="msq-practice"></span>
+    </button>
+  </div>
+
+  <!-- ── Game Tracker chooser: all four tutorials ── -->
+  <div id="msGTChooser" style="display:none">
+    <div class="msHeader">
+      <button class="msBackBtn" id="msGTChooserBack" aria-label="Back">&#8249;</button>
+      <span class="msTitle">Game Tracker</span>
+      <button class="msCloseBtn" id="msGTChooserCloseBtn" aria-label="Close">&#10005;</button>
+    </div>
+    <p class="msNote">Choose a tutorial to get started:</p>
+    <button class="modeSwitcherOption" data-gt-tutorial="field" role="menuitem">
+      <span class="modeSwitcherDot"></span>Field Player
+    </button>
+    <button class="modeSwitcherOption" data-gt-tutorial="goalkeeper" role="menuitem">
+      <span class="modeSwitcherDot"></span>Goalkeeper
+    </button>
+    <button class="modeSwitcherOption" data-gt-tutorial="team" role="menuitem">
+      <span class="modeSwitcherDot"></span>Your Team
+    </button>
+    <button class="modeSwitcherOption" data-gt-tutorial="fullgame" role="menuitem">
+      <span class="modeSwitcherDot"></span>The Whole Game
+    </button>
+  </div>
+
 </div>
 <div id="presentationTextSlide">
   <div class="presTextSlideRole"></div>
@@ -4755,9 +4829,14 @@ document.addEventListener('xquixHomeTutorialSelected', (e) => {
     }
     xquixHideHome();
     closeToolPanels();
+    window._modeIntroductionPending = 'coaching';
     startTutorial(buildFirstCoachingSessionSteps(), {
       needsIntroSequenceSeeded: true,
-      onComplete: ()=> MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.')
+      onComplete: ()=>{
+        if(typeof setModeTutorialQualification==='function') setModeTutorialQualification('coaching');
+        window._modeIntroductionPending = null;
+        MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.');
+      }
     });
   } else if(tutorial === 'waterpolo' && typeof MIZE !== 'undefined' && MIZE.Parent && typeof MIZE.Parent.start === 'function'){
     xquixHideHome();
@@ -11668,7 +11747,28 @@ document.getElementById('duplicateBtn').onclick=duplicateSelected;
 document.getElementById('deleteObjBtn').onclick=deleteSelectedObject;
 document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit');
 document.getElementById('presentationRealBtn').onclick=()=>togglePresentation('real');
-// Mode Switcher — replaces the exitPresentationBtn ✕ with a mode picker.
+// ===== Mode Tutorial Qualification System =====
+// Central registry, persistence helpers, and pending-introduction tracker.
+// All qualification reads/writes go through these helpers so the storage
+// backend can be upgraded (e.g. to user-account storage) without touching
+// routing or UI code.
+(function () {
+  'use strict';
+  var _KEY = 'xquixModeQualified';
+  function _read() { try { return JSON.parse(localStorage.getItem(_KEY)) || {}; } catch(e) { return {}; } }
+  window.hasModeTutorialQualification = function (mode) { return !!_read()[mode]; };
+  window.setModeTutorialQualification = function (mode) {
+    var q = _read(); q[mode] = true;
+    try { localStorage.setItem(_KEY, JSON.stringify(q)); } catch(e) {}
+  };
+  // Set to the mode name while a first-use tutorial is running.
+  // exitTutorial() reads this to qualify on deliberate exit;
+  // onComplete callbacks read it to qualify on normal completion.
+  // Manual replays must NOT set this — qualification must not change on replay.
+  window._modeIntroductionPending = null;
+})();
+
+// ===== Mode Switcher =====
 (function () {
   'use strict';
 
@@ -11676,23 +11776,39 @@ document.getElementById('presentationRealBtn').onclick=()=>togglePresentation('r
   var backdrop = document.getElementById('modeSwitcherBackdrop');
   var triggerBtn = document.getElementById('exitPresentationBtn');
 
+  // ---- Current mode detection ----
   function currentMode() {
     if (document.body.classList.contains('presentation')) return 'presenting';
     if (document.body.classList.contains('gameTrackerActive')) return 'gametracker';
     return 'coaching';
   }
 
+  // ---- Sub-panel navigation ----
+  // 'main' | 'tutorials' | 'gtchooser'
+  var _view = 'main';
+  var _gtCtx = 'firstuse'; // 'firstuse' | 'replay'
+
+  function _showView(v) {
+    _view = v;
+    document.getElementById('msMain').style.display       = v === 'main'      ? '' : 'none';
+    document.getElementById('msTutorials').style.display  = v === 'tutorials'  ? '' : 'none';
+    document.getElementById('msGTChooser').style.display  = v === 'gtchooser' ? '' : 'none';
+  }
+
+  function _syncQualBadges() {
+    ['coaching','gametracker','presenting','practice'].forEach(function (m) {
+      var el = document.getElementById('msq-' + m);
+      if (el) el.textContent = hasModeTutorialQualification(m) ? '\u2713' : '';
+    });
+  }
+
+  // ---- Open / close ----
   function openSwitcher() {
     var cur = currentMode();
-    panel.querySelectorAll('.modeSwitcherOption').forEach(function (btn) {
+    panel.querySelectorAll('[data-switch-mode]').forEach(function (btn) {
       btn.classList.toggle('active', btn.dataset.switchMode === cur);
     });
-    // Sync the 3D toggle label to current state each time the panel opens
-    var d3btn = document.getElementById('modeSwitcher3dBtn');
-    if (d3btn) {
-      var on = document.body.classList.contains('field3d');
-      d3btn.textContent = '\u29C7\u00A0 3D View: ' + (on ? 'On \u2014 tap to turn off' : 'Off');
-    }
+    _showView('main');
     panel.classList.add('open');
     backdrop.classList.add('open');
   }
@@ -11700,57 +11816,205 @@ document.getElementById('presentationRealBtn').onclick=()=>togglePresentation('r
   function closeSwitcher() {
     panel.classList.remove('open');
     backdrop.classList.remove('open');
+    _showView('main');
   }
 
-  // Toggle on button click
+  // ---- Trigger button ----
   triggerBtn.onclick = function () {
     if (panel.classList.contains('open')) { closeSwitcher(); } else { openSwitcher(); }
   };
 
-  // Close on backdrop tap
+  // ---- Natural close behaviours ----
   backdrop.onclick = closeSwitcher;
 
-  // Mode selection
-  panel.querySelectorAll('.modeSwitcherOption').forEach(function (btn) {
-    btn.onclick = function () {
-      closeSwitcher();
-      var target = btn.dataset.switchMode;
-      var inPresentation = document.body.classList.contains('presentation');
-      // Exit presentation first if leaving it
-      if (inPresentation && target !== 'presenting') togglePresentation();
-      if (target === 'gametracker') {
-        if (window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function') {
-          window.XquiXGameTracker.open();
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && panel.classList.contains('open')) closeSwitcher();
+  });
+
+  ['modeSwitcherCloseBtn','msTutorialsCloseBtn','msGTChooserCloseBtn'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('click', closeSwitcher);
+  });
+
+  // ---- Back buttons ----
+  var backTut = document.getElementById('msTutorialsBack');
+  if (backTut) backTut.addEventListener('click', function () { _showView('main'); });
+
+  var backGT = document.getElementById('msGTChooserBack');
+  if (backGT) backGT.addEventListener('click', function () {
+    _showView(_gtCtx === 'firstuse' ? 'main' : 'tutorials');
+  });
+
+  // ---- Tutorials button ----
+  var tutBtn = document.getElementById('msTutorialsBtn');
+  if (tutBtn) tutBtn.addEventListener('click', function () {
+    _syncQualBadges();
+    _showView('tutorials');
+  });
+
+  // ---- Enter a mode directly (skip tutorial) ----
+  function _enterDirect(mode) {
+    var inPres = document.body.classList.contains('presentation');
+    if (inPres && mode !== 'presenting') togglePresentation();
+    if (mode === 'gametracker') {
+      if (window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function')
+        window.XquiXGameTracker.open();
+    } else if (mode === 'presenting') {
+      if (!document.body.classList.contains('presentation')) togglePresentation('fit');
+    } else if (mode === 'practice') {
+      if (typeof openPracticeStudio === 'function') openPracticeStudio();
+    }
+    // coaching: closing the switcher already reveals the board
+  }
+
+  // ---- GT tutorial launch (first-use or replay) ----
+  function _launchGTTutorial(name, ctx) {
+    if (ctx === 'firstuse') {
+      // Mark pending so the MutationObserver can qualify on GT close
+      window._modeIntroductionPending = 'gametracker';
+      var obs = new MutationObserver(function () {
+        if (!document.body.classList.contains('gameTrackerActive')) {
+          obs.disconnect();
+          if (window._modeIntroductionPending === 'gametracker') {
+            setModeTutorialQualification('gametracker');
+            window._modeIntroductionPending = null;
+          }
         }
-      } else if (target === 'presenting') {
-        if (!document.body.classList.contains('presentation')) togglePresentation('fit');
-      } else if (target === 'practice') {
-        openPracticeStudio();
-      }
-      // 'coaching': exiting presentation (done above) reveals the board directly.
+      });
+      obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
+    if (document.body.classList.contains('presentation')) togglePresentation();
+    if (window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function')
+      window.XquiXGameTracker.open();
+    if (typeof MIZE !== 'undefined' && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start === 'function')
+      setTimeout(function () { MIZE.GameTrackerTutorial.start(name); }, 300);
+  }
+
+  // ---- First-use mode interception ----
+  function _launchFirstUseTutorial(mode) {
+    switch (mode) {
+      case 'coaching':
+        window._modeIntroductionPending = 'coaching';
+        if (document.body.classList.contains('presentation')) togglePresentation();
+        if (typeof xquixHideHome === 'function') xquixHideHome();
+        if (typeof buildFirstCoachingSessionSteps === 'function' && typeof startTutorial === 'function') {
+          startTutorial(buildFirstCoachingSessionSteps(), {
+            needsIntroSequenceSeeded: true,
+            onComplete: function () {
+              setModeTutorialQualification('coaching');
+              window._modeIntroductionPending = null;
+              MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.');
+            }
+          });
+        } else {
+          _enterDirect('coaching');
+        }
+        closeSwitcher();
+        break;
+
+      case 'gametracker':
+        // Show the GT chooser — user picks which of the four tutorials to start
+        _gtCtx = 'firstuse';
+        _showView('gtchooser');
+        // panel stays open; closeSwitcher happens when a tutorial is chosen
+        break;
+
+      case 'presenting':
+        // Tutorial not authored in Phase 1 — open normally, stay unqualified
+        // until startPresentationTutorial() is implemented in Phase 2
+        if (typeof startPresentationTutorial === 'function') {
+          window._modeIntroductionPending = 'presenting';
+          startPresentationTutorial();
+        } else {
+          _enterDirect('presenting');
+        }
+        closeSwitcher();
+        break;
+
+      case 'practice':
+        // Same placeholder as Presenting
+        if (typeof startPracticeTutorial === 'function') {
+          window._modeIntroductionPending = 'practice';
+          startPracticeTutorial();
+        } else {
+          _enterDirect('practice');
+        }
+        closeSwitcher();
+        break;
+    }
+  }
+
+  // ---- Central mode entry with first-use check ----
+  function requestXquiXMode(mode) {
+    if (!hasModeTutorialQualification(mode)) {
+      _launchFirstUseTutorial(mode);
+      return;
+    }
+    closeSwitcher();
+    _enterDirect(mode);
+  }
+
+  // ---- Mode buttons ----
+  panel.querySelectorAll('[data-switch-mode]').forEach(function (btn) {
+    btn.onclick = function () {
+      var mode = btn.dataset.switchMode;
+      // Clicking the already-active mode closes the panel without switching
+      if (mode === currentMode()) { closeSwitcher(); return; }
+      requestXquiXMode(mode);
     };
   });
 
-  // "Exit to board" — just exits the current mode without switching
-  document.getElementById('modeSwitcherExitBtn').onclick = function () {
-    closeSwitcher();
-    if (document.body.classList.contains('presentation')) togglePresentation();
-  };
+  // ---- Tutorial replay buttons ----
+  panel.querySelectorAll('[data-replay-tutorial]').forEach(function (btn) {
+    btn.onclick = function () {
+      var mode = btn.dataset.replayTutorial;
+      // Replay: never set _modeIntroductionPending → qualification unchanged
+      if (mode === 'coaching') {
+        closeSwitcher();
+        if (document.body.classList.contains('presentation')) togglePresentation();
+        if (typeof xquixHideHome === 'function') xquixHideHome();
+        if (typeof buildFirstCoachingSessionSteps === 'function' && typeof startTutorial === 'function') {
+          startTutorial(buildFirstCoachingSessionSteps(), {
+            needsIntroSequenceSeeded: true,
+            onComplete: function () {
+              MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.');
+            }
+          });
+        }
+      } else if (mode === 'gametracker') {
+        _gtCtx = 'replay';
+        _showView('gtchooser');
+      } else if (mode === 'presenting') {
+        closeSwitcher();
+        if (typeof startPresentationTutorial === 'function') {
+          startPresentationTutorial();
+        } else {
+          MizeDialog.alert('The Presenting tutorial is coming soon \u2014 check back after Phase\u00a02.', 'Not yet available');
+        }
+      } else if (mode === 'practice') {
+        closeSwitcher();
+        if (typeof startPracticeTutorial === 'function') {
+          startPracticeTutorial();
+        } else {
+          MizeDialog.alert('The Practice tutorial is coming soon \u2014 check back after Phase\u00a02.', 'Not yet available');
+        }
+      }
+    };
+  });
 
-  // 3D toggle — the exit scenario: always reachable from the ⊡ button
-  document.getElementById('modeSwitcher3dBtn').onclick = function () {
-    closeSwitcher();
-    document.body.classList.toggle('field3d');
-    localStorage.setItem('xquixField3d', document.body.classList.contains('field3d') ? '1' : '0');
-    // Keep the sidebar button label in sync
-    var sideBtn = document.getElementById('field3dToggleBtn');
-    if (sideBtn) {
-      var on = document.body.classList.contains('field3d');
-      sideBtn.textContent = on ? '3D View: On' : '3D View: Off';
-      sideBtn.classList.toggle('active', on);
-    }
-    if (typeof fitBoardToScreen === 'function') fitBoardToScreen();
-  };
+  // ---- GT tutorial chooser buttons ----
+  panel.querySelectorAll('[data-gt-tutorial]').forEach(function (btn) {
+    btn.onclick = function () {
+      var name = btn.dataset.gtTutorial;
+      closeSwitcher();
+      _launchGTTutorial(name, _gtCtx);
+    };
+  });
+
+  // ---- Public API ----
+  window.closeModeChanger  = closeSwitcher;
+  window.openModeChanger   = openSwitcher;
+  window.requestXquiXMode  = requestXquiXMode;
 })();
 function toggleMultiSelect(){
   multiSelectMode=!multiSelectMode;
@@ -12712,6 +12976,14 @@ function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenc
 function exitTutorial(){
   if(!tutorialModeActive) return;
   tutorialModeActive = false;
+  // If this tutorial was a first-use mode introduction, the deliberate exit
+  // qualifies the user for that mode.  onComplete handles the completion path;
+  // this covers the Exit Tutorial button path.
+  if (window._modeIntroductionPending) {
+    if (typeof setModeTutorialQualification === 'function')
+      setModeTutorialQualification(window._modeIntroductionPending);
+    window._modeIntroductionPending = null;
+  }
   document.body.classList.remove('tutorialModeActive');
   if(tutorialTrackHandle) clearTimeout(tutorialTrackHandle);
   tutorialTrackHandle = null;
@@ -14150,9 +14422,14 @@ document.getElementById('devPreviewRealTutorialBtn')?.addEventListener('click', 
   ['T03 - Attacker Moved','T04 - Attacker Rotated Clockwise','T08 - Defender Moved into Shooting Angle'].forEach(n=>{ if(!tutorialFormationState(n)) missing.push(n); });
   if(missing.length){ MizeDialog.alert('Something is wrong with the tutorial\u2019s built-in reference data: '+missing.join(', ')+' could not be read. This shouldn\u2019t normally happen since it\u2019s embedded in the app itself.'); return; }
   closeToolPanels();
+  window._modeIntroductionPending = 'coaching';
   startTutorial(buildFirstCoachingSessionSteps(), {
     needsIntroSequenceSeeded: true,
-    onComplete: ()=> MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.')
+    onComplete: ()=>{
+      if(typeof setModeTutorialQualification==='function') setModeTutorialQualification('coaching');
+      window._modeIntroductionPending = null;
+      MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.');
+    }
   });
 });
 
