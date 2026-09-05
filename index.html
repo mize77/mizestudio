@@ -12971,6 +12971,10 @@ function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenc
   tutorialModeActive = true;
   document.body.classList.add('tutorialModeActive');
   clearSelection();
+  // Ensure the board is freshly sized before the tutorial places its formation.
+  // On mobile (especially iPad), the layout pipeline is slower and rect() can
+  // return stale dimensions if fitBoardToScreen() hasn't completed yet.
+  if (typeof fitBoardToScreen === 'function') fitBoardToScreen();
   goToTutorialStep(0);
 }
 function exitTutorial(){
