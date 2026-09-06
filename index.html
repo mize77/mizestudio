@@ -374,7 +374,7 @@
   .drawing { cursor:move; }
   .player:active { cursor:grabbing; }
   .playerBody { position:relative; transform:rotate(var(--rot,0deg)); transform-origin:center center; }
-  .player img { display:block; pointer-events:none; user-select:none; }
+  .player img { display:block; pointer-events:none; user-select:none; transform:translateZ(0); }
   .label { position:absolute; left:50%; top:100%; transform:translateX(-50%); font-size:11px; background:rgba(255,255,255,.72); border-radius:8px; padding:1px 4px; pointer-events:none; white-space:nowrap; }
   body.hideNames .label { display:none; }
   .capNumber { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(var(--capFlip,0deg)); width:var(--capSize, 18px); height:var(--capSize, 18px); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:calc(var(--capSize, 18px) * 0.6); font-weight:900; color:#111; background:rgba(255,255,255,.86); border:1px solid rgba(0,0,0,.35); pointer-events:none; z-index:8; line-height:1; }
@@ -9475,12 +9475,6 @@ function sizePlayer(el) {
     img.style.width=_iw+'px';
     img.style.height=_ih+'px';
   }
-  // iOS Safari and Chrome-on-iOS render SVG <img> elements at the SVG's own
-  // intrinsic width/height (from the SVG element attributes) and ignore
-  // img.style.width/height. Setting the HTML presentation attributes as well
-  // forces the correct pixel size on those browsers without affecting others.
-  img.setAttribute('width',  Math.round(_iw));
-  img.setAttribute('height', Math.round(_ih));
   // Cap number badge scales WITH the player's body size instead of staying a
   // fixed pixel size -- on a small phone screen the board (and every player
   // icon) renders much smaller, and a fixed-size badge can end up as large
@@ -13601,8 +13595,8 @@ function renderTutorialGhost(ghostCfg){
     const body=document.createElement('div'); body.className='playerBody';
     const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label,p.category);
     body.appendChild(img); g.appendChild(body); layer.appendChild(g);
-    if(p.pose==='h'){ const _iw=meterPxX(1.0),_ih=meterPxY(1.6); img.style.width=_iw+'px'; img.style.height=_ih+'px'; img.setAttribute('width',Math.round(_iw)); img.setAttribute('height',Math.round(_ih)); }
-    else { const wpx=meterPxX(1.0),_ih=wpx*ASPECT[iconKey(p.team,p.pose,p.label,p.category)]; img.style.width=wpx+'px'; img.style.height=_ih+'px'; img.setAttribute('width',Math.round(wpx)); img.setAttribute('height',Math.round(_ih)); }
+    if(p.pose==='h'){ img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; }
+    else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label,p.category)])+'px'; }
     // Force the browser to paint the FROM position before changing to the
     // target, so the CSS transition actually has something to animate
     // between (setting both in the same tick would just skip straight to
