@@ -1,6 +1,23 @@
 <!doctype html>
 <html lang="en">
 <head>
+<base href="../">
+<meta name="robots" content="noindex, nofollow">
+<script>
+/* PRESENTATION LAB STORAGE IS NAMESPACED. Same origin as the Studio, so
+   without this the lab would read and overwrite the coach's real data.
+   Patched before any other script runs. The lab therefore has its own,
+   signed-out session. */
+(function () {
+  var NS = 'plab:', P = Storage.prototype;
+  var g = P.getItem, s = P.setItem, r = P.removeItem;
+  P.getItem    = function (k) { return g.call(this, NS + k); };
+  P.setItem    = function (k, v) { return s.call(this, NS + k, v); };
+  P.removeItem = function (k) { return r.call(this, NS + k); };
+  window.LAB_NS = NS;
+  window.LAB_PINNED = '2026-09-06 04:51';
+})();
+</script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -9464,23 +9481,14 @@ function sizePlayer(el) {
   // Horizontal players: keep the original 1.6m body length, but reduce only the short/body width to 1.0m.
   // In MIZE's horizontal icon file, the long player dimension runs along the image height.
   // Vertical players: 1.0m elbow-to-elbow width; height follows the original icon ratio.
-  let _iw, _ih;
   if(!abstract && pose==='h') {
-    _iw=bodyWidthPx; _ih=meterPxY(1.6)*sizeMult;
-    img.style.height=_ih+'px';
-    img.style.width=_iw+'px';
+    img.style.height=(meterPxY(1.6)*sizeMult)+'px';
+    img.style.width=bodyWidthPx+'px';
   } else {
     const wpx=bodyWidthPx;
-    _iw=wpx; _ih=wpx*(abstract?1:ASPECT[k]);
-    img.style.width=_iw+'px';
-    img.style.height=_ih+'px';
+    img.style.width=wpx+'px';
+    img.style.height=(wpx*(abstract?1:ASPECT[k]))+'px';
   }
-  // iOS Safari and Chrome-on-iOS render SVG <img> elements at the SVG's own
-  // intrinsic width/height (from the SVG element attributes) and ignore
-  // img.style.width/height. Setting the HTML presentation attributes as well
-  // forces the correct pixel size on those browsers without affecting others.
-  img.setAttribute('width',  Math.round(_iw));
-  img.setAttribute('height', Math.round(_ih));
   // Cap number badge scales WITH the player's body size instead of staying a
   // fixed pixel size -- on a small phone screen the board (and every player
   // icon) renders much smaller, and a fixed-size badge can end up as large
@@ -11046,7 +11054,7 @@ function addGhostsFromState(st) {
     const displayRot = frontCourtActive ? ((p.rot||0)-90) : (p.rot||0); // matches place()'s own Front Court adjustment for real players
     g.style.setProperty('--rot',displayRot+'deg');
     const body=document.createElement('div'); body.className='playerBody'; const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label,p.category); body.appendChild(img); g.appendChild(body); ghostLayer.appendChild(g);
-    if(p.pose==='h'){ const _iw=meterPxX(1.0),_ih=meterPxY(1.6); img.style.width=_iw+'px'; img.style.height=_ih+'px'; img.setAttribute('width',Math.round(_iw)); img.setAttribute('height',Math.round(_ih)); } else { const wpx=meterPxX(1.0),_ih=wpx*ASPECT[iconKey(p.team,p.pose,p.label,p.category)]; img.style.width=wpx+'px'; img.style.height=_ih+'px'; img.setAttribute('width',Math.round(wpx)); img.setAttribute('height',Math.round(_ih)); }
+    if(p.pose==='h') { img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; } else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label,p.category)])+'px'; }
   });
 }
 // Mirrors addGhostsFromState exactly, but for the second-back layer used
@@ -11062,7 +11070,7 @@ function addSecondGhostsFromState(st) {
     const displayRot = frontCourtActive ? ((p.rot||0)-90) : (p.rot||0);
     g.style.setProperty('--rot',displayRot+'deg');
     const body=document.createElement('div'); body.className='playerBody'; const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label,p.category); body.appendChild(img); g.appendChild(body); ghostLayer2.appendChild(g);
-    if(p.pose==='h'){ const _iw=meterPxX(1.0),_ih=meterPxY(1.6); img.style.width=_iw+'px'; img.style.height=_ih+'px'; img.setAttribute('width',Math.round(_iw)); img.setAttribute('height',Math.round(_ih)); } else { const wpx=meterPxX(1.0),_ih=wpx*ASPECT[iconKey(p.team,p.pose,p.label,p.category)]; img.style.width=wpx+'px'; img.style.height=_ih+'px'; img.setAttribute('width',Math.round(wpx)); img.setAttribute('height',Math.round(_ih)); }
+    if(p.pose==='h') { img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; } else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label,p.category)])+'px'; }
   });
 }
 function toggleGhostMode() {
@@ -13601,8 +13609,8 @@ function renderTutorialGhost(ghostCfg){
     const body=document.createElement('div'); body.className='playerBody';
     const img=document.createElement('img'); img.src=playerIconSrc(p.team,p.pose,p.label,p.category);
     body.appendChild(img); g.appendChild(body); layer.appendChild(g);
-    if(p.pose==='h'){ const _iw=meterPxX(1.0),_ih=meterPxY(1.6); img.style.width=_iw+'px'; img.style.height=_ih+'px'; img.setAttribute('width',Math.round(_iw)); img.setAttribute('height',Math.round(_ih)); }
-    else { const wpx=meterPxX(1.0),_ih=wpx*ASPECT[iconKey(p.team,p.pose,p.label,p.category)]; img.style.width=wpx+'px'; img.style.height=_ih+'px'; img.setAttribute('width',Math.round(wpx)); img.setAttribute('height',Math.round(_ih)); }
+    if(p.pose==='h'){ img.style.height=meterPxY(1.6)+'px'; img.style.width=meterPxX(1.0)+'px'; }
+    else { const wpx=meterPxX(1.0); img.style.width=wpx+'px'; img.style.height=(wpx*ASPECT[iconKey(p.team,p.pose,p.label,p.category)])+'px'; }
     // Force the browser to paint the FROM position before changing to the
     // target, so the CSS transition actually has something to animate
     // between (setting both in the same tick would just skip straight to
@@ -18737,76 +18745,7 @@ window._shouldDeferConflictAlert = function(){
 
 function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
 
-// ===== On-device diagnostic — remove after iPad fix confirmed =====
-(function(){
-  var btn = document.createElement('button');
-  btn.textContent = 'DEBUG';
-  btn.style.cssText = 'position:fixed;bottom:50px;left:50%;transform:translateX(-50%);z-index:99999;background:#01b4c8;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;opacity:0.7;pointer-events:auto;';
-  document.body.appendChild(btn);
-
-  var overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999999;display:none;overflow:auto;padding:16px;font-family:monospace;font-size:13px;color:#fff;';
-  document.body.appendChild(overlay);
-
-  btn.addEventListener('click', function(){
-    var lines = [];
-    var board  = document.getElementById('board');
-    var tilt   = document.getElementById('boardTilt');
-    var br     = board  ? board.getBoundingClientRect()  : null;
-    var tr     = tilt   ? tilt.getBoundingClientRect()   : null;
-
-    lines.push('── BOARD ──');
-    lines.push('board:     ' + (br ? Math.round(br.width)+'×'+Math.round(br.height) : 'missing'));
-    lines.push('boardTilt: ' + (tr ? Math.round(tr.width)+'×'+Math.round(tr.height) : 'missing'));
-    lines.push('board top/left: ' + (br ? Math.round(br.top)+','+Math.round(br.left) : '?'));
-    lines.push('tilt  top/left: ' + (tr ? Math.round(tr.top)+','+Math.round(tr.left) : '?'));
-    lines.push('');
-    lines.push('── FIRST PLAYER ──');
-    var p = document.querySelector('.player');
-    if(p){
-      var img = p.querySelector('img');
-      var cap = p.querySelector('.capNumber');
-      var pr  = p.getBoundingClientRect();
-      var ir  = img ? img.getBoundingClientRect() : null;
-      var cr  = cap ? cap.getBoundingClientRect() : null;
-      lines.push('label: '    + p.dataset.label + '  pose:' + p.dataset.pose);
-      lines.push('css left/top: ' + p.style.left + ' / ' + p.style.top);
-      lines.push('player rect: ' + Math.round(pr.width)+'×'+Math.round(pr.height));
-      if(img){
-        lines.push('img.style.w/h: ' + img.style.width + ' / ' + img.style.height);
-        lines.push('img attr w/h:  ' + img.getAttribute('width') + ' / ' + img.getAttribute('height'));
-        lines.push('img natural:   ' + img.naturalWidth + '×' + img.naturalHeight);
-        lines.push('img rendered:  ' + Math.round(ir.width)+'×'+Math.round(ir.height));
-        lines.push('img center (screen): ' + Math.round(ir.left+ir.width/2) + ',' + Math.round(ir.top+ir.height/2));
-      }
-      if(cap){
-        lines.push('cap center (screen): ' + Math.round(cr.left+cr.width/2) + ',' + Math.round(cr.top+cr.height/2));
-        lines.push('cap vs img offset:   ' + (ir ? Math.round((cr.left+cr.width/2)-(ir.left+ir.width/2))+'px X, '+Math.round((cr.top+cr.height/2)-(ir.top+ir.height/2))+'px Y' : '?'));
-      }
-    } else {
-      lines.push('(no .player found)');
-    }
-    lines.push('');
-    lines.push('── ALL PLAYERS (cap Y vs img Y) ──');
-    document.querySelectorAll('.player').forEach(function(el){
-      var im = el.querySelector('img');
-      var ca = el.querySelector('.capNumber');
-      if(!im||!ca) return;
-      var ir2 = im.getBoundingClientRect();
-      var cr2 = ca.getBoundingClientRect();
-      var dy = Math.round((cr2.top+cr2.height/2)-(ir2.top+ir2.height/2));
-      var dx = Math.round((cr2.left+cr2.width/2)-(ir2.left+ir2.width/2));
-      lines.push(el.dataset.label + ' pose='+el.dataset.pose+' rendered='+Math.round(ir2.width)+'×'+Math.round(ir2.height)+' cap-img='+dx+','+dy+'px');
-    });
-
-    overlay.innerHTML = '<div style="max-width:600px;margin:0 auto;">'
-      + '<button onclick="this.parentElement.parentElement.style.display=\'none\'" style="float:right;background:#e33;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:14px;cursor:pointer;">✕ Close</button>'
-      + '<h3 style="margin:0 0 12px;color:#01b4c8;">XquiX iPad Diagnostic</h3>'
-      + '<pre style="white-space:pre-wrap;word-break:break-all;line-height:1.6;">'
-      + lines.join('\n') + '</pre></div>';
-    overlay.style.display = 'block';
-  });
-})();
+// ===== 3D Presentation Field toggle =====
 (function(){
   const btn = document.getElementById('field3dToggleBtn');
   if (!btn) return;
@@ -21994,10 +21933,36 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 </script>
 
 
-<script src="xquix-game-tracker.js"></script>
-<script src="xquix-game-tracker-tutorial.js"></script>
-<script src="xquix-player-rig.js"></script>
-<script src="xquix-pose-resolver.js"></script>
+<script>
+/* Presentation Lab only: every reload fetches the current file. See pin-presentationlab.sh. */
+(function () { var d = document, t = Date.now();
+  d.write('<scr' + 'ipt src="presentationlab/xquix-game-tracker.js?t=' + t + '"><\/scr' + 'ipt>');
+})();
+</script>
+<script>
+/* Presentation Lab only: every reload fetches the current file. See pin-presentationlab.sh. */
+(function () { var d = document, t = Date.now();
+  d.write('<scr' + 'ipt src="presentationlab/xquix-game-tracker-tutorial.js?t=' + t + '"><\/scr' + 'ipt>');
+})();
+</script>
+<script>
+/* Presentation Lab only: every reload fetches the current file. See pin-presentationlab.sh. */
+(function () { var d = document, t = Date.now();
+  d.write('<scr' + 'ipt src="presentationlab/xquix-presentation-tutorial.js?t=' + t + '"><\/scr' + 'ipt>');
+})();
+</script>
+<script>
+/* Presentation Lab only: every reload fetches the current file. See pin-presentationlab.sh. */
+(function () { var d = document, t = Date.now();
+  d.write('<scr' + 'ipt src="presentationlab/xquix-player-rig.js?t=' + t + '"><\/scr' + 'ipt>');
+})();
+</script>
+<script>
+/* Presentation Lab only: every reload fetches the current file. See pin-presentationlab.sh. */
+(function () { var d = document, t = Date.now();
+  d.write('<scr' + 'ipt src="presentationlab/xquix-pose-resolver.js?t=' + t + '"><\/scr' + 'ipt>');
+})();
+</script>
 <script>
 
 
@@ -26724,6 +26689,79 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     stopAll,
     isMuted:     () => _muted,
   };
+})();
+</script>
+<div id="labBanner">Presentation Lab · pinned Studio snapshot · not the live app</div>
+<style>
+ #labBanner{position:fixed;left:0;right:0;top:0;z-index:2147483000;background:#4a2a7a;color:#e9dcff;
+   font:800 11px system-ui;letter-spacing:.08em;text-transform:uppercase;text-align:center;
+   padding:4px 8px;padding-top:calc(4px + env(safe-area-inset-top));pointer-events:none;}
+ #labTools{position:fixed;right:8px;bottom:8px;bottom:calc(8px + env(safe-area-inset-bottom));
+   z-index:2147482000;display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+ #labTools button{font:800 10px system-ui;letter-spacing:.06em;background:#4a2a7a;color:#e9dcff;
+   border:1px solid #6b3fb0;border-radius:8px;padding:6px 9px;cursor:pointer;touch-action:manipulation;}
+ #labTools .panel{display:none;flex-direction:column;gap:6px;background:rgba(10,31,29,.96);
+   border:1px solid #2a5f5c;border-radius:10px;padding:9px;width:min(250px,calc(100vw - 24px));}
+ #labTools .panel.open{display:flex;}
+ #labTools .panel button{background:#1b7373;color:#fff;border-color:#2a5f5c;}
+ #labTools .info{font:11px/1.4 ui-monospace,Menlo,monospace;color:#9ec9c7;}
+ body.tutorialModeActive #labTools{display:none;}
+</style>
+<div id="labTools">
+  <div class="panel" id="labPanel">
+    <div class="info" id="labInfo"></div>
+    <button id="labStart">Start Presentation tutorial</button>
+    <button id="labReset">Reset first-use (forget qualification)</button>
+    <button id="labPro">Simulate Pro tier: off</button>
+    <button id="labClear">Clear lab storage</button>
+  </div>
+  <button id="labToggle">LAB</button>
+</div>
+<script>
+(function () {
+  var panel = document.getElementById('labPanel');
+  document.getElementById('labToggle').onclick = function(){ panel.classList.toggle('open'); info(); };
+  document.getElementById('labStart').onclick = function () {
+    panel.classList.remove('open');
+    if (typeof window.startPresentationTutorial === 'function') { if (typeof xquixHideHome === 'function') xquixHideHome(); window.startPresentationTutorial(); }
+    else info('xquix-presentation-tutorial.js did not load');
+  };
+  // Forget that the Presenting mode was qualified, so Switch Mode -> Presenting
+  // runs the first-use path again.
+  document.getElementById('labReset').onclick = function () {
+    try { var q = JSON.parse(localStorage.getItem('xquixModeQualified') || '{}'); delete q.presenting; localStorage.setItem('xquixModeQualified', JSON.stringify(q)); } catch (e) {}
+    info('presenting is unqualified again: Switch Mode -> Presenting runs the tutorial first');
+  };
+  var pro = false;
+  document.getElementById('labPro').onclick = function () {
+    pro = !pro;
+    this.textContent = 'Simulate Pro tier: ' + (pro ? 'ON' : 'off');
+    if (window.XQUIX && XQUIX.Entitlements) {
+      if (pro) {
+        XQUIX.Entitlements._labReal = XQUIX.Entitlements._labReal || XQUIX.Entitlements.canFunction;
+        XQUIX.Entitlements.canFunction = function () { return true; };
+      } else if (XQUIX.Entitlements._labReal) {
+        XQUIX.Entitlements.canFunction = XQUIX.Entitlements._labReal;
+      }
+    }
+    info();
+  };
+  document.getElementById('labClear').onclick = function () {
+    Object.keys(localStorage).filter(function (k) { return k.indexOf('plab:') === 0; })
+      .forEach(function (k) { localStorage.removeItem(k.slice(5)); });
+    info('lab storage cleared - the Studio\u2019s own storage was never touched');
+  };
+  function info(msg) {
+    var U = window.MIZE && MIZE.PresentationTutorial;
+    var qual = false; try { qual = !!(JSON.parse(localStorage.getItem('xquixModeQualified') || '{}').presenting); } catch (e) {}
+    document.getElementById('labInfo').textContent =
+      (msg ? msg + '\n' : '') +
+      'pinned: ' + (window.LAB_PINNED || '?') +
+      '\ntutorial: ' + (U ? (U.buildSteps().length + ' steps' + (U.isRunning() ? ' · running' : '')) : 'not loaded') +
+      '\npresenting: ' + (document.body.classList.contains('presentation') ? 'on' : 'off') +
+      '  · qualified: ' + (qual ? 'yes' : 'no');
+  }
+  setInterval(function(){ if(panel.classList.contains('open')) info(); }, 800);
 })();
 </script>
 </body></html>
