@@ -27,7 +27,8 @@ for f in *.js; do
 done
 
 echo "==> Checking index.html still loads its modules"
-for m in xquix-game-tracker.js xquix-player-rig.js xquix-pose-resolver.js; do
+# CHANGED: added xquix-sound-studio.js
+for m in xquix-game-tracker.js xquix-player-rig.js xquix-pose-resolver.js xquix-sound-studio.js; do
   grep -q "<script src=\"$m\">" index.html \
     || { echo "!! index.html has no <script src=\"$m\"> - nothing pushed." >&2; exit 1; }
   [ -f "$m" ] || { echo "!! $m is missing from the repo - nothing pushed." >&2; exit 1; }
@@ -47,7 +48,9 @@ done
 missing=""
 grep -q '<script src="xquix-game-tracker-tutorial.js">' index.html || missing="$missing\n    - the tutorial <script src> tag"
 grep -q 'id="xquixHomeGametrackerBanners"'              index.html || missing="$missing\n    - the Game Tracker tutorial submenu"
-grep -q "tutorial === 'gametracker-field'"              index.html || missing="$missing\n    - the gametracker-field branch"
+grep -q "tutorial === 'gametracker-field'"              index.html \
+  || grep -q "tutorial.startsWith('gametracker-')"      index.html \
+  || missing="$missing\n    - the gametracker-field branch"
 if [ -n "$missing" ]; then
   echo "!! index.html has lost the tutorial wiring:" >&2
   printf "$missing\n" >&2
@@ -98,6 +101,12 @@ if [ -n "$unreachable" ]; then
   echo "   Add its branch in index.html when you want it live. Not fatal." >&2
 fi
 echo "    ok  every tutorial Home routes is one the shipping module can build"
+
+# CHANGED: added Sound Box circle image check
+echo "==> Checking Sound Box assets"
+[ -f "xquixHomeCircle_soundbox.webp" ] \
+  || { echo "!! xquixHomeCircle_soundbox.webp is missing from the repo - nothing pushed." >&2; exit 1; }
+echo "    ok  xquixHomeCircle_soundbox.webp present"
 
 echo "==> Changes to publish"
 git status --short
