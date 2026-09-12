@@ -1497,6 +1497,27 @@
   }
   @media print { header, #controlsPanel, #timelinePanel { display:none; } #stageWrap { width:100vw; margin:0; } #board { box-shadow:none; } }
 
+  /* ── XquiX Sound Box stage backdrop (SOUNDBOX-STAGE-HOOKS 2026-09-12) ── */
+  #xqStage{position:fixed;inset:0;z-index:99500;background:#050709;overflow:hidden;display:none;pointer-events:none}
+  #xqStage.on{display:block}
+  /* Sound Studio sits at z-100000; making its bg transparent lets the stage show through empty regions */
+  #xqSoundStudio{background:transparent!important}
+  .xqsb{position:absolute;inset:0;transition:background .5s ease,opacity .2s ease;opacity:.07}
+  @keyframes xqFog{0%{opacity:.13;transform:scale(.5)}55%{opacity:.08}100%{opacity:0;transform:scale(3.2)}}
+  .xqsFgL{transform-origin:0 0;animation:xqFog 3.2s ease-out infinite;animation-play-state:paused}
+  .xqsFgR{transform-origin:0 0;animation:xqFog 3.2s ease-out infinite 1.4s;animation-play-state:paused}
+  #xqStage.playing .xqsFgL,#xqStage.playing .xqsFgR{animation-play-state:running}
+  #xqStage.fog-burst .xqsFgL,#xqStage.fog-burst .xqsFgR{animation-duration:1.3s!important}
+  .xqsLas{opacity:0;transition:opacity 1.2s}
+  #xqStage.playing .xqsLas{opacity:.88}
+  @keyframes xqSw1{0%{transform:rotate(-22deg)}50%{transform:rotate(20deg)}100%{transform:rotate(-22deg)}}
+  @keyframes xqSw2{0%{transform:rotate(18deg)}50%{transform:rotate(-22deg)}100%{transform:rotate(18deg)}}
+  @keyframes xqSw3{0%{transform:rotate(-38deg)}40%{transform:rotate(14deg)}70%{transform:rotate(32deg)}100%{transform:rotate(-38deg)}}
+  @keyframes xqSw4{0%{transform:rotate(25deg)}50%{transform:rotate(-30deg)}100%{transform:rotate(25deg)}}
+  #xqSLas1{transform-origin:0 0;animation:xqSw1 3.5s ease-in-out infinite}
+  #xqSLas2{transform-origin:0 0;animation:xqSw2 3.8s ease-in-out infinite .7s}
+  #xqSLas3{transform-origin:0 0;animation:xqSw3 5.4s ease-in-out infinite 1.3s}
+  #xqSLas4{transform-origin:0 0;animation:xqSw4 4.8s ease-in-out infinite 2.1s}
 
 </style>
 <!-- Milestone 4: first external dependency this app has ever had. Loaded
@@ -4823,6 +4844,9 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
       const gateOk = (typeof XQUIX==='undefined' || !XQUIX.Entitlements || !XQUIX.Entitlements.canFunction) || XQUIX.Entitlements.canFunction('M01');
       if(!gateOk){ xquixShowHome(); return; }
       closeToolPanels();
+      // Raise the stage backdrop before the Sound Studio overlay opens.
+      var _stg = document.getElementById('xqStage');
+      if(_stg) _stg.classList.add('on');
       MIZE.SoundStudio.start();  // must run inside user-gesture (click handler)
     } else {
       xquixHomeShowToast('Sound Box coming soon.');
@@ -22021,9 +22045,141 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       return data && data.session ? data.session.access_token : null;
     } catch (e) { return null; }
   };
-  // Return to Home when the athlete taps ‹ Home inside the overlay.
-  // xquixShowHome() confirmed at line ~4346.
-  MIZE.SoundStudio.onExit = function () { xquixShowHome(); };
+
+  // ── Stage backdrop hooks (SOUNDBOX-STAGE-HOOKS 2026-09-12) ──────────────
+  // Contract: soundbox/STAGE-HOOKS-CONTRACT.md
+  // onTrackChange fires once per actual track start (not on timeupdate/pause).
+  // onBeat fires on a setInterval at the track's measured BPM, paused with
+  //   playback. ~23/42 tracks today have no BPM; _xqFallTmr covers those.
+  // coverKey is per collection (sound_collections.cover_key). Now live — non-null
+  //   for all collections. URL = coverBase + coverKey. Stage samples its colors for beams.
+
+  // Role → teal palette (6 beam colors). Replaced when real artwork ships.
+  var _xqRolePal = {
+    meet:      ['#1d9e75','#2ecab8','#0f6e56','#3dd4c0','#0e4a38','#4ecfb5'],
+    transform: ['#2ecab8','#3dd4c0','#0f6e56','#4ecfb5','#148866','#1d9e75'],
+    bridge:    ['#148866','#22c4b0','#0a5a48','#28bfa8','#083828','#30b898'],
+    activate:  ['#1a9e80','#2edfca','#0e6e50','#34d4b8','#0a4830','#46cfb8'],
+    launch:    ['#2ecab8','#50ffcc','#1d9e75','#3dd4c0','#0f6e56','#2ecab8'],
+    close:     ['#0f6e56','#1d9e75','#0e4a38','#148866','#083828','#0f6e56'],
+    adversity: ['#cc4444','#dd6644','#aa3333','#ee7766','#883322','#cc5544'],
+    library:   ['#1d9e75','#2ecab8','#0f6e56','#3dd4c0','#0e4a38','#4ecfb5'],
+  };
+  var _xqBeatN   = 0;    // beat counter; resets on each track
+  var _xqFallTmr = null; // fallback timer for BPM-null tracks
+  var _xqBColors = _xqRolePal.bridge.slice();
+
+  function _xqBeams(){ return Array.from(document.querySelectorAll('#xqStage .xqsb')); }
+
+  function _xqSetPal(role){
+    _xqBColors = (_xqRolePal[role] || _xqRolePal.bridge).slice();
+    _xqBeams().forEach(function(b,i){ b.style.background = _xqBColors[i]; });
+  }
+
+  function _xqBeatTick(b){
+    _xqBeatN = b.beat;
+    var bs = _xqBeams(), BAS = [.15,.13,.16,.16,.13,.15];
+    var pat = Math.floor((_xqBeatN - 1) / 8) % 4;
+    if(pat === 0){                // chase left → right
+      var ci = _xqBeatN % 6;
+      bs.forEach(function(el,j){ el.style.opacity = j===ci ? .50 : BAS[j]*.35; });
+    } else if(pat === 1){         // odd / even alternation
+      bs.forEach(function(el,j){ el.style.opacity = (_xqBeatN+j)%2===0 ? .44 : BAS[j]*.28; });
+    } else if(pat === 2){         // all-together strobe
+      var op = _xqBeatN%2===0 ? .42 : BAS[0];
+      bs.forEach(function(el){ el.style.opacity = op; });
+    } else {                      // paired convergence
+      var pr = [[0,5],[1,4],[2,3]], pp = Math.floor(_xqBeatN/2)%3;
+      bs.forEach(function(el,j){ el.style.opacity = pr[pp].indexOf(j)!==-1 ? .46 : BAS[j]*.22; });
+    }
+    // Fog burst every 16 beats
+    if(_xqBeatN % 16 === 0){
+      var s = document.getElementById('xqStage');
+      if(s){ s.classList.add('fog-burst'); setTimeout(function(){ s.classList.remove('fog-burst'); }, 2500); }
+    }
+    // Beam colour shift every 8 beats
+    if(_xqBeatN % 8 === 0){
+      _xqBColors.push(_xqBColors.shift());
+      bs.forEach(function(el,i){ el.style.background = _xqBColors[i]; });
+    }
+  }
+
+  // Tracks share a coverKey per collection. Cache it so same-collection
+  // consecutive tracks don't flash. Cleared on exit.
+  var _xqLastCoverKey = null;
+
+  // Sample 6 colors from a loaded image for the spotlight palette.
+  // Uses a 3×2 canvas (one pixel per beam region). Fails gracefully if
+  // R2 doesn't set CORS headers — falls through to the role palette.
+  function _xqSamplePal(img){
+    try{
+      var c2=document.createElement('canvas'); c2.width=3; c2.height=2;
+      var ctx=c2.getContext('2d',{willReadFrequently:true});
+      ctx.drawImage(img,0,0,3,2);
+      var d=ctx.getImageData(0,0,3,2).data, cols=[];
+      for(var i=0;i<6;i++){
+        var r=d[i*4],g=d[i*4+1],b=d[i*4+2];
+        // Boost brightness for stage lights: clamp floor at 60 so beams are always visible
+        var mx=Math.max(r,g,b);
+        if(mx<60){ var sc=60/Math.max(mx,1); r=Math.min(255,r*sc|0); g=Math.min(255,g*sc|0); b=Math.min(255,b*sc|0); }
+        cols.push('rgb('+r+','+g+','+b+')');
+      }
+      return cols.length>=4 ? cols : null;
+    }catch(e){ return null; }
+  }
+
+  MIZE.SoundStudio.onTrackChange = function(t){
+    _xqBeatN = 0;
+    // Activate stage visuals (lasers + fog) on first track
+    var s = document.getElementById('xqStage');
+    if(s) s.classList.add('playing');
+    // Fallback beat timer for tracks without measured BPM
+    clearInterval(_xqFallTmr); _xqFallTmr = null;
+    if(!(t.bpm > 0)){
+      var _n = 0;
+      _xqFallTmr = setInterval(function(){ _n++; _xqBeatTick({ beat:_n, bpm:null }); }, 500);
+    }
+    // Cover art: coverKey is per collection, so cache to skip reloads for
+    // consecutive tracks in the same collection.
+    var ci = document.getElementById('xqSCover');
+    if(t.coverKey && t.coverKey !== _xqLastCoverKey){
+      _xqLastCoverKey = t.coverKey;
+      // Load off-screen first so we can sample before showing
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function(){
+        var pal = _xqSamplePal(img);
+        if(pal){ _xqBColors=pal; _xqBeams().forEach(function(b,i){ b.style.background=_xqBColors[i]; }); }
+        else { _xqSetPal(t.role || 'bridge'); }
+        if(ci){ ci.src=img.src; ci.style.opacity='1'; }
+      };
+      img.onerror = function(){ _xqSetPal(t.role || 'bridge'); if(ci) ci.style.opacity='0'; };
+      img.src = t.coverBase + t.coverKey;
+    } else if(!t.coverKey){
+      // No artwork for this collection — hide cover, use role palette
+      _xqLastCoverKey = null;
+      if(ci) ci.style.opacity='0';
+      _xqSetPal(t.role || 'bridge');
+    }
+    // Same collection as previous track: artwork already showing, palette already set
+  };
+
+  MIZE.SoundStudio.onBeat = function(b){
+    // Module fires this only for tracks with known BPM; clear any fallback
+    clearInterval(_xqFallTmr); _xqFallTmr = null;
+    _xqBeatTick(b);
+  };
+
+  // Hide stage and stop all timers when the athlete exits Sound Box.
+  MIZE.SoundStudio.onExit = function(){
+    clearInterval(_xqFallTmr); _xqFallTmr = null;
+    _xqLastCoverKey = null;
+    var s = document.getElementById('xqStage');
+    if(s) s.classList.remove('on','playing','fog-burst');
+    var ci = document.getElementById('xqSCover');
+    if(ci){ ci.src=''; ci.style.opacity='0'; }
+    xquixShowHome();
+  };
 </script>
 <script>
 
@@ -26753,4 +26909,108 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   };
 })();
 </script>
+
+<!-- ── XquiX Sound Box stage backdrop ─────────────────────────────────────
+     Hidden by default (display:none). Shown via #xqStage.on when Sound Box
+     opens. Sits at z-99500; the Sound Studio overlay at z-100000 is made
+     transparent via CSS so the stage shows through its empty regions.
+     JS drives: .xqsb (beam divs) opacity/background, .playing/.fog-burst classes.
+     SOUNDBOX-STAGE-HOOKS 2026-09-12 — contract: soundbox/STAGE-HOOKS-CONTRACT.md
+──────────────────────────────────────────────────────────────────────────── -->
+<div id="xqStage">
+  <!-- Room background -->
+  <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 680 440">
+    <rect width="680" height="440" fill="#050709"/><rect width="680" height="44" fill="#040609"/>
+    <rect y="44" width="680" height="312" fill="#0c1315"/>
+    <polygon points="0,44 0,440 80,356 80,44" fill="#080d0f"/>
+    <polygon points="680,44 680,440 600,356 600,44" fill="#080d0f"/>
+  </svg>
+  <!-- Collection cover art — sits in the LED screen zone, shown when coverKey is non-null.
+       The foreground SVG's screen bezel (drawn on top) frames it automatically. -->
+  <img id="xqSCover" src="" alt="collection cover"
+    style="position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;object-fit:cover;border-radius:2px;opacity:0;transition:opacity .8s;pointer-events:none">
+  <!-- Spotlight beams — JS targets .xqsb for opacity and background-color -->
+  <div style="position:absolute;inset:0;pointer-events:none">
+    <div class="xqsb" style="clip-path:polygon(14.7% 20%,17.9% 20%,-3% 80.9%,14.7% 80.9%)"></div>
+    <div class="xqsb" style="clip-path:polygon(27.1% 20%,30.3% 20%,10.3% 80.9%,29.4% 80.9%)"></div>
+    <div class="xqsb" style="clip-path:polygon(38.5% 20%,41.8% 20%,23.5% 80.9%,42.6% 80.9%)"></div>
+    <div class="xqsb" style="clip-path:polygon(58.2% 20%,61.5% 20%,57.4% 80.9%,76.5% 80.9%)"></div>
+    <div class="xqsb" style="clip-path:polygon(69.7% 20%,72.9% 20%,70.6% 80.9%,89.7% 80.9%)"></div>
+    <div class="xqsb" style="clip-path:polygon(82.1% 20%,85.3% 20%,86% 80.9%,103% 80.9%)"></div>
+  </div>
+  <!-- Foreground: truss, speakers, stage, fog machines, lasers, fixtures -->
+  <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 680 440">
+    <defs><pattern id="xqSGr" x="0" y="0" width="200" height="5" patternUnits="userSpaceOnUse"><rect width="200" height="5" fill="#141a1a"/><line x1="0" y1="4" x2="200" y2="4" stroke="#1e2c2c" stroke-width=".8"/></pattern></defs>
+    <!-- Truss -->
+    <rect x="68" y="40" width="544" height="16" fill="#1c2224" rx="1"/>
+    <line x1="68" y1="40" x2="130" y2="56" stroke="#252e31" stroke-width="1"/><line x1="130" y1="40" x2="68" y2="56" stroke="#252e31" stroke-width="1"/>
+    <line x1="130" y1="40" x2="210" y2="56" stroke="#252e31" stroke-width="1"/><line x1="210" y1="40" x2="130" y2="56" stroke="#252e31" stroke-width="1"/>
+    <line x1="210" y1="40" x2="290" y2="56" stroke="#252e31" stroke-width="1"/><line x1="290" y1="40" x2="210" y2="56" stroke="#252e31" stroke-width="1"/>
+    <line x1="290" y1="40" x2="370" y2="56" stroke="#252e31" stroke-width="1"/><line x1="370" y1="40" x2="290" y2="56" stroke="#252e31" stroke-width="1"/>
+    <line x1="370" y1="40" x2="450" y2="56" stroke="#252e31" stroke-width="1"/><line x1="450" y1="40" x2="370" y2="56" stroke="#252e31" stroke-width="1"/>
+    <line x1="450" y1="40" x2="530" y2="56" stroke="#252e31" stroke-width="1"/><line x1="530" y1="40" x2="450" y2="56" stroke="#252e31" stroke-width="1"/>
+    <line x1="530" y1="40" x2="612" y2="56" stroke="#252e31" stroke-width="1"/><line x1="612" y1="40" x2="530" y2="56" stroke="#252e31" stroke-width="1"/>
+    <!-- Left speaker -->
+    <rect x="50" y="132" width="96" height="50" fill="#141a1a" rx="1"/><rect x="54" y="136" width="88" height="42" fill="url(#xqSGr)"/>
+    <polygon points="62,144 130,147 130,167 62,164" fill="#0c1212"/>
+    <rect x="40" y="182" width="116" height="122" fill="#111618" rx="1"/><rect x="44" y="186" width="108" height="114" fill="url(#xqSGr)"/>
+    <circle cx="98" cy="222" r="30" fill="#0a1315" stroke="#171e20" stroke-width="2"/><circle cx="98" cy="222" r="10" fill="#161e22"/>
+    <circle cx="98" cy="271" r="30" fill="#0a1315" stroke="#171e20" stroke-width="2"/><circle cx="98" cy="271" r="10" fill="#161e22"/>
+    <rect x="30" y="304" width="136" height="98" fill="#0d1314" rx="1"/><rect x="34" y="308" width="128" height="90" fill="url(#xqSGr)"/>
+    <circle cx="98" cy="353" r="38" fill="#0a1214" stroke="#141c1e" stroke-width="3"/><circle cx="98" cy="353" r="11" fill="#161e22"/>
+    <rect x="44" y="400" width="108" height="12" fill="#0b1012" rx="1"/><rect x="58" y="391" width="80" height="10" fill="#10181a" rx="1"/>
+    <rect x="44" y="174" width="108" height="9" fill="#0e1416"/>
+    <!-- Right speaker -->
+    <rect x="534" y="132" width="96" height="50" fill="#141a1a" rx="1"/><rect x="538" y="136" width="88" height="42" fill="url(#xqSGr)"/>
+    <polygon points="550,144 618,147 618,167 550,164" fill="#0c1212"/>
+    <rect x="524" y="182" width="116" height="122" fill="#111618" rx="1"/><rect x="528" y="186" width="108" height="114" fill="url(#xqSGr)"/>
+    <circle cx="582" cy="222" r="30" fill="#0a1315" stroke="#171e20" stroke-width="2"/><circle cx="582" cy="222" r="10" fill="#161e22"/>
+    <circle cx="582" cy="271" r="30" fill="#0a1315" stroke="#171e20" stroke-width="2"/><circle cx="582" cy="271" r="10" fill="#161e22"/>
+    <rect x="514" y="304" width="136" height="98" fill="#0d1314" rx="1"/><rect x="518" y="308" width="128" height="90" fill="url(#xqSGr)"/>
+    <circle cx="582" cy="353" r="38" fill="#0a1214" stroke="#141c1e" stroke-width="3"/><circle cx="582" cy="353" r="11" fill="#161e22"/>
+    <rect x="528" y="400" width="108" height="12" fill="#0b1012" rx="1"/><rect x="542" y="391" width="80" height="10" fill="#10181a" rx="1"/>
+    <rect x="528" y="174" width="108" height="9" fill="#0e1416"/>
+    <!-- Stage floor -->
+    <polygon points="80,356 600,356 680,440 0,440" fill="#101b20"/>
+    <rect x="80" y="352" width="520" height="5" fill="#244048"/>
+    <line x1="80" y1="352" x2="600" y2="352" stroke="#2ecab8" stroke-width=".8" opacity=".35"/>
+    <line x1="80" y1="378" x2="600" y2="378" stroke="#0d181c" stroke-width=".7"/>
+    <line x1="36" y1="398" x2="644" y2="398" stroke="#0d181c" stroke-width=".7"/>
+    <line x1="298" y1="373" x2="310" y2="385" stroke="#3d2c0a" stroke-width="1.5"/><line x1="310" y1="373" x2="298" y2="385" stroke="#3d2c0a" stroke-width="1.5"/>
+    <line x1="366" y1="373" x2="378" y2="385" stroke="#3d2c0a" stroke-width="1.5"/><line x1="378" y1="373" x2="366" y2="385" stroke="#3d2c0a" stroke-width="1.5"/>
+    <polygon points="178,418 248,418 240,398 190,398" fill="#0e1518"/><rect x="182" y="401" width="52" height="13" fill="#0b1214"/>
+    <polygon points="432,418 502,418 490,398 442,398" fill="#0e1518"/><rect x="446" y="401" width="52" height="13" fill="#0b1214"/>
+    <line x1="340" y1="432" x2="340" y2="366" stroke="#1c2426" stroke-width="2"/>
+    <line x1="322" y1="432" x2="358" y2="432" stroke="#1c2426" stroke-width="2.5"/>
+    <line x1="340" y1="372" x2="366" y2="366" stroke="#1c2426" stroke-width="1.5"/>
+    <ellipse cx="368" cy="364" rx="5" ry="8" fill="#1e2829"/>
+    <!-- Left fog machine -->
+    <rect x="74" y="348" width="40" height="15" fill="#1a2224" rx="2"/><rect x="84" y="334" width="16" height="16" fill="#1c2628" rx="1"/>
+    <rect x="76" y="354" width="38" height="2" fill="#22303a"/><rect x="76" y="359" width="38" height="2" fill="#22303a"/>
+    <g class="xqsFgL" transform="translate(96 338)"><ellipse cx="0" cy="-8" rx="18" ry="10" fill="#b4c8c4"/><ellipse cx="-12" cy="-22" rx="13" ry="8" fill="#a8bcb8"/><ellipse cx="14" cy="-26" rx="12" ry="7" fill="#a8bcb8"/><ellipse cx="0" cy="-38" rx="15" ry="9" fill="#9cb0ac"/></g>
+    <g class="xqsFgL" transform="translate(96 338)" style="animation-delay:-1.7s"><ellipse cx="-2" cy="-6" rx="15" ry="9" fill="#b0c4c0"/><ellipse cx="-14" cy="-20" rx="11" ry="7" fill="#a4b8b4"/><ellipse cx="13" cy="-24" rx="10" ry="6" fill="#a4b8b4"/></g>
+    <!-- Right fog machine -->
+    <rect x="566" y="348" width="40" height="15" fill="#1a2224" rx="2"/><rect x="580" y="334" width="16" height="16" fill="#1c2628" rx="1"/>
+    <rect x="566" y="354" width="38" height="2" fill="#22303a"/><rect x="566" y="359" width="38" height="2" fill="#22303a"/>
+    <g class="xqsFgR" transform="translate(584 338)"><ellipse cx="0" cy="-8" rx="18" ry="10" fill="#b4c8c4"/><ellipse cx="-12" cy="-22" rx="13" ry="8" fill="#a8bcb8"/><ellipse cx="14" cy="-26" rx="12" ry="7" fill="#a8bcb8"/><ellipse cx="0" cy="-38" rx="15" ry="9" fill="#9cb0ac"/></g>
+    <g class="xqsFgR" transform="translate(584 338)" style="animation-delay:-1.7s"><ellipse cx="2" cy="-6" rx="15" ry="9" fill="#b0c4c0"/><ellipse cx="-13" cy="-20" rx="11" ry="7" fill="#a4b8b4"/><ellipse cx="14" cy="-24" rx="10" ry="6" fill="#a4b8b4"/></g>
+    <!-- Laser projectors -->
+    <rect x="301" y="50" width="18" height="13" fill="#181c22" rx="1"/><rect x="305" y="43" width="10" height="9" fill="#12181e" rx="1"/>
+    <circle cx="310" cy="67" r="5" fill="#0d1816"/><circle cx="310" cy="67" r="3" fill="#0c3018"/><circle cx="310" cy="67" r="1.2" fill="#38f870"/>
+    <rect x="361" y="50" width="18" height="13" fill="#181c22" rx="1"/><rect x="365" y="43" width="10" height="9" fill="#12181e" rx="1"/>
+    <circle cx="370" cy="67" r="5" fill="#0d1816"/><circle cx="370" cy="67" r="3" fill="#0c3018"/><circle cx="370" cy="67" r="1.2" fill="#38f870"/>
+    <!-- Laser beams — rotation around translate origin = projector lens -->
+    <g id="xqSLas1" class="xqsLas" transform="translate(310 67)"><line x1="0" y1="0" x2="-230" y2="289" stroke="#38ee70" stroke-width=".8"/></g>
+    <g id="xqSLas2" class="xqsLas" transform="translate(370 67)"><line x1="0" y1="0" x2="230" y2="289" stroke="#38ee70" stroke-width=".8"/></g>
+    <g id="xqSLas3" class="xqsLas" transform="translate(310 67)"><line x1="0" y1="0" x2="282" y2="289" stroke="#ff4040" stroke-width=".65"/></g>
+    <g id="xqSLas4" class="xqsLas" transform="translate(370 67)"><line x1="0" y1="0" x2="-282" y2="289" stroke="#ff4040" stroke-width=".65"/></g>
+    <!-- Enlarged fixtures (mount 22×12 + yoke 8×24 + head 24×16 + lens r=12) -->
+    <!-- F1 x=110 cool --><rect x="99" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="106" y="56" width="8" height="24" fill="#1e2830"/><rect x="98" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="110" cy="94" r="12" fill="#182428"/><circle cx="110" cy="94" r="8" fill="#283c42"/><circle cx="110" cy="94" r="4" fill="#4a8090"/><circle cx="110" cy="94" r="1.5" fill="#80b8c8"/>
+    <!-- F2 x=194 cool --><rect x="183" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="190" y="56" width="8" height="24" fill="#1e2830"/><rect x="182" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="194" cy="94" r="12" fill="#182428"/><circle cx="194" cy="94" r="8" fill="#283c42"/><circle cx="194" cy="94" r="4" fill="#4a8090"/><circle cx="194" cy="94" r="1.5" fill="#80b8c8"/>
+    <!-- F3 x=273 teal --><rect x="262" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="269" y="56" width="8" height="24" fill="#1e2830"/><rect x="261" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="273" cy="94" r="12" fill="#182428"/><circle cx="273" cy="94" r="8" fill="#1a4840"/><circle cx="273" cy="94" r="4" fill="#1d9e75"/><circle cx="273" cy="94" r="1.5" fill="#50ffcc"/>
+    <!-- F4 x=407 teal --><rect x="396" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="403" y="56" width="8" height="24" fill="#1e2830"/><rect x="395" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="407" cy="94" r="12" fill="#182428"/><circle cx="407" cy="94" r="8" fill="#1a4840"/><circle cx="407" cy="94" r="4" fill="#1d9e75"/><circle cx="407" cy="94" r="1.5" fill="#50ffcc"/>
+    <!-- F5 x=484 cool --><rect x="473" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="480" y="56" width="8" height="24" fill="#1e2830"/><rect x="472" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="484" cy="94" r="12" fill="#182428"/><circle cx="484" cy="94" r="8" fill="#283c42"/><circle cx="484" cy="94" r="4" fill="#4a8090"/><circle cx="484" cy="94" r="1.5" fill="#80b8c8"/>
+    <!-- F6 x=568 cool --><rect x="557" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="564" y="56" width="8" height="24" fill="#1e2830"/><rect x="556" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="568" cy="94" r="12" fill="#182428"/><circle cx="568" cy="94" r="8" fill="#283c42"/><circle cx="568" cy="94" r="4" fill="#4a8090"/><circle cx="568" cy="94" r="1.5" fill="#80b8c8"/>
+  </svg>
+</div>
 </body></html>

@@ -10,6 +10,8 @@
  *   MIZE.SoundStudio.exit()    stop audio, release Media Session, remove overlay
  *   MIZE.SoundStudio.isOpen()
  *   MIZE.SoundStudio.config    { supabaseUrl, supabaseKey, audioBase, getAccessToken }
+ *   MIZE.SoundStudio.onExit / onTrackChange / onBeat   optional host callbacks
+ *                              (see soundbox/STAGE-HOOKS-CONTRACT.md)
  *
  * Leaves nothing behind on exit: no timers, no listeners, no DOM, no state.
  */
@@ -141,6 +143,7 @@
       const d = Number(t.duration_s);
       plan.push({
         index: plan.length + 1, role, track_id: t.id, title: t.title, collection_id: t.collection_id, r2_key: t.r2_key,
+        bpm: t.bpm == null ? null : Number(t.bpm),
         function_id: fn.id, function: fn.display_name, shorthand: fn.shorthand,
         activity: (fn.activities && fn.activities[0]) || null,
         duration_s: d, start_s: elapsed, state_in: state, state_out: exitOf(fn, state),
@@ -388,21 +391,53 @@ return self.XquiXSoundBuilder; })();
     const p = { a: A, b: B, cur: A, idx: -1, plan: [], fading: false, timer: null, onchange: () => {} };
 
     p.load = (plan) => { p.plan = plan; p.idx = -1; };
+
+    // --- host callbacks (stage hooks, brief SOUNDBOX-STAGE-HOOKS 2026-09-12) --
+    // onTrackChange fires once per actual track start; onBeat ticks on a
+    // setInterval derived from the track's measured BPM. Both are optional,
+    // both are wrapped so a host error can never reach the module.
+    let beatTimer = null, beat = 0, beatBpm = null;
+    function stopBeatClock() { if (beatTimer) { clearInterval(beatTimer); beatTimer = null; } beat = 0; beatBpm = null; }
+    function runBeatClock() {
+      if (beatTimer || !beatBpm) return;
+      beatTimer = setInterval(() => {
+        beat++;
+        const cb = root.MIZE.SoundStudio && root.MIZE.SoundStudio.onBeat;
+        if (typeof cb === "function") { try { cb({ beat, bpm: beatBpm }); } catch (e) {} }
+      }, Math.round(60000 / beatBpm));
+    }
+    function startBeatClock(bpm) { stopBeatClock(); if (!(bpm > 0)) return; beatBpm = bpm; runBeatClock(); }
+    // The clock pauses with the music and resumes without resetting the count.
+    function pauseBeatClock() { if (beatTimer) { clearInterval(beatTimer); beatTimer = null; } }
+    function announce(i) {
+      const t = p.plan[i]; if (!t) return;
+      const cb = root.MIZE.SoundStudio && root.MIZE.SoundStudio.onTrackChange;
+      if (typeof cb === "function") {
+        try {
+          cb({ title: t.title, bpm: t.bpm == null ? null : Number(t.bpm), coverKey: t.cover_key || null, coverBase: config.audioBase,
+               trackIndex: i + 1, total: p.plan.length, role: t.role || "track", function: t.function || null, trackId: t.track_id || t.id || null });
+        } catch (e) {}
+      }
+      startBeatClock(t.bpm == null ? null : Number(t.bpm));
+    }
+    p._beat = { stop: stopBeatClock, pause: pauseBeatClock, run: runBeatClock };
     p.playIndex = (i) => {
       if (i < 0 || i >= p.plan.length) return p.stop();
       const next = (p.cur === A ? B : A);
       const src = config.audioBase + p.plan[i].r2_key;
+      stopBeatClock();
       p.cur.pause(); p.cur.volume = 1;
       next.src = src; next.volume = 1;
       p.cur = next; p.idx = i;
       next.play().catch(() => {});
       p.onchange();
       mediaSession(p);
+      announce(i);
     };
     p.toggle = () => { if (p.idx < 0) return p.playIndex(0); p.cur.paused ? p.cur.play() : p.cur.pause(); p.onchange(); };
     p.next = () => p.playIndex(p.idx + 1);
     p.prev = () => (p.cur.currentTime > 5 ? (p.cur.currentTime = 0) : p.playIndex(Math.max(0, p.idx - 1)));
-    p.stop = () => { [A, B].forEach(a => { a.pause(); a.removeAttribute("src"); a.load(); }); p.idx = -1; p.fading = false; p.onchange(); };
+    p.stop = () => { stopBeatClock(); [A, B].forEach(a => { a.pause(); a.removeAttribute("src"); a.load(); }); p.idx = -1; p.fading = false; p.onchange(); };
     // Crossfade: when the current track is within N seconds of its end, start
     // the next one quietly and swap the volumes over those seconds.
     function tick() {
@@ -416,13 +451,13 @@ return self.XquiXSoundBuilder; })();
           const k = Math.min(1, (performance.now() - t0) / (n * 1000));
           from.volume = 1 - k; to.volume = k;
           if (k < 1 && p.fading) requestAnimationFrame(step);
-          else { from.pause(); from.volume = 1; p.cur = to; p.idx += 1; p.fading = false; p.onchange(); mediaSession(p); }
+          else { from.pause(); from.volume = 1; p.cur = to; p.idx += 1; p.fading = false; p.onchange(); mediaSession(p); announce(p.idx); }
         };
         requestAnimationFrame(step);
       }
       p.onchange("time");
     }
-    [A, B].forEach(a => { on(a, "timeupdate", tick); on(a, "ended", () => { if (!p.fading) p.next(); }); on(a, "play", () => p.onchange()); on(a, "pause", () => p.onchange()); });
+    [A, B].forEach(a => { on(a, "timeupdate", tick); on(a, "ended", () => { if (!p.fading) p.next(); }); on(a, "play", () => { if (a === p.cur) runBeatClock(); p.onchange(); }); on(a, "pause", () => { if (a === p.cur && !p.fading) pauseBeatClock(); p.onchange(); }); });
     return p;
   }
   function mediaSession(p) {
@@ -559,7 +594,8 @@ return self.XquiXSoundBuilder; })();
     el.querySelectorAll("[data-box]").forEach(b => b.onclick = () => {
       const t = catalog.tracks.find(x => x.id === b.dataset.box);
       const f = catalog.functions.find(x => x.id === t.function_id);
-      player.load([{ ...t, function: f.display_name, shorthand: f.shorthand, activity: null }]);
+      const col = catalog.collections.find(c => c.id === t.collection_id);
+      player.load([{ ...t, track_id: t.id, role: "library", function: f.display_name, shorthand: f.shorthand, activity: null, cover_key: (col && col.cover_key) || null }]);
       player.playIndex(0); render();
     });
   }
@@ -570,6 +606,8 @@ return self.XquiXSoundBuilder; })();
     try {
       session = MIZE.SoundStudio.buildSession({ feeling: answers.feeling, situation: answers.situation, minutes: answers.minutes, collection: answers.collection || undefined }, catalog, VOCAB);
       if (!session.plan.length) throw new Error("no tracks available for that combination");
+      // Cover art lives on the collection (sound_collections.cover_key); carry it onto each row for onTrackChange.
+      session.plan.forEach(p => { const col = catalog.collections.find(c => c.id === p.collection_id); p.cover_key = (col && col.cover_key) || null; });
       player.load(session.plan);
       view = "session"; render();
     } catch (e) { err.hidden = false; err.textContent = "Could not build a session: " + e.message; }
@@ -626,5 +664,7 @@ return self.XquiXSoundBuilder; })();
     buildSession: (inputs, cat, vocab) => XquiXSoundBuilder.buildSession(inputs, cat, vocab || VOCAB),
     vocabulary: VOCAB,
     onExit: null,
+    onTrackChange: null,   // ({title,bpm,coverKey,coverBase,trackIndex,total,role,function,trackId}) on every track start
+    onBeat: null,          // ({beat,bpm}) on every beat of a track with a measured BPM
   };
 })();
