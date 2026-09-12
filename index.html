@@ -1500,8 +1500,16 @@
   /* ── XquiX Sound Box stage backdrop (SOUNDBOX-STAGE-HOOKS 2026-09-12) ── */
   #xqStage{position:fixed;inset:0;z-index:99500;background:#050709;overflow:hidden;display:none;pointer-events:none}
   #xqStage.on{display:block}
-  /* Sound Studio sits at z-100000; making its bg transparent lets the stage show through empty regions */
-  #xqSoundStudio{background:transparent!important}
+  /* Sound Studio overlay is confined to the stage's LED screen area.
+     The stage (speakers, lights, fog) remains fully visible around it.
+     Each side is overridden individually because the module sets inset:0. */
+  #xqSoundStudio{
+    left:25.88%!important; top:18.64%!important;
+    right:auto!important;  bottom:auto!important;
+    width:48.24%!important; height:44.55%!important;
+    border-radius:2px!important;
+    background:#071c18!important;
+  }
   .xqsb{position:absolute;inset:0;transition:background .5s ease,opacity .2s ease;opacity:.07}
   @keyframes xqFog{0%{opacity:.13;transform:scale(.5)}55%{opacity:.08}100%{opacity:0;transform:scale(3.2)}}
   .xqsFgL{transform-origin:0 0;animation:xqFog 3.2s ease-out infinite;animation-play-state:paused}
@@ -26987,23 +26995,25 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     <!-- Left fog machine -->
     <rect x="74" y="348" width="40" height="15" fill="#1a2224" rx="2"/><rect x="84" y="334" width="16" height="16" fill="#1c2628" rx="1"/>
     <rect x="76" y="354" width="38" height="2" fill="#22303a"/><rect x="76" y="359" width="38" height="2" fill="#22303a"/>
-    <g class="xqsFgL" transform="translate(96 338)"><ellipse cx="0" cy="-8" rx="18" ry="10" fill="#b4c8c4"/><ellipse cx="-12" cy="-22" rx="13" ry="8" fill="#a8bcb8"/><ellipse cx="14" cy="-26" rx="12" ry="7" fill="#a8bcb8"/><ellipse cx="0" cy="-38" rx="15" ry="9" fill="#9cb0ac"/></g>
-    <g class="xqsFgL" transform="translate(96 338)" style="animation-delay:-1.7s"><ellipse cx="-2" cy="-6" rx="15" ry="9" fill="#b0c4c0"/><ellipse cx="-14" cy="-20" rx="11" ry="7" fill="#a4b8b4"/><ellipse cx="13" cy="-24" rx="10" ry="6" fill="#a4b8b4"/></g>
+    <g transform="translate(96 338)"><g class="xqsFgL"><ellipse cx="0" cy="-8" rx="18" ry="10" fill="#b4c8c4"/><ellipse cx="-12" cy="-22" rx="13" ry="8" fill="#a8bcb8"/><ellipse cx="14" cy="-26" rx="12" ry="7" fill="#a8bcb8"/><ellipse cx="0" cy="-38" rx="15" ry="9" fill="#9cb0ac"/></g></g>
+    <g transform="translate(96 338)"><g class="xqsFgL" style="animation-delay:-1.7s"><ellipse cx="-2" cy="-6" rx="15" ry="9" fill="#b0c4c0"/><ellipse cx="-14" cy="-20" rx="11" ry="7" fill="#a4b8b4"/><ellipse cx="13" cy="-24" rx="10" ry="6" fill="#a4b8b4"/></g></g>
     <!-- Right fog machine -->
     <rect x="566" y="348" width="40" height="15" fill="#1a2224" rx="2"/><rect x="580" y="334" width="16" height="16" fill="#1c2628" rx="1"/>
     <rect x="566" y="354" width="38" height="2" fill="#22303a"/><rect x="566" y="359" width="38" height="2" fill="#22303a"/>
-    <g class="xqsFgR" transform="translate(584 338)"><ellipse cx="0" cy="-8" rx="18" ry="10" fill="#b4c8c4"/><ellipse cx="-12" cy="-22" rx="13" ry="8" fill="#a8bcb8"/><ellipse cx="14" cy="-26" rx="12" ry="7" fill="#a8bcb8"/><ellipse cx="0" cy="-38" rx="15" ry="9" fill="#9cb0ac"/></g>
-    <g class="xqsFgR" transform="translate(584 338)" style="animation-delay:-1.7s"><ellipse cx="2" cy="-6" rx="15" ry="9" fill="#b0c4c0"/><ellipse cx="-13" cy="-20" rx="11" ry="7" fill="#a4b8b4"/><ellipse cx="14" cy="-24" rx="10" ry="6" fill="#a4b8b4"/></g>
+    <g transform="translate(584 338)"><g class="xqsFgR"><ellipse cx="0" cy="-8" rx="18" ry="10" fill="#b4c8c4"/><ellipse cx="-12" cy="-22" rx="13" ry="8" fill="#a8bcb8"/><ellipse cx="14" cy="-26" rx="12" ry="7" fill="#a8bcb8"/><ellipse cx="0" cy="-38" rx="15" ry="9" fill="#9cb0ac"/></g></g>
+    <g transform="translate(584 338)"><g class="xqsFgR" style="animation-delay:-1.7s"><ellipse cx="2" cy="-6" rx="15" ry="9" fill="#b0c4c0"/><ellipse cx="-13" cy="-20" rx="11" ry="7" fill="#a4b8b4"/><ellipse cx="14" cy="-24" rx="10" ry="6" fill="#a4b8b4"/></g></g>
     <!-- Laser projectors -->
     <rect x="301" y="50" width="18" height="13" fill="#181c22" rx="1"/><rect x="305" y="43" width="10" height="9" fill="#12181e" rx="1"/>
     <circle cx="310" cy="67" r="5" fill="#0d1816"/><circle cx="310" cy="67" r="3" fill="#0c3018"/><circle cx="310" cy="67" r="1.2" fill="#38f870"/>
     <rect x="361" y="50" width="18" height="13" fill="#181c22" rx="1"/><rect x="365" y="43" width="10" height="9" fill="#12181e" rx="1"/>
     <circle cx="370" cy="67" r="5" fill="#0d1816"/><circle cx="370" cy="67" r="3" fill="#0c3018"/><circle cx="370" cy="67" r="1.2" fill="#38f870"/>
     <!-- Laser beams — rotation around translate origin = projector lens -->
-    <g id="xqSLas1" class="xqsLas" transform="translate(310 67)"><line x1="0" y1="0" x2="-230" y2="289" stroke="#38ee70" stroke-width=".8"/></g>
-    <g id="xqSLas2" class="xqsLas" transform="translate(370 67)"><line x1="0" y1="0" x2="230" y2="289" stroke="#38ee70" stroke-width=".8"/></g>
-    <g id="xqSLas3" class="xqsLas" transform="translate(310 67)"><line x1="0" y1="0" x2="282" y2="289" stroke="#ff4040" stroke-width=".65"/></g>
-    <g id="xqSLas4" class="xqsLas" transform="translate(370 67)"><line x1="0" y1="0" x2="-282" y2="289" stroke="#ff4040" stroke-width=".65"/></g>
+    <!-- Laser beams: outer <g> = SVG translate to projector lens;
+         inner <g> = CSS rotate animation (no attribute/CSS conflict). -->
+    <g transform="translate(310 67)"><g id="xqSLas1" class="xqsLas"><line x1="0" y1="0" x2="-230" y2="289" stroke="#38ee70" stroke-width=".8"/></g></g>
+    <g transform="translate(370 67)"><g id="xqSLas2" class="xqsLas"><line x1="0" y1="0" x2="230" y2="289" stroke="#38ee70" stroke-width=".8"/></g></g>
+    <g transform="translate(310 67)"><g id="xqSLas3" class="xqsLas"><line x1="0" y1="0" x2="282" y2="289" stroke="#ff4040" stroke-width=".65"/></g></g>
+    <g transform="translate(370 67)"><g id="xqSLas4" class="xqsLas"><line x1="0" y1="0" x2="-282" y2="289" stroke="#ff4040" stroke-width=".65"/></g></g>
     <!-- Enlarged fixtures (mount 22×12 + yoke 8×24 + head 24×16 + lens r=12) -->
     <!-- F1 x=110 cool --><rect x="99" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="106" y="56" width="8" height="24" fill="#1e2830"/><rect x="98" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="110" cy="94" r="12" fill="#182428"/><circle cx="110" cy="94" r="8" fill="#283c42"/><circle cx="110" cy="94" r="4" fill="#4a8090"/><circle cx="110" cy="94" r="1.5" fill="#80b8c8"/>
     <!-- F2 x=194 cool --><rect x="183" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="190" y="56" width="8" height="24" fill="#1e2830"/><rect x="182" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="194" cy="94" r="12" fill="#182428"/><circle cx="194" cy="94" r="8" fill="#283c42"/><circle cx="194" cy="94" r="4" fill="#4a8090"/><circle cx="194" cy="94" r="1.5" fill="#80b8c8"/>
