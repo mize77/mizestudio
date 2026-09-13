@@ -419,9 +419,13 @@ return self.XquiXSoundBuilder; })();
   async function probeCors(cat) {
     if (analysis.ok !== null) return analysis.ok;
     try {
-      const col = cat && cat.collections.find(c => c.cover_key);
+      // Probe a track, not a cover: Cloudflare edge-caches images by default
+      // and a cover cached before the CORS policy was set answers without the
+      // headers for as long as it lives in cache (seen 2026-09-13); MP3 is not
+      // in the default cacheable extensions, so a track answers fresh.
       const trk = cat && cat.tracks.find(t => t.status === "active");
-      const key = col ? col.cover_key : trk ? trk.r2_key : null;
+      const col = cat && cat.collections.find(c => c.cover_key);
+      const key = trk ? trk.r2_key : col ? col.cover_key : null;
       if (!key) { analysis.ok = false; return false; }
       const r = await fetch(config.audioBase + key, { mode: "cors", cache: "no-store", headers: { Range: "bytes=0-1" } });
       if (r.body && r.body.cancel) r.body.cancel().catch(() => {});

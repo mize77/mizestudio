@@ -58,8 +58,15 @@ dashboard → R2 → `xquix-sound` → **Settings** → **CORS Policy** → Add:
 
 `*` is fine: the bucket is public-read already and CORS never restricts
 plain playback. The module probes this once at `start()` (a 2-byte range
-request for a cover). If the probe fails, `onLevel` stays silent, the music
+request for a track). If the probe fails, `onLevel` stays silent, the music
 plays exactly as before, and one console warning names this fix.
+
+**Set 2026-09-13 and verified from `app.xquix.com`**: tracks and covers
+answer with CORS. One exception: `covers/xquix-sound-bd0ac60c.webp` was
+edge-cached before the policy existed and still answers without the
+headers until purged (Cloudflare → Caching → Purge by URL) or expired.
+Covers loaded as plain `<img>` are unaffected; only a `crossorigin` image or
+`fetch` of that one URL fails meanwhile.
 
 ### Mounting inside the stage
 
