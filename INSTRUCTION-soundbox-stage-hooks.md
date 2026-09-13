@@ -82,11 +82,12 @@ tempo should treat `bpm > 150` with suspicion or halve it.
 The brief expects `sound_tracks.cover_key`. **There is no such column.** Cover
 art in this schema lives on the *collection* (`sound_collections.cover_key`),
 because artwork is per rendering family, not per track. The module therefore
-sends the **collection's** cover key as `coverKey`. Today every collection's
-`cover_key` is `null` — no artwork has been uploaded to R2 yet — so the stage
-will receive `null` until that happens, and should show its own default
-circle. When covers land they will be at `coverBase + coverKey`, and this
-field starts carrying a value with no module change.
+sends the **collection's** cover key as `coverKey`. As of 2026-09-12 all
+seven collections have a cover in R2 (`covers/<collection_id>-<hash8>.webp`,
+512×512, transparent background), verified live at `coverBase + coverKey`
+(e.g. `https://sound.xquix.com/covers/xquix-sound-bd0ac60c.webp`). The stage
+should still keep a default circle for the `null` case — a collection added
+later may not have art yet.
 
 ## What did not change
 
