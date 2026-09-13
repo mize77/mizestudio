@@ -22044,25 +22044,34 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 <script src="xquix-pose-resolver.js"></script>
 <script src="xquix-sound-studio.js"></script>
 <script>
-  // Sound Studio saves an athlete's session only when it can get the signed-in
-  // user's access token. XQUIX.Auth.getClient() returns the Supabase client
-  // created at Studio startup (confirmed: line ~4184 getClient(){ return client; }).
+  // ── Sound Studio config (canvas stage rebuild 2026-09-13) ────────────────
+  // Contract: INSTRUCTION-soundbox-stage-hooks.md (round 2)
+  // config.mount  → module fills #xqScreen (position:absolute;inset:0;z-index:auto)
+  // config.background → transparent so canvas shows through
+  // Set onLevel BEFORE start() → enables Web Audio analysis (config.analyse:"auto")
+  // onLevel(l): { bass,mid,high,level(RMS),hit(onset bool),t } ~60fps
+  // onBeat(b): { beat,bpm } — setInterval fallback for no-BPM or CORS-off tracks
+
   MIZE.SoundStudio.config.getAccessToken = async function () {
     try {
       const { data } = await XQUIX.Auth.getClient().auth.getSession();
       return data && data.session ? data.session.access_token : null;
     } catch (e) { return null; }
   };
+  MIZE.SoundStudio.config.mount      = '#xqScreen';
+  MIZE.SoundStudio.config.background = 'transparent';
 
-  // ── Stage backdrop hooks (SOUNDBOX-STAGE-HOOKS 2026-09-12) ──────────────
-  // Contract: soundbox/STAGE-HOOKS-CONTRACT.md
-  // onTrackChange fires once per actual track start (not on timeupdate/pause).
-  // onBeat fires on a setInterval at the track's measured BPM, paused with
-  //   playback. ~23/42 tracks today have no BPM; _xqFallTmr covers those.
-  // coverKey is per collection (sound_collections.cover_key). Now live — non-null
-  //   for all collections. URL = coverBase + coverKey. Stage samples its colors for beams.
+  // Shared stage state — written by config callbacks, read by canvas loop.
+  var _xqSt = {
+    level:        null,   // latest onLevel payload (null when paused / CORS off)
+    beatDecay:    0,      // 0-1; set 1 on hit or onBeat, decayed each frame
+    playing:      false,
+    palette:      ['#1d9e75','#2ecab8','#0f6e56','#3dd4c0','#0e4a38','#4ecfb5'],
+    coverImg:     null,
+    lastCoverKey: null,
+    fallTimer:    null,   // onBeat-driven 500ms fallback for no-BPM / CORS-off
+  };
 
-  // Role → teal palette (6 beam colors). Replaced when real artwork ships.
   var _xqRolePal = {
     meet:      ['#1d9e75','#2ecab8','#0f6e56','#3dd4c0','#0e4a38','#4ecfb5'],
     transform: ['#2ecab8','#3dd4c0','#0f6e56','#4ecfb5','#148866','#1d9e75'],
@@ -22073,119 +22082,61 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     adversity: ['#cc4444','#dd6644','#aa3333','#ee7766','#883322','#cc5544'],
     library:   ['#1d9e75','#2ecab8','#0f6e56','#3dd4c0','#0e4a38','#4ecfb5'],
   };
-  var _xqBeatN   = 0;    // beat counter; resets on each track
-  var _xqFallTmr = null; // fallback timer for BPM-null tracks
-  var _xqBColors = _xqRolePal.bridge.slice();
 
-  function _xqBeams(){ return Array.from(document.querySelectorAll('#xqStage .xqsb')); }
+  // PRIMARY: real per-frame audio analysis. Must be set before start().
+  MIZE.SoundStudio.onLevel = function (l) {
+    _xqSt.level = l;
+  };
 
-  function _xqSetPal(role){
-    _xqBColors = (_xqRolePal[role] || _xqRolePal.bridge).slice();
-    _xqBeams().forEach(function(b,i){ b.style.background = _xqBColors[i]; });
-  }
+  // FALLBACK: setInterval metronome for BPM-null tracks or CORS-off sessions.
+  MIZE.SoundStudio.onBeat = function (b) {
+    _xqSt.beatDecay = 1;
+  };
 
-  function _xqBeatTick(b){
-    _xqBeatN = b.beat;
-    var bs = _xqBeams(), BAS = [.15,.13,.16,.16,.13,.15];
-    var pat = Math.floor((_xqBeatN - 1) / 8) % 4;
-    if(pat === 0){                // chase left → right
-      var ci = _xqBeatN % 6;
-      bs.forEach(function(el,j){ el.style.opacity = j===ci ? .50 : BAS[j]*.35; });
-    } else if(pat === 1){         // odd / even alternation
-      bs.forEach(function(el,j){ el.style.opacity = (_xqBeatN+j)%2===0 ? .44 : BAS[j]*.28; });
-    } else if(pat === 2){         // all-together strobe
-      var op = _xqBeatN%2===0 ? .42 : BAS[0];
-      bs.forEach(function(el){ el.style.opacity = op; });
-    } else {                      // paired convergence
-      var pr = [[0,5],[1,4],[2,3]], pp = Math.floor(_xqBeatN/2)%3;
-      bs.forEach(function(el,j){ el.style.opacity = pr[pp].indexOf(j)!==-1 ? .46 : BAS[j]*.22; });
+  MIZE.SoundStudio.onTrackChange = function (t) {
+    _xqSt.playing   = true;
+    _xqSt.level     = null;
+    _xqSt.beatDecay = 0;
+    _xqSt.palette   = (_xqRolePal[t.role] || _xqRolePal.bridge).slice();
+
+    // 500ms fallback timer for BPM-null tracks (or when onLevel is silent)
+    clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
+    if (!(t.bpm > 0)) {
+      _xqSt.fallTimer = setInterval(function () { _xqSt.beatDecay = 1; }, 500);
     }
-    // Fog burst every 16 beats
-    if(_xqBeatN % 16 === 0){
-      var s = document.getElementById('xqStage');
-      if(s){ s.classList.add('fog-burst'); setTimeout(function(){ s.classList.remove('fog-burst'); }, 2500); }
-    }
-    // Beam colour shift every 8 beats
-    if(_xqBeatN % 8 === 0){
-      _xqBColors.push(_xqBColors.shift());
-      bs.forEach(function(el,i){ el.style.background = _xqBColors[i]; });
-    }
-  }
 
-  // Tracks share a coverKey per collection. Cache it so same-collection
-  // consecutive tracks don't flash. Cleared on exit.
-  var _xqLastCoverKey = null;
-
-  // Sample 6 colors from a loaded image for the spotlight palette.
-  // Uses a 3×2 canvas (one pixel per beam region). Fails gracefully if
-  // R2 doesn't set CORS headers — falls through to the role palette.
-  function _xqSamplePal(img){
-    try{
-      var c2=document.createElement('canvas'); c2.width=3; c2.height=2;
-      var ctx=c2.getContext('2d',{willReadFrequently:true});
-      ctx.drawImage(img,0,0,3,2);
-      var d=ctx.getImageData(0,0,3,2).data, cols=[];
-      for(var i=0;i<6;i++){
-        var r=d[i*4],g=d[i*4+1],b=d[i*4+2];
-        // Boost brightness for stage lights: clamp floor at 60 so beams are always visible
-        var mx=Math.max(r,g,b);
-        if(mx<60){ var sc=60/Math.max(mx,1); r=Math.min(255,r*sc|0); g=Math.min(255,g*sc|0); b=Math.min(255,b*sc|0); }
-        cols.push('rgb('+r+','+g+','+b+')');
-      }
-      return cols.length>=4 ? cols : null;
-    }catch(e){ return null; }
-  }
-
-  MIZE.SoundStudio.onTrackChange = function(t){
-    _xqBeatN = 0;
-    // Activate stage visuals (lasers + fog) on first track
-    var s = document.getElementById('xqStage');
-    if(s) s.classList.add('playing');
-    // Fallback beat timer for tracks without measured BPM
-    clearInterval(_xqFallTmr); _xqFallTmr = null;
-    if(!(t.bpm > 0)){
-      var _n = 0;
-      _xqFallTmr = setInterval(function(){ _n++; _xqBeatTick({ beat:_n, bpm:null }); }, 500);
-    }
-    // Cover art: coverKey is per collection, so cache to skip reloads for
-    // consecutive tracks in the same collection.
-    var ci = document.getElementById('xqSCover');
-    if(t.coverKey && t.coverKey !== _xqLastCoverKey){
-      _xqLastCoverKey = t.coverKey;
-      // Load off-screen first so we can sample before showing
-      var img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = function(){
-        var pal = _xqSamplePal(img);
-        if(pal){ _xqBColors=pal; _xqBeams().forEach(function(b,i){ b.style.background=_xqBColors[i]; }); }
-        else { _xqSetPal(t.role || 'bridge'); }
-        if(ci){ ci.src=img.src; ci.style.opacity='1'; }
+    // Cover art: now live for all 7 collections. Sample palette once loaded.
+    if (t.coverKey && t.coverKey !== _xqSt.lastCoverKey) {
+      _xqSt.lastCoverKey = t.coverKey;
+      var img = new Image(); img.crossOrigin = 'anonymous';
+      img.onload = function () {
+        try {
+          var cv=document.createElement('canvas'); cv.width=3; cv.height=2;
+          var cx=cv.getContext('2d',{willReadFrequently:true});
+          cx.drawImage(img,0,0,3,2);
+          var d=cx.getImageData(0,0,3,2).data, cols=[];
+          for(var i=0;i<6;i++){
+            var r=d[i*4],g=d[i*4+1],b=d[i*4+2],mx=Math.max(r,g,b);
+            if(mx<60){var sc=60/Math.max(mx,1);r=Math.min(255,r*sc|0);g=Math.min(255,g*sc|0);b=Math.min(255,b*sc|0);}
+            cols.push('rgb('+r+','+g+','+b+')');
+          }
+          if(cols.length>=4) _xqSt.palette=cols;
+        } catch(e){}
+        _xqSt.coverImg = img;
       };
-      img.onerror = function(){ _xqSetPal(t.role || 'bridge'); if(ci) ci.style.opacity='0'; };
+      img.onerror = function(){ _xqSt.coverImg = null; };
       img.src = t.coverBase + t.coverKey;
-    } else if(!t.coverKey){
-      // No artwork for this collection — hide cover, use role palette
-      _xqLastCoverKey = null;
-      if(ci) ci.style.opacity='0';
-      _xqSetPal(t.role || 'bridge');
+    } else if (!t.coverKey) {
+      _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
     }
-    // Same collection as previous track: artwork already showing, palette already set
   };
 
-  MIZE.SoundStudio.onBeat = function(b){
-    // Module fires this only for tracks with known BPM; clear any fallback
-    clearInterval(_xqFallTmr); _xqFallTmr = null;
-    _xqBeatTick(b);
-  };
-
-  // Hide stage and stop all timers when the athlete exits Sound Box.
-  MIZE.SoundStudio.onExit = function(){
-    clearInterval(_xqFallTmr); _xqFallTmr = null;
-    _xqLastCoverKey = null;
+  MIZE.SoundStudio.onExit = function () {
+    clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
+    _xqSt.playing = false; _xqSt.level = null;
+    _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
     var s = document.getElementById('xqStage');
-    if(s) s.classList.remove('on','playing','fog-burst');
-    var ci = document.getElementById('xqSCover');
-    if(ci){ ci.src=''; ci.style.opacity='0'; }
+    if (s) s.classList.remove('on');
     xquixShowHome();
   };
 </script>
@@ -26918,109 +26869,250 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 })();
 </script>
 
-<!-- ── XquiX Sound Box stage backdrop ─────────────────────────────────────
-     Hidden by default (display:none). Shown via #xqStage.on when Sound Box
-     opens. Sits at z-99500; the Sound Studio overlay at z-100000 is made
-     transparent via CSS so the stage shows through its empty regions.
-     JS drives: .xqsb (beam divs) opacity/background, .playing/.fog-burst classes.
-     SOUNDBOX-STAGE-HOOKS 2026-09-12 — contract: soundbox/STAGE-HOOKS-CONTRACT.md
+<!-- ── XquiX Sound Box canvas stage ────────────────────────────────────────
+     Canvas covers the full stage; all effects drawn per-frame via onLevel.
+     #xqScreen receives the Sound Studio UI via config.mount (round 2).
+     SOUNDBOX-STAGE-HOOKS round 2, 2026-09-13.
 ──────────────────────────────────────────────────────────────────────────── -->
 <div id="xqStage">
-  <!-- Room background -->
-  <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 680 440">
-    <rect width="680" height="440" fill="#050709"/><rect width="680" height="44" fill="#040609"/>
-    <rect y="44" width="680" height="312" fill="#0c1315"/>
-    <polygon points="0,44 0,440 80,356 80,44" fill="#080d0f"/>
-    <polygon points="680,44 680,440 600,356 600,44" fill="#080d0f"/>
-  </svg>
-  <!-- Collection cover art — sits in the LED screen zone, shown when coverKey is non-null.
-       The foreground SVG's screen bezel (drawn on top) frames it automatically. -->
-  <img id="xqSCover" src="" alt="collection cover"
-    style="position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;object-fit:cover;border-radius:2px;opacity:0;transition:opacity .8s;pointer-events:none">
-  <!-- Spotlight beams — JS targets .xqsb for opacity and background-color -->
-  <div style="position:absolute;inset:0;pointer-events:none">
-    <div class="xqsb" style="clip-path:polygon(14.7% 20%,17.9% 20%,-3% 80.9%,14.7% 80.9%)"></div>
-    <div class="xqsb" style="clip-path:polygon(27.1% 20%,30.3% 20%,10.3% 80.9%,29.4% 80.9%)"></div>
-    <div class="xqsb" style="clip-path:polygon(38.5% 20%,41.8% 20%,23.5% 80.9%,42.6% 80.9%)"></div>
-    <div class="xqsb" style="clip-path:polygon(58.2% 20%,61.5% 20%,57.4% 80.9%,76.5% 80.9%)"></div>
-    <div class="xqsb" style="clip-path:polygon(69.7% 20%,72.9% 20%,70.6% 80.9%,89.7% 80.9%)"></div>
-    <div class="xqsb" style="clip-path:polygon(82.1% 20%,85.3% 20%,86% 80.9%,103% 80.9%)"></div>
-  </div>
-  <!-- Foreground: truss, speakers, stage, fog machines, lasers, fixtures -->
-  <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 680 440">
-    <defs><pattern id="xqSGr" x="0" y="0" width="200" height="5" patternUnits="userSpaceOnUse"><rect width="200" height="5" fill="#141a1a"/><line x1="0" y1="4" x2="200" y2="4" stroke="#1e2c2c" stroke-width=".8"/></pattern></defs>
-    <!-- Truss -->
-    <rect x="68" y="40" width="544" height="16" fill="#1c2224" rx="1"/>
-    <line x1="68" y1="40" x2="130" y2="56" stroke="#252e31" stroke-width="1"/><line x1="130" y1="40" x2="68" y2="56" stroke="#252e31" stroke-width="1"/>
-    <line x1="130" y1="40" x2="210" y2="56" stroke="#252e31" stroke-width="1"/><line x1="210" y1="40" x2="130" y2="56" stroke="#252e31" stroke-width="1"/>
-    <line x1="210" y1="40" x2="290" y2="56" stroke="#252e31" stroke-width="1"/><line x1="290" y1="40" x2="210" y2="56" stroke="#252e31" stroke-width="1"/>
-    <line x1="290" y1="40" x2="370" y2="56" stroke="#252e31" stroke-width="1"/><line x1="370" y1="40" x2="290" y2="56" stroke="#252e31" stroke-width="1"/>
-    <line x1="370" y1="40" x2="450" y2="56" stroke="#252e31" stroke-width="1"/><line x1="450" y1="40" x2="370" y2="56" stroke="#252e31" stroke-width="1"/>
-    <line x1="450" y1="40" x2="530" y2="56" stroke="#252e31" stroke-width="1"/><line x1="530" y1="40" x2="450" y2="56" stroke="#252e31" stroke-width="1"/>
-    <line x1="530" y1="40" x2="612" y2="56" stroke="#252e31" stroke-width="1"/><line x1="612" y1="40" x2="530" y2="56" stroke="#252e31" stroke-width="1"/>
-    <!-- Left speaker -->
-    <rect x="50" y="132" width="96" height="50" fill="#141a1a" rx="1"/><rect x="54" y="136" width="88" height="42" fill="url(#xqSGr)"/>
-    <polygon points="62,144 130,147 130,167 62,164" fill="#0c1212"/>
-    <rect x="40" y="182" width="116" height="122" fill="#111618" rx="1"/><rect x="44" y="186" width="108" height="114" fill="url(#xqSGr)"/>
-    <circle cx="98" cy="222" r="30" fill="#0a1315" stroke="#171e20" stroke-width="2"/><circle cx="98" cy="222" r="10" fill="#161e22"/>
-    <circle cx="98" cy="271" r="30" fill="#0a1315" stroke="#171e20" stroke-width="2"/><circle cx="98" cy="271" r="10" fill="#161e22"/>
-    <rect x="30" y="304" width="136" height="98" fill="#0d1314" rx="1"/><rect x="34" y="308" width="128" height="90" fill="url(#xqSGr)"/>
-    <circle cx="98" cy="353" r="38" fill="#0a1214" stroke="#141c1e" stroke-width="3"/><circle cx="98" cy="353" r="11" fill="#161e22"/>
-    <rect x="44" y="400" width="108" height="12" fill="#0b1012" rx="1"/><rect x="58" y="391" width="80" height="10" fill="#10181a" rx="1"/>
-    <rect x="44" y="174" width="108" height="9" fill="#0e1416"/>
-    <!-- Right speaker -->
-    <rect x="534" y="132" width="96" height="50" fill="#141a1a" rx="1"/><rect x="538" y="136" width="88" height="42" fill="url(#xqSGr)"/>
-    <polygon points="550,144 618,147 618,167 550,164" fill="#0c1212"/>
-    <rect x="524" y="182" width="116" height="122" fill="#111618" rx="1"/><rect x="528" y="186" width="108" height="114" fill="url(#xqSGr)"/>
-    <circle cx="582" cy="222" r="30" fill="#0a1315" stroke="#171e20" stroke-width="2"/><circle cx="582" cy="222" r="10" fill="#161e22"/>
-    <circle cx="582" cy="271" r="30" fill="#0a1315" stroke="#171e20" stroke-width="2"/><circle cx="582" cy="271" r="10" fill="#161e22"/>
-    <rect x="514" y="304" width="136" height="98" fill="#0d1314" rx="1"/><rect x="518" y="308" width="128" height="90" fill="url(#xqSGr)"/>
-    <circle cx="582" cy="353" r="38" fill="#0a1214" stroke="#141c1e" stroke-width="3"/><circle cx="582" cy="353" r="11" fill="#161e22"/>
-    <rect x="528" y="400" width="108" height="12" fill="#0b1012" rx="1"/><rect x="542" y="391" width="80" height="10" fill="#10181a" rx="1"/>
-    <rect x="528" y="174" width="108" height="9" fill="#0e1416"/>
-    <!-- Stage floor -->
-    <polygon points="80,356 600,356 680,440 0,440" fill="#101b20"/>
-    <rect x="80" y="352" width="520" height="5" fill="#244048"/>
-    <line x1="80" y1="352" x2="600" y2="352" stroke="#2ecab8" stroke-width=".8" opacity=".35"/>
-    <line x1="80" y1="378" x2="600" y2="378" stroke="#0d181c" stroke-width=".7"/>
-    <line x1="36" y1="398" x2="644" y2="398" stroke="#0d181c" stroke-width=".7"/>
-    <line x1="298" y1="373" x2="310" y2="385" stroke="#3d2c0a" stroke-width="1.5"/><line x1="310" y1="373" x2="298" y2="385" stroke="#3d2c0a" stroke-width="1.5"/>
-    <line x1="366" y1="373" x2="378" y2="385" stroke="#3d2c0a" stroke-width="1.5"/><line x1="378" y1="373" x2="366" y2="385" stroke="#3d2c0a" stroke-width="1.5"/>
-    <polygon points="178,418 248,418 240,398 190,398" fill="#0e1518"/><rect x="182" y="401" width="52" height="13" fill="#0b1214"/>
-    <polygon points="432,418 502,418 490,398 442,398" fill="#0e1518"/><rect x="446" y="401" width="52" height="13" fill="#0b1214"/>
-    <line x1="340" y1="432" x2="340" y2="366" stroke="#1c2426" stroke-width="2"/>
-    <line x1="322" y1="432" x2="358" y2="432" stroke="#1c2426" stroke-width="2.5"/>
-    <line x1="340" y1="372" x2="366" y2="366" stroke="#1c2426" stroke-width="1.5"/>
-    <ellipse cx="368" cy="364" rx="5" ry="8" fill="#1e2829"/>
-    <!-- Left fog machine -->
-    <rect x="74" y="348" width="40" height="15" fill="#1a2224" rx="2"/><rect x="84" y="334" width="16" height="16" fill="#1c2628" rx="1"/>
-    <rect x="76" y="354" width="38" height="2" fill="#22303a"/><rect x="76" y="359" width="38" height="2" fill="#22303a"/>
-    <g transform="translate(96 338)"><g class="xqsFgL"><ellipse cx="0" cy="-8" rx="18" ry="10" fill="#b4c8c4"/><ellipse cx="-12" cy="-22" rx="13" ry="8" fill="#a8bcb8"/><ellipse cx="14" cy="-26" rx="12" ry="7" fill="#a8bcb8"/><ellipse cx="0" cy="-38" rx="15" ry="9" fill="#9cb0ac"/></g></g>
-    <g transform="translate(96 338)"><g class="xqsFgL" style="animation-delay:-1.7s"><ellipse cx="-2" cy="-6" rx="15" ry="9" fill="#b0c4c0"/><ellipse cx="-14" cy="-20" rx="11" ry="7" fill="#a4b8b4"/><ellipse cx="13" cy="-24" rx="10" ry="6" fill="#a4b8b4"/></g></g>
-    <!-- Right fog machine -->
-    <rect x="566" y="348" width="40" height="15" fill="#1a2224" rx="2"/><rect x="580" y="334" width="16" height="16" fill="#1c2628" rx="1"/>
-    <rect x="566" y="354" width="38" height="2" fill="#22303a"/><rect x="566" y="359" width="38" height="2" fill="#22303a"/>
-    <g transform="translate(584 338)"><g class="xqsFgR"><ellipse cx="0" cy="-8" rx="18" ry="10" fill="#b4c8c4"/><ellipse cx="-12" cy="-22" rx="13" ry="8" fill="#a8bcb8"/><ellipse cx="14" cy="-26" rx="12" ry="7" fill="#a8bcb8"/><ellipse cx="0" cy="-38" rx="15" ry="9" fill="#9cb0ac"/></g></g>
-    <g transform="translate(584 338)"><g class="xqsFgR" style="animation-delay:-1.7s"><ellipse cx="2" cy="-6" rx="15" ry="9" fill="#b0c4c0"/><ellipse cx="-13" cy="-20" rx="11" ry="7" fill="#a4b8b4"/><ellipse cx="14" cy="-24" rx="10" ry="6" fill="#a4b8b4"/></g></g>
-    <!-- Laser projectors -->
-    <rect x="301" y="50" width="18" height="13" fill="#181c22" rx="1"/><rect x="305" y="43" width="10" height="9" fill="#12181e" rx="1"/>
-    <circle cx="310" cy="67" r="5" fill="#0d1816"/><circle cx="310" cy="67" r="3" fill="#0c3018"/><circle cx="310" cy="67" r="1.2" fill="#38f870"/>
-    <rect x="361" y="50" width="18" height="13" fill="#181c22" rx="1"/><rect x="365" y="43" width="10" height="9" fill="#12181e" rx="1"/>
-    <circle cx="370" cy="67" r="5" fill="#0d1816"/><circle cx="370" cy="67" r="3" fill="#0c3018"/><circle cx="370" cy="67" r="1.2" fill="#38f870"/>
-    <!-- Laser beams — rotation around translate origin = projector lens -->
-    <!-- Laser beams: outer <g> = SVG translate to projector lens;
-         inner <g> = CSS rotate animation (no attribute/CSS conflict). -->
-    <g transform="translate(310 67)"><g id="xqSLas1" class="xqsLas"><line x1="0" y1="0" x2="-230" y2="289" stroke="#38ee70" stroke-width=".8"/></g></g>
-    <g transform="translate(370 67)"><g id="xqSLas2" class="xqsLas"><line x1="0" y1="0" x2="230" y2="289" stroke="#38ee70" stroke-width=".8"/></g></g>
-    <g transform="translate(310 67)"><g id="xqSLas3" class="xqsLas"><line x1="0" y1="0" x2="282" y2="289" stroke="#ff4040" stroke-width=".65"/></g></g>
-    <g transform="translate(370 67)"><g id="xqSLas4" class="xqsLas"><line x1="0" y1="0" x2="-282" y2="289" stroke="#ff4040" stroke-width=".65"/></g></g>
-    <!-- Enlarged fixtures (mount 22×12 + yoke 8×24 + head 24×16 + lens r=12) -->
-    <!-- F1 x=110 cool --><rect x="99" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="106" y="56" width="8" height="24" fill="#1e2830"/><rect x="98" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="110" cy="94" r="12" fill="#182428"/><circle cx="110" cy="94" r="8" fill="#283c42"/><circle cx="110" cy="94" r="4" fill="#4a8090"/><circle cx="110" cy="94" r="1.5" fill="#80b8c8"/>
-    <!-- F2 x=194 cool --><rect x="183" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="190" y="56" width="8" height="24" fill="#1e2830"/><rect x="182" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="194" cy="94" r="12" fill="#182428"/><circle cx="194" cy="94" r="8" fill="#283c42"/><circle cx="194" cy="94" r="4" fill="#4a8090"/><circle cx="194" cy="94" r="1.5" fill="#80b8c8"/>
-    <!-- F3 x=273 teal --><rect x="262" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="269" y="56" width="8" height="24" fill="#1e2830"/><rect x="261" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="273" cy="94" r="12" fill="#182428"/><circle cx="273" cy="94" r="8" fill="#1a4840"/><circle cx="273" cy="94" r="4" fill="#1d9e75"/><circle cx="273" cy="94" r="1.5" fill="#50ffcc"/>
-    <!-- F4 x=407 teal --><rect x="396" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="403" y="56" width="8" height="24" fill="#1e2830"/><rect x="395" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="407" cy="94" r="12" fill="#182428"/><circle cx="407" cy="94" r="8" fill="#1a4840"/><circle cx="407" cy="94" r="4" fill="#1d9e75"/><circle cx="407" cy="94" r="1.5" fill="#50ffcc"/>
-    <!-- F5 x=484 cool --><rect x="473" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="480" y="56" width="8" height="24" fill="#1e2830"/><rect x="472" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="484" cy="94" r="12" fill="#182428"/><circle cx="484" cy="94" r="8" fill="#283c42"/><circle cx="484" cy="94" r="4" fill="#4a8090"/><circle cx="484" cy="94" r="1.5" fill="#80b8c8"/>
-    <!-- F6 x=568 cool --><rect x="557" y="44" width="22" height="12" fill="#242e32" rx="1"/><rect x="564" y="56" width="8" height="24" fill="#1e2830"/><rect x="556" y="78" width="24" height="16" fill="#1c2830" rx="2"/><circle cx="568" cy="94" r="12" fill="#182428"/><circle cx="568" cy="94" r="8" fill="#283c42"/><circle cx="568" cy="94" r="4" fill="#4a8090"/><circle cx="568" cy="94" r="1.5" fill="#80b8c8"/>
-  </svg>
+  <canvas id="xqCanvas"></canvas>
+  <div id="xqScreen"></div>
 </div>
+<script>
+(function(){
+'use strict';
+var cnv=document.getElementById('xqCanvas');
+if(!cnv)return;
+var ctx=cnv.getContext('2d');
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function rgba(hex,a){
+  var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return 'rgba('+r+','+g+','+b+','+a.toFixed(3)+')';
+}
+function rrect(c,x,y,w,h,r){
+  c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);
+  c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);
+  c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);
+  c.closePath();
+}
+
+// Fixture x fractions, stage target x fractions, teal flag
+var FXPOS=[0.162,0.284,0.400,0.600,0.714,0.838];
+var FTGT =[0.07, 0.22, 0.39, 0.61, 0.78, 0.93 ];
+var FTEAL=[false,false,true, true, false,false  ];
+
+// ── Static background ──────────────────────────────────────────────────────
+var bg=document.createElement('canvas'),bgCtx=bg.getContext('2d');
+
+function drawSpeaker(c,W,H,cxf,side){
+  var cx=cxf*W,hw=W*0.068;
+  c.fillStyle='#141a1a';rrect(c,cx-hw,H*0.300,hw*2,H*0.114,2);c.fill();
+  var hs=side*hw*0.82;
+  c.fillStyle='#0c1212';
+  c.beginPath();c.moveTo(cx-hs,H*0.317);c.lineTo(cx+hs,H*0.323);c.lineTo(cx+hs,H*0.368);c.lineTo(cx-hs,H*0.374);c.fill();
+  c.fillStyle='#111618';rrect(c,cx-hw,H*0.414,hw*2,H*0.277,2);c.fill();
+  [0.468,0.556].forEach(function(yf){
+    var cy=H*yf,r=W*0.040;
+    c.fillStyle='#0a1315';c.strokeStyle='#171e20';c.lineWidth=H*0.005;
+    c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.fill();c.stroke();
+    c.fillStyle='#161e22';c.beginPath();c.arc(cx,cy,r*0.33,0,Math.PI*2);c.fill();
+  });
+  c.fillStyle='#0d1314';rrect(c,cx-hw-W*0.010,H*0.691,(hw+W*0.010)*2,H*0.222,2);c.fill();
+  var sy=H*0.803,sr=W*0.052;
+  c.fillStyle='#0a1214';c.strokeStyle='#141c1e';c.lineWidth=H*0.007;
+  c.beginPath();c.arc(cx,sy,sr,0,Math.PI*2);c.fill();c.stroke();
+  c.fillStyle='#161e22';c.beginPath();c.arc(cx,sy,sr*0.21,0,Math.PI*2);c.fill();
+  c.fillStyle='#0b1012';rrect(c,cx-hw*0.76,H*0.913,hw*1.52,H*0.027,2);c.fill();
+}
+
+function drawFixture(c,W,H,fxf,teal){
+  var x=fxf*W,ly=H*0.214;
+  c.fillStyle='#242e32';rrect(c,x-W*0.016,H*0.097,W*0.032,H*0.030,2);c.fill();
+  c.fillStyle='#1e2830';c.fillRect(x-W*0.006,H*0.127,W*0.012,H*0.055);
+  c.fillStyle='#1c2830';rrect(c,x-W*0.018,H*0.178,W*0.036,H*0.038,3);c.fill();
+  c.fillStyle='#182428';c.beginPath();c.arc(x,ly,W*0.018,0,Math.PI*2);c.fill();
+  c.fillStyle=teal?'#1a4840':'#283c42';c.beginPath();c.arc(x,ly,W*0.012,0,Math.PI*2);c.fill();
+  c.fillStyle=teal?'#1d9e75':'#4a8090';c.beginPath();c.arc(x,ly,W*0.006,0,Math.PI*2);c.fill();
+  c.fillStyle=teal?'#50ffcc':'#80b8c8';c.beginPath();c.arc(x,ly,W*0.002,0,Math.PI*2);c.fill();
+}
+
+function buildBg(W,H){
+  bg.width=W;bg.height=H;var c=bgCtx;
+  c.fillStyle='#050709';c.fillRect(0,0,W,H);
+  c.fillStyle='#0c1315';c.fillRect(0,0,W,H*0.81);
+  c.fillStyle='#080d0f';
+  c.beginPath();c.moveTo(0,0);c.lineTo(0,H);c.lineTo(W*0.12,H*0.81);c.lineTo(W*0.12,0);c.fill();
+  c.beginPath();c.moveTo(W,0);c.lineTo(W,H);c.lineTo(W*0.88,H*0.81);c.lineTo(W*0.88,0);c.fill();
+  c.fillStyle='#101b20';
+  c.beginPath();c.moveTo(W*0.12,H*0.81);c.lineTo(W*0.88,H*0.81);c.lineTo(W,H);c.lineTo(0,H);c.fill();
+  c.fillStyle='#244048';c.fillRect(W*0.12,H*0.808,W*0.76,H*0.004);
+  c.fillStyle='rgba(46,202,184,0.30)';c.fillRect(W*0.12,H*0.808,W*0.76,H*0.002);
+  [[0.42,0.855],[0.58,0.855]].forEach(function(p){
+    var x=p[0]*W,y=p[1]*H,s=W*0.009;
+    c.strokeStyle='#3d2c0a';c.lineWidth=W*0.002;
+    c.beginPath();c.moveTo(x-s,y-s);c.lineTo(x+s,y+s);c.stroke();
+    c.beginPath();c.moveTo(x+s,y-s);c.lineTo(x-s,y+s);c.stroke();
+  });
+  [[0.30,0.02],[0.70,-0.02]].forEach(function(p){
+    var bx=p[0]*W,off=p[1]*W;
+    c.fillStyle='#0e1518';
+    c.beginPath();c.moveTo(bx-W*0.05,H);c.lineTo(bx+W*0.05,H);c.lineTo(bx+W*0.04+off,H*0.905);c.lineTo(bx-W*0.02+off,H*0.905);c.fill();
+  });
+  c.strokeStyle='#1c2426';c.lineWidth=W*0.003;
+  c.beginPath();c.moveTo(W*0.5,H);c.lineTo(W*0.5,H*0.832);c.stroke();
+  c.beginPath();c.moveTo(W*0.474,H);c.lineTo(W*0.526,H);c.stroke();
+  c.beginPath();c.moveTo(W*0.5,H*0.845);c.lineTo(W*0.538,H*0.832);c.stroke();
+  c.fillStyle='#1e2829';c.beginPath();c.arc(W*0.540,H*0.827,W*0.007,0,Math.PI*2);c.fill();
+  c.fillStyle='#1c2224';c.fillRect(W*0.10,H*0.088,W*0.80,H*0.036);
+  c.strokeStyle='#252e31';c.lineWidth=H*0.002;
+  [0.10,0.19,0.29,0.39,0.50,0.61,0.71,0.81,0.90].forEach(function(x,i,a){
+    if(i>=a.length-1)return;
+    var x0=a[i]*W,x1=a[i+1]*W,y0=H*0.088,y1=H*0.124;
+    c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke();
+    c.beginPath();c.moveTo(x1,y0);c.lineTo(x0,y1);c.stroke();
+  });
+  drawSpeaker(c,W,H,0.097, 1);
+  drawSpeaker(c,W,H,0.903,-1);
+  [[0.109,1],[0.832,-1]].forEach(function(m){
+    var mx=m[0]*W,sd=m[1];
+    c.fillStyle='#1a2224';rrect(c,mx-W*0.010,H*0.793,W*0.059,H*0.034,W*0.003);c.fill();
+    c.fillStyle='#1c2628';rrect(c,mx+sd*W*0.004,H*0.762,W*0.024,H*0.034,W*0.002);c.fill();
+    c.strokeStyle='#22303a';c.lineWidth=H*0.004;
+    [0.810,0.823].forEach(function(yf){c.beginPath();c.moveTo(mx-W*0.009,H*yf);c.lineTo(mx+W*0.048,H*yf);c.stroke();});
+  });
+  [0.456,0.544].forEach(function(fx){
+    var x=fx*W;
+    c.fillStyle='#181c22';rrect(c,x-W*0.013,H*0.111,W*0.026,H*0.030,2);c.fill();
+    c.fillStyle='#12181e';rrect(c,x-W*0.007,H*0.097,W*0.015,H*0.018,2);c.fill();
+    c.fillStyle='#0d1816';c.beginPath();c.arc(x,H*0.155,W*0.007,0,Math.PI*2);c.fill();
+    c.fillStyle='#0c3018';c.beginPath();c.arc(x,H*0.155,W*0.004,0,Math.PI*2);c.fill();
+    c.fillStyle='#38f870';c.beginPath();c.arc(x,H*0.155,W*0.002,0,Math.PI*2);c.fill();
+  });
+  // Screen bezel (matches #xqScreen: left=25.88% top=18.64% w=48.24% h=44.55%)
+  c.fillStyle='#07090c';rrect(c,W*0.246,H*0.165,W*0.509,H*0.487,W*0.004);c.fill();
+  FXPOS.forEach(function(fx,i){drawFixture(c,W,H,fx,FTEAL[i]);});
+}
+
+// ── Fog particles ──────────────────────────────────────────────────────────
+var FOG=[],FOG_MAX=90,lastFog=0;
+function tickFog(W,H,ts,bass,hit){
+  var dt=ts-lastFog;lastFog=ts;
+  var rate=0.03+bass*0.10;if(hit)rate+=0.28;
+  if(Math.random()<rate*dt/16){
+    function sp(xf){if(FOG.length<FOG_MAX)FOG.push({x:xf*W+(Math.random()-.5)*W*0.025,y:H*0.806,
+      vx:(Math.random()-.5)*W*0.00012,vy:-(W*0.00018+Math.random()*W*0.00028),
+      r:W*(0.013+Math.random()*0.020),life:0.65+Math.random()*0.35,dc:0.00055+Math.random()*0.00040});}
+    sp(0.127);sp(0.873);
+  }
+  for(var i=FOG.length-1;i>=0;i--){
+    var p=FOG[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.r+=W*0.00015*dt/16;p.life-=p.dc*dt/16;
+    if(p.life<=0)FOG.splice(i,1);
+  }
+}
+function drawFog(W,H){
+  ctx.save();ctx.globalCompositeOperation='screen';
+  FOG.forEach(function(p){
+    var a=p.life*0.12;
+    var g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
+    g.addColorStop(0,'rgba(178,210,198,'+a.toFixed(3)+')');
+    g.addColorStop(1,'rgba(178,210,198,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+  });
+  ctx.restore();
+}
+
+// ── Spotlights ─────────────────────────────────────────────────────────────
+function drawSpots(W,H,bass,rms,bd){
+  var pal=_xqSt.palette;
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  var FY=H*0.214,TY=H*0.812;
+  FXPOS.forEach(function(fxf,i){
+    var col=pal[i]||pal[0];
+    var fx=fxf*W,tx=FTGT[i]*W;
+    var inten=0.10+bass*0.22+rms*0.10+bd*0.28;
+    var spread=W*(0.030+bass*0.016+bd*0.012);
+    var dx=tx-fx,dy=TY-FY,len=Math.sqrt(dx*dx+dy*dy);
+    dx/=len;dy/=len;var px=-dy,py=dx;
+    var gr=ctx.createLinearGradient(fx,FY,tx,TY);
+    gr.addColorStop(0,rgba(col,inten*0.55));
+    gr.addColorStop(0.45,rgba(col,inten*0.18));
+    gr.addColorStop(1,rgba(col,0));
+    ctx.beginPath();ctx.moveTo(fx,FY);
+    ctx.lineTo(tx+px*spread,TY+py*spread);ctx.lineTo(tx-px*spread,TY-py*spread);
+    ctx.closePath();ctx.fillStyle=gr;ctx.fill();
+    var pg=ctx.createRadialGradient(tx,TY,0,tx,TY,spread*1.3);
+    pg.addColorStop(0,rgba(col,inten*0.50));pg.addColorStop(1,rgba(col,0));
+    ctx.fillStyle=pg;
+    ctx.beginPath();ctx.ellipse(tx,TY,spread*1.3,spread*0.42,0,0,Math.PI*2);ctx.fill();
+  });
+  ctx.restore();
+}
+
+// ── Lasers ─────────────────────────────────────────────────────────────────
+var LASERS=[
+  {ox:0.456,oy:0.155,per:3500,ph:0,   amp:0.40, col:'#38ee70',kA:0,kD:0},
+  {ox:0.544,oy:0.155,per:3800,ph:1.8, amp:-0.40,col:'#38ee70',kA:0,kD:0},
+  {ox:0.456,oy:0.155,per:5200,ph:3.5, amp:-0.52,col:'#ff4040',kA:0,kD:0},
+  {ox:0.544,oy:0.155,per:4800,ph:5.1, amp:0.52, col:'#ff4040',kA:0,kD:0},
+];
+var laserFlash=0;
+
+function drawLasers(W,H,ts,rms,hit,bd){
+  if(!_xqSt.playing)return;
+  if(hit){laserFlash=1;LASERS.forEach(function(l){l.kA=(Math.random()-.5)*0.5;l.kD=1;});}
+  laserFlash=Math.max(0,laserFlash-0.06);
+  var alpha=0.18+rms*0.45+laserFlash*0.37+bd*0.20;
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  LASERS.forEach(function(l){
+    l.kD=Math.max(0,l.kD-0.07);
+    var a=l.amp*Math.sin(ts/l.per*Math.PI*2+l.ph)+l.kA*l.kD;
+    var ox=l.ox*W,oy=l.oy*H,len=H*1.6;
+    var tx=ox+Math.sin(a)*len,ty=oy+Math.cos(a)*len;
+    ctx.lineWidth=W*0.010;ctx.strokeStyle=rgba(l.col,alpha*0.06);
+    ctx.shadowBlur=0;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(tx,ty);ctx.stroke();
+    ctx.lineWidth=W*0.003;ctx.strokeStyle=rgba(l.col,alpha*0.45);
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(tx,ty);ctx.stroke();
+    ctx.lineWidth=W*0.0012;ctx.strokeStyle=rgba(l.col,alpha*0.95);
+    ctx.shadowBlur=W*0.018;ctx.shadowColor=l.col;
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(tx,ty);ctx.stroke();
+    ctx.lineWidth=W*0.0004;ctx.strokeStyle='rgba(255,255,255,'+(alpha*0.88).toFixed(3)+')';
+    ctx.shadowBlur=W*0.004;ctx.shadowColor='#fff';
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(tx,ty);ctx.stroke();
+  });
+  ctx.restore();
+}
+
+// ── Resize ─────────────────────────────────────────────────────────────────
+function resize(){
+  cnv.width=cnv.offsetWidth||window.innerWidth;
+  cnv.height=cnv.offsetHeight||window.innerHeight;
+  buildBg(cnv.width,cnv.height);
+}
+var _rsT;window.addEventListener('resize',function(){clearTimeout(_rsT);_rsT=setTimeout(resize,120);});
+
+// ── Frame loop ──────────────────────────────────────────────────────────────
+var lastTs=0;
+function frame(ts){
+  requestAnimationFrame(frame);
+  var st=document.getElementById('xqStage');
+  if(!st||!st.classList.contains('on')){lastTs=ts;return;}
+  var dt=Math.min(ts-lastTs,50);lastTs=ts;
+  var W=cnv.width,H=cnv.height;
+  if(!W||!H)return;
+  if(bg.width!==W||bg.height!==H)buildBg(W,H);
+  var lv=_xqSt.level;
+  var bass=lv?lv.bass:0,rms=lv?lv.level:0,hit=lv?lv.hit:false;
+  if(hit)_xqSt.beatDecay=1;
+  _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/200);
+  var bd=_xqSt.beatDecay;
+  ctx.drawImage(bg,0,0,W,H);
+  drawSpots(W,H,bass,rms,bd);
+  tickFog(W,H,ts,bass,hit);drawFog(W,H);
+  drawLasers(W,H,ts,rms,hit,bd);
+}
+resize();requestAnimationFrame(frame);
+})();
+</script>
 </body></html>
