@@ -1508,8 +1508,14 @@
   #xqNP{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
         border-radius:2px;overflow:hidden;z-index:2;background:#071c18;
         display:none;flex-direction:column;align-items:center;justify-content:center;
-        gap:5%;pointer-events:none}
+        gap:5%;pointer-events:auto;cursor:pointer}
   #xqNP.on{display:flex}
+  /* Home button sits at bottom of now-playing screen */
+  #xqNP_home{position:absolute;bottom:7%;left:50%;transform:translateX(-50%);
+             background:rgba(29,158,117,0.15);border:.5px solid rgba(29,158,117,0.45);
+             color:#1d9e75;font-size:clamp(7px,1.4vw,11px);border-radius:20px;
+             padding:4% 14%;cursor:pointer;font-family:system-ui,sans-serif;
+             letter-spacing:.04em;pointer-events:auto}
   #xqNP_lbl{color:#0a4030;font-size:clamp(4px,1.1vw,9px);letter-spacing:.2em;font-family:system-ui,sans-serif}
   #xqNP_art{width:46%;aspect-ratio:1;border-radius:50%;background:#0d5440;overflow:hidden;
             transform-style:preserve-3d;will-change:transform}
@@ -22039,31 +22045,37 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     // Cover art: now live for all 7 collections. Sample palette once loaded.
     if (t.coverKey && t.coverKey !== _xqSt.lastCoverKey) {
       _xqSt.lastCoverKey = t.coverKey;
-      var img = new Image(); img.crossOrigin = 'anonymous';
-      img.onload = function () {
-        try {
-          var cv=document.createElement('canvas'); cv.width=3; cv.height=2;
-          var cx=cv.getContext('2d',{willReadFrequently:true});
-          cx.drawImage(img,0,0,3,2);
-          var d=cx.getImageData(0,0,3,2).data, cols=[];
-          for(var i=0;i<6;i++){
-            var r=d[i*4],g=d[i*4+1],b=d[i*4+2],mx=Math.max(r,g,b);
-            if(mx<60){var sc=60/Math.max(mx,1);r=Math.min(255,r*sc|0);g=Math.min(255,g*sc|0);b=Math.min(255,b*sc|0);}
-            cols.push('rgb('+r+','+g+','+b+')');
-          }
-          if(cols.length>=4) _xqSt.palette=cols;
-        } catch(e){}
-        _xqSt.coverImg = img;
+      var _url = t.coverBase + t.coverKey;
+      // Display image: load WITHOUT crossOrigin so it always shows,
+      // even when CORS headers aren't set for canvas sampling.
+      var dispImg = new Image();
+      dispImg.onload = function () {
         var _ni=document.getElementById('xqNP_img'),_nd=document.getElementById('xqNP_def');
-        if(_ni){_ni.src=img.src;_ni.style.display='block';}
+        if(_ni){_ni.src=_url;_ni.style.display='block';}
         if(_nd) _nd.style.display='none';
+        _xqSt.coverImg = dispImg;
+        // Separately attempt palette sampling with crossOrigin (needs CORS)
+        var palImg = new Image(); palImg.crossOrigin='anonymous';
+        palImg.onload = function(){
+          try{
+            var cv=document.createElement('canvas'); cv.width=3; cv.height=2;
+            var cx=cv.getContext('2d',{willReadFrequently:true});
+            cx.drawImage(palImg,0,0,3,2);
+            var d=cx.getImageData(0,0,3,2).data, cols=[];
+            for(var i=0;i<6;i++){
+              var r=d[i*4],g=d[i*4+1],b=d[i*4+2],mx=Math.max(r,g,b);
+              if(mx<60){var sc=60/Math.max(mx,1);r=Math.min(255,r*sc|0);g=Math.min(255,g*sc|0);b=Math.min(255,b*sc|0);}
+              cols.push('rgb('+r+','+g+','+b+')');
+            }
+            if(cols.length>=4) _xqSt.palette=cols;
+          }catch(e){}
+        };
+        palImg.src=_url;
       };
-      img.onerror = function(){
+      dispImg.onerror = function(){
         _xqSt.coverImg = null;
-        var _ni=document.getElementById('xqNP_img');
-        if(_ni) _ni.style.display='none';
       };
-      img.src = t.coverBase + t.coverKey;
+      dispImg.src = _url;
     } else if (!t.coverKey) {
       _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
     }
@@ -26833,6 +26845,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       </div>
     </div>
     <div id="xqNP_fn"></div>
+    <button id="xqNP_home">&#8249; Home</button>
   </div>
 </div>
 <script>
@@ -27105,6 +27118,29 @@ function frame(ts){
   }
 }
 resize();requestAnimationFrame(frame);
+
+// Tap #xqNP to briefly reveal Sound Studio controls underneath;
+// the home button calls exit() directly so it's always reachable.
+var _npRevealTimer;
+var npEl=document.getElementById('xqNP');
+var npHomeEl=document.getElementById('xqNP_home');
+if(npEl){
+  npEl.addEventListener('click',function(e){
+    if(e.target===npHomeEl||npHomeEl&&npHomeEl.contains(e.target)) return; // handled below
+    // Hide overlay for 4 s so player controls are accessible
+    npEl.style.visibility='hidden';
+    clearTimeout(_npRevealTimer);
+    _npRevealTimer=setTimeout(function(){npEl.style.visibility='';},4000);
+  });
+}
+if(npHomeEl){
+  npHomeEl.addEventListener('click',function(e){
+    e.stopPropagation();
+    if(typeof MIZE!=='undefined'&&MIZE.SoundStudio&&typeof MIZE.SoundStudio.exit==='function'){
+      MIZE.SoundStudio.exit();
+    }
+  });
+}
 })();
 </script>
 </body></html>
