@@ -3,8 +3,68 @@
 *From the Sound Box chat for the Studio chat, 2026-09-12, closing brief
 `SOUNDBOX-STAGE-HOOKS`. **Revised the same day (round 2)** after the Studio's
 first stage build: adds `config.mount`, `config.background`, `onLevel` and
-`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 58 KB; 48 headless
+`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 61 KB; 60 headless
 checks green plus two real-audio tests).*
+
+## Round 4 (2026-09-13) — transport: the stage drives the player
+
+For a stage that draws its own play button after the questions and its own
+play/pause/skip controls. Module 61 KB, 60 headless checks green.
+
+```js
+// Callbacks — set before start(), both optional
+MIZE.SoundStudio.onSessionBuilt = function (s) { /* show the stage's Play */ };
+MIZE.SoundStudio.onPlayState    = function (st) { /* swap play/pause icon, etc. */ };
+
+// Transport — call from the stage's own controls
+MIZE.SoundStudio.play();         // before Start: begins the session at track 1; when paused: resumes; when playing: nothing
+MIZE.SoundStudio.pause();
+MIZE.SoundStudio.togglePlay();   // before Start behaves like play()
+MIZE.SoundStudio.next();
+MIZE.SoundStudio.prev();         // >5 s into a track restarts it, otherwise goes back one (same as the overlay's ⏮)
+MIZE.SoundStudio.state();        // current state object, same shape as onPlayState
+MIZE.SoundStudio.session();      // the built session, same shape as onSessionBuilt, or null
+```
+
+`onSessionBuilt(s)` fires once, right after **Build my session** produced a
+plan and before the athlete has pressed Start:
+
+```js
+{
+  feeling: "nervous", situation: "game", minutes: 20,
+  total: 6, durationS: 1187,
+  plan: [
+    { trackIndex: 1, trackId: "xquix-sound.identity", function: "Identity", role: "transform",
+      durationS: 205, activity: "…one short suggestion or null…", coverKey: "covers/xquix-sound-bd0ac60c.webp" },
+    …
+  ]
+}
+```
+
+`onPlayState(st)` fires on every change of the following and never twice
+with the same values; `state()` returns the same object on demand:
+
+```js
+{ open: true, built: true, started: true, ended: false,
+  playing: true, paused: false, trackIndex: 3, total: 6 }
+// trackIndex is 0 before Start and after the session ends
+// after exit(): open false, everything else false/0
+```
+
+Every transport call is a safe no-op when the overlay is closed, when no
+session is built (`next()`, `pause()`, `prev()` before Start do nothing), or
+when the athlete is on the Library tab with nothing playing. The overlay
+stays in sync — its own Start button disappears when the stage calls
+`play()`, its row highlight follows `next()`/`prev()`, and vice versa: the
+athlete tapping the overlay's controls reaches the stage through
+`onPlayState` and `onTrackChange`. A stage that draws its own controls may
+hide the overlay's player bar with `#xqSoundStudio .xqss-player{display:none}`
+from its own stylesheet — that rule is stable and outside the module's
+reset.
+
+Note a session played from the **Library** tab (a single track) also reports
+through `onPlayState` (`built` may be false there); `onSessionBuilt` is only
+for built sessions.
 
 ## Round 3 (2026-09-13) — one question per screen
 

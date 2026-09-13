@@ -13,6 +13,8 @@
  *                                mount, background, analyse }
  *   MIZE.SoundStudio.onExit / onTrackChange / onBeat / onLevel   optional host callbacks
  *   MIZE.SoundStudio.analyser()  live AnalyserNode or null
+ *   MIZE.SoundStudio.play/pause/togglePlay/next/prev/state/session   host transport
+ *   MIZE.SoundStudio.onSessionBuilt / onPlayState   optional host callbacks
  *                              (see soundbox/STAGE-HOOKS-CONTRACT.md)
  *
  * Leaves nothing behind on exit: no timers, no listeners, no DOM, no state.
@@ -749,8 +751,48 @@ return self.XquiXSoundBuilder; })();
       session.plan.forEach(p => { const col = catalog.collections.find(c => c.id === p.collection_id); p.cover_key = (col && col.cover_key) || null; });
       player.load(session.plan);
       view = "session"; render();
+      hostCall("onSessionBuilt", sessionSummary());
     } catch (e) { err.hidden = false; err.textContent = "Could not build a session: " + e.message; }
   }
+
+  // ------------------------------------------------- host transport API --
+  // Round 4 (2026-09-13): a stage that draws its own play/pause/skip controls
+  // drives the same player the overlay does. Every call is a safe no-op when
+  // the overlay is closed or no session exists; every host callback is
+  // wrapped so a throwing host never reaches the module.
+  function hostCall(name, arg) {
+    const cb = root.MIZE.SoundStudio && root.MIZE.SoundStudio[name];
+    if (typeof cb === "function") { try { cb(arg); } catch (e) {} }
+  }
+  function sessionSummary() {
+    if (!session) return null;
+    return {
+      feeling: session.inputs.feeling, situation: session.situation, minutes: session.inputs.minutes,
+      total: session.plan.length, durationS: Math.round(session.plan.reduce((a, p) => a + (p.duration_s || 0), 0)),
+      plan: session.plan.map((p, i) => ({ trackIndex: i + 1, trackId: p.track_id, function: p.function, role: p.role, durationS: Math.round(p.duration_s || 0), activity: p.activity || null, coverKey: p.cover_key || null })),
+    };
+  }
+  function playState() {
+    const idle = !player || player.idx < 0;
+    return { open: !!el, built: !!session, started: !!(session && session.started_at), ended: !!(session && session.ended),
+             playing: !idle && !player.cur.paused, paused: !idle && player.cur.paused, trackIndex: idle ? 0 : player.idx + 1, total: player ? player.plan.length : 0 };
+  }
+  let lastState = "";
+  function announceState() {
+    const st = playState(); const key = JSON.stringify(st);
+    if (key === lastState) return; lastState = key;
+    hostCall("onPlayState", st);
+  }
+  function beginSession() { if (session && !session.started_at) session.started_at = new Date().toISOString(); }
+  const transport = {
+    play() { if (!el || !player) return; if (player.idx < 0) { if (!session) return; beginSession(); player.playIndex(0); } else if (player.cur.paused) player.cur.play().catch(() => {}); render(); },
+    pause() { if (!el || !player || player.idx < 0) return; player.cur.pause(); render(); },
+    togglePlay() { if (!el || !player) return; if (player.idx < 0) return transport.play(); player.toggle(); render(); },
+    next() { if (!el || !player || player.idx < 0) return; player.next(); render(); },
+    prev() { if (!el || !player || player.idx < 0) return; player.prev(); render(); },
+    state: playState,
+    session: sessionSummary,
+  };
 
   // ---------------------------------------------------------- lifecycle --
   function start() {
@@ -780,6 +822,7 @@ return self.XquiXSoundBuilder; })();
       if (player.idx >= 0 && session && view === "session") { el.querySelectorAll(".xqss-plan li").forEach((li, i) => { li.classList.toggle("now", i === player.idx); li.classList.toggle("done", i < player.idx); }); }
       if (player.idx < 0 && session && session.started_at && !session.ended && view === "session") { session.ended = true; render(); }
       renderPlayer();
+      announceState();
     };
     el.querySelector("[data-exit]").onclick = exit;
     el.querySelectorAll(".xqss-tabs button").forEach(b => b.onclick = () => { view = b.dataset.view === "ask" && session ? "session" : b.dataset.view; render(); });
@@ -800,6 +843,7 @@ return self.XquiXSoundBuilder; })();
     el.remove(); el = null; styleEl.remove(); styleEl = null;
     player = null; session = null; catalog = null; view = "ask";
     answers = { feeling: null, situation: null, minutes: 20, collection: null }; step = reached = 0;
+    lastState = ""; announceState();
     if (typeof root.MIZE.SoundStudio.onExit === "function") root.MIZE.SoundStudio.onExit();
   }
 
@@ -812,5 +856,10 @@ return self.XquiXSoundBuilder; })();
     onBeat: null,          // ({beat,bpm}) on every beat of a track with a measured BPM
     onLevel: null,         // ({bass,mid,high,level,hit,t}) every animation frame while playing — real audio, needs CORS on the bucket
     analyser: () => analysis.node,   // the live AnalyserNode, or null (not enabled, or before the first play)
+    // Round 4: transport for a stage that draws its own controls (STAGE-HOOKS-CONTRACT.md §"Transport")
+    onSessionBuilt: null,  // (summary) once a session has been built and is waiting for Start
+    onPlayState: null,     // (state) whenever playing/paused/track/ended changes
+    play: transport.play, pause: transport.pause, togglePlay: transport.togglePlay, next: transport.next, prev: transport.prev,
+    state: transport.state, session: transport.session,
   };
 })();
