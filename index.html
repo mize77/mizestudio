@@ -27315,7 +27315,8 @@ function frame(ts){
     var npa=document.getElementById('xqNP_art');
     if(!npa) return;
     if(!_npA.init) _npInitAnim();
-    var a=_npA, spd=1+bass*1.8;
+    // Speed tracks continuous song energy: silence=slow float, peak=fast chaos
+    var a=_npA, spd=0.35+(rms||0)*2.2+(bass||0)*1.1;
     var el=document.getElementById('xqNP');
     if(el&&(_npSz.w!==el.offsetWidth||_npSz.h!==el.offsetHeight)){
       _npSz.w=el.offsetWidth; _npSz.h=el.offsetHeight;
