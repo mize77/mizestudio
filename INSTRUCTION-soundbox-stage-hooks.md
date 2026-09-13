@@ -1,18 +1,134 @@
 # Sound Box → Stage: host callback contract
 
 *From the Sound Box chat for the Studio chat, 2026-09-12, closing brief
-`SOUNDBOX-STAGE-HOOKS`. Module: `xquix-sound-studio.js` (rebuilt; 48 KB;
-30 headless checks green, 9 of them for these hooks).*
+`SOUNDBOX-STAGE-HOOKS`. **Revised the same day (round 2)** after the Studio's
+first stage build: adds `config.mount`, `config.background`, `onLevel` and
+`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 56 KB; 40 headless
+checks green plus two real-audio tests).*
 
-The module now exposes three optional host callbacks. Set them in the config
-block that already sets `getAccessToken` and `onExit`, before `start()`. Any
-of them may be left `null`; each is wrapped in `try/catch`, so a throwing
-host never stops the music.
+## Round 2 — what changed and why (read this first)
+
+Two of the problems reported after the first stage build were the module's,
+not the stage's:
+
+1. **"The screen covers the rest of the scene."** It had to: the overlay was
+   `position:fixed; inset:0; z-index:100000` by construction, and no CSS
+   override from the host could survive `start()` re-injecting its style.
+   Now `config.mount` renders the overlay *inside* an element the host owns.
+2. **"Not related to the beat and rhythm of the real song."** `onBeat` is a
+   metronome derived from a stored BPM — 23 of 42 tracks have none, some
+   readings are double-time, and it is not phase-aligned to the audio. It
+   was never going to feel like the music. `onLevel` is the real signal: a
+   Web Audio analyser on the playing track, every animation frame, with a
+   per-frame onset flag. Build the stage on `onLevel`; keep `onBeat` as a
+   fallback only.
+
+The visual side — SVG versus canvas, lasers, fog, spotlight geometry — is
+the Studio's and the Studio chat's diagnosis of it is right.
+
+### One thing MIZE must do before `onLevel` works: CORS on the bucket
+
+A cross-origin `<audio>` only feeds Web Audio when the file's response
+carries CORS headers; without them the analyser hears silence. Cloudflare
+dashboard → R2 → `xquix-sound` → **Settings** → **CORS Policy** → Add:
+
+```json
+[
+  {
+    "AllowedOrigins": ["*"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["Range"],
+    "ExposeHeaders": ["Content-Length", "Content-Range", "Accept-Ranges"],
+    "MaxAgeSeconds": 86400
+  }
+]
+```
+
+`*` is fine: the bucket is public-read already and CORS never restricts
+plain playback. The module probes this once at `start()` (a 2-byte range
+request for a cover). If the probe fails, `onLevel` stays silent, the music
+plays exactly as before, and one console warning names this fix.
+
+### Mounting inside the stage
+
+```js
+MIZE.SoundStudio.config.mount      = "#stageScreen";   // element or selector; the host sizes it and gives it position:relative
+MIZE.SoundStudio.config.background = "transparent";    // or any CSS colour; default "#0b0f14"
+MIZE.SoundStudio.start();
+```
+
+With `mount` set, the overlay is appended to that element with class
+`xqss-embedded` and `position:absolute; inset:0; z-index:auto`, so it fills
+whatever box the stage gives it — the screen region of the scene — and
+nothing else. The host owns everything outside that box: the canvas, the
+z-order, the Home button placement if it wants its own. The overlay's own
+**‹ Home** still calls `exit()` → `onExit()`. Without `mount` the behaviour is
+unchanged (full-viewport overlay).
+
+Set `mount` before every `start()` (it is read at start), and keep the mount
+element in the DOM for the life of the session — the module does not
+re-parent on resize; the box may change size freely.
+
+### `onLevel(l)` — every animation frame while music plays
+
+```js
+MIZE.SoundStudio.onLevel = function (l) { /* ~60 × per second */ };
+{
+  bass:  0.54,   // 20–150 Hz   } each 0…1, smoothed a little, mapped onto the
+  mid:   0.49,   // 150–2000 Hz } range the normalised catalogue actually spans
+  high:  0.53,   // 2–8 kHz     } — relative, for motion, not calibrated physics
+  level: 0.22,   // RMS of the waveform, 0…1
+  hit:   false,  // true on this frame only: a transient in the kick band (30–180 Hz)
+  t:     41.7    // currentTime of the playing element, seconds
+}
+```
+
+`hit` is a spectral-flux onset detector (rising edge over running mean +
+1.8 σ, 200 ms refractory). On a synthetic 120 BPM kick it fires once per
+kick at 500 ms ± 2 ms. On real tracks it fires on what the ear would call
+the pulse: Patience (stored 128 BPM) produced ~129 hits per minute; Forward
+(120) ~130; Velocity (147) ~157. It is a hit detector, not a tempo tracker —
+it will also fire on a fill. Use it for the flash; use `bass` for the
+sustained glow; use `level` for overall brightness.
+
+Frames stop on pause and resume on play; none after `exit()`. Set
+`onLevel` **before** `start()` — that is what turns analysis on
+(`config.analyse: "auto"`); `true`/`false` force it either way.
+
+### `analyser()` — the raw node
+
+Returns the live `AnalyserNode` (fftSize 2048, no smoothing) once a track is
+playing with analysis on, otherwise `null`. For a stage that wants its own
+FFT drawing (a spectrum, a waveform), call `getByteFrequencyData` on it in
+the same rAF loop. Do not connect or disconnect anything on it.
+
+### Caveats the Studio should test on a phone
+
+- **iOS and locked screens.** Routing the element through Web Audio is
+  standard, but iOS has a history of suspending `AudioContext` when the
+  screen locks, which would silence a session an athlete is listening to on
+  the bus. The module cannot un-route once connected. **Test a session on an
+  iPhone with the screen locked before shipping `onLevel`.** If it breaks,
+  set `config.analyse = false` on touch devices and fall back to `onBeat`;
+  the Sound Box chat will then move analysis behind a "stage visible" switch.
+- The analyser hears the crossfade (both elements feed one node), which is
+  what a stage should see anyway.
+- Nothing else changed: `onTrackChange`, `onBeat`, the UI, the builder.
+
+---
+
+## Round 1 (2026-09-12, unchanged)
+
+The module exposes optional host callbacks. Set them in the config block
+that already sets `getAccessToken` and `onExit`, before `start()`. Any of
+them may be left `null`; each is wrapped in `try/catch`, so a throwing host
+never stops the music.
 
 ```js
 MIZE.SoundStudio.onExit        = function () { /* show Home again */ };
 MIZE.SoundStudio.onTrackChange = function (t) { /* new track started */ };
 MIZE.SoundStudio.onBeat        = function (b) { /* one beat */ };
+MIZE.SoundStudio.onLevel       = function (l) { /* one animation frame (round 2) */ };
 ```
 
 ## `onTrackChange(t)` — once per track start
@@ -28,7 +144,7 @@ pause/resume.
   function:   "Forward",               // the function's display name (null for Library plays before build — not in practice)
   trackId:    "xquix-sound.forward",
   bpm:        120,                     // sound_tracks.bpm, or null — see "About BPM"
-  coverKey:   null,                    // see "About cover art"
+  coverKey:   "covers/xquix-sound-bd0ac60c.webp",   // the collection's cover — see "About cover art"
   coverBase:  "https://sound.xquix.com/",
   trackIndex: 3,                       // 1-based position in the session; 1 for a Library play
   total:      7,                       // plan length; 1 for a Library play
@@ -100,4 +216,10 @@ collection, added at build time in the module).
 Callbacks unset → no errors. Set → exactly one `onTrackChange` on Start, one
 per next; none on `timeupdate`. Identity (no BPM) → zero beats. Forward (120)
 from the Library → beats at 500 ms, `beat` 1, 2, 3…; pause stops them; play
-resumes and keeps counting; **‹ Home** stops them for good.
+resumes and keeps counting; **‹ Home** stops them for good. Round 2:
+`coverKey` carries the collection's key; `analyser()` live after the CORS
+probe, `null` after exit; `onLevel` frames while playing, none after exit;
+mounted overlay fills a 300×400 host box as `position:absolute` with a
+transparent background; without CORS → `analyser()` null, no frames, one
+warning, playback untouched. `level-test.mjs`: real decode of a synthetic
+120 BPM kick served cross-origin with CORS → 8 hits at 500 ms.

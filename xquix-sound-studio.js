@@ -9,8 +9,10 @@
  *   MIZE.SoundStudio.start()   open the overlay (needs a user gesture for audio)
  *   MIZE.SoundStudio.exit()    stop audio, release Media Session, remove overlay
  *   MIZE.SoundStudio.isOpen()
- *   MIZE.SoundStudio.config    { supabaseUrl, supabaseKey, audioBase, getAccessToken }
- *   MIZE.SoundStudio.onExit / onTrackChange / onBeat   optional host callbacks
+ *   MIZE.SoundStudio.config    { supabaseUrl, supabaseKey, audioBase, getAccessToken,
+ *                                mount, background, analyse }
+ *   MIZE.SoundStudio.onExit / onTrackChange / onBeat / onLevel   optional host callbacks
+ *   MIZE.SoundStudio.analyser()  live AnalyserNode or null
  *                              (see soundbox/STAGE-HOOKS-CONTRACT.md)
  *
  * Leaves nothing behind on exit: no timers, no listeners, no DOM, no state.
@@ -300,6 +302,15 @@ return self.XquiXSoundBuilder; })();
     // The Studio sets this to return the signed-in user's access token, so
     // sessions can be saved. Returning null means "don't save" — never an error.
     getAccessToken: async () => null,
+    // Stage integration (STAGE-HOOKS-CONTRACT.md §"Mounting"): an element or
+    // selector to render inside instead of covering the viewport. The host
+    // gives that element its size and position:relative; the overlay fills it.
+    mount: null,
+    background: "#0b0f14",   // "transparent" lets a stage canvas show through
+    // Real audio analysis for onLevel/analyser(): "auto" = on when a host set
+    // onLevel before start(); true/false force. Needs CORS on the bucket —
+    // checked once at start(); silently off if the check fails.
+    analyse: "auto",
   };
 
   const FEELINGS = [
@@ -313,7 +324,8 @@ return self.XquiXSoundBuilder; })();
   const MINUTES = [10, 20, 30, 45];
 
   const CSS = `
-#xqSoundStudio{position:fixed;inset:0;z-index:100000;background:#0b0f14;color:#e8edf2;font:15px/1.45 -apple-system,BlinkMacSystemFont,"DM Sans","Segoe UI",sans-serif;overflow:hidden;display:flex;flex-direction:column}
+#xqSoundStudio{position:fixed;inset:0;z-index:100000;background:var(--xqss-bg,#0b0f14);color:#e8edf2;font:15px/1.45 -apple-system,BlinkMacSystemFont,"DM Sans","Segoe UI",sans-serif;overflow:hidden;display:flex;flex-direction:column}
+#xqSoundStudio.xqss-embedded{position:absolute;z-index:auto}
 #xqSoundStudio *{box-sizing:border-box}
 #xqSoundStudio button{font-family:inherit;text-transform:none;letter-spacing:0;line-height:1.2;-webkit-appearance:none;appearance:none}
 #xqSoundStudio .xqss-top{display:flex;align-items:center;gap:10px;padding:max(12px,env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid #1e2a33}
@@ -383,12 +395,100 @@ return self.XquiXSoundBuilder; })();
     return { collections, functions, tracks };
   }
 
+  // ------------------------------------------------------------ analysis --
+  // The real signal for a stage: a Web Audio AnalyserNode on whatever is
+  // playing, read every animation frame into onLevel({bass,mid,high,level,hit}).
+  // A cross-origin <audio> only feeds Web Audio when it was loaded with
+  // crossOrigin="anonymous" AND the bucket answered with CORS headers —
+  // otherwise the graph plays silence. So: probe once, enable only on a pass,
+  // and never touch the elements' CORS mode when the probe fails.
+  const analysis = { wanted: false, ok: null, ctx: null, node: null, srcA: null, srcB: null, raf: null, lastHit: 0 };
+  function analysisWanted() {
+    const a = config.analyse;
+    if (a === true || a === false) return a;
+    return typeof (root.MIZE.SoundStudio && root.MIZE.SoundStudio.onLevel) === "function";
+  }
+  async function probeCors(cat) {
+    if (analysis.ok !== null) return analysis.ok;
+    try {
+      const col = cat && cat.collections.find(c => c.cover_key);
+      const trk = cat && cat.tracks.find(t => t.status === "active");
+      const key = col ? col.cover_key : trk ? trk.r2_key : null;
+      if (!key) { analysis.ok = false; return false; }
+      const r = await fetch(config.audioBase + key, { mode: "cors", cache: "no-store", headers: { Range: "bytes=0-1" } });
+      if (r.body && r.body.cancel) r.body.cancel().catch(() => {});
+      analysis.ok = r.type === "cors" && (r.ok || r.status === 206);
+    } catch (e) { analysis.ok = false; }
+    if (!analysis.ok) console.warn("[SoundStudio] onLevel is off: " + config.audioBase + " does not answer with CORS headers for this origin. Add a CORS policy on the R2 bucket (AllowedOrigins [\"*\"], AllowedMethods [\"GET\",\"HEAD\"], AllowedHeaders [\"Range\"]).");
+    return analysis.ok;
+  }
+  function analysisAttach(A, B) {
+    if (analysis.ctx || !analysis.ok) return;
+    const AC = root.AudioContext || root.webkitAudioContext; if (!AC) { analysis.ok = false; return; }
+    try {
+      const ctx = new AC();
+      // No analyser smoothing: onsets need frame-to-frame contrast. Bands are
+      // smoothed here instead, gently, for the stage's benefit.
+      const node = ctx.createAnalyser(); node.fftSize = 2048; node.smoothingTimeConstant = 0;
+      analysis.srcA = ctx.createMediaElementSource(A); analysis.srcB = ctx.createMediaElementSource(B);
+      analysis.srcA.connect(node); analysis.srcB.connect(node); node.connect(ctx.destination);
+      analysis.ctx = ctx; analysis.node = node;
+      analysis.freq = new Float32Array(node.frequencyBinCount); analysis.prev = new Float32Array(node.frequencyBinCount).fill(-100);
+      analysis.time = new Uint8Array(1024);
+      analysis.sm = { bass: 0, mid: 0, high: 0, level: 0 }; analysis.fluxMean = 0; analysis.fluxVar = 0; analysis.fluxPrev = 0; analysis.lastHit = 0;
+    } catch (e) { analysis.ok = false; analysis.ctx = null; analysis.node = null; }
+  }
+  function analysisFrame() {
+    analysis.raf = null;
+    const n = analysis.node, cb = root.MIZE.SoundStudio && root.MIZE.SoundStudio.onLevel;
+    if (!n || !player || player.cur.paused) return;
+    const F = analysis.freq, P = analysis.prev;
+    n.getFloatFrequencyData(F); n.getByteTimeDomainData(analysis.time);
+    for (let i = 0; i < F.length; i++) if (!(F[i] > -120)) F[i] = -120;      // silence is -Infinity in float data
+    const hz = analysis.ctx.sampleRate / n.fftSize;                     // Hz per bin
+    const bin = h => Math.min(F.length - 1, Math.max(1, Math.round(h / hz)));
+    // Band energy: mean dB over the band, mapped -70…-10 dBFS → 0…1.
+    const bandDb = (lo, hi) => { let s = 0, c = 0; for (let i = bin(lo); i <= bin(hi); i++) { s += F[i]; c++; } return s / c; };
+    // Mapped per band onto the range the normalised catalogue actually spans
+    // (measured across the XquiX Sound tracks), so each lands in 0…1 with room
+    // to move: bass −65…−30 dB, mid −85…−50, high −105…−60. Relative, not
+    // calibrated — a stage reads shape and motion from these, not physics.
+    const band = (lo, hi, a, b) => Math.max(0, Math.min(1, (bandDb(lo, hi) - a) / (b - a)));
+    // Onset: positive spectral flux in the kick band (30–180 Hz), thresholded
+    // against its own running mean + 1.8σ, taken on the rising edge, 200 ms
+    // refractory (300 BPM). This is what a real drum hit looks like even when
+    // the bass is sustained — level alone cannot tell them apart.
+    let flux = 0; for (let i = bin(30); i <= bin(180); i++) { const d = F[i] - P[i]; if (d > 0) flux += d; }
+    P.set(F);
+    const m = analysis.fluxMean, v = analysis.fluxVar;
+    const thr = m + 1.8 * Math.sqrt(v);
+    const now = performance.now();
+    const hit = flux > thr && flux > 6 && analysis.fluxPrev <= thr && now - analysis.lastHit > 200;
+    analysis.fluxMean = m * 0.95 + flux * 0.05; analysis.fluxVar = v * 0.95 + (flux - m) * (flux - m) * 0.05; analysis.fluxPrev = flux;
+    if (hit) analysis.lastHit = now;
+    let sq = 0; for (let i = 0; i < analysis.time.length; i++) { const x = (analysis.time[i] - 128) / 128; sq += x * x; }
+    const raw = { bass: band(20, 150, -65, -30), mid: band(150, 2000, -85, -50), high: band(2000, 8000, -105, -60), level: Math.min(1, Math.sqrt(sq / analysis.time.length) * 2.5) };
+    const sm = analysis.sm; for (const k in raw) sm[k] = sm[k] * 0.6 + raw[k] * 0.4;
+    if (typeof cb === "function") { try { cb({ bass: sm.bass, mid: sm.mid, high: sm.high, level: sm.level, hit, t: player.cur.currentTime || 0 }); } catch (e) {} }
+    analysis.raf = requestAnimationFrame(analysisFrame);
+  }
+  function analysisRun() { if (analysis.node && !analysis.raf) { if (analysis.ctx.state === "suspended") analysis.ctx.resume().catch(() => {}); analysis.raf = requestAnimationFrame(analysisFrame); } }
+  function analysisStop() { if (analysis.raf) { cancelAnimationFrame(analysis.raf); analysis.raf = null; } }
+  function analysisClose() {
+    analysisStop();
+    if (analysis.ctx) { try { analysis.ctx.close(); } catch (e) {} }
+    analysis.ctx = analysis.node = analysis.srcA = analysis.srcB = null; analysis.lastHit = 0;
+  }
+
   // -------------------------------------------------------------- player --
   // Two <audio> elements alternate so one track can fade into the next.
   function makePlayer() {
     const A = new Audio(), B = new Audio();
     [A, B].forEach(a => { a.preload = "auto"; a.crossOrigin = null; });
     const p = { a: A, b: B, cur: A, idx: -1, plan: [], fading: false, timer: null, onchange: () => {} };
+    // Switch both elements to CORS mode and build the analysis graph — only
+    // once the probe passed, and before any src is set for the new mode.
+    p.arm = () => { if (analysis.ok && !analysis.ctx) { [A, B].forEach(a => { a.crossOrigin = "anonymous"; }); analysisAttach(A, B); } };
 
     p.load = (plan) => { p.plan = plan; p.idx = -1; };
 
@@ -425,7 +525,7 @@ return self.XquiXSoundBuilder; })();
       if (i < 0 || i >= p.plan.length) return p.stop();
       const next = (p.cur === A ? B : A);
       const src = config.audioBase + p.plan[i].r2_key;
-      stopBeatClock();
+      stopBeatClock(); p.arm();
       p.cur.pause(); p.cur.volume = 1;
       next.src = src; next.volume = 1;
       p.cur = next; p.idx = i;
@@ -437,7 +537,7 @@ return self.XquiXSoundBuilder; })();
     p.toggle = () => { if (p.idx < 0) return p.playIndex(0); p.cur.paused ? p.cur.play() : p.cur.pause(); p.onchange(); };
     p.next = () => p.playIndex(p.idx + 1);
     p.prev = () => (p.cur.currentTime > 5 ? (p.cur.currentTime = 0) : p.playIndex(Math.max(0, p.idx - 1)));
-    p.stop = () => { stopBeatClock(); [A, B].forEach(a => { a.pause(); a.removeAttribute("src"); a.load(); }); p.idx = -1; p.fading = false; p.onchange(); };
+    p.stop = () => { stopBeatClock(); analysisStop(); [A, B].forEach(a => { a.pause(); a.removeAttribute("src"); a.load(); }); p.idx = -1; p.fading = false; p.onchange(); };
     // Crossfade: when the current track is within N seconds of its end, start
     // the next one quietly and swap the volumes over those seconds.
     function tick() {
@@ -457,7 +557,7 @@ return self.XquiXSoundBuilder; })();
       }
       p.onchange("time");
     }
-    [A, B].forEach(a => { on(a, "timeupdate", tick); on(a, "ended", () => { if (!p.fading) p.next(); }); on(a, "play", () => { if (a === p.cur) runBeatClock(); p.onchange(); }); on(a, "pause", () => { if (a === p.cur && !p.fading) pauseBeatClock(); p.onchange(); }); });
+    [A, B].forEach(a => { on(a, "timeupdate", tick); on(a, "ended", () => { if (!p.fading) p.next(); }); on(a, "play", () => { if (a === p.cur) runBeatClock(); analysisRun(); p.onchange(); }); on(a, "pause", () => { if (a === p.cur && !p.fading) { pauseBeatClock(); analysisStop(); } p.onchange(); }); });
     return p;
   }
   function mediaSession(p) {
@@ -618,6 +718,9 @@ return self.XquiXSoundBuilder; })();
     if (el) return;
     styleEl = document.createElement("style"); styleEl.id = "xqSoundStudioStyle"; styleEl.textContent = CSS; document.head.appendChild(styleEl);
     el = document.createElement("div"); el.id = "xqSoundStudio";
+    const mount = typeof config.mount === "string" ? document.querySelector(config.mount) : config.mount;
+    if (mount && mount.nodeType === 1) el.classList.add("xqss-embedded");
+    if (config.background) el.style.setProperty("--xqss-bg", config.background);
     el.innerHTML = `
       <div class="xqss-top">
         <button data-exit type="button">‹ Home</button>
@@ -630,8 +733,9 @@ return self.XquiXSoundBuilder; })();
         <div class="xqss-bar"><i></i></div>
         <div class="xqss-ctl"><button data-p="prev" type="button">⏮</button><button data-p="toggle" class="big" type="button">▶</button><button data-p="next" type="button">⏭</button><span class="t">0:00 / 0:00</span></div>
       </div>`;
-    document.body.appendChild(el);
+    (mount && mount.nodeType === 1 ? mount : document.body).appendChild(el);
     player = makePlayer();
+    analysis.wanted = analysisWanted();
     player.onchange = (what) => {
       if (what === "time") { renderPlayer(); return; }
       if (player.idx >= 0 && session && view === "session") { el.querySelectorAll(".xqss-plan li").forEach((li, i) => { li.classList.toggle("now", i === player.idx); li.classList.toggle("done", i < player.idx); }); }
@@ -644,13 +748,14 @@ return self.XquiXSoundBuilder; })();
     el.querySelector('[data-p="next"]').onclick = () => { player.next(); render(); };
     el.querySelector('[data-p="prev"]').onclick = () => { player.prev(); render(); };
     view = "ask"; render();
-    loadCatalog().then(c => { catalog = c; if (view === "ask" || view === "box") render(); })
+    loadCatalog().then(c => { catalog = c; if (view === "ask" || view === "box") render(); if (analysis.wanted) probeCors(c); })
       .catch(e => { const err = el && el.querySelector("#xqss-err"); if (err) { err.hidden = false; err.textContent = "Could not load the Sound Box: " + e.message; } });
   }
 
   function exit() {
     if (!el) return;
     if (player) { player.stop(); }
+    analysisClose();
     releaseMediaSession();
     listeners.splice(0).forEach(([t, ev, fn]) => t.removeEventListener(ev, fn));
     el.remove(); el = null; styleEl.remove(); styleEl = null;
@@ -666,5 +771,7 @@ return self.XquiXSoundBuilder; })();
     onExit: null,
     onTrackChange: null,   // ({title,bpm,coverKey,coverBase,trackIndex,total,role,function,trackId}) on every track start
     onBeat: null,          // ({beat,bpm}) on every beat of a track with a measured BPM
+    onLevel: null,         // ({bass,mid,high,level,hit,t}) every animation frame while playing — real audio, needs CORS on the bucket
+    analyser: () => analysis.node,   // the live AnalyserNode, or null (not enabled, or before the first play)
   };
 })();
