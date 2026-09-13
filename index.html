@@ -1497,35 +1497,14 @@
   }
   @media print { header, #controlsPanel, #timelinePanel { display:none; } #stageWrap { width:100vw; margin:0; } #board { box-shadow:none; } }
 
-  /* ── XquiX Sound Box stage backdrop (SOUNDBOX-STAGE-HOOKS 2026-09-12) ── */
-  #xqStage{position:fixed;inset:0;z-index:99500;background:#050709;overflow:hidden;display:none;pointer-events:none}
+  /* ── XquiX Sound Box canvas stage (canvas rebuild 2026-09-13) ── */
+  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none}
   #xqStage.on{display:block}
-  /* Sound Studio overlay is confined to the stage's LED screen area.
-     The stage (speakers, lights, fog) remains fully visible around it.
-     Each side is overridden individually because the module sets inset:0. */
-  #xqSoundStudio{
-    left:25.88%!important; top:18.64%!important;
-    right:auto!important;  bottom:auto!important;
-    width:48.24%!important; height:44.55%!important;
-    border-radius:2px!important;
-    background:#071c18!important;
-  }
-  .xqsb{position:absolute;inset:0;transition:background .5s ease,opacity .2s ease;opacity:.07}
-  @keyframes xqFog{0%{opacity:.13;transform:scale(.5)}55%{opacity:.08}100%{opacity:0;transform:scale(3.2)}}
-  .xqsFgL{transform-origin:0 0;animation:xqFog 3.2s ease-out infinite;animation-play-state:paused}
-  .xqsFgR{transform-origin:0 0;animation:xqFog 3.2s ease-out infinite 1.4s;animation-play-state:paused}
-  #xqStage.playing .xqsFgL,#xqStage.playing .xqsFgR{animation-play-state:running}
-  #xqStage.fog-burst .xqsFgL,#xqStage.fog-burst .xqsFgR{animation-duration:1.3s!important}
-  .xqsLas{opacity:0;transition:opacity 1.2s}
-  #xqStage.playing .xqsLas{opacity:.88}
-  @keyframes xqSw1{0%{transform:rotate(-22deg)}50%{transform:rotate(20deg)}100%{transform:rotate(-22deg)}}
-  @keyframes xqSw2{0%{transform:rotate(18deg)}50%{transform:rotate(-22deg)}100%{transform:rotate(18deg)}}
-  @keyframes xqSw3{0%{transform:rotate(-38deg)}40%{transform:rotate(14deg)}70%{transform:rotate(32deg)}100%{transform:rotate(-38deg)}}
-  @keyframes xqSw4{0%{transform:rotate(25deg)}50%{transform:rotate(-30deg)}100%{transform:rotate(25deg)}}
-  #xqSLas1{transform-origin:0 0;animation:xqSw1 3.5s ease-in-out infinite}
-  #xqSLas2{transform-origin:0 0;animation:xqSw2 3.8s ease-in-out infinite .7s}
-  #xqSLas3{transform-origin:0 0;animation:xqSw3 5.4s ease-in-out infinite 1.3s}
-  #xqSLas4{transform-origin:0 0;animation:xqSw4 4.8s ease-in-out infinite 2.1s}
+  /* Canvas is purely visual; #xqScreen children must receive touch/click events */
+  #xqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+  #xqScreen{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
+            border-radius:2px;overflow:hidden;z-index:1;pointer-events:auto}
+  #xqScreen *{pointer-events:auto}
 
 </style>
 <!-- Milestone 4: first external dependency this app has ever had. Loaded
@@ -26994,31 +26973,60 @@ function buildBg(W,H){
   FXPOS.forEach(function(fx,i){drawFixture(c,W,H,fx,FTEAL[i]);});
 }
 
-// ── Fog particles ──────────────────────────────────────────────────────────
-var FOG=[],FOG_MAX=90,lastFog=0;
+// ── Fog — horizontal ground-level clouds, burst only on bass hits ──────────
+// Machines blow inward along the stage floor. Clouds are wide flat ellipses
+// that drift forward, expand, slow with drag, and barely rise before fading.
+// Burst-only: no fog between hits — used as a dramatic effect.
+var FOG=[],FOG_MAX=60,_fogLast=0,_fogCool=0;
+
+function _fogBurst(W,H,xf,dir){
+  for(var i=0;i<8&&FOG.length<FOG_MAX;i++){
+    FOG.push({
+      x:xf*W+(Math.random()-.5)*W*0.012,
+      y:H*(0.808+Math.random()*0.008),         // hug stage floor
+      vx:dir*W*(0.00050+Math.random()*0.00042), // mostly horizontal inward
+      vy:-H*(0.000016+Math.random()*0.000045),  // barely rises
+      rx:W*(0.030+Math.random()*0.038),          // wide (horizontal)
+      ry:H*(0.009+Math.random()*0.015),          // thin (flat ground cloud)
+      life:1.0,
+      dc:0.00042+Math.random()*0.00035,
+    });
+  }
+}
+
 function tickFog(W,H,ts,bass,hit){
-  var dt=ts-lastFog;lastFog=ts;
-  var rate=0.03+bass*0.10;if(hit)rate+=0.28;
-  if(Math.random()<rate*dt/16){
-    function sp(xf){if(FOG.length<FOG_MAX)FOG.push({x:xf*W+(Math.random()-.5)*W*0.025,y:H*0.806,
-      vx:(Math.random()-.5)*W*0.00012,vy:-(W*0.00018+Math.random()*W*0.00028),
-      r:W*(0.013+Math.random()*0.020),life:0.65+Math.random()*0.35,dc:0.00055+Math.random()*0.00040});}
-    sp(0.127);sp(0.873);
+  var dt=ts-_fogLast; _fogLast=ts;
+  _fogCool=Math.max(0,_fogCool-dt);
+  if(hit&&bass>0.28&&_fogCool<=0){
+    _fogBurst(W,H,0.119, 1);   // left machine → stage right
+    _fogBurst(W,H,0.881,-1);   // right machine → stage left
+    _fogCool=1500+Math.random()*900; // 1.5–2.4 s between bursts
   }
   for(var i=FOG.length-1;i>=0;i--){
     var p=FOG[i];
-    p.x+=p.vx*dt;p.y+=p.vy*dt;p.r+=W*0.00015*dt/16;p.life-=p.dc*dt/16;
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.rx+=W*0.000085*dt/16;   // expand horizontally
+    p.ry+=H*0.000010*dt/16;   // barely expand vertically
+    p.vx*=0.9984;              // drag — cloud decelerates as it expands
+    p.life-=p.dc*dt/16;
     if(p.life<=0)FOG.splice(i,1);
   }
 }
+
 function drawFog(W,H){
-  ctx.save();ctx.globalCompositeOperation='screen';
+  // Flat elliptical clouds via translate+scale trick so gradient follows ellipse shape
+  ctx.save(); ctx.globalCompositeOperation='screen';
   FOG.forEach(function(p){
-    var a=p.life*0.12;
-    var g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
-    g.addColorStop(0,'rgba(178,210,198,'+a.toFixed(3)+')');
-    g.addColorStop(1,'rgba(178,210,198,0)');
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+    var a=p.life*0.14;
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.scale(p.rx,p.ry);   // unit-circle now maps to the ellipse
+    var g=ctx.createRadialGradient(0,0,0,0,0,1);
+    g.addColorStop(0,   'rgba(218,230,222,'+a.toFixed(3)+')');
+    g.addColorStop(0.5, 'rgba(208,224,214,'+(a*0.55).toFixed(3)+')');
+    g.addColorStop(1,   'rgba(208,224,214,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,1,0,Math.PI*2); ctx.fill();
+    ctx.restore();
   });
   ctx.restore();
 }
