@@ -1505,29 +1505,52 @@
   #xqScreen{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
             border-radius:2px;overflow:hidden;z-index:1;pointer-events:auto}
   #xqScreen *{pointer-events:auto}
-  /* FX canvas: lasers + countdown drawn above everything, pointer-events:none */
+  /* FX canvas: lasers drawn above everything, pointer-events:none */
   #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3}
+  /* NP overlay — positioned container, children are absolute */
   #xqNP{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
         border-radius:2px;overflow:hidden;z-index:2;background:#000;
-        display:none;flex-direction:column;align-items:center;justify-content:center;
-        gap:5%;pointer-events:auto;cursor:pointer}
-  #xqNP.on{display:flex}
-  /* Home button — bottom-right of stage, always on top */
-  #xqNP_home{position:absolute;bottom:10.5%;right:3%;z-index:5;
-             background:rgba(0,0,0,0.55);border:.5px solid rgba(29,158,117,0.35);
+        display:none;pointer-events:auto;cursor:pointer}
+  #xqNP.on{display:block}
+  /* Countdown wrapper inside the LED screen */
+  #xqNP_cdWrap{position:absolute;inset:0;background:#000;display:none;
+               align-items:center;justify-content:center;flex-direction:column;z-index:10}
+  #xqNP_cdWrap.on{display:flex}
+  #xqNP_cdN{position:absolute;font:bold clamp(22px,10vw,58px)/1 Georgia,'Times New Roman',serif;color:#ededdd}
+  #xqNP_cdRing{width:42%;aspect-ratio:1;flex-shrink:0}
+  /* Film scratch lines on countdown */
+  #xqNP_cdWrap::before{content:'';position:absolute;top:-100%;left:22%;width:1px;height:300%;
+                        background:rgba(255,255,255,.38);animation:xqNPScratch .68s linear infinite}
+  #xqNP_cdWrap::after{content:'';position:absolute;top:-100%;right:25%;width:.5px;height:300%;
+                       background:rgba(255,255,255,.18);animation:xqNPScratch 1.05s linear infinite .32s}
+  @keyframes xqNPScratch{to{transform:translateY(100%)}}
+  /* Art circle — position:absolute so JS can bounce it around */
+  #xqNP_art{position:absolute;width:46%;aspect-ratio:1;border-radius:50%;background:#0d5440;
+            overflow:hidden;transform-style:preserve-3d;will-change:transform,opacity,left,top;
+            transform-origin:center center}
+  #xqNP_art img{width:100%;height:100%;object-fit:cover;display:none}
+  #xqNP_def{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;
+            justify-content:center;gap:8%}
+  #xqNP_lbl{position:absolute;top:5%;left:0;right:0;text-align:center;
+             color:#0a4030;font-size:clamp(4px,1.1vw,9px);letter-spacing:.2em;font-family:system-ui,sans-serif}
+  #xqNP_fn{position:absolute;bottom:5%;left:0;right:0;text-align:center;
+            color:#0a4030;font-size:clamp(4px,1.1vw,8px);font-family:system-ui,sans-serif;letter-spacing:.05em}
+  /* Home + controls: position:fixed so they're outside #xqStage's pointer-events:none */
+  #xqNP_home{position:fixed;bottom:calc(9% + 1.5%);right:3%;z-index:99600;
+             background:rgba(0,0,0,0.6);border:.5px solid rgba(29,158,117,0.38);
              color:#1d9e75;font-size:clamp(7px,1.4vw,11px);border-radius:20px;
-             padding:1.2% 4%;cursor:pointer;font-family:system-ui,sans-serif;
-             letter-spacing:.04em;pointer-events:auto}
-  /* Stage playback controls — always visible at bottom when Sound Box is open */
-  #xqControls{position:absolute;bottom:0;left:0;right:0;height:9%;z-index:5;
+             padding:0.8% 3.5%;cursor:pointer;font-family:system-ui,sans-serif;
+             letter-spacing:.04em;display:none}
+  #xqNP_home.on{display:block}
+  #xqControls{position:fixed;bottom:0;left:0;right:0;height:9%;z-index:99600;
               display:none;align-items:center;justify-content:center;gap:7%;
-              background:rgba(0,0,0,0.55);pointer-events:auto}
-  #xqStage.on #xqControls{display:flex}
-  .xqCtrl{background:none;border:.5px solid rgba(29,158,117,0.35);color:#1d9e75;
+              background:rgba(0,0,0,0.58)}
+  #xqControls.on{display:flex}
+  .xqCtrl{background:none;border:.5px solid rgba(29,158,117,0.38);color:#1d9e75;
            font-size:clamp(14px,3.5vw,28px);border-radius:50%;
            width:clamp(32px,7vw,56px);height:clamp(32px,7vw,56px);
            cursor:pointer;display:flex;align-items:center;justify-content:center;
-           pointer-events:auto;transition:background .15s}
+           touch-action:manipulation;transition:background .15s}
   .xqCtrl:active{background:rgba(29,158,117,0.2)}
   #xqNP_lbl{color:#0a4030;font-size:clamp(4px,1.1vw,9px);letter-spacing:.2em;font-family:system-ui,sans-serif}
   #xqNP_art{width:46%;aspect-ratio:1;border-radius:50%;background:#0d5440;overflow:hidden;
@@ -4871,6 +4894,9 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
       // Raise the stage backdrop before the Sound Studio overlay opens.
       var _stg = document.getElementById('xqStage');
       if(_stg) _stg.classList.add('on');
+      // Home and controls are position:fixed siblings — show them now
+      var _hm=document.getElementById('xqNP_home'),_ct=document.getElementById('xqControls');
+      if(_hm) _hm.classList.add('on'); if(_ct) _ct.classList.add('on');
       MIZE.SoundStudio.start();  // must run inside user-gesture (click handler)
     } else {
       xquixHomeShowToast('Sound Box coming soon.');
@@ -22050,8 +22076,14 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
     if(_np) _np.classList.add('on');
     if(_npFn) _npFn.textContent=t['function']||t.title||'';
-    // Cinematic countdown on session start
-    if(t.trackIndex===1){ _xqSt.countdown=5; _xqSt.countdownNext=0; }
+    // Cinematic countdown on session start — show on LED screen, then logo
+    if(t.trackIndex===1){
+      _xqSt.countdown=5; _xqSt.countdownNext=0;
+      var _cdW=document.getElementById('xqNP_cdWrap');
+      var _artEl=document.getElementById('xqNP_art');
+      if(_cdW) _cdW.classList.add('on');
+      if(_artEl) _artEl.style.display='none';
+    }
 
     // 500ms fallback timer for BPM-null tracks (or when onLevel is silent)
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
@@ -22106,6 +22138,8 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(_np) _np.classList.remove('on');
     if(_ni){_ni.src='';_ni.style.display='none';}
     if(_nd) _nd.style.display='';
+    var _hm2=document.getElementById('xqNP_home'),_ct2=document.getElementById('xqControls');
+    if(_hm2) _hm2.classList.remove('on'); if(_ct2) _ct2.classList.remove('on');
     var s = document.getElementById('xqStage');
     if (s) s.classList.remove('on');
     xquixShowHome();
@@ -26850,6 +26884,21 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   <div id="xqScreen"></div>
   <div id="xqNP">
     <div id="xqNP_lbl">NOW PLAYING</div>
+    <!-- Cinematic countdown — appears on the LED screen before logo -->
+    <div id="xqNP_cdWrap">
+      <svg id="xqNP_cdRing" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="#181e1c" stroke-width="5"/>
+        <circle id="xqNP_cdArc" cx="50" cy="50" r="42" fill="none" stroke="#d0d0b8"
+                stroke-width="4" stroke-dasharray="264 264" transform="rotate(-90 50 50)"/>
+        <circle cx="50" cy="50" r="34" fill="none" stroke="#141c1a" stroke-width=".5"/>
+        <line x1="50" y1="6" x2="50" y2="14" stroke="#444" stroke-width="1.5"/>
+        <line x1="50" y1="86" x2="50" y2="94" stroke="#444" stroke-width="1.5"/>
+        <line x1="6" y1="50" x2="14" y2="50" stroke="#444" stroke-width="1.5"/>
+        <line x1="86" y1="50" x2="94" y2="50" stroke="#444" stroke-width="1.5"/>
+      </svg>
+      <div id="xqNP_cdN">5</div>
+    </div>
+    <!-- Animated art circle (bounces, spins, fades) -->
     <div id="xqNP_art">
       <img id="xqNP_img" src="" alt="">
       <div id="xqNP_def">
@@ -26863,15 +26912,15 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     </div>
     <div id="xqNP_fn"></div>
   </div>
-  <!-- FX canvas: lasers + countdown rendered above all content -->
+  <!-- FX canvas: lasers drawn above screen content -->
   <canvas id="xqFX"></canvas>
-  <!-- Home button + playback controls always accessible at stage level -->
-  <button id="xqNP_home">&#8249; Home</button>
-  <div id="xqControls">
-    <button class="xqCtrl" id="xqPrev" aria-label="Previous">&#9198;</button>
-    <button class="xqCtrl" id="xqPlayPause" aria-label="Play/Pause">&#9208;</button>
-    <button class="xqCtrl" id="xqNext" aria-label="Next">&#9197;</button>
-  </div>
+</div>
+<!-- Home button and playback controls: position:fixed so iOS can always tap them -->
+<button id="xqNP_home">&#8249; Home</button>
+<div id="xqControls">
+  <button class="xqCtrl" id="xqPrev" aria-label="Previous">&#9198;</button>
+  <button class="xqCtrl" id="xqPlayPause" aria-label="Play/Pause">&#9208;</button>
+  <button class="xqCtrl" id="xqNext" aria-label="Next">&#9197;</button>
 </div>
 <script>
 (function(){
@@ -26995,7 +27044,31 @@ function buildBg(W,H){
 // Machines blow inward along the stage floor. Clouds are wide flat ellipses
 // that drift forward, expand, slow with drag, and barely rise before fading.
 // Burst-only: no fog between hits — used as a dramatic effect.
-var FOG=[],FOG_MAX=60,_fogLast=0,_fogCool=0,_npKick=0;
+var FOG=[],FOG_MAX=60,_fogLast=0,_fogCool=0;
+// Physics-based logo animation state
+var _npSz={w:0,h:0}; // #xqNP pixel size (cached, updated on resize)
+var _npA={ // animation state
+  px:0,py:0,        // circle CENTER in px within #xqNP
+  vx:0,vy:0,        // velocity px/ms
+  rx:0,ry:0,rz:0,   // rotation angles (deg)
+  rvx:0,rvy:0,rvz:0,// rotation velocity (deg/ms)
+  scale:1,
+  op:1,             // opacity
+  fadeState:'VISIBLE',
+  fadeTmr:7000,
+  init:false,
+};
+function _npInitAnim(){
+  var el=document.getElementById('xqNP');
+  if(!el)return;
+  var r=el.getBoundingClientRect();
+  _npSz.w=r.width; _npSz.h=r.height;
+  var R=Math.min(r.width*0.24,r.height*0.40);
+  _npA.px=r.width/2; _npA.py=r.height/2;
+  _npA.vx=(r.width*0.00075)*(Math.random()<0.5?1:-1);
+  _npA.vy=(r.height*0.00060)*(Math.random()<0.5?1:-1);
+  _npA.init=true;
+}
 
 function _fogBurst(W,H,xf,dir){
   for(var i=0;i<8&&FOG.length<FOG_MAX;i++){
@@ -27171,6 +27244,7 @@ function resize(){
   cnv.height=cnv.offsetHeight||window.innerHeight;
   if(fxCnv){fxCnv.width=cnv.width;fxCnv.height=cnv.height;}
   buildBg(cnv.width,cnv.height);
+  if(_npA.init) _npInitAnim(); // recompute circle size on resize
 }
 var _rsT;window.addEventListener('resize',function(){clearTimeout(_rsT);_rsT=setTimeout(resize,120);});
 
@@ -27192,33 +27266,93 @@ function frame(ts){
   ctx.drawImage(bg,0,0,W,H);
   drawSpots(W,H,bass,rms,bd);
   tickFog(W,H,ts,bass,hit);drawFog(W,H);
-  // FX canvas: clear then draw lasers (above screen) and countdown
+  // FX canvas: clear then draw lasers (cross the screen zone)
   if(fxCtx){fxCtx.clearRect(0,0,W,H);}
   drawLasers(W,H,ts,hit,bd);
-  drawCountdown(W,H,ts);
-  if(hit){_npKick=(Math.random()-.5)*38;}_npKick*=0.82;
-  var _npa=document.getElementById('xqNP_art');
-  if(_npa&&_xqSt.playing){
-    _npa.style.transform='scale('+(1+bd*0.12+bass*0.05).toFixed(3)+') rotateY('+(Math.sin(ts/3600)*18+_npKick).toFixed(1)+'deg)';
-    _npa.style.opacity=(0.86+rms*0.14).toFixed(3);
+  // HTML countdown inside #xqNP
+  if(_xqSt.countdown>0){
+    if(!_xqSt.countdownNext) _xqSt.countdownNext=ts+920;
+    var _cdN=document.getElementById('xqNP_cdN');
+    var _cdA=document.getElementById('xqNP_cdArc');
+    if(_cdN) _cdN.textContent=String(_xqSt.countdown);
+    var _cProg=1-Math.min(1,Math.max(0,(ts-(_xqSt.countdownNext-920))/920));
+    if(_cdA) _cdA.setAttribute('stroke-dasharray',(_cProg*263.9).toFixed(1)+' 264');
+    if(ts>=_xqSt.countdownNext){
+      _xqSt.countdown--;
+      if(_xqSt.countdown>0){ _xqSt.countdownNext=ts+920; }
+      else {
+        // Countdown done: hide countdown, show logo
+        _xqSt.countdownNext=0;
+        var _cdWrap=document.getElementById('xqNP_cdWrap');
+        var _artEl=document.getElementById('xqNP_art');
+        if(_cdWrap) _cdWrap.classList.remove('on');
+        if(_artEl) _artEl.style.display='';
+        _npInitAnim();
+      }
+    }
   }
+  // Physics logo animation
+  (function(){
+    if(!_xqSt.playing||_xqSt.countdown>0) return;
+    var npa=document.getElementById('xqNP_art');
+    if(!npa) return;
+    if(!_npA.init) _npInitAnim();
+    var a=_npA, spd=1+bass*1.8;
+    var el=document.getElementById('xqNP');
+    if(el&&(_npSz.w!==el.offsetWidth||_npSz.h!==el.offsetHeight)){
+      _npSz.w=el.offsetWidth; _npSz.h=el.offsetHeight;
+    }
+    var R=Math.min(_npSz.w*0.24,_npSz.h*0.40);
+    // Bounce
+    a.px+=a.vx*spd*dt; a.py+=a.vy*spd*dt;
+    if(a.px<R){a.px=R; a.vx=Math.abs(a.vx)*(0.75+Math.random()*0.5);}
+    if(a.px>_npSz.w-R){a.px=_npSz.w-R; a.vx=-Math.abs(a.vx)*(0.75+Math.random()*0.5);}
+    if(a.py<R){a.py=R; a.vy=Math.abs(a.vy)*(0.75+Math.random()*0.5);}
+    if(a.py>_npSz.h-R){a.py=_npSz.h-R; a.vy=-Math.abs(a.vy)*(0.75+Math.random()*0.5);}
+    // Hit: spin impulse + random speed kick
+    if(hit){
+      a.rvx+=(Math.random()-.5)*230; a.rvy+=(Math.random()-.5)*230; a.rvz+=(Math.random()-.5)*115;
+      if(Math.random()<0.35){ a.vx=(Math.random()-.5)*(_npSz.w*0.0020+bass*_npSz.w*0.0010); a.vy=(Math.random()-.5)*(_npSz.h*0.0016+bass*_npSz.h*0.0008); }
+    }
+    // Spin physics + drag
+    a.rx+=a.rvx*dt/1000; a.ry+=a.rvy*dt/1000; a.rz+=a.rvz*dt/1000;
+    var drag=Math.pow(0.955,dt/16);
+    a.rvx*=drag; a.rvy*=drag; a.rvz*=drag;
+    // Scale bounce on beat
+    a.scale=1+bd*0.14+bass*0.06;
+    // Fade state machine
+    a.fadeTmr-=dt;
+    switch(a.fadeState){
+      case 'VISIBLE': a.op=Math.min(1,a.op+dt/250);
+        if(a.fadeTmr<=0||(hit&&Math.random()<0.07)){a.fadeState='OUT';a.fadeTmr=500+Math.random()*300;} break;
+      case 'OUT': a.op=Math.max(0,a.op-dt/(a.fadeTmr+1));
+        if(a.op<=0.01){a.op=0;a.fadeState='BLACK';a.fadeTmr=120+Math.random()*700;} break;
+      case 'BLACK': a.op=0; if(a.fadeTmr<=0){a.fadeState='IN';} break;
+      case 'IN': a.op=Math.min(1,a.op+dt/380);
+        if(a.op>=0.99){a.op=1;a.fadeState='VISIBLE';a.fadeTmr=5000+Math.random()*11000;} break;
+    }
+    // Apply to DOM
+    npa.style.left=(a.px-R)+'px'; npa.style.top=(a.py-R)+'px';
+    npa.style.width=R*2+'px'; npa.style.height=R*2+'px';
+    npa.style.transform='rotateX('+a.rx.toFixed(1)+'deg) rotateY('+a.ry.toFixed(1)+'deg) rotateZ('+a.rz.toFixed(1)+'deg) scale('+a.scale.toFixed(3)+')';
+    npa.style.opacity=a.op.toFixed(3);
+  })();
 }
 resize();requestAnimationFrame(frame);
 
-// Tap #xqNP to briefly reveal Sound Studio controls underneath;
-// the home button calls exit() directly so it's always reachable.
-var _npRevealTimer;
+// Tap #xqNP to kick the logo physics
 var npEl=document.getElementById('xqNP');
 var npHomeEl=document.getElementById('xqNP_home');
 if(npEl){
   npEl.addEventListener('click',function(e){
-    if(e.target===npHomeEl||npHomeEl&&npHomeEl.contains(e.target)) return; // handled below
-    // Hide overlay for 4 s so player controls are accessible
-    npEl.style.visibility='hidden';
-    clearTimeout(_npRevealTimer);
-    _npRevealTimer=setTimeout(function(){npEl.style.visibility='';},4000);
+    // Kick animation: random spin impulse + speed boost
+    if(_npA.init){
+      _npA.rvx+=(Math.random()-.5)*400; _npA.rvy+=(Math.random()-.5)*400; _npA.rvz+=(Math.random()-.5)*200;
+      _npA.vx=(Math.random()-.5)*(_npSz.w*0.0030); _npA.vy=(Math.random()-.5)*(_npSz.h*0.0024);
+    }
   });
 }
+// Home button (position:fixed, always reachable)
 if(npHomeEl){
   npHomeEl.addEventListener('click',function(e){
     e.stopPropagation();
