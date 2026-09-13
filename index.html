@@ -27044,7 +27044,7 @@ function buildBg(W,H){
 // Machines blow inward along the stage floor. Clouds are wide flat ellipses
 // that drift forward, expand, slow with drag, and barely rise before fading.
 // Burst-only: no fog between hits — used as a dramatic effect.
-var FOG=[],FOG_MAX=60,_fogLast=0,_fogCool=0;
+var FOG=[],FOG_MAX=120,_fogLast=0,_fogCool=0; // 120 allows denser multi-wisp bursts
 // Physics-based logo animation state
 var _npSz={w:0,h:0}; // #xqNP pixel size (cached, updated on resize)
 var _npA={ // animation state
@@ -27070,17 +27070,27 @@ function _npInitAnim(){
   _npA.init=true;
 }
 
+// ── Fog redesign — turbulent rotating wisps that hug the stage floor ──────
+// Real fog machines fire a horizontal blast that rolls along the floor.
+// Modelled as many small rotating elliptical wisps with sinusoidal turbulence,
+// deceleration drag, and a slow upward acceleration as the fog warms.
+// Wisps are drawn with screen compositing so they add to each other naturally.
 function _fogBurst(W,H,xf,dir){
-  for(var i=0;i<8&&FOG.length<FOG_MAX;i++){
+  for(var i=0;i<12&&FOG.length<FOG_MAX;i++){
+    var rx=W*(0.015+Math.random()*0.025); // individual wisp: compact initially
     FOG.push({
-      x:xf*W+(Math.random()-.5)*W*0.012,
-      y:H*(0.808+Math.random()*0.008),         // hug stage floor
-      vx:dir*W*(0.00050+Math.random()*0.00042), // mostly horizontal inward
-      vy:-H*(0.000016+Math.random()*0.000045),  // barely rises
-      rx:W*(0.030+Math.random()*0.038),          // wide (horizontal)
-      ry:H*(0.009+Math.random()*0.015),          // thin (flat ground cloud)
+      x:xf*W+(Math.random()-.5)*W*0.022,
+      y:H*(0.808+Math.random()*0.007),         // tight to floor
+      vx:dir*W*(0.00042+Math.random()*0.00038),// horizontal blast
+      vy:-H*(0.000008+Math.random()*0.000020), // barely moves up at first
+      ay:-H*(0.0000015+Math.random()*0.0000020),// very slow upward accel
+      rx:rx, ry:rx*(0.28+Math.random()*0.32),  // flat ground-hugging ellipse
+      rot:(Math.random()-.5)*0.5,              // slight initial tilt
+      rRate:(Math.random()-.5)*0.00050,         // slow organic rotation
+      ph:Math.random()*Math.PI*2,              // turbulence phase offset
+      phR:0.00055+Math.random()*0.00060,       // turbulence frequency
       life:1.0,
-      dc:0.00042+Math.random()*0.00035,
+      dc:0.00028+Math.random()*0.00022,
     });
   }
 }
@@ -27089,33 +27099,41 @@ function tickFog(W,H,ts,bass,hit){
   var dt=ts-_fogLast; _fogLast=ts;
   _fogCool=Math.max(0,_fogCool-dt);
   if(hit&&bass>0.28&&_fogCool<=0){
-    _fogBurst(W,H,0.119, 1);   // left machine → stage right
-    _fogBurst(W,H,0.881,-1);   // right machine → stage left
-    _fogCool=1500+Math.random()*900; // 1.5–2.4 s between bursts
+    _fogBurst(W,H,0.119, 1);
+    _fogBurst(W,H,0.881,-1);
+    _fogCool=1400+Math.random()*800;
   }
   for(var i=FOG.length-1;i>=0;i--){
     var p=FOG[i];
-    p.x+=p.vx*dt; p.y+=p.vy*dt;
-    p.rx+=W*0.000085*dt/16;   // expand horizontally
-    p.ry+=H*0.000010*dt/16;   // barely expand vertically
-    p.vx*=0.9984;              // drag — cloud decelerates as it expands
+    // Horizontal drift with sinusoidal turbulence
+    p.x+=p.vx*dt + Math.sin(ts*p.phR+p.ph)*W*0.000052*dt;
+    // Vertical: slowly accelerating upward
+    p.vy+=p.ay*dt;
+    p.y+=p.vy*dt;
+    // Organic rotation
+    p.rot+=p.rRate*dt;
+    // Expand (rx faster than ry — spreads wide before rising)
+    p.rx+=W*0.000060*dt/16;
+    p.ry+=H*0.000011*dt/16;
+    // Horizontal drag — decelerates as wisp expands
+    p.vx*=Math.pow(0.9983,dt/16);
     p.life-=p.dc*dt/16;
-    if(p.life<=0)FOG.splice(i,1);
+    if(p.life<=0) FOG.splice(i,1);
   }
 }
 
 function drawFog(W,H){
-  // Flat elliptical clouds via translate+scale trick so gradient follows ellipse shape
   ctx.save(); ctx.globalCompositeOperation='screen';
   FOG.forEach(function(p){
-    var a=p.life*0.14;
+    var a=p.life*0.17;
     ctx.save();
     ctx.translate(p.x,p.y);
-    ctx.scale(p.rx,p.ry);   // unit-circle now maps to the ellipse
+    ctx.rotate(p.rot);           // organic tilt — key for realism
+    ctx.scale(p.rx,p.ry);       // unit-circle → rotated ellipse
     var g=ctx.createRadialGradient(0,0,0,0,0,1);
-    g.addColorStop(0,   'rgba(218,230,222,'+a.toFixed(3)+')');
-    g.addColorStop(0.5, 'rgba(208,224,214,'+(a*0.55).toFixed(3)+')');
-    g.addColorStop(1,   'rgba(208,224,214,0)');
+    g.addColorStop(0,   'rgba(240,242,238,'+a.toFixed(3)+')');  // bright dense core
+    g.addColorStop(0.45,'rgba(228,234,232,'+(a*0.58).toFixed(3)+')');
+    g.addColorStop(1,   'rgba(225,232,230,0)');
     ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,1,0,Math.PI*2); ctx.fill();
     ctx.restore();
   });
@@ -27261,7 +27279,7 @@ function frame(ts){
   var lv=_xqSt.level;
   var bass=lv?lv.bass:0,rms=lv?lv.level:0,hit=lv?lv.hit:false;
   if(hit)_xqSt.beatDecay=1;
-  _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/200);
+  _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/110); // 110ms decay → tight hit response
   var bd=_xqSt.beatDecay;
   ctx.drawImage(bg,0,0,W,H);
   drawSpots(W,H,bass,rms,bd);
