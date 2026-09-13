@@ -3,10 +3,22 @@
 *From the Sound Box chat for the Studio chat, 2026-09-12, closing brief
 `SOUNDBOX-STAGE-HOOKS`. **Revised the same day (round 2)** after the Studio's
 first stage build: adds `config.mount`, `config.background`, `onLevel` and
-`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 56 KB; 40 headless
+`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 58 KB; 48 headless
 checks green plus two real-audio tests).*
 
-## Round 2 — what changed and why (read this first)
+## Round 3 (2026-09-13) — one question per screen
+
+Not a stage hook, but shipped in the same module: the session questions now
+come **one at a time** — *How do you feel?* → *What's ahead?* → *How long?*
+(→ *Sound*, only when more than one collection is usable) → **Build my
+session**. Each answer advances; answered questions collapse into a row of
+small chips above the current one, and tapping a chip reopens that question.
+`config.questions = "all"` restores the single page. Nothing for the Studio
+to wire; the fixed-position and mount behaviour is unchanged. If the stage
+places the screen box, note the ready screen is short — the build button sits
+just under the trail.
+
+## Round 2 — what changed and why
 
 Two of the problems reported after the first stage build were the module's,
 not the stage's:

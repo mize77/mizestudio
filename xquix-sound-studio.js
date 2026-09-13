@@ -311,6 +311,9 @@ return self.XquiXSoundBuilder; })();
     // onLevel before start(); true/false force. Needs CORS on the bucket —
     // checked once at start(); silently off if the check fails.
     analyse: "auto",
+    // "one" asks the three questions one screen at a time, advancing on each
+    // answer (decided 2026-09-13); "all" is the original single page.
+    questions: "one",
   };
 
   const FEELINGS = [
@@ -327,6 +330,7 @@ return self.XquiXSoundBuilder; })();
 #xqSoundStudio{position:fixed;inset:0;z-index:100000;background:var(--xqss-bg,#0b0f14);color:#e8edf2;font:15px/1.45 -apple-system,BlinkMacSystemFont,"DM Sans","Segoe UI",sans-serif;overflow:hidden;display:flex;flex-direction:column}
 #xqSoundStudio.xqss-embedded{position:absolute;z-index:auto}
 #xqSoundStudio *{box-sizing:border-box}
+#xqSoundStudio p{text-align:left;max-width:none;margin:8px 0}
 #xqSoundStudio button{font-family:inherit;text-transform:none;letter-spacing:0;line-height:1.2;-webkit-appearance:none;appearance:none}
 #xqSoundStudio .xqss-top{display:flex;align-items:center;gap:10px;padding:max(12px,env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid #1e2a33}
 #xqSoundStudio .xqss-top button{background:none;border:1px solid #2a5f5c;color:#cfeaea;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
@@ -336,6 +340,9 @@ return self.XquiXSoundBuilder; })();
 #xqSoundStudio .xqss-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 140px}
 #xqSoundStudio h2{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#f5c623;margin:18px 0 8px}
 #xqSoundStudio .xqss-chips{display:flex;flex-wrap:wrap;gap:8px}
+#xqSoundStudio .xqss-trail{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+#xqSoundStudio .xqss-trail .xqss-chip{padding:5px 11px;font-size:12px}
+#xqSoundStudio .xqss-stepn{margin-top:14px;font-variant-numeric:tabular-nums}
 #xqSoundStudio .xqss-chip{border:1px solid #1e2a33;background:#121820;color:#c9d3dc;border-radius:999px;padding:9px 14px;font-size:14px;cursor:pointer;user-select:none;touch-action:manipulation}
 #xqSoundStudio .xqss-chip.on{border-color:#00d4aa;color:#00d4aa;background:#0f1f1d}
 #xqSoundStudio .xqss-primary{display:block;width:100%;margin-top:24px;padding:14px;border-radius:12px;border:0;background:#00d4aa;color:#06261f;font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
@@ -375,6 +382,7 @@ return self.XquiXSoundBuilder; })();
   // ---------------------------------------------------------------- state --
   let el = null, styleEl = null, catalog = null, session = null, view = "ask";
   let answers = { feeling: null, situation: null, minutes: 20, collection: null };
+  let step = 0, reached = 0;   // question index in "one" mode, and the furthest one seen
   let player = null;
   const listeners = [];
   const on = (t, ev, fn) => { t.addEventListener(ev, fn); listeners.push([t, ev, fn]); };
@@ -614,17 +622,40 @@ return self.XquiXSoundBuilder; })();
     return catalog.collections.filter(c => ok.has(c.id));
   }
 
-  function renderAsk() {
+  const LABEL = { feeling: v => (FEELINGS.find(f => f[0] === v) || [])[1], situation: v => (SITUATIONS.find(f => f[0] === v) || [])[1],
+                  minutes: v => `${v} min`, collection: v => v === "mix" ? "Mix" : v ? esc((usableCollections().find(c => c.id === v) || {}).display_name || v) : "XquiX Sound" };
+  function questionList() {
     const cols = usableCollections();
-    return `
-      <h2>How do you feel?</h2>
-      <div class="xqss-chips" data-q="feeling">${FEELINGS.map(([v, l]) => `<button class="xqss-chip${answers.feeling === v ? " on" : ""}" data-v="${v}">${l}</button>`).join("")}</div>
-      <h2>What's ahead?</h2>
-      <div class="xqss-chips" data-q="situation">${SITUATIONS.map(([v, l]) => `<button class="xqss-chip${answers.situation === v ? " on" : ""}" data-v="${v}">${l}</button>`).join("")}</div>
-      <h2>How long?</h2>
-      <div class="xqss-chips" data-q="minutes">${MINUTES.map(m => `<button class="xqss-chip${answers.minutes === m ? " on" : ""}" data-v="${m}">${m} min</button>`).join("")}</div>
-      ${cols.length > 1 ? `<h2>Sound</h2><div class="xqss-chips" data-q="collection"><button class="xqss-chip${!answers.collection ? " on" : ""}" data-v="">XquiX Sound</button>${cols.filter(c => c.id !== "xquix-sound").map(c => `<button class="xqss-chip${answers.collection === c.id ? " on" : ""}" data-v="${c.id}">${esc(c.display_name)}</button>`).join("")}<button class="xqss-chip${answers.collection === "mix" ? " on" : ""}" data-v="mix">Mix</button></div>` : ""}
-      <button class="xqss-primary" data-act="build" ${answers.feeling && answers.situation ? "" : "disabled"}>Build my session</button>
+    const q = [
+      { id: "feeling", title: "How do you feel?", chips: FEELINGS.map(([v, l]) => [v, l]) },
+      { id: "situation", title: "What's ahead?", chips: SITUATIONS.map(([v, l]) => [v, l]) },
+      { id: "minutes", title: "How long?", chips: MINUTES.map(m => [m, `${m} min`]) },
+    ];
+    if (cols.length > 1) q.push({ id: "collection", title: "Sound", chips: [["", "XquiX Sound"], ...cols.filter(c => c.id !== "xquix-sound").map(c => [c.id, esc(c.display_name)]), ["mix", "Mix"]] });
+    return q;
+  }
+  const isOn = (id, v) => (id === "collection" ? (answers.collection || "") === v : answers[id] === v);
+  const chipsFor = q => `<div class="xqss-chips" data-q="${q.id}">${q.chips.map(([v, l]) => `<button class="xqss-chip${isOn(q.id, v) ? " on" : ""}" data-v="${v}">${l}</button>`).join("")}</div>`;
+
+  function renderAsk() {
+    const qs = questionList();
+    if (config.questions !== "one") {
+      return qs.map(q => `<h2>${q.title}</h2>${chipsFor(q)}`).join("") +
+        `<button class="xqss-primary" data-act="build" ${answers.feeling && answers.situation ? "" : "disabled"}>Build my session</button>
+      ${catalog ? "" : `<p class="xqss-muted" style="margin-top:12px">Loading the Sound Box…</p>`}
+      <div class="xqss-err" id="xqss-err" hidden></div>`;
+    }
+    // One question per screen. Answered questions collapse into a row of
+    // chips above; tapping one reopens that question.
+    step = Math.max(0, Math.min(step, qs.length)); reached = Math.max(reached, step);
+    const done = qs.slice(0, step).filter(q => q.id === "minutes" || q.id === "collection" || answers[q.id] != null);
+    const trail = done.length ? `<div class="xqss-trail">${done.map(q => `<button class="xqss-chip on" data-step="${qs.indexOf(q)}">${LABEL[q.id](q.id === "collection" ? (answers.collection || "") : answers[q.id])}</button>`).join("")}</div>` : "";
+    const q = qs[step];
+    const body = q
+      ? `<h2>${q.title}</h2>${chipsFor(q)}<p class="xqss-muted xqss-stepn">${step + 1} / ${qs.length}</p>`
+      : `<h2>Ready</h2><p class="xqss-muted">Tap an answer above to change it.</p>
+         <button class="xqss-primary" data-act="build" ${answers.feeling && answers.situation ? "" : "disabled"}>Build my session</button>`;
+    return `${trail}${body}
       ${catalog ? "" : `<p class="xqss-muted" style="margin-top:12px">Loading the Sound Box…</p>`}
       <div class="xqss-err" id="xqss-err" hidden></div>`;
   }
@@ -684,11 +715,15 @@ return self.XquiXSoundBuilder; })();
     el.querySelectorAll(".xqss-chips").forEach(g => g.querySelectorAll(".xqss-chip").forEach(b => b.onclick = () => {
       const q = g.dataset.q; let v = b.dataset.v;
       if (q === "minutes") v = Number(v); if (q === "collection" && v === "") v = null;
-      answers[q] = v; render();
+      answers[q] = v;
+      // Advance — or, when the athlete came back from a later step, return there.
+      if (config.questions === "one" && view === "ask") { reached = Math.max(reached, step + 1); step = reached; }
+      render();
     }));
+    el.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { step = Number(b.dataset.step); render(); });
     const build = el.querySelector('[data-act="build"]'); if (build) build.onclick = buildNow;
     const start = el.querySelector('[data-act="start"]'); if (start) start.onclick = () => { session.started_at = new Date().toISOString(); player.playIndex(0); render(); };
-    const nw = el.querySelector('[data-act="new"]'); if (nw) nw.onclick = () => { player.stop(); session = null; view = "ask"; render(); };
+    const nw = el.querySelector('[data-act="new"]'); if (nw) nw.onclick = () => { player.stop(); session = null; view = "ask"; step = reached = 0; render(); };
     el.querySelectorAll(".xqss-plan li").forEach(li => li.onclick = () => { player.playIndex(Number(li.dataset.i)); render(); });
     el.querySelectorAll("[data-rate]").forEach(b => b.onclick = () => { session.rating = Number(b.dataset.rate); saveSession(session, session.rating); render(); });
     el.querySelectorAll("[data-box]").forEach(b => b.onclick = () => {
@@ -760,7 +795,7 @@ return self.XquiXSoundBuilder; })();
     listeners.splice(0).forEach(([t, ev, fn]) => t.removeEventListener(ev, fn));
     el.remove(); el = null; styleEl.remove(); styleEl = null;
     player = null; session = null; catalog = null; view = "ask";
-    answers = { feeling: null, situation: null, minutes: 20, collection: null };
+    answers = { feeling: null, situation: null, minutes: 20, collection: null }; step = reached = 0;
     if (typeof root.MIZE.SoundStudio.onExit === "function") root.MIZE.SoundStudio.onExit();
   }
 
