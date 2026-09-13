@@ -1505,17 +1505,30 @@
   #xqScreen{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
             border-radius:2px;overflow:hidden;z-index:1;pointer-events:auto}
   #xqScreen *{pointer-events:auto}
+  /* FX canvas: lasers + countdown drawn above everything, pointer-events:none */
+  #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3}
   #xqNP{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
-        border-radius:2px;overflow:hidden;z-index:2;background:#071c18;
+        border-radius:2px;overflow:hidden;z-index:2;background:#000;
         display:none;flex-direction:column;align-items:center;justify-content:center;
         gap:5%;pointer-events:auto;cursor:pointer}
   #xqNP.on{display:flex}
-  /* Home button sits at bottom of now-playing screen */
-  #xqNP_home{position:absolute;bottom:7%;left:50%;transform:translateX(-50%);
-             background:rgba(29,158,117,0.15);border:.5px solid rgba(29,158,117,0.45);
+  /* Home button — bottom-right of stage, always on top */
+  #xqNP_home{position:absolute;bottom:10.5%;right:3%;z-index:5;
+             background:rgba(0,0,0,0.55);border:.5px solid rgba(29,158,117,0.35);
              color:#1d9e75;font-size:clamp(7px,1.4vw,11px);border-radius:20px;
-             padding:4% 14%;cursor:pointer;font-family:system-ui,sans-serif;
+             padding:1.2% 4%;cursor:pointer;font-family:system-ui,sans-serif;
              letter-spacing:.04em;pointer-events:auto}
+  /* Stage playback controls — always visible at bottom when Sound Box is open */
+  #xqControls{position:absolute;bottom:0;left:0;right:0;height:9%;z-index:5;
+              display:none;align-items:center;justify-content:center;gap:7%;
+              background:rgba(0,0,0,0.55);pointer-events:auto}
+  #xqStage.on #xqControls{display:flex}
+  .xqCtrl{background:none;border:.5px solid rgba(29,158,117,0.35);color:#1d9e75;
+           font-size:clamp(14px,3.5vw,28px);border-radius:50%;
+           width:clamp(32px,7vw,56px);height:clamp(32px,7vw,56px);
+           cursor:pointer;display:flex;align-items:center;justify-content:center;
+           pointer-events:auto;transition:background .15s}
+  .xqCtrl:active{background:rgba(29,158,117,0.2)}
   #xqNP_lbl{color:#0a4030;font-size:clamp(4px,1.1vw,9px);letter-spacing:.2em;font-family:system-ui,sans-serif}
   #xqNP_art{width:46%;aspect-ratio:1;border-radius:50%;background:#0d5440;overflow:hidden;
             transform-style:preserve-3d;will-change:transform}
@@ -22004,6 +22017,8 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     coverImg:     null,
     lastCoverKey: null,
     fallTimer:    null,   // onBeat-driven 500ms fallback for no-BPM / CORS-off
+    countdown:    0,      // cinematic countdown (5→0) on first track start
+    countdownNext:0,      // timestamp when current digit advances
   };
 
   var _xqRolePal = {
@@ -22035,6 +22050,8 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
     if(_np) _np.classList.add('on');
     if(_npFn) _npFn.textContent=t['function']||t.title||'';
+    // Cinematic countdown on session start
+    if(t.trackIndex===1){ _xqSt.countdown=5; _xqSt.countdownNext=0; }
 
     // 500ms fallback timer for BPM-null tracks (or when onLevel is silent)
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
@@ -26845,7 +26862,15 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       </div>
     </div>
     <div id="xqNP_fn"></div>
-    <button id="xqNP_home">&#8249; Home</button>
+  </div>
+  <!-- FX canvas: lasers + countdown rendered above all content -->
+  <canvas id="xqFX"></canvas>
+  <!-- Home button + playback controls always accessible at stage level -->
+  <button id="xqNP_home">&#8249; Home</button>
+  <div id="xqControls">
+    <button class="xqCtrl" id="xqPrev" aria-label="Previous">&#9198;</button>
+    <button class="xqCtrl" id="xqPlayPause" aria-label="Play/Pause">&#9208;</button>
+    <button class="xqCtrl" id="xqNext" aria-label="Next">&#9197;</button>
   </div>
 </div>
 <script>
@@ -26854,6 +26879,8 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 var cnv=document.getElementById('xqCanvas');
 if(!cnv)return;
 var ctx=cnv.getContext('2d');
+var fxCnv=document.getElementById('xqFX');
+var fxCtx=fxCnv?fxCnv.getContext('2d'):null;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function rgba(hex,a){
@@ -27049,44 +27076,100 @@ function drawSpots(W,H,bass,rms,bd){
   ctx.restore();
 }
 
-// ── Lasers ─────────────────────────────────────────────────────────────────
+// ── Lasers — effect-only: flash on hit, drawn on FX canvas above screen ──
+// Colors come from the track's cover-art palette so they match the logo.
+// Lasers are silent between hits; they only fire as a punctuation effect.
 var LASERS=[
-  {ox:0.456,oy:0.155,per:3500,ph:0,   amp:0.40, col:'#38ee70',kA:0,kD:0},
-  {ox:0.544,oy:0.155,per:3800,ph:1.8, amp:-0.40,col:'#38ee70',kA:0,kD:0},
-  {ox:0.456,oy:0.155,per:5200,ph:3.5, amp:-0.52,col:'#ff4040',kA:0,kD:0},
-  {ox:0.544,oy:0.155,per:4800,ph:5.1, amp:0.52, col:'#ff4040',kA:0,kD:0},
+  {ox:0.456,oy:0.155,per:3500,ph:0,   amp:0.40, palI:0, kA:0,kD:0},
+  {ox:0.544,oy:0.155,per:3800,ph:1.8, amp:-0.40,palI:1, kA:0,kD:0},
+  {ox:0.456,oy:0.155,per:5200,ph:3.5, amp:-0.52,palI:3, kA:0,kD:0},
+  {ox:0.544,oy:0.155,per:4800,ph:5.1, amp:0.52, palI:4, kA:0,kD:0},
 ];
-var laserFlash=0;
+var laserFlash=0; // 0-1, spikes to 1 on hit then decays
 
-function drawLasers(W,H,ts,rms,hit,bd){
-  if(!_xqSt.playing)return;
-  if(hit){laserFlash=1;LASERS.forEach(function(l){l.kA=(Math.random()-.5)*0.5;l.kD=1;});}
-  laserFlash=Math.max(0,laserFlash-0.06);
-  var alpha=0.18+rms*0.45+laserFlash*0.37+bd*0.20;
-  ctx.save();ctx.globalCompositeOperation='lighter';
-  LASERS.forEach(function(l){
-    l.kD=Math.max(0,l.kD-0.07);
+function drawLasers(W,H,ts,hit,bd){
+  if(!_xqSt.playing||!fxCtx)return;
+  if(hit){
+    laserFlash=1;
+    LASERS.forEach(function(l){l.kA=(Math.random()-.5)*0.6;l.kD=1;});
+  }
+  laserFlash=Math.max(0,laserFlash-0.045); // decays over ~22 frames (~370 ms at 60fps)
+  if(laserFlash<0.04) return; // invisible between hits — don't draw
+  var alpha=laserFlash*0.90+bd*0.10;
+  var pal=_xqSt.palette;
+  fxCtx.save();fxCtx.globalCompositeOperation='lighter';
+  LASERS.forEach(function(l,i){
+    l.kD=Math.max(0,l.kD-0.06);
+    var col=pal[l.palI]||pal[i%pal.length]||'#1d9e75';
     var a=l.amp*Math.sin(ts/l.per*Math.PI*2+l.ph)+l.kA*l.kD;
-    var ox=l.ox*W,oy=l.oy*H,len=H*1.6;
+    var ox=l.ox*W,oy=l.oy*H,len=H*1.65;
     var tx=ox+Math.sin(a)*len,ty=oy+Math.cos(a)*len;
-    ctx.lineWidth=W*0.010;ctx.strokeStyle=rgba(l.col,alpha*0.06);
-    ctx.shadowBlur=0;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(tx,ty);ctx.stroke();
-    ctx.lineWidth=W*0.003;ctx.strokeStyle=rgba(l.col,alpha*0.45);
-    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(tx,ty);ctx.stroke();
-    ctx.lineWidth=W*0.0012;ctx.strokeStyle=rgba(l.col,alpha*0.95);
-    ctx.shadowBlur=W*0.018;ctx.shadowColor=l.col;
-    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(tx,ty);ctx.stroke();
-    ctx.lineWidth=W*0.0004;ctx.strokeStyle='rgba(255,255,255,'+(alpha*0.88).toFixed(3)+')';
-    ctx.shadowBlur=W*0.004;ctx.shadowColor='#fff';
-    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(tx,ty);ctx.stroke();
+    // Outer haze
+    fxCtx.lineWidth=W*0.011; fxCtx.strokeStyle=rgba(col,alpha*0.06);
+    fxCtx.shadowBlur=0; fxCtx.beginPath();fxCtx.moveTo(ox,oy);fxCtx.lineTo(tx,ty);fxCtx.stroke();
+    // Mid glow
+    fxCtx.lineWidth=W*0.003; fxCtx.strokeStyle=rgba(col,alpha*0.48);
+    fxCtx.beginPath();fxCtx.moveTo(ox,oy);fxCtx.lineTo(tx,ty);fxCtx.stroke();
+    // Core
+    fxCtx.lineWidth=W*0.0012; fxCtx.strokeStyle=rgba(col,alpha*0.96);
+    fxCtx.shadowBlur=W*0.020; fxCtx.shadowColor=col;
+    fxCtx.beginPath();fxCtx.moveTo(ox,oy);fxCtx.lineTo(tx,ty);fxCtx.stroke();
+    // White hot centre
+    fxCtx.lineWidth=W*0.0004; fxCtx.strokeStyle='rgba(255,255,255,'+(alpha*0.9).toFixed(3)+')';
+    fxCtx.shadowBlur=W*0.004; fxCtx.shadowColor='#fff';
+    fxCtx.beginPath();fxCtx.moveTo(ox,oy);fxCtx.lineTo(tx,ty);fxCtx.stroke();
   });
-  ctx.restore();
+  fxCtx.restore();
+}
+
+// ── Countdown — cinematic 5→1 on FX canvas ─────────────────────────────────
+function drawCountdown(W,H,ts){
+  if(!fxCtx||_xqSt.countdown<=0) return;
+  if(!_xqSt.countdownNext) _xqSt.countdownNext=ts+920;
+  var prog=1-Math.min(1,Math.max(0,(ts-(_xqSt.countdownNext-920))/920));
+  // Dark overlay
+  fxCtx.fillStyle='rgba(0,0,0,0.82)'; fxCtx.fillRect(0,0,W,H);
+  // Ring
+  var cx=W*0.5,cy=H*0.5,r=Math.min(W,H)*0.175;
+  fxCtx.strokeStyle='#1a201e'; fxCtx.lineWidth=H*0.006;
+  fxCtx.beginPath(); fxCtx.arc(cx,cy,r,0,Math.PI*2); fxCtx.stroke();
+  fxCtx.strokeStyle='#d8d8c4'; fxCtx.lineWidth=H*0.005;
+  fxCtx.beginPath(); fxCtx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*prog); fxCtx.stroke();
+  // Inner ring
+  fxCtx.strokeStyle='#222822'; fxCtx.lineWidth=H*0.001;
+  fxCtx.beginPath(); fxCtx.arc(cx,cy,r*0.8,0,Math.PI*2); fxCtx.stroke();
+  // Tick marks
+  [0,1,2,3].forEach(function(i){
+    var a=-Math.PI/2+i*Math.PI/2;
+    fxCtx.strokeStyle='#4a4a3a'; fxCtx.lineWidth=H*0.003;
+    fxCtx.beginPath();
+    fxCtx.moveTo(cx+Math.cos(a)*r*1.12,cy+Math.sin(a)*r*1.12);
+    fxCtx.lineTo(cx+Math.cos(a)*r*1.24,cy+Math.sin(a)*r*1.24);
+    fxCtx.stroke();
+  });
+  // Number
+  fxCtx.fillStyle='#ededdd'; fxCtx.font='bold '+(H*0.18)+'px Georgia,serif';
+  fxCtx.textAlign='center'; fxCtx.textBaseline='middle';
+  fxCtx.fillText(String(_xqSt.countdown),cx,cy);
+  // Film scratch lines
+  fxCtx.strokeStyle='rgba(255,255,255,0.38)'; fxCtx.lineWidth=0.8;
+  var sx=(W*0.22+Math.sin(ts*0.00130)*W*0.56);
+  fxCtx.beginPath();fxCtx.moveTo(sx,0);fxCtx.lineTo(sx,H);fxCtx.stroke();
+  fxCtx.strokeStyle='rgba(255,255,255,0.18)'; fxCtx.lineWidth=0.5;
+  var sx2=(W*0.68+Math.cos(ts*0.00092)*W*0.28);
+  fxCtx.beginPath();fxCtx.moveTo(sx2,0);fxCtx.lineTo(sx2,H);fxCtx.stroke();
+  // Advance
+  if(ts>=_xqSt.countdownNext){
+    _xqSt.countdown--;
+    _xqSt.countdownNext=_xqSt.countdown>0?ts+920:0;
+  }
 }
 
 // ── Resize ─────────────────────────────────────────────────────────────────
 function resize(){
   cnv.width=cnv.offsetWidth||window.innerWidth;
   cnv.height=cnv.offsetHeight||window.innerHeight;
+  if(fxCnv){fxCnv.width=cnv.width;fxCnv.height=cnv.height;}
   buildBg(cnv.width,cnv.height);
 }
 var _rsT;window.addEventListener('resize',function(){clearTimeout(_rsT);_rsT=setTimeout(resize,120);});
@@ -27109,7 +27192,10 @@ function frame(ts){
   ctx.drawImage(bg,0,0,W,H);
   drawSpots(W,H,bass,rms,bd);
   tickFog(W,H,ts,bass,hit);drawFog(W,H);
-  drawLasers(W,H,ts,rms,hit,bd);
+  // FX canvas: clear then draw lasers (above screen) and countdown
+  if(fxCtx){fxCtx.clearRect(0,0,W,H);}
+  drawLasers(W,H,ts,hit,bd);
+  drawCountdown(W,H,ts);
   if(hit){_npKick=(Math.random()-.5)*38;}_npKick*=0.82;
   var _npa=document.getElementById('xqNP_art');
   if(_npa&&_xqSt.playing){
@@ -27141,6 +27227,21 @@ if(npHomeEl){
     }
   });
 }
+// Playback controls — delegate to module API (Sound Box chat: expose play/pause/next/prev)
+// Fallback: find and click the module's own buttons inside #xqScreen
+function _xqCtrl(method,sel){
+  if(typeof MIZE!=='undefined'&&MIZE.SoundStudio&&typeof MIZE.SoundStudio[method]==='function'){
+    MIZE.SoundStudio[method](); return;
+  }
+  var btn=document.querySelector('#xqScreen '+sel);
+  if(btn) btn.click();
+}
+var _pp=document.getElementById('xqPlayPause');
+var _pr=document.getElementById('xqPrev');
+var _nx=document.getElementById('xqNext');
+if(_pp) _pp.addEventListener('click',function(e){e.stopPropagation();_xqCtrl('togglePlay','button[aria-label*="ause"],button[aria-label*="lay"],button[data-action="toggle"]');});
+if(_pr) _pr.addEventListener('click',function(e){e.stopPropagation();_xqCtrl('prev','button[aria-label*="rev"],button[aria-label*="ack"],button[data-action="prev"]');});
+if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();_xqCtrl('next','button[aria-label*="ext"],button[aria-label*="kip"],button[data-action="next"]');});
 })();
 </script>
 </body></html>
