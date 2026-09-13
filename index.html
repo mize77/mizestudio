@@ -1505,6 +1505,24 @@
   #xqScreen{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
             border-radius:2px;overflow:hidden;z-index:1;pointer-events:auto}
   #xqScreen *{pointer-events:auto}
+  #xqNP{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
+        border-radius:2px;overflow:hidden;z-index:2;background:#071c18;
+        display:none;flex-direction:column;align-items:center;justify-content:center;
+        gap:5%;pointer-events:none}
+  #xqNP.on{display:flex}
+  #xqNP_lbl{color:#0a4030;font-size:clamp(4px,1.1vw,9px);letter-spacing:.2em;font-family:system-ui,sans-serif}
+  #xqNP_art{width:46%;aspect-ratio:1;border-radius:50%;background:#0d5440;overflow:hidden;
+            transform-style:preserve-3d;will-change:transform}
+  #xqNP_art img{width:100%;height:100%;object-fit:cover;display:none}
+  #xqNP_def{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;
+            justify-content:center;gap:8%}
+  #xqNP_x{color:#3ecfaa;font-size:clamp(4px,1vw,8px);letter-spacing:.25em;font-family:system-ui,sans-serif}
+  #xqNP_t{color:#2dd4c0;font-size:clamp(7px,1.7vw,13px);font-weight:500;text-align:center;font-family:system-ui,sans-serif}
+  #xqNP_wv{display:flex;align-items:flex-end;gap:2px;height:clamp(8px,2vw,16px)}
+  .xqNP_b{width:3px;background:#1d9e75;border-radius:1px;animation:xqNPwv .55s ease-in-out infinite}
+  .xqNP_b:nth-child(2){animation-delay:.11s}.xqNP_b:nth-child(3){animation-delay:.22s}.xqNP_b:nth-child(4){animation-delay:.11s}
+  @keyframes xqNPwv{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+  #xqNP_fn{color:#0a4030;font-size:clamp(4px,1.1vw,8px);font-family:system-ui,sans-serif;letter-spacing:.05em}
 
 </style>
 <!-- Milestone 4: first external dependency this app has ever had. Loaded
@@ -18760,76 +18778,7 @@ window._shouldDeferConflictAlert = function(){
 
 function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
 
-// ===== On-device diagnostic — remove after iPad fix confirmed =====
-(function(){
-  var btn = document.createElement('button');
-  btn.textContent = 'DEBUG';
-  btn.style.cssText = 'position:fixed;bottom:50px;left:50%;transform:translateX(-50%);z-index:99999;background:#01b4c8;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;opacity:0.7;pointer-events:auto;';
-  document.body.appendChild(btn);
 
-  var overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999999;display:none;overflow:auto;padding:16px;font-family:monospace;font-size:13px;color:#fff;';
-  document.body.appendChild(overlay);
-
-  btn.addEventListener('click', function(){
-    var lines = [];
-    var board  = document.getElementById('board');
-    var tilt   = document.getElementById('boardTilt');
-    var br     = board  ? board.getBoundingClientRect()  : null;
-    var tr     = tilt   ? tilt.getBoundingClientRect()   : null;
-
-    lines.push('── BOARD ──');
-    lines.push('board:     ' + (br ? Math.round(br.width)+'×'+Math.round(br.height) : 'missing'));
-    lines.push('boardTilt: ' + (tr ? Math.round(tr.width)+'×'+Math.round(tr.height) : 'missing'));
-    lines.push('board top/left: ' + (br ? Math.round(br.top)+','+Math.round(br.left) : '?'));
-    lines.push('tilt  top/left: ' + (tr ? Math.round(tr.top)+','+Math.round(tr.left) : '?'));
-    lines.push('');
-    lines.push('── FIRST PLAYER ──');
-    var p = document.querySelector('.player');
-    if(p){
-      var img = p.querySelector('img');
-      var cap = p.querySelector('.capNumber');
-      var pr  = p.getBoundingClientRect();
-      var ir  = img ? img.getBoundingClientRect() : null;
-      var cr  = cap ? cap.getBoundingClientRect() : null;
-      lines.push('label: '    + p.dataset.label + '  pose:' + p.dataset.pose);
-      lines.push('css left/top: ' + p.style.left + ' / ' + p.style.top);
-      lines.push('player rect: ' + Math.round(pr.width)+'×'+Math.round(pr.height));
-      if(img){
-        lines.push('img.style.w/h: ' + img.style.width + ' / ' + img.style.height);
-        lines.push('img attr w/h:  ' + img.getAttribute('width') + ' / ' + img.getAttribute('height'));
-        lines.push('img natural:   ' + img.naturalWidth + '×' + img.naturalHeight);
-        lines.push('img rendered:  ' + Math.round(ir.width)+'×'+Math.round(ir.height));
-        lines.push('img center (screen): ' + Math.round(ir.left+ir.width/2) + ',' + Math.round(ir.top+ir.height/2));
-      }
-      if(cap){
-        lines.push('cap center (screen): ' + Math.round(cr.left+cr.width/2) + ',' + Math.round(cr.top+cr.height/2));
-        lines.push('cap vs img offset:   ' + (ir ? Math.round((cr.left+cr.width/2)-(ir.left+ir.width/2))+'px X, '+Math.round((cr.top+cr.height/2)-(ir.top+ir.height/2))+'px Y' : '?'));
-      }
-    } else {
-      lines.push('(no .player found)');
-    }
-    lines.push('');
-    lines.push('── ALL PLAYERS (cap Y vs img Y) ──');
-    document.querySelectorAll('.player').forEach(function(el){
-      var im = el.querySelector('img');
-      var ca = el.querySelector('.capNumber');
-      if(!im||!ca) return;
-      var ir2 = im.getBoundingClientRect();
-      var cr2 = ca.getBoundingClientRect();
-      var dy = Math.round((cr2.top+cr2.height/2)-(ir2.top+ir2.height/2));
-      var dx = Math.round((cr2.left+cr2.width/2)-(ir2.left+ir2.width/2));
-      lines.push(el.dataset.label + ' pose='+el.dataset.pose+' rendered='+Math.round(ir2.width)+'×'+Math.round(ir2.height)+' cap-img='+dx+','+dy+'px');
-    });
-
-    overlay.innerHTML = '<div style="max-width:600px;margin:0 auto;">'
-      + '<button onclick="this.parentElement.parentElement.style.display=\'none\'" style="float:right;background:#e33;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:14px;cursor:pointer;">✕ Close</button>'
-      + '<h3 style="margin:0 0 12px;color:#01b4c8;">XquiX iPad Diagnostic</h3>'
-      + '<pre style="white-space:pre-wrap;word-break:break-all;line-height:1.6;">'
-      + lines.join('\n') + '</pre></div>';
-    overlay.style.display = 'block';
-  });
-})();
 (function(){
   const btn = document.getElementById('field3dToggleBtn');
   if (!btn) return;
@@ -22077,6 +22026,9 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     _xqSt.level     = null;
     _xqSt.beatDecay = 0;
     _xqSt.palette   = (_xqRolePal[t.role] || _xqRolePal.bridge).slice();
+    var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
+    if(_np) _np.classList.add('on');
+    if(_npFn) _npFn.textContent=t['function']||t.title||'';
 
     // 500ms fallback timer for BPM-null tracks (or when onLevel is silent)
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
@@ -22102,8 +22054,15 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
           if(cols.length>=4) _xqSt.palette=cols;
         } catch(e){}
         _xqSt.coverImg = img;
+        var _ni=document.getElementById('xqNP_img'),_nd=document.getElementById('xqNP_def');
+        if(_ni){_ni.src=img.src;_ni.style.display='block';}
+        if(_nd) _nd.style.display='none';
       };
-      img.onerror = function(){ _xqSt.coverImg = null; };
+      img.onerror = function(){
+        _xqSt.coverImg = null;
+        var _ni=document.getElementById('xqNP_img');
+        if(_ni) _ni.style.display='none';
+      };
       img.src = t.coverBase + t.coverKey;
     } else if (!t.coverKey) {
       _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
@@ -22114,6 +22073,10 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
     _xqSt.playing = false; _xqSt.level = null;
     _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
+    var _np=document.getElementById('xqNP'),_ni=document.getElementById('xqNP_img'),_nd=document.getElementById('xqNP_def');
+    if(_np) _np.classList.remove('on');
+    if(_ni){_ni.src='';_ni.style.display='none';}
+    if(_nd) _nd.style.display='';
     var s = document.getElementById('xqStage');
     if (s) s.classList.remove('on');
     xquixShowHome();
@@ -26856,6 +26819,21 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 <div id="xqStage">
   <canvas id="xqCanvas"></canvas>
   <div id="xqScreen"></div>
+  <div id="xqNP">
+    <div id="xqNP_lbl">NOW PLAYING</div>
+    <div id="xqNP_art">
+      <img id="xqNP_img" src="" alt="">
+      <div id="xqNP_def">
+        <span id="xqNP_x">XQUIX</span>
+        <span id="xqNP_t">Sound Box</span>
+        <div id="xqNP_wv">
+          <div class="xqNP_b"></div><div class="xqNP_b"></div><div class="xqNP_b"></div>
+          <div class="xqNP_b"></div><div class="xqNP_b"></div>
+        </div>
+      </div>
+    </div>
+    <div id="xqNP_fn"></div>
+  </div>
 </div>
 <script>
 (function(){
@@ -26977,7 +26955,7 @@ function buildBg(W,H){
 // Machines blow inward along the stage floor. Clouds are wide flat ellipses
 // that drift forward, expand, slow with drag, and barely rise before fading.
 // Burst-only: no fog between hits — used as a dramatic effect.
-var FOG=[],FOG_MAX=60,_fogLast=0,_fogCool=0;
+var FOG=[],FOG_MAX=60,_fogLast=0,_fogCool=0,_npKick=0;
 
 function _fogBurst(W,H,xf,dir){
   for(var i=0;i<8&&FOG.length<FOG_MAX;i++){
@@ -27119,6 +27097,12 @@ function frame(ts){
   drawSpots(W,H,bass,rms,bd);
   tickFog(W,H,ts,bass,hit);drawFog(W,H);
   drawLasers(W,H,ts,rms,hit,bd);
+  if(hit){_npKick=(Math.random()-.5)*38;}_npKick*=0.82;
+  var _npa=document.getElementById('xqNP_art');
+  if(_npa&&_xqSt.playing){
+    _npa.style.transform='scale('+(1+bd*0.12+bass*0.05).toFixed(3)+') rotateY('+(Math.sin(ts/3600)*18+_npKick).toFixed(1)+'deg)';
+    _npa.style.opacity=(0.86+rms*0.14).toFixed(3);
+  }
 }
 resize();requestAnimationFrame(frame);
 })();
