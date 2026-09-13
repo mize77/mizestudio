@@ -1505,6 +1505,23 @@
   #xqScreen{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
             border-radius:2px;overflow:hidden;z-index:1;pointer-events:auto}
   #xqScreen *{pointer-events:auto}
+  /* Hide the module's own player bar — the stage draws its own controls */
+  #xqSoundStudio .xqss-player{display:none}
+  /* "Ready to start" screen — shown between Build and countdown */
+  #xqNP_start{position:absolute;inset:0;background:#000;display:none;
+              flex-direction:column;align-items:center;justify-content:center;
+              gap:8%;z-index:10;pointer-events:auto}
+  #xqNP_start.on{display:flex}
+  #xqNP_startTitle{color:#1d9e75;font-size:clamp(9px,2.2vw,16px);font-weight:500;
+                   font-family:system-ui,sans-serif;letter-spacing:.06em}
+  #xqNP_startInfo{color:#0a4030;font-size:clamp(6px,1.5vw,11px);font-family:system-ui,sans-serif}
+  #xqNP_startBtn{background:none;border:1.5px solid #1d9e75;color:#1d9e75;
+                 font-size:clamp(11px,2.8vw,20px);font-weight:600;
+                 border-radius:50%;width:clamp(50px,14vw,100px);height:clamp(50px,14vw,100px);
+                 cursor:pointer;font-family:system-ui,sans-serif;
+                 display:flex;align-items:center;justify-content:center;
+                 transition:background .18s;pointer-events:auto}
+  #xqNP_startBtn:active{background:rgba(29,158,117,0.2)}
   /* FX canvas: lasers drawn above everything, pointer-events:none */
   #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3}
   /* NP overlay — positioned container, children are absolute */
@@ -22043,8 +22060,10 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     coverImg:     null,
     lastCoverKey: null,
     fallTimer:    null,   // onBeat-driven 500ms fallback for no-BPM / CORS-off
-    countdown:    0,      // cinematic countdown (5→0) on first track start
-    countdownNext:0,      // timestamp when current digit advances
+    countdown:    0,      // cinematic countdown (5→0), triggered by Start button
+    countdownNext:0,
+    session:      null,   // payload from onSessionBuilt
+    playState:    null,   // latest onPlayState payload
   };
 
   var _xqRolePal = {
@@ -22076,15 +22095,6 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
     if(_np) _np.classList.add('on');
     if(_npFn) _npFn.textContent=t['function']||t.title||'';
-    // Cinematic countdown on session start — show on LED screen, then logo
-    if(t.trackIndex===1){
-      _xqSt.countdown=5; _xqSt.countdownNext=0;
-      var _cdW=document.getElementById('xqNP_cdWrap');
-      var _artEl=document.getElementById('xqNP_art');
-      if(_cdW) _cdW.classList.add('on');
-      if(_artEl) _artEl.style.display='none';
-    }
-
     // 500ms fallback timer for BPM-null tracks (or when onLevel is silent)
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
     if (!(t.bpm > 0)) {
@@ -22127,6 +22137,32 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       dispImg.src = _url;
     } else if (!t.coverKey) {
       _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
+    }
+  };
+
+  // onSessionBuilt: fires right after Build, before the athlete taps Start.
+  // We show our own Start screen and hide the module's; music only begins
+  // after the countdown calls MIZE.SoundStudio.play().
+  MIZE.SoundStudio.onSessionBuilt = function (s) {
+    _xqSt.session = s;
+    var np = document.getElementById('xqNP');
+    var st = document.getElementById('xqNP_start');
+    var si = document.getElementById('xqNP_startInfo');
+    if(si) si.textContent = s.total + ' tracks · ' + Math.round(s.durationS/60) + ' min';
+    if(np) np.classList.add('on');
+    if(st) st.classList.add('on');
+  };
+
+  // onPlayState: fires on every play/pause/track change.
+  // We use it to keep our control bar icon in sync.
+  MIZE.SoundStudio.onPlayState = function (st) {
+    _xqSt.playState = st;
+    var pp = document.getElementById('xqPlayPause');
+    if(pp) pp.innerHTML = st.playing ? '&#9208;' : '&#9654;';
+    // Session ended — hide the now-playing overlay
+    if(st.ended) {
+      var np = document.getElementById('xqNP');
+      if(np) np.classList.remove('on');
     }
   };
 
@@ -26884,6 +26920,12 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   <div id="xqScreen"></div>
   <div id="xqNP">
     <div id="xqNP_lbl">NOW PLAYING</div>
+    <!-- "Ready" screen — shown after Build, before user taps Start -->
+    <div id="xqNP_start">
+      <div id="xqNP_startTitle">Session Ready</div>
+      <div id="xqNP_startInfo"></div>
+      <button id="xqNP_startBtn">&#9654;</button>
+    </div>
     <!-- Cinematic countdown — appears on the LED screen before logo -->
     <div id="xqNP_cdWrap">
       <svg id="xqNP_cdRing" viewBox="0 0 100 100">
@@ -27299,8 +27341,9 @@ function frame(ts){
       _xqSt.countdown--;
       if(_xqSt.countdown>0){ _xqSt.countdownNext=ts+920; }
       else {
-        // Countdown done: hide countdown, show logo
+        // Countdown done: start music NOW, then reveal logo
         _xqSt.countdownNext=0;
+        if(typeof MIZE!=='undefined'&&MIZE.SoundStudio) MIZE.SoundStudio.play();
         var _cdWrap=document.getElementById('xqNP_cdWrap');
         var _artEl=document.getElementById('xqNP_art');
         if(_cdWrap) _cdWrap.classList.remove('on');
@@ -27380,21 +27423,30 @@ if(npHomeEl){
     }
   });
 }
-// Playback controls — delegate to module API (Sound Box chat: expose play/pause/next/prev)
-// Fallback: find and click the module's own buttons inside #xqScreen
-function _xqCtrl(method,sel){
-  if(typeof MIZE!=='undefined'&&MIZE.SoundStudio&&typeof MIZE.SoundStudio[method]==='function'){
-    MIZE.SoundStudio[method](); return;
-  }
-  var btn=document.querySelector('#xqScreen '+sel);
-  if(btn) btn.click();
+// Stage transport — round 4 API (MIZE.SoundStudio.play/togglePlay/next/prev)
+// Start button: hides the "Ready" screen and begins the 5→1 countdown.
+// Countdown zero calls play() so music only starts after the count.
+var _startBtn=document.getElementById('xqNP_startBtn');
+if(_startBtn){
+  _startBtn.addEventListener('click',function(e){
+    e.stopPropagation();
+    var st=document.getElementById('xqNP_start');
+    if(st) st.classList.remove('on');
+    _xqSt.countdown=5; _xqSt.countdownNext=0;
+    var cdW=document.getElementById('xqNP_cdWrap');
+    var art=document.getElementById('xqNP_art');
+    if(cdW) cdW.classList.add('on');
+    if(art) art.style.display='none';
+  });
 }
+// Playback controls now use the real module API
 var _pp=document.getElementById('xqPlayPause');
 var _pr=document.getElementById('xqPrev');
 var _nx=document.getElementById('xqNext');
-if(_pp) _pp.addEventListener('click',function(e){e.stopPropagation();_xqCtrl('togglePlay','button[aria-label*="ause"],button[aria-label*="lay"],button[data-action="toggle"]');});
-if(_pr) _pr.addEventListener('click',function(e){e.stopPropagation();_xqCtrl('prev','button[aria-label*="rev"],button[aria-label*="ack"],button[data-action="prev"]');});
-if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();_xqCtrl('next','button[aria-label*="ext"],button[aria-label*="kip"],button[data-action="next"]');});
+function _ms(m){return typeof MIZE!=='undefined'&&MIZE.SoundStudio&&typeof MIZE.SoundStudio[m]==='function';}
+if(_pp) _pp.addEventListener('click',function(e){e.stopPropagation();if(_ms('togglePlay'))MIZE.SoundStudio.togglePlay();});
+if(_pr) _pr.addEventListener('click',function(e){e.stopPropagation();if(_ms('prev'))MIZE.SoundStudio.prev();});
+if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();if(_ms('next'))MIZE.SoundStudio.next();});
 })();
 </script>
 </body></html>
