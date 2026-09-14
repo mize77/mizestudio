@@ -4911,6 +4911,34 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
       // Raise the stage backdrop before the Sound Studio overlay opens.
       var _stg = document.getElementById('xqStage');
       if(_stg) _stg.classList.add('on');
+      // Attach StageFX (WebGL fog + laser halo) behind the screen.
+      // Falls back to null if WebGL unavailable; canvas fog stays active in that case.
+      if(!_stFX && typeof MIZE !== 'undefined' && MIZE.StageFX) {
+        var _isMobile = navigator.maxTouchPoints > 0;
+        _stFX = MIZE.StageFX.attach(_stg, {
+          // Fog outlets: left/right nozzles blowing inward. x/y = 0..1 left/bottom of stage.
+          // Positions match where the fog machine bodies are drawn on the canvas scene.
+          sources: [
+            { x: 0.119, y: 0.238, lean:  28 },  // left machine, blows right
+            { x: 0.882, y: 0.238, lean: -28 },  // right machine, blows left
+          ],
+          spread: 0.68,
+          // Laser beam paths for fog-scatter halo. Projectors sit at top (y≈0.845 from bottom),
+          // beams angle down to stage-floor corners.
+          beams: [
+            [0.456, 0.845, 0.08, 0.19],   // left projector → stage-left floor
+            [0.544, 0.845, 0.92, 0.19],   // right projector → stage-right floor
+          ],
+          teal:  [0.0, 0.84, 0.72],        // XquiX teal
+          haze:  0.20,                      // residual fog between bursts
+          resolutionScale: _isMobile ? 0.45 : 0.60,
+        });
+        // Ensure the inserted canvas is non-interactive and behind screen content
+        if(_stFX) {
+          var _sfxCnv = _stg.querySelector('canvas:not(#xqCanvas):not(#xqFX)');
+          if(_sfxCnv) { _sfxCnv.style.pointerEvents = 'none'; _sfxCnv.style.zIndex = '0'; }
+        }
+      }
       // Home and controls are position:fixed siblings — show them now
       var _hm=document.getElementById('xqNP_home'),_ct=document.getElementById('xqControls');
       if(_hm) _hm.classList.add('on'); if(_ct) _ct.classList.add('on');
@@ -22033,6 +22061,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 <script src="xquix-player-rig.js"></script>
 <script src="xquix-pose-resolver.js"></script>
 <script src="xquix-sound-studio.js"></script>
+<script src="xquix-stage-fx.js"></script>
 <script>
   // ── Sound Studio config (canvas stage rebuild 2026-09-13) ────────────────
   // Contract: INSTRUCTION-soundbox-stage-hooks.md (round 2)
@@ -22050,6 +22079,9 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   };
   MIZE.SoundStudio.config.mount      = '#xqScreen';
   MIZE.SoundStudio.config.background = 'transparent';
+
+  // Stage FX (WebGL fog + laser halo). Null when WebGL unavailable → canvas fog fallback.
+  var _stFX = null;
 
   // Shared stage state — written by config callbacks, read by canvas loop.
   var _xqSt = {
@@ -22080,6 +22112,8 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   // PRIMARY: real per-frame audio analysis. Must be set before start().
   MIZE.SoundStudio.onLevel = function (l) {
     _xqSt.level = l;
+    // Drive StageFX in real-time: energy warms fog, hit flares beam halos
+    if(_stFX) _stFX.set({ energy: l.level, hit: l.hit, laser: l.bass * 0.85 });
   };
 
   // FALLBACK: setInterval metronome for BPM-null tracks or CORS-off sessions.
@@ -22092,6 +22126,14 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     _xqSt.level     = null;
     _xqSt.beatDecay = 0;
     _xqSt.palette   = (_xqRolePal[t.role] || _xqRolePal.bridge).slice();
+    // Fog burst: intensity and duration tuned per track role
+    if(_stFX){
+      var _bDur={activate:3.0,launch:3.0,transform:2.2,bridge:1.8,
+                 meet:1.5,close:1.0,adversity:2.8,library:1.5};
+      var _bStr={activate:1.0,launch:1.0,transform:0.75,bridge:0.65,
+                 meet:0.60,close:0.38,adversity:0.90,library:0.55};
+      _stFX.burst(_bDur[t.role]||1.5, _bStr[t.role]||0.60);
+    }
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
     if(_np) _np.classList.add('on');
     if(_npFn) _npFn.textContent=t['function']||t.title||'';
@@ -22168,6 +22210,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 
   MIZE.SoundStudio.onExit = function () {
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
+    if(_stFX){ _stFX.destroy(); _stFX = null; }
     _xqSt.playing = false; _xqSt.level = null;
     _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
     var _np=document.getElementById('xqNP'),_ni=document.getElementById('xqNP_img'),_nd=document.getElementById('xqNP_def');
@@ -27325,7 +27368,7 @@ function frame(ts){
   var bd=_xqSt.beatDecay;
   ctx.drawImage(bg,0,0,W,H);
   drawSpots(W,H,bass,rms,bd);
-  tickFog(W,H,ts,bass,hit);drawFog(W,H);
+  if(!_stFX){tickFog(W,H,ts,bass,hit);drawFog(W,H);}  // StageFX WebGL replaces canvas fog
   // FX canvas: clear then draw lasers (cross the screen zone)
   if(fxCtx){fxCtx.clearRect(0,0,W,H);}
   drawLasers(W,H,ts,hit,bd);
