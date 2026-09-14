@@ -4955,11 +4955,13 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         });
         // Ensure the inserted canvas is non-interactive and behind screen content
         if(_stFX) {
+          // Force energy/laser/haze to absolute zero so beams don't render at startup
+          _stFX.set({ energy: 0, hit: false, laser: 0, haze: 0 });
+          // Find the inserted WebGL canvas and hide it until music plays
           var _sfxCnv = _stg.querySelector('canvas:not(#xqCanvas):not(#xqFX)');
           if(_sfxCnv) {
-            _sfxCnv.style.pointerEvents = 'none';
-            _sfxCnv.style.zIndex = '0';
-            _sfxCnv.style.display = 'none'; // hidden until music plays
+            _sfxCnv.id = 'xqStageFX'; // give it an id for reliable selection later
+            _sfxCnv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:0;display:none';
           }
         }
       }
@@ -27502,6 +27504,9 @@ if(_introBtn){
     e.stopPropagation();
     var intro=document.getElementById('xqNP_intro');
     if(intro) intro.classList.remove('on');
+    // Hide the NP overlay so #xqScreen (questions) is visible
+    var npEl=document.getElementById('xqNP');
+    if(npEl) npEl.classList.remove('on');
     if(typeof MIZE!=='undefined'&&MIZE.SoundStudio) MIZE.SoundStudio.start();
   });
 }
