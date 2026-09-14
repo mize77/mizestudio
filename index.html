@@ -27363,15 +27363,15 @@ function frame(ts){
   if(bg.width!==W||bg.height!==H)buildBg(W,H);
   var lv=_xqSt.level;
   var bass=lv?lv.bass:0,rms=lv?lv.level:0,hit=lv?lv.hit:false;
-  if(hit)_xqSt.beatDecay=1;
-  _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/110); // 110ms decay → tight hit response
+  var mid=lv?lv.mid:0,high=lv?lv.high:0;
+  var isPlaying=!!(_xqSt.playState?_xqSt.playState.playing:_xqSt.playing);
+  if(hit&&isPlaying)_xqSt.beatDecay=1;
+  _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/110);
   var bd=_xqSt.beatDecay;
   ctx.drawImage(bg,0,0,W,H);
-  drawSpots(W,H,bass,rms,bd);
-  if(!_stFX){tickFog(W,H,ts,bass,hit);drawFog(W,H);}  // StageFX WebGL replaces canvas fog
-  // FX canvas: clear then draw lasers (cross the screen zone)
+  drawSpots(W,H,isPlaying?bass:0,isPlaying?rms:0,isPlaying?bd:0);
+  if(!_stFX){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}
   if(fxCtx){fxCtx.clearRect(0,0,W,H);}
-  drawLasers(W,H,ts,hit,bd);
   // HTML countdown inside #xqNP
   if(_xqSt.countdown>0){
     if(!_xqSt.countdownNext) _xqSt.countdownNext=ts+920;
@@ -27397,7 +27397,7 @@ function frame(ts){
   }
   // Physics logo animation
   (function(){
-    if(!_xqSt.playing||_xqSt.countdown>0) return;
+    if(!_xqSt.playing||!isPlaying||_xqSt.countdown>0) return;
     var npa=document.getElementById('xqNP_art');
     if(!npa) return;
     if(!_npA.init) _npInitAnim();
