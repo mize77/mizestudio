@@ -1505,6 +1505,44 @@
   #xqScreen{position:absolute;left:7%;top:5%;width:86%;height:62%;
             border-radius:2px;overflow:hidden;z-index:1;pointer-events:auto}
   #xqScreen *{pointer-events:auto}
+  /* Sound Box intro screen */
+  #xqNP_intro{position:absolute;inset:0;background:#000;z-index:12;display:none;
+              flex-direction:column;align-items:center;justify-content:center;gap:7%}
+  #xqNP_intro.on{display:flex}
+  .xqSBI_ring{width:30%;aspect-ratio:1;border-radius:50%;border:1.5px solid #1d9e75;
+              display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4%}
+  .xqSBI_x{color:#1d9e75;font-size:clamp(4px,1vw,8px);letter-spacing:.25em;font-family:system-ui}
+  .xqSBI_t{color:#2dd4c0;font-size:clamp(8px,2vw,14px);font-weight:600;
+            text-align:center;line-height:1.1;font-family:system-ui}
+  .xqSBI_sub{color:#0a4030;font-size:clamp(4px,.9vw,7px);letter-spacing:.18em;font-family:system-ui}
+  #xqNP_introBtn{background:none;border:1px solid #1d9e75;color:#1d9e75;
+                 font:600 clamp(8px,1.8vw,14px)/1 system-ui;letter-spacing:.10em;
+                 padding:3% 10%;border-radius:3px;cursor:pointer;pointer-events:auto}
+  #xqNP_introBtn:active{background:rgba(29,158,117,.15)}
+  /* Session ready — dark + bold */
+  #xqNP_start{position:absolute;inset:0;background:#000;display:none;
+              flex-direction:column;align-items:center;justify-content:center;gap:6%;z-index:10}
+  #xqNP_start.on{display:flex}
+  #xqNP_startTitle{color:#0a4030;font-size:clamp(5px,1.2vw,9px);letter-spacing:.18em;
+                   font-family:system-ui}
+  #xqNP_startInfo{color:#1d9e75;font-size:clamp(7px,1.6vw,12px);font-family:system-ui;
+                  text-align:center;line-height:1.5}
+  #xqNP_startBtn{background:#1d9e75;color:#000;border:none;cursor:pointer;
+                 font:800 clamp(10px,2.6vw,20px)/1 system-ui;letter-spacing:.08em;
+                 text-transform:uppercase;padding:4% 12%;border-radius:3px;pointer-events:auto}
+  #xqNP_startBtn:active{background:#16805f}
+  /* Now-playing strip in control bar */
+  #xqControlInfo{position:absolute;top:16%;left:50%;transform:translateX(-50%);
+                 color:rgba(29,158,117,.7);font-size:clamp(5px,1.1vw,8px);
+                 font-family:system-ui;white-space:nowrap;pointer-events:none;
+                 letter-spacing:.04em}
+  /* Mode-selection button (bottom-left, always fixed) */
+  #xqModeBtn{position:fixed;bottom:calc(9% + 1.5%);left:3%;z-index:99600;
+             background:rgba(0,0,0,.6);border:.5px solid rgba(29,158,117,.38);
+             color:#1d9e75;font-size:clamp(7px,1.4vw,11px);border-radius:20px;
+             padding:.8% 3.5%;cursor:pointer;font-family:system-ui;
+             letter-spacing:.04em;display:none}
+  #xqModeBtn.on{display:block}
   /* Hide the module's own player bar — the stage draws its own controls */
   #xqSoundStudio .xqss-player{display:none}
   /* "Ready to start" screen — shown between Build and countdown */
@@ -4942,7 +4980,12 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
       // Home and controls are position:fixed siblings — show them now
       var _hm=document.getElementById('xqNP_home'),_ct=document.getElementById('xqControls');
       if(_hm) _hm.classList.add('on'); if(_ct) _ct.classList.add('on');
-      MIZE.SoundStudio.start();  // must run inside user-gesture (click handler)
+      var _mb=document.getElementById('xqModeBtn'); if(_mb) _mb.classList.add('on');
+      // Sound Studio starts only when the user taps "START SOUND SESSION" on the intro screen.
+      // Calling start() here would immediately show questions, bypassing the intro.
+      var _introEl=document.getElementById('xqNP_intro');
+      if(_introEl) _introEl.classList.add('on');
+      document.getElementById('xqNP').classList.add('on');
     } else {
       xquixHomeShowToast('Sound Box coming soon.');
     }
@@ -22134,9 +22177,13 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
                  meet:0.60,close:0.38,adversity:0.90,library:0.55};
       _stFX.burst(_bDur[t.role]||1.5, _bStr[t.role]||0.60);
     }
+    // Bring StageFX in front of screen when music starts
+    (function(){var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');if(sfx)sfx.style.zIndex='3';})();
+    var _ci=document.getElementById('xqControlInfo');
+    if(_ci) _ci.textContent=(t['function']||'')+(t.title?' · '+t.title:'');
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
     if(_np) _np.classList.add('on');
-    if(_npFn) _npFn.textContent=t['function']||t.title||'';
+    if(_npFn) _npFn.textContent='';
     // 500ms fallback timer for BPM-null tracks (or when onLevel is silent)
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
     if (!(t.bpm > 0)) {
@@ -22190,7 +22237,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     var np = document.getElementById('xqNP');
     var st = document.getElementById('xqNP_start');
     var si = document.getElementById('xqNP_startInfo');
-    if(si) si.textContent = s.total + ' tracks · ' + Math.round(s.durationS/60) + ' min';
+    if(si) si.innerHTML = s.total+' tracks &nbsp;·&nbsp; '+Math.round(s.durationS/60)+' min<br><span style="color:#0a4030;font-size:.8em">'+s.feeling+'</span>';
     if(np) np.classList.add('on');
     if(st) st.classList.add('on');
   };
@@ -22202,7 +22249,8 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     var pp = document.getElementById('xqPlayPause');
     if(pp) pp.innerHTML = st.playing ? '&#9208;' : '&#9654;';
     if(!st.playing){
-      // Pause: silence all audio-driven visuals immediately
+      // Pause: push StageFX behind screen (content becomes top layer again)
+      (function(){var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');if(sfx)sfx.style.zIndex='0';})();
       _xqSt.level=null; _xqSt.beatDecay=0;
       if(_stFX) _stFX.set({energy:0,hit:false,laser:0,haze:0});
     } else {
@@ -22227,9 +22275,20 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(_nd) _nd.style.display='';
     var _hm2=document.getElementById('xqNP_home'),_ct2=document.getElementById('xqControls');
     if(_hm2) _hm2.classList.remove('on'); if(_ct2) _ct2.classList.remove('on');
-    var s = document.getElementById('xqStage');
-    if (s) s.classList.remove('on');
-    xquixShowHome();
+    // Return to Sound Box intro screen (not mode selection)
+    // StageFX back behind screen
+    (function(){var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');if(sfx)sfx.style.zIndex='0';})();
+    var _introEl=document.getElementById('xqNP_intro');
+    var _startEl=document.getElementById('xqNP_start');
+    var _artEl2=document.getElementById('xqNP_art');
+    var _cdEl2=document.getElementById('xqNP_cdWrap');
+    var _ci2=document.getElementById('xqControlInfo');
+    if(_introEl) _introEl.classList.add('on');
+    if(_startEl) _startEl.classList.remove('on');
+    if(_artEl2) _artEl2.style.display='none';
+    if(_cdEl2) _cdEl2.classList.remove('on');
+    if(_ci2) _ci2.textContent='';
+    var _np2=document.getElementById('xqNP'); if(_np2) _np2.classList.add('on');
   };
 </script>
 <script>
@@ -26970,12 +27029,21 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   <canvas id="xqCanvas"></canvas>
   <div id="xqScreen"></div>
   <div id="xqNP">
-    <div id="xqNP_lbl">NOW PLAYING</div>
-    <!-- "Ready" screen — shown after Build, before user taps Start -->
+    <!-- NP_lbl removed: track info is now shown in the control bar -->
+    <!-- Intro: Sound Box branded entry point (shown before questions) -->
+    <div id="xqNP_intro">
+      <div class="xqSBI_ring">
+        <span class="xqSBI_x">XQUIX</span>
+        <span class="xqSBI_t">SOUND<br>BOX</span>
+      </div>
+      <div class="xqSBI_sub">YOUR WORKOUT SOUNDTRACK</div>
+      <button id="xqNP_introBtn">START SOUND SESSION</button>
+    </div>
+    <!-- Session Ready: shown after Build -->
     <div id="xqNP_start">
       <div id="xqNP_startTitle">Session Ready</div>
       <div id="xqNP_startInfo"></div>
-      <button id="xqNP_startBtn">&#9654;</button>
+      <button id="xqNP_startBtn">START SOUND SESSION</button>
     </div>
     <!-- Cinematic countdown — appears on the LED screen before logo -->
     <div id="xqNP_cdWrap">
@@ -27010,8 +27078,10 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 </div>
 <!-- Home button and playback controls: position:fixed so iOS can always tap them -->
 <button id="xqNP_home">&#8249; Home</button>
+<button id="xqModeBtn">&#8942; Modes</button>
 <div id="xqControls">
   <button class="xqCtrl" id="xqPrev" aria-label="Previous">&#9198;</button>
+  <div id="xqControlInfo"></div>
   <button class="xqCtrl" id="xqPlayPause" aria-label="Play/Pause">&#9208;</button>
   <button class="xqCtrl" id="xqNext" aria-label="Next">&#9197;</button>
 </div>
@@ -27139,7 +27209,8 @@ function buildBg(W,H){
 // Burst-only: no fog between hits — used as a dramatic effect.
 var FOG=[],FOG_MAX=120,_fogLast=0,_fogCool=0; // 120 allows denser multi-wisp bursts
 // Physics-based logo animation state
-var _npSz={w:0,h:0}; // #xqNP pixel size (cached, updated on resize)
+var _npSz={w:0,h:0};
+var _npEnSmooth=0; // slow-responding energy average for mood-sync
 var _npA={ // animation state
   px:0,py:0,        // circle CENTER in px within #xqNP
   vx:0,vy:0,        // velocity px/ms
@@ -27377,7 +27448,7 @@ function frame(ts){
   _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/110);
   var bd=_xqSt.beatDecay;
   ctx.drawImage(bg,0,0,W,H);
-  drawSpots(W,H,isPlaying?bass:0,isPlaying?rms:0,isPlaying?bd:0);
+  if(isPlaying) drawSpots(W,H,bass,rms,bd);
   if(!_stFX){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}
   if(fxCtx){fxCtx.clearRect(0,0,W,H);}
   // HTML countdown inside #xqNP
@@ -27410,7 +27481,9 @@ function frame(ts){
     if(!npa) return;
     if(!_npA.init) _npInitAnim();
     // Speed tracks continuous song energy: silence=slow float, peak=fast chaos
-    var a=_npA, spd=0.35+(rms||0)*2.2+(bass||0)*1.1;
+    _npEnSmooth+=((rms*0.65+bass*0.35)-_npEnSmooth)*Math.min(1,dt/900);
+    var moodFactor=_npEnSmooth;
+    var a=_npA, spd=0.08+moodFactor*3.5;
     var el=document.getElementById('xqNP');
     if(el&&(_npSz.w!==el.offsetWidth||_npSz.h!==el.offsetHeight)){
       _npSz.w=el.offsetWidth; _npSz.h=el.offsetHeight;
@@ -27424,12 +27497,15 @@ function frame(ts){
     if(a.py>_npSz.h-R){a.py=_npSz.h-R; a.vy=-Math.abs(a.vy)*(0.75+Math.random()*0.5);}
     // Hit: spin impulse + random speed kick
     if(hit){
-      a.rvx+=(Math.random()-.5)*230; a.rvy+=(Math.random()-.5)*230; a.rvz+=(Math.random()-.5)*115;
-      if(Math.random()<0.35){ a.vx=(Math.random()-.5)*(_npSz.w*0.0020+bass*_npSz.w*0.0010); a.vy=(Math.random()-.5)*(_npSz.h*0.0016+bass*_npSz.h*0.0008); }
+      // Scale impulse with actual energy — calm hit = gentle nudge, big hit = wild spin
+      var impScale=0.3+moodFactor*1.4;
+      a.rvx+=(Math.random()-.5)*230*impScale; a.rvy+=(Math.random()-.5)*230*impScale; a.rvz+=(Math.random()-.5)*115*impScale;
+      if(Math.random()<0.35){ a.vx=(Math.random()-.5)*(_npSz.w*0.0012+moodFactor*_npSz.w*0.0018); a.vy=(Math.random()-.5)*(_npSz.h*0.0010+moodFactor*_npSz.h*0.0014); }
     }
     // Spin physics + drag
     a.rx+=a.rvx*dt/1000; a.ry+=a.rvy*dt/1000; a.rz+=a.rvz*dt/1000;
-    var drag=Math.pow(0.955,dt/16);
+    // Faster spin decay on calm music; slower decay keeps energy on energetic tracks
+    var drag=Math.pow(0.975-moodFactor*0.045,dt/16);
     a.rvx*=drag; a.rvy*=drag; a.rvz*=drag;
     // Scale bounce on beat
     a.scale=1+bd*0.14+bass*0.06;
@@ -27477,6 +27553,16 @@ if(npHomeEl){
 // Stage transport — round 4 API (MIZE.SoundStudio.play/togglePlay/next/prev)
 // Start button: hides the "Ready" screen and begins the 5→1 countdown.
 // Countdown zero calls play() so music only starts after the count.
+// Intro "START SOUND SESSION" → launch Sound Studio questions
+var _introBtn=document.getElementById('xqNP_introBtn');
+if(_introBtn){
+  _introBtn.addEventListener('click',function(e){
+    e.stopPropagation();
+    var intro=document.getElementById('xqNP_intro');
+    if(intro) intro.classList.remove('on');
+    if(typeof MIZE!=='undefined'&&MIZE.SoundStudio) MIZE.SoundStudio.start();
+  });
+}
 var _startBtn=document.getElementById('xqNP_startBtn');
 if(_startBtn){
   _startBtn.addEventListener('click',function(e){
@@ -27491,6 +27577,16 @@ if(_startBtn){
   });
 }
 // Playback controls now use the real module API
+var _modeBtnEl=document.getElementById('xqModeBtn');
+if(_modeBtnEl){_modeBtnEl.addEventListener('click',function(e){
+  e.stopPropagation();
+  if(_stFX){_stFX.destroy();_stFX=null;}
+  clearInterval(_xqSt.fallTimer);_xqSt.fallTimer=null;
+  var stg=document.getElementById('xqStage');if(stg)stg.classList.remove('on');
+  var np=document.getElementById('xqNP');if(np)np.classList.remove('on');
+  ['xqNP_home','xqControls','xqModeBtn'].forEach(function(id){var el=document.getElementById(id);if(el)el.classList.remove('on');});
+  xquixShowHome();
+});}
 var _pp=document.getElementById('xqPlayPause');
 var _pr=document.getElementById('xqPrev');
 var _nx=document.getElementById('xqNext');
