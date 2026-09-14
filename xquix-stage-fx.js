@@ -8,8 +8,8 @@
  * negative space, no sprites, no CSS blur.
  *
  *   const fx = MIZE.StageFX.attach(hostElement, opts?)   // a <canvas> is inserted, absolute inset:0
- *   fx.burst(seconds = 2.5, strength = 1)                 // fog machine fires
- *   fx.set({ energy, hit, haze, laser, source, beams })   // live parameters (all optional)
+ *   fx.burst(seconds = 2.5, strength = 1, outlet?)        // fog machine(s) fire: all, one index, or a list
+ *   fx.set({ energy, hit, haze, laser, sources, spread, beams })   // live parameters (all optional)
  *   fx.destroy()
  *
  * Wire to the Sound Box: onLevel(l) → fx.set({energy: l.level, hit: l.hit}),
@@ -26,14 +26,16 @@
 precision highp float;
 uniform vec2  uRes;        // canvas size in px
 uniform float uTime;       // seconds
-uniform vec2  uSource;     // nozzle, 0..1 (x from left, y from bottom)
+uniform vec3  uSrc[3];     // per outlet: x, y (0..1), lean angle in radians (+ = right)
+uniform int   uCount;      // outlets in use (1..3)
+uniform float uSpread;     // how wide a plume opens with height
 uniform vec4  uBeamL;      // x0,y0,x1,y1 in 0..1
 uniform vec4  uBeamR;
 uniform vec3  uTeal;
 uniform float uHaze;       // residual fog floor 0..1
 uniform float uLaser;      // laser brightness 0..1.5
 uniform float uEnergy;     // music energy 0..1 (adds turbulence + glow)
-uniform sampler2D uHist;   // emission history: texel x = age/uHistSpan
+uniform sampler2D uHist;   // emission history: texel x = age/uHistSpan, row = outlet
 uniform float uHistSpan;   // seconds covered by the history texture
 uniform float uRise;       // rise speed in plume-heights per second
 
@@ -66,12 +68,17 @@ float segDist(vec2 p, vec2 a, vec2 b, out float tt){
 // Fog density at a point (0..1). The plume: a jet that widens with height,
 // carried upward and drifting; density is what the machine emitted when this
 // parcel left the nozzle (emission history), times turbulent noise.
-float density(vec2 p, float aspect){
-  vec2 q = p - uSource;                       // nozzle-relative
+float plumeAt(vec2 p, float aspect, vec3 src, float row){
+  vec2 q = p - src.xy;                        // nozzle-relative
   q.x *= aspect;
-  float h = q.y;                              // height above the nozzle
+  // lean: a side machine blows toward the stage; rotate into the outlet's frame
+  float ca = cos(src.z), sa = sin(src.z);
+  q = vec2(ca * q.x - sa * q.y, sa * q.x + ca * q.y);
+  float h = q.y;                              // height along the jet axis
   if (h < -0.16) return 0.0;
-  float t = uTime;
+  // early out: nothing this far from the axis (keeps three outlets affordable)
+  if (abs(q.x) > 0.12 + uSpread * 1.6 * pow(max(h, 0.0), 0.72) + 0.25) return 0.0;
+  float t = uTime + row * 37.0;              // each outlet its own turbulence phase
   // slow large-scale turbulence warps the whole plume (curls, pockets)
   vec3 w = vec3(q * 1.6, t * 0.06);
   vec2 warp = vec2(fbm3(w + 3.1), fbm3(w + 7.7)) * 0.40 * smoothstep(0.0, 0.7, h);   // straight at the nozzle, turbulent above
@@ -79,7 +86,7 @@ float density(vec2 p, float aspect){
   float hh = max(qq.y, 0.0);
   // jet: narrow at the nozzle, opening up; the plume leans with a slow drift
   float drift = 0.10 * sin(t * 0.13) * hh;
-  float halfW = 0.028 + 1.25 * pow(hh, 0.72);
+  float halfW = 0.028 + uSpread * pow(hh, 0.72);
   float xr = abs(qq.x - drift) / halfW;
   float envelope = smoothstep(1.2, 0.45, xr);
   // top thins out; ceiling dissolves
@@ -91,7 +98,7 @@ float density(vec2 p, float aspect){
   float n = 0.5 + 0.5 * (n1 * 1.4 + n2 * 1.1 + n3 * 0.5);
   // emission history: parcels at height hh left the nozzle hh/uRise seconds ago
   float age = clamp(hh / uRise, 0.0, uHistSpan);
-  float emitted = texture2D(uHist, vec2(age / uHistSpan, 0.5)).r;
+  float emitted = texture2D(uHist, vec2(age / uHistSpan, row)).r;
   float base = uHaze + emitted * 1.15;
   // near the nozzle the jet is solid; higher up the noise carves pockets and wisps
   // the jet: a concentrated column straight out of the nozzle that rises,
@@ -100,7 +107,7 @@ float density(vec2 p, float aspect){
   float ax = abs(qq.x - drift);
   // the column rises about three times faster than the drifting plume
   float jetAge = clamp(hh / (uRise * 3.0), 0.0, uHistSpan);
-  float jetEmit = texture2D(uHist, vec2(jetAge / uHistSpan, 0.5)).r;
+  float jetEmit = texture2D(uHist, vec2(jetAge / uHistSpan, row)).r;
   float jet = smoothstep(0.022 + 0.17 * hh, 0.0, abs(q.x - drift * 0.3)) * smoothstep(0.58, 0.10, hh) * (0.45 + 0.55 * smoothstep(0.3, 0.8, n + 0.25 * n3)) * jetEmit;
   float carve = smoothstep(0.44, 0.70, n);
   // the plume emerges from the nozzle: no hard base line
@@ -108,7 +115,15 @@ float density(vec2 p, float aspect){
   // fog that has settled: spreads sideways along the floor and thins upward
   float floorFog = smoothstep(0.40, -0.10, q.y) * smoothstep(1.3, 0.15, ax) * smoothstep(0.42, 0.78, n) * (0.6 + 0.4 * n3) * (uHaze * 0.4 + emitted * 0.35);
   float plume = envelope * carve * base;
-  return clamp((plume + jet * 2.3 + floorFog) * emerge, 0.0, 1.0);
+  return (plume + jet * 2.3 + floorFog) * emerge;
+}
+float density(vec2 p, float aspect){
+  float d = 0.0;
+  for (int i = 0; i < 3; i++) {
+    if (i >= uCount) break;
+    d += plumeAt(p, aspect, uSrc[i], (float(i) + 0.5) / 3.0);
+  }
+  return clamp(d, 0.0, 1.0);
 }
 
 void main(){
@@ -144,9 +159,10 @@ void main(){
   // beam origins: small hot points
   col += uTeal * 0.6 * L * (exp(-length(pa - uBeamL.xy * vec2(aspect,1.0)) / 0.012) + exp(-length(pa - uBeamR.xy * vec2(aspect,1.0)) / 0.012));
   // floor reflection: faint teal sheen below the nozzle line, mirrored fog glow
-  float floorY = uSource.y;
+  float floorY = uSrc[0].y;
   float below = smoothstep(floorY, floorY - 0.18, uv.y);
-  float refl = smoothstep(0.35, 0.0, abs(uv.x - uSource.x) * aspect) * 0.35;
+  float refl = 0.0;
+  for (int i = 0; i < 3; i++) { if (i >= uCount) break; refl += smoothstep(0.30, 0.0, abs(uv.x - uSrc[i].x) * aspect) * 0.35; }
   col += uTeal * below * (0.04 + 0.16 * refl) * 0.5;
   // tone + subtle grain so gradients never band
   float grain = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.012;
@@ -171,26 +187,29 @@ void main(){
     const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     const aLoc = gl.getAttribLocation(prog, "a"); gl.enableVertexAttribArray(aLoc); gl.vertexAttribPointer(aLoc, 2, gl.FLOAT, false, 0, 0);
-    const U = {}; ["uRes", "uTime", "uSource", "uBeamL", "uBeamR", "uTeal", "uHaze", "uLaser", "uEnergy", "uHist", "uHistSpan", "uRise"].forEach(n => U[n] = gl.getUniformLocation(prog, n));
+    const U = {}; ["uRes", "uTime", "uSrc", "uCount", "uSpread", "uBeamL", "uBeamR", "uTeal", "uHaze", "uLaser", "uEnergy", "uHist", "uHistSpan", "uRise"].forEach(n => U[n] = gl.getUniformLocation(prog, n));
 
-    // Emission history: 64 texels over HIST_SPAN seconds, texel 0 = now.
-    const HIST = 64, HIST_SPAN = 9.0, DT = HIST_SPAN / HIST;
-    const hist = new Uint8Array(HIST);
+    // Emission history per outlet: 64 texels over HIST_SPAN seconds, texel 0 = now; one row per outlet.
+    const HIST = 64, HIST_SPAN = 9.0, DT = HIST_SPAN / HIST, MAXSRC = 3;
+    const hist = new Uint8Array(HIST * MAXSRC);
     const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    const upload = () => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, HIST, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, hist); };
+    const upload = () => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, HIST, MAXSRC, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, hist); };
 
     const p = {
       teal: opts.teal || [0.0, 0.84, 0.72],
-      source: opts.source || [0.5, 0.10],
+      // Outlets: {x, y} in 0..1 from left / from bottom, lean in degrees (+ = toward the right).
+      // Default: one centre machine straight up and one each side blowing toward the stage.
+      sources: opts.sources || (opts.source ? [{ x: opts.source[0], y: opts.source[1], lean: 0 }] : [{ x: 0.5, y: 0.10, lean: 0 }, { x: 0.10, y: 0.10, lean: 32 }, { x: 0.90, y: 0.10, lean: -32 }]),
+      spread: opts.spread != null ? opts.spread : 0.75,   // how wide a plume opens with height (1.25 = the old single-outlet look)
       beams: opts.beams || [[0.045, 0.085, 0.50, 1.02], [0.955, 0.085, 0.50, 1.02]],
       haze: opts.haze != null ? opts.haze : 0.30,   // residual fog when the machine is idle
       laser: opts.laser != null ? opts.laser : 1.0,
       energy: 0, rise: opts.rise || 0.16,           // plume heights per second (slow, atmospheric)
       resolutionScale: opts.resolutionScale || 0.6,
     };
-    let emit = 0, emitTarget = 0, burstUntil = 0, burstStrength = 1, hitGlow = 0;
+    const emit = [0, 0, 0], burstUntil = [0, 0, 0], burstStrength = [1, 1, 1]; let hitGlow = 0;
     let acc = 0, last = performance.now(), t0 = last, raf = null, running = true;
 
     function resize() {
@@ -204,16 +223,17 @@ void main(){
       const dt = Math.min(0.1, (now - last) / 1000); last = now;
       resize();
       // emission envelope: bursts ramp up fast, tail off slowly
-      emitTarget = now < burstUntil ? burstStrength : 0;
-      emit += (emitTarget - emit) * (emitTarget > emit ? 0.25 : 0.03);
+      for (let i = 0; i < MAXSRC; i++) { const target = now < burstUntil[i] ? burstStrength[i] : 0; emit[i] += (target - emit[i]) * (target > emit[i] ? 0.25 : 0.03); }
       acc += dt;
-      while (acc >= DT) { acc -= DT; hist.copyWithin(1, 0, HIST - 1); hist[0] = Math.round(Math.min(1, emit) * 255); }
-      hist[0] = Math.round(Math.min(1, emit) * 255);
+      while (acc >= DT) { acc -= DT; for (let i = 0; i < MAXSRC; i++) { const o = i * HIST; hist.copyWithin(o + 1, o, o + HIST - 1); } }
+      for (let i = 0; i < MAXSRC; i++) hist[i * HIST] = Math.round(Math.min(1, emit[i]) * 255);
       upload();
       hitGlow *= 0.85;
       gl.uniform2f(U.uRes, canvas.width, canvas.height);
       gl.uniform1f(U.uTime, (now - t0) / 1000);
-      gl.uniform2f(U.uSource, p.source[0], p.source[1]);
+      const n = Math.min(MAXSRC, p.sources.length), srcArr = new Float32Array(9);
+      for (let i = 0; i < n; i++) { const o = p.sources[i]; srcArr[i * 3] = o.x; srcArr[i * 3 + 1] = o.y; srcArr[i * 3 + 2] = (o.lean || 0) * Math.PI / 180; }
+      gl.uniform3fv(U.uSrc, srcArr); gl.uniform1i(U.uCount, n); gl.uniform1f(U.uSpread, p.spread);
       gl.uniform4fv(U.uBeamL, p.beams[0]); gl.uniform4fv(U.uBeamR, p.beams[1]);
       gl.uniform3fv(U.uTeal, p.teal);
       gl.uniform1f(U.uHaze, p.haze);
@@ -231,13 +251,17 @@ void main(){
 
     return {
       canvas, params: p,
-      burst(seconds, strength) { burstUntil = performance.now() + (seconds || 2.5) * 1000; burstStrength = strength == null ? 1 : strength; },
+      // burst(seconds, strength, outlet): outlet = index, an array of indices, or undefined for all
+      burst(seconds, strength, outlet) {
+        const idx = outlet == null ? p.sources.map((_, i) => i) : Array.isArray(outlet) ? outlet : [outlet];
+        idx.forEach(i => { if (i >= 0 && i < MAXSRC) { burstUntil[i] = performance.now() + (seconds || 2.5) * 1000; burstStrength[i] = strength == null ? 1 : strength; } });
+      },
       set(o) {
         if (!o) return;
         if (o.energy != null) p.energy = Math.max(0, Math.min(1, o.energy));
         if (o.hit) hitGlow = 1;
         if (o.haze != null) p.haze = o.haze; if (o.laser != null) p.laser = o.laser;
-        if (o.source) p.source = o.source; if (o.beams) p.beams = o.beams; if (o.teal) p.teal = o.teal;
+        if (o.sources) p.sources = o.sources; if (o.spread != null) p.spread = o.spread; if (o.beams) p.beams = o.beams; if (o.teal) p.teal = o.teal;
         if (o.rise != null) p.rise = o.rise;
       },
       destroy() { running = false; if (raf) cancelAnimationFrame(raf); document.removeEventListener("visibilitychange", onVis); gl.getExtension("WEBGL_lose_context")?.loseContext(); canvas.remove(); },

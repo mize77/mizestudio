@@ -24,16 +24,26 @@ density they pass through. Black stays black.
 ```
 ```js
 const fx = MIZE.StageFX.attach(stageEl, {          // inserts a <canvas> absolute inset:0 into stageEl (position:relative)
-  source: [0.5, 0.10],                             // nozzle, 0..1 from left / from bottom — put it on your machine's top
-  beams:  [[0.045, 0.085, 0.50, 1.02], [0.955, 0.085, 0.50, 1.02]],   // x0,y0,x1,y1 per laser
-  teal:   [0.0, 0.84, 0.72],                       // XquiX teal
-  haze:   0.30,                                    // residual fog when the machine is idle (0 = pitch black between bursts)
+  // Up to three fog outlets. x/y in 0..1 from left / from bottom — put each on a machine's nozzle
+  // in your scene; lean in degrees (+ = blows toward the right). MIZE 2026-09-14: the fog must
+  // visibly come from the outlets, so the default is one centre machine straight up and one on
+  // each side blowing in toward the stage.
+  sources: [{ x: 0.50, y: 0.10, lean: 0 }, { x: 0.10, y: 0.10, lean: 32 }, { x: 0.90, y: 0.10, lean: -32 }],
+  spread:  0.75,                                   // how wide a plume opens with height; 1.25 is the old single-outlet look
+  beams:   [[0.045, 0.085, 0.50, 1.02], [0.955, 0.085, 0.50, 1.02]],   // x0,y0,x1,y1 per laser
+  teal:    [0.0, 0.84, 0.72],                      // XquiX teal
+  haze:    0.30,                                   // residual fog when the machines are idle (0 = pitch black between bursts)
   resolutionScale: 0.6,                            // render scale × devicePixelRatio; 0.5 on phones is fine
 });
-fx.burst(seconds = 2.5, strength = 1);            // the machine fires — fog is an EFFECT, not a constant
-fx.set({ energy: 0..1, hit: true, laser: 0..1.5, haze, source, beams, rise });
+fx.burst(seconds = 2.5, strength = 1, outlet?);   // the machines fire — all, one index (0 = centre), or a list [1, 2]
+fx.set({ energy: 0..1, hit: true, laser: 0..1.5, haze, sources, spread, beams, rise });
 fx.destroy();
 ```
+
+Each outlet has its own emission history and turbulence phase, so `burst(3, 1,
+[1, 2])` sends the side machines only, `burst(2, 0.7, 0)` the centre one.
+Three outlets cost about the same as one — a plume is only evaluated near
+its own axis.
 
 Wire it to the music: `onLevel(l) → fx.set({ energy: l.level, hit: l.hit })`
 (hits flare the beams for a moment; energy warms the fog), and fire
