@@ -1502,7 +1502,7 @@
   #xqStage.on{display:block}
   /* Canvas is purely visual; #xqScreen children must receive touch/click events */
   #xqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
-  #xqScreen{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
+  #xqScreen{position:absolute;left:7%;top:5%;width:86%;height:62%;
             border-radius:2px;overflow:hidden;z-index:1;pointer-events:auto}
   #xqScreen *{pointer-events:auto}
   /* Hide the module's own player bar — the stage draws its own controls */
@@ -1525,7 +1525,7 @@
   /* FX canvas: lasers drawn above everything, pointer-events:none */
   #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3}
   /* NP overlay — positioned container, children are absolute */
-  #xqNP{position:absolute;left:25.88%;top:18.64%;width:48.24%;height:44.55%;
+  #xqNP{position:absolute;left:7%;top:5%;width:86%;height:62%;
         border-radius:2px;overflow:hidden;z-index:2;background:#000;
         display:none;pointer-events:auto;cursor:pointer}
   #xqNP.on{display:block}
@@ -4930,13 +4930,13 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
             [0.544, 0.845, 0.92, 0.19],   // right projector → stage-right floor
           ],
           teal:  [0.0, 0.84, 0.72],        // XquiX teal
-          haze:  0.20,                      // residual fog between bursts
+          haze:  0,               // NO fog until music plays
           resolutionScale: _isMobile ? 0.45 : 0.60,
         });
         // Ensure the inserted canvas is non-interactive and behind screen content
         if(_stFX) {
           var _sfxCnv = _stg.querySelector('canvas:not(#xqCanvas):not(#xqFX)');
-          if(_sfxCnv) { _sfxCnv.style.pointerEvents = 'none'; _sfxCnv.style.zIndex = '0'; }
+          if(_sfxCnv) { _sfxCnv.style.pointerEvents = 'none'; _sfxCnv.style.zIndex = '3'; }
         }
       }
       // Home and controls are position:fixed siblings — show them now
@@ -22201,6 +22201,14 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     _xqSt.playState = st;
     var pp = document.getElementById('xqPlayPause');
     if(pp) pp.innerHTML = st.playing ? '&#9208;' : '&#9654;';
+    if(!st.playing){
+      // Pause: silence all audio-driven visuals immediately
+      _xqSt.level=null; _xqSt.beatDecay=0;
+      if(_stFX) _stFX.set({energy:0,hit:false,laser:0,haze:0});
+    } else {
+      // Resume: restore fog haze
+      if(_stFX) _stFX.set({haze:0.18});
+    }
     // Session ended — hide the now-playing overlay
     if(st.ended) {
       var np = document.getElementById('xqNP');
@@ -27120,8 +27128,8 @@ function buildBg(W,H){
     c.fillStyle='#0c3018';c.beginPath();c.arc(x,H*0.155,W*0.004,0,Math.PI*2);c.fill();
     c.fillStyle='#38f870';c.beginPath();c.arc(x,H*0.155,W*0.002,0,Math.PI*2);c.fill();
   });
-  // Screen bezel (matches #xqScreen: left=25.88% top=18.64% w=48.24% h=44.55%)
-  c.fillStyle='#07090c';rrect(c,W*0.246,H*0.165,W*0.509,H*0.487,W*0.004);c.fill();
+  // Screen bezel (new: left=7% top=5% w=86% h=62% — behind StageFX fog)
+  c.fillStyle='#030507';rrect(c,W*0.055,H*0.028,W*0.890,H*0.658,W*0.003);c.fill();
   FXPOS.forEach(function(fx,i){drawFixture(c,W,H,fx,FTEAL[i]);});
 }
 
