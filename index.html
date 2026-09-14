@@ -4974,12 +4974,17 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         // Ensure the inserted canvas is non-interactive and behind screen content
         if(_stFX) {
           var _sfxCnv = _stg.querySelector('canvas:not(#xqCanvas):not(#xqFX)');
-          if(_sfxCnv) { _sfxCnv.style.pointerEvents = 'none'; _sfxCnv.style.zIndex = '3'; }
+          if(_sfxCnv) {
+            _sfxCnv.style.pointerEvents = 'none';
+            _sfxCnv.style.zIndex = '0';
+            _sfxCnv.style.display = 'none'; // hidden until music plays
+          }
         }
       }
       // Home and controls are position:fixed siblings — show them now
       var _hm=document.getElementById('xqNP_home'),_ct=document.getElementById('xqControls');
-      if(_hm) _hm.classList.add('on'); if(_ct) _ct.classList.add('on');
+      if(_hm) _hm.classList.add('on');
+      // Control bar shown only when music starts (onTrackChange)
       var _mb=document.getElementById('xqModeBtn'); if(_mb) _mb.classList.add('on');
       // Sound Studio starts only when the user taps "START SOUND SESSION" on the intro screen.
       // Calling start() here would immediately show questions, bypassing the intro.
@@ -22177,8 +22182,13 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
                  meet:0.60,close:0.38,adversity:0.90,library:0.55};
       _stFX.burst(_bDur[t.role]||1.5, _bStr[t.role]||0.60);
     }
-    // Bring StageFX in front of screen when music starts
-    (function(){var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');if(sfx)sfx.style.zIndex='3';})();
+    // Music starting: show StageFX canvas and bring it in front of screen
+    (function(){
+      var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');
+      if(sfx){sfx.style.display='block';sfx.style.zIndex='3';}
+    })();
+    // Show control bar now that music is playing
+    var _ctbar=document.getElementById('xqControls'); if(_ctbar) _ctbar.classList.add('on');
     var _ci=document.getElementById('xqControlInfo');
     if(_ci) _ci.textContent=(t['function']||'')+(t.title?' · '+t.title:'');
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
@@ -22249,12 +22259,19 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     var pp = document.getElementById('xqPlayPause');
     if(pp) pp.innerHTML = st.playing ? '&#9208;' : '&#9654;';
     if(!st.playing){
-      // Pause: push StageFX behind screen (content becomes top layer again)
-      (function(){var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');if(sfx)sfx.style.zIndex='0';})();
+      // Pause: hide StageFX canvas so no beams/fog show while paused
+      (function(){
+        var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');
+        if(sfx){sfx.style.zIndex='0';sfx.style.display='none';}
+      })();
       _xqSt.level=null; _xqSt.beatDecay=0;
       if(_stFX) _stFX.set({energy:0,hit:false,laser:0,haze:0});
     } else {
-      // Resume: restore fog haze
+      // Resume: show StageFX canvas and restore fog
+      (function(){
+        var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');
+        if(sfx){sfx.style.display='block';sfx.style.zIndex='3';}
+      })();
       if(_stFX) _stFX.set({haze:0.18});
     }
     // Session ended — hide the now-playing overlay
@@ -22276,8 +22293,13 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     var _hm2=document.getElementById('xqNP_home'),_ct2=document.getElementById('xqControls');
     if(_hm2) _hm2.classList.remove('on'); if(_ct2) _ct2.classList.remove('on');
     // Return to Sound Box intro screen (not mode selection)
-    // StageFX back behind screen
-    (function(){var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');if(sfx)sfx.style.zIndex='0';})();
+    // Hide StageFX canvas entirely — no beams/fog on intro/questions screen
+    (function(){
+      var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');
+      if(sfx){sfx.style.zIndex='0';sfx.style.display='none';}
+    })();
+    // Hide control bar
+    var _ctbar2=document.getElementById('xqControls'); if(_ctbar2) _ctbar2.classList.remove('on');
     var _introEl=document.getElementById('xqNP_intro');
     var _startEl=document.getElementById('xqNP_start');
     var _artEl2=document.getElementById('xqNP_art');
