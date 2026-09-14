@@ -6,6 +6,56 @@ first stage build: adds `config.mount`, `config.background`, `onLevel` and
 `analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 61 KB; 60 headless
 checks green plus two real-audio tests).*
 
+## Stage FX (2026-09-14) — fog machine + two lasers, `xquix-stage-fx.js`
+
+MIZE rejected the stage's CSS fog and asked for the look of a real fog
+machine photographed on a black stage (reference image in the Sound Box
+chat: black ground, a concentrated jet that mushrooms and drifts, two thin
+teal lasers from the lower corners to the apex, bright only where fog
+scatters them). The Sound Box chat built it as its own module so the Studio
+can drop it in behind the screen. **One WebGL fragment shader**, no sprites,
+no CSS blur: domain-warped fbm noise advected upward, an emission history so
+bursts rise as real puffs, a fast jet column that lets go into the plume,
+settled fog along the floor, and beams whose halo is literally the fog
+density they pass through. Black stays black.
+
+```html
+<script src="xquix-stage-fx.js"></script>
+```
+```js
+const fx = MIZE.StageFX.attach(stageEl, {          // inserts a <canvas> absolute inset:0 into stageEl (position:relative)
+  source: [0.5, 0.10],                             // nozzle, 0..1 from left / from bottom — put it on your machine's top
+  beams:  [[0.045, 0.085, 0.50, 1.02], [0.955, 0.085, 0.50, 1.02]],   // x0,y0,x1,y1 per laser
+  teal:   [0.0, 0.84, 0.72],                       // XquiX teal
+  haze:   0.30,                                    // residual fog when the machine is idle (0 = pitch black between bursts)
+  resolutionScale: 0.6,                            // render scale × devicePixelRatio; 0.5 on phones is fine
+});
+fx.burst(seconds = 2.5, strength = 1);            // the machine fires — fog is an EFFECT, not a constant
+fx.set({ energy: 0..1, hit: true, laser: 0..1.5, haze, source, beams, rise });
+fx.destroy();
+```
+
+Wire it to the music: `onLevel(l) → fx.set({ energy: l.level, hit: l.hit })`
+(hits flare the beams for a moment; energy warms the fog), and fire
+`fx.burst(3)` on `onTrackChange` for `role` **activate / launch** and a
+shorter `burst(1.5, 0.6)` on **meet**; leave the rest to the haze so the
+black space stays. Returns `null` when WebGL is unavailable — keep the old
+stage as the fallback in that case.
+
+Verified headlessly (`stagefx-test.mjs`, 8 checks): black space at idle, a
+burst brightens the scene without filling the frame, `set()` and
+`destroy()` behave. Rendered frames against the reference are in the chat;
+a live preview is published as the "XquiX Stage FX" artifact. Harness:
+`stagefx-harness.html`. Cost: one density evaluation per pixel (≈ 23 noise
+lookups), rendered at 0.6 × DPR — light enough for a phone, but **measure on
+an iPhone** before making it the default; drop `resolutionScale` to 0.45 if
+the Sound Box UI stutters.
+
+Known gap versus the reference still: the reference is a rendered still with
+finer billow detail; ours trades some of that for real-time cost. If MIZE
+wants it closer, the next lever is a second, finer noise octave on desktop
+only (`opts.detail`), not sprites.
+
 ## Round 4 (2026-09-13) — transport: the stage drives the player
 
 For a stage that draws its own play button after the questions and its own
