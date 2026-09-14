@@ -1498,11 +1498,12 @@
   @media print { header, #controlsPanel, #timelinePanel { display:none; } #stageWrap { width:100vw; margin:0; } #board { box-shadow:none; } }
 
   /* ── XquiX Sound Box canvas stage (canvas rebuild 2026-09-13) ── */
-  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none}
+  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none;
+          background:url(xquixSoundBoxStage.png) center/cover no-repeat;}
   #xqStage.on{display:block}
   /* Canvas is purely visual; #xqScreen children must receive touch/click events */
   #xqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
-  #xqScreen{position:absolute;left:7%;top:5%;width:86%;height:62%;
+  #xqScreen{position:absolute;left:7%;top:10%;width:86%;height:67%;
             border-radius:2px;overflow:hidden;z-index:1;pointer-events:auto}
   #xqScreen *{pointer-events:auto}
   /* Sound Box intro screen */
@@ -1563,7 +1564,7 @@
   /* FX canvas: lasers drawn above everything, pointer-events:none */
   #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3}
   /* NP overlay — positioned container, children are absolute */
-  #xqNP{position:absolute;left:7%;top:5%;width:86%;height:62%;
+  #xqNP{position:absolute;left:7%;top:10%;width:86%;height:67%;
         border-radius:2px;overflow:hidden;z-index:2;background:#000;
         display:none;pointer-events:auto;cursor:pointer}
   #xqNP.on{display:block}
@@ -4964,8 +4965,8 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
           // Laser beam paths for fog-scatter halo. Projectors sit at top (y≈0.845 from bottom),
           // beams angle down to stage-floor corners.
           beams: [
-            [0.456, 0.845, 0.08, 0.19],   // left projector → stage-left floor
-            [0.544, 0.845, 0.92, 0.19],   // right projector → stage-right floor
+            [0.045, 0.085, 0.50, 1.02],
+            [0.955, 0.085, 0.50, 1.02],
           ],
           teal:  [0.0, 0.84, 0.72],        // XquiX teal
           haze:  0,               // NO fog until music plays
@@ -27220,8 +27221,8 @@ function buildBg(W,H){
     c.fillStyle='#0c3018';c.beginPath();c.arc(x,H*0.155,W*0.004,0,Math.PI*2);c.fill();
     c.fillStyle='#38f870';c.beginPath();c.arc(x,H*0.155,W*0.002,0,Math.PI*2);c.fill();
   });
-  // Screen bezel (new: left=7% top=5% w=86% h=62% — behind StageFX fog)
-  c.fillStyle='#030507';rrect(c,W*0.055,H*0.028,W*0.890,H*0.658,W*0.003);c.fill();
+  // Screen bezel (left=7% top=10% w=86% h=67% — matches CSS)
+  c.fillStyle='#03050a';rrect(c,W*0.055,H*0.077,W*0.890,H*0.690,W*0.003);c.fill();
   FXPOS.forEach(function(fx,i){drawFixture(c,W,H,fx,FTEAL[i]);});
 }
 
@@ -27469,7 +27470,8 @@ function frame(ts){
   if(hit&&isPlaying)_xqSt.beatDecay=1;
   _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/110);
   var bd=_xqSt.beatDecay;
-  ctx.drawImage(bg,0,0,W,H);
+  // Background comes from CSS background-image (xquixSoundBoxStage.png)
+  ctx.clearRect(0,0,W,H);
   if(isPlaying) drawSpots(W,H,bass,rms,bd);
   if(!_stFX){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}
   if(fxCtx){fxCtx.clearRect(0,0,W,H);}
