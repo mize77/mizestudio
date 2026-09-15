@@ -4960,8 +4960,8 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
           // Find the inserted WebGL canvas and hide it until music plays
           var _sfxCnv = _stg.querySelector('canvas:not(#xqCanvas):not(#xqFX)');
           if(_sfxCnv) {
-            _sfxCnv.id = 'xqStageFX'; // give it an id for reliable selection later
-            _sfxCnv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:0;display:none';
+            cnv.id='xqStageFX';
+                cnv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:0;display:none';
           }
         }
       }
@@ -27153,13 +27153,13 @@ function buildBg(W,H){
   c.fillStyle='#000'; c.fillRect(0,0,W,H);
 
   // ── Rear wall (very dark teal-black, subtle texture) ───────────────────
-  c.fillStyle='#04080a'; c.fillRect(0,0,W,H*0.78);
+  c.fillStyle='#060d0a'; c.fillRect(0,0,W,H*0.78);
 
   // ── Ceiling void above truss ────────────────────────────────────────────
   c.fillStyle='#000'; c.fillRect(0,0,W,H*0.06);
 
   // ── Truss bar ───────────────────────────────────────────────────────────
-  c.fillStyle='#161e1c'; c.fillRect(0,H*0.060,W,H*0.020);
+  c.fillStyle='#202a28'; c.fillRect(0,H*0.060,W,H*0.020);
   // Cross-bracing detail
   c.strokeStyle='#0e1614'; c.lineWidth=H*0.002;
   for(var i=0;i<12;i++){
@@ -27191,11 +27191,11 @@ function buildBg(W,H){
   [['left',0,W*0.068],['right',W*0.932,W*0.068]].forEach(function(cfg){
     var side=cfg[0], x0=cfg[1], aw=cfg[2];
     // Column body
-    c.fillStyle='#080c0b'; c.fillRect(x0,H*0.08,aw,H*0.70);
+    c.fillStyle='#0e1412'; c.fillRect(x0,H*0.08,aw,H*0.70);
     // Cabinet stack divisions (10 units)
     for(var i=0;i<10;i++){
       var cy=H*0.08+i*(H*0.70/10);
-      c.fillStyle=i%2===0?'#0a0e0d':'#080c0b';
+      c.fillStyle=i%2===0?'#111610':'#0d1210';
       c.fillRect(x0+aw*0.06,cy+H*0.003,aw*0.88,H*0.70/10-H*0.005);
       c.strokeStyle='#0d1210'; c.lineWidth=0.5;
       c.beginPath();c.moveTo(x0,cy+H*0.70/10);c.lineTo(x0+aw,cy+H*0.70/10);c.stroke();
@@ -27210,11 +27210,11 @@ function buildBg(W,H){
   });
 
   // ── Stage floor ──────────────────────────────────────────────────────────
-  c.fillStyle='#030706'; c.fillRect(0,H*0.770,W,H*0.230);
+  c.fillStyle='#060d0a'; c.fillRect(0,H*0.770,W,H*0.230);
   // Stage lip (thin bright line at screen/floor boundary)
   c.fillStyle='#162420'; c.fillRect(W*0.07,H*0.768,W*0.86,H*0.005);
   // Subtle teal LED strip on lip
-  c.fillStyle='rgba(0,180,130,0.18)'; c.fillRect(W*0.07,H*0.768,W*0.86,H*0.002);
+  c.fillStyle='rgba(0,200,140,0.35)'; c.fillRect(W*0.07,H*0.768,W*0.86,H*0.002);
   // Screen reflection on floor (very subtle, wide, blurred with opacity)
   var flGrd=c.createLinearGradient(W*0.5,H*0.770,W*0.5,H);
   flGrd.addColorStop(0,'rgba(0,100,70,0.04)'); flGrd.addColorStop(0.4,'rgba(0,80,55,0.02)'); flGrd.addColorStop(1,'rgba(0,0,0,0)');
@@ -27230,8 +27230,8 @@ function buildBg(W,H){
   // ── Ambient background fill — stage looks "ready", not dead/off ──────────
   // Very faint overhead wash from the fixtures (baked into static shell)
   var ambGrd=c.createLinearGradient(W*0.5,0,W*0.5,H*0.50);
-  ambGrd.addColorStop(0,'rgba(0,60,40,0.12)');
-  ambGrd.addColorStop(0.5,'rgba(0,40,28,0.04)');
+  ambGrd.addColorStop(0,'rgba(0,80,55,0.22)');
+  ambGrd.addColorStop(0.5,'rgba(0,55,38,0.08)');
   ambGrd.addColorStop(1,'rgba(0,0,0,0)');
   c.fillStyle=ambGrd; c.fillRect(0,0,W,H*0.78);
   // Subtle teal screen halo (screen is powered, edge bleeds faintly)
@@ -27244,8 +27244,8 @@ function buildBg(W,H){
   [0.16,0.30,0.50,0.70,0.84].forEach(function(fx){
     var x=fx*W, y=H*0.118;
     var fGrd=c.createRadialGradient(x,y,0,x,y,W*0.06);
-    fGrd.addColorStop(0,'rgba(0,180,120,0.08)'); fGrd.addColorStop(1,'rgba(0,0,0,0)');
-    c.fillStyle=fGrd; c.fillRect(x-W*0.06,y-W*0.01,W*0.12,H*0.12);
+    fGrd.addColorStop(0,'rgba(0,200,140,0.18)'); fGrd.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=fGrd; c.fillRect(x-W*0.08,y-W*0.01,W*0.16,H*0.18);
   });
 
   // ── Fog machine silhouettes at floor level (two outlets per brief) ──────
