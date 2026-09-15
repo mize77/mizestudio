@@ -27227,6 +27227,27 @@ function buildBg(W,H){
     c.beginPath();c.moveTo(px+s,py-s);c.lineTo(px-s,py+s);c.stroke();
   });
 
+  // ── Ambient background fill — stage looks "ready", not dead/off ──────────
+  // Very faint overhead wash from the fixtures (baked into static shell)
+  var ambGrd=c.createLinearGradient(W*0.5,0,W*0.5,H*0.50);
+  ambGrd.addColorStop(0,'rgba(0,60,40,0.12)');
+  ambGrd.addColorStop(0.5,'rgba(0,40,28,0.04)');
+  ambGrd.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=ambGrd; c.fillRect(0,0,W,H*0.78);
+  // Subtle teal screen halo (screen is powered, edge bleeds faintly)
+  var halGrd=c.createRadialGradient(W*0.5,H*0.435,W*0.30,W*0.5,H*0.435,W*0.55);
+  halGrd.addColorStop(0,'rgba(0,0,0,0)');
+  halGrd.addColorStop(0.6,'rgba(0,0,0,0)');
+  halGrd.addColorStop(1,'rgba(0,100,70,0.06)');
+  c.fillStyle=halGrd; c.fillRect(W*0.03,H*0.06,W*0.94,H*0.75);
+  // Fixture lens ambient glow (the 5 overhead units, barely on)
+  [0.16,0.30,0.50,0.70,0.84].forEach(function(fx){
+    var x=fx*W, y=H*0.118;
+    var fGrd=c.createRadialGradient(x,y,0,x,y,W*0.06);
+    fGrd.addColorStop(0,'rgba(0,180,120,0.08)'); fGrd.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=fGrd; c.fillRect(x-W*0.06,y-W*0.01,W*0.12,H*0.12);
+  });
+
   // ── Fog machine silhouettes at floor level (two outlets per brief) ──────
   [[W*0.10,H*0.78],[W*0.90,H*0.78]].forEach(function(pos){
     c.fillStyle='#0d1412'; rrect(c,pos[0]-W*0.028,pos[1],W*0.056,H*0.025,2); c.fill();
