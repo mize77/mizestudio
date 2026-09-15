@@ -1516,8 +1516,9 @@
   /* L09 Stage floor: dimmed in Dormant per kit §6.3 */
   #xqFloor{inset:0;width:100%;height:100%;object-fit:fill;z-index:6;opacity:0.30}
   /* L03-04 Speaker arrays */
-  #xqSpkL{left:0;top:6%;width:9%;height:auto;z-index:7}
-  #xqSpkR{right:0;top:6%;width:9%;height:auto;z-index:7;transform:scaleX(-1)}
+  /* Speakers: height-driven so they read as tall arrays; overflow clipped by letterbox */
+  #xqSpkL{left:-1%;top:4%;width:auto;height:88%;z-index:7}
+  #xqSpkR{right:-1%;top:4%;width:auto;height:88%;z-index:7;transform:scaleX(-1)}
   /* L05 Five fixtures along truss */
   .xqFxt{top:0.2%;width:5%;height:auto;z-index:8}
   #xqFxt0{left:13.5%}  #xqFxt1{left:27.5%}  #xqFxt2{left:47%}
@@ -1529,7 +1530,6 @@
   #xqFogML{left:1%;bottom:15%;width:7%;height:auto;z-index:10}
   #xqFogMR{right:1%;bottom:15%;width:7%;height:auto;z-index:10;transform:scaleX(-1)}
   /* L09 foreground Flight cases */
-  #xqFlight{inset:0;width:100%;height:100%;object-fit:fill;z-index:11}
   /* FX canvas above all static layers but below NP overlay */
   #xqFX{inset:0;width:100%;height:100%;z-index:25;pointer-events:none}
   #xqScreen{position:absolute;left:8%;top:12%;width:84%;height:55.4%;border-radius:2px;overflow:hidden;z-index:15;pointer-events:auto}
@@ -27080,20 +27080,9 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     <!-- L03-04 Speaker arrays (portrait, right is mirrored) -->
     <img id="xqSpkL" src="assets/soundbox/stage/speakers.png" alt="">
     <img id="xqSpkR" src="assets/soundbox/stage/speakers.png" alt="">
-    <!-- L05 Five overhead fixtures (one asset reused ×5) -->
-    <img class="xqFxt" id="xqFxt0" src="assets/soundbox/stage/fixture.png" alt="">
-    <img class="xqFxt" id="xqFxt1" src="assets/soundbox/stage/fixture.png" alt="">
-    <img class="xqFxt" id="xqFxt2" src="assets/soundbox/stage/fixture.png" alt="">
-    <img class="xqFxt" id="xqFxt3" src="assets/soundbox/stage/fixture.png" alt="">
-    <img class="xqFxt" id="xqFxt4" src="assets/soundbox/stage/fixture.png" alt="">
-    <!-- L06 Laser projectors ×2 (mirrored) -->
-    <img id="xqLasPL" src="assets/soundbox/stage/laser_projector.png" alt="">
-    <img id="xqLasPR" src="assets/soundbox/stage/laser_projector.png" alt="">
-    <!-- L07-08 Fog machines ×2 (mirrored) -->
-    <img id="xqFogML" src="assets/soundbox/stage/fog_machine.png" alt="">
-    <img id="xqFogMR" src="assets/soundbox/stage/fog_machine.png" alt="">
-    <!-- L09 foreground Flight cases -->
-    <img id="xqFlight" src="assets/soundbox/stage/flight_cases.png" alt="">
+    <!-- L05 fixtures: hidden pending placement master (viewpoint inconsistency, kit §2b) -->
+    <!-- L06 laser projectors: hidden pending placement master -->
+    <!-- L07-08 fog machines: hidden pending placement master -->
     <!-- Transparent canvas overlays (L13 spotlights Pass 3; L12 FX) -->
     <canvas id="xqCanvas"></canvas>
     <canvas id="xqFX"></canvas>
