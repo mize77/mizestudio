@@ -1498,28 +1498,57 @@
   @media print { header, #controlsPanel, #timelinePanel { display:none; } #stageWrap { width:100vw; margin:0; } #board { box-shadow:none; } }
 
   /* ── XquiX Sound Box canvas stage (canvas rebuild 2026-09-13) ── */
-  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none;background:#000}
-  #xqStage.on{display:block}
+  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none;background:#000;align-items:center;justify-content:center}
+  #xqStage.on{display:flex}
   /* Canvas is purely visual; #xqScreen children must receive touch/click events */
-  #xqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
-  #xqScreen{position:absolute;left:7%;top:10%;width:86%;height:67%;
-            border-radius:2px;overflow:hidden;z-index:1;pointer-events:auto}
+  #xqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:30}
+  /* ── Pass 1: layered stage assembly (SS-001 A.14) ── */
+  /* 16:9 letterbox container — the stage scales as one unit */
+  #xqStageLB{position:relative;aspect-ratio:16/9;width:min(100%,calc(100vh*16/9));overflow:hidden}
+  /* All img layers: absolute, positioned in canvas-relative % */
+  #xqStageLB>img,#xqStageLB>canvas{position:absolute;pointer-events:none}
+  /* L14 Ambient (CSS gradient until ambient_glow.png arrives) */
+  #xqAmb{position:absolute;inset:0;background:radial-gradient(ellipse 90% 60% at 50% 30%,rgba(0,160,100,0.07) 0%,transparent 100%);z-index:0}
+  /* L01 Stage shell: base layer */
+  #xqShell{inset:0;width:100%;height:100%;object-fit:fill;z-index:1}
+  /* L02 LED frame: overlaid, wider than stage (calculated from frame interior=screen) */
+  #xqLEDFrame{left:-4.62%;top:1.31%;width:109.3%;height:auto;z-index:5}
+  /* L09 Stage floor: dimmed in Dormant per kit §6.3 */
+  #xqFloor{inset:0;width:100%;height:100%;object-fit:fill;z-index:6;opacity:0.30}
+  /* L03-04 Speaker arrays */
+  #xqSpkL{left:0;top:6%;width:9%;height:auto;z-index:7}
+  #xqSpkR{right:0;top:6%;width:9%;height:auto;z-index:7;transform:scaleX(-1)}
+  /* L05 Five fixtures along truss */
+  .xqFxt{top:0.2%;width:5%;height:auto;z-index:8}
+  #xqFxt0{left:13.5%}  #xqFxt1{left:27.5%}  #xqFxt2{left:47%}
+  #xqFxt3{left:66%}    #xqFxt4{left:80%}
+  /* L06 Laser projectors ×2 (near fixtures 1 and 3) */
+  #xqLasPL{left:29%;top:4%;width:4.5%;height:auto;z-index:9}
+  #xqLasPR{right:29%;top:4%;width:4.5%;height:auto;z-index:9;transform:scaleX(-1)}
+  /* L07-08 Fog machines at lower stage */
+  #xqFogML{left:1%;bottom:15%;width:7%;height:auto;z-index:10}
+  #xqFogMR{right:1%;bottom:15%;width:7%;height:auto;z-index:10;transform:scaleX(-1)}
+  /* L09 foreground Flight cases */
+  #xqFlight{inset:0;width:100%;height:100%;object-fit:fill;z-index:11}
+  /* FX canvas above all static layers but below NP overlay */
+  #xqFX{inset:0;width:100%;height:100%;z-index:25;pointer-events:none}
+  #xqScreen{position:absolute;left:8%;top:12%;width:84%;height:55.4%;border-radius:2px;overflow:hidden;z-index:15;pointer-events:auto}
   #xqScreen *{pointer-events:auto}
   /* Abstract screen animation canvas — fills #xqNP behind all overlays */
   #xqNPCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
   /* Sound Box intro screen */
-  #xqNP_intro{position:absolute;inset:0;background:rgba(0,20,12,0.97);z-index:12;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6%}
+  #xqNP_intro{position:absolute;inset:0;background:rgba(2,12,8,0.96);z-index:12;display:none;
+              flex-direction:column;align-items:center;justify-content:center;gap:7%}
   #xqNP_intro.on{display:flex}
-  .xqSBI_ring{width:36%;aspect-ratio:1;border-radius:50%;border:3px solid #1d9e75;box-shadow:0 0 40px rgba(29,158,117,0.5);
+  .xqSBI_ring{width:30%;aspect-ratio:1;border-radius:50%;border:1.5px solid #1d9e75;
               display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4%}
   .xqSBI_x{color:#1d9e75;font-size:clamp(4px,1vw,8px);letter-spacing:.25em;font-family:system-ui}
-  .xqSBI_t{color:#2dd4c0;font-size:clamp(14px,3.5vw,28px);font-weight:700;
+  .xqSBI_t{color:#2dd4c0;font-size:clamp(8px,2vw,14px);font-weight:600;
             text-align:center;line-height:1.1;font-family:system-ui}
-  .xqSBI_sub{color:#2ecab8;font-size:clamp(4px,.9vw,7px);letter-spacing:.18em;font-family:system-ui}
-  #xqNP_introBtn{background:rgba(29,158,117,0.15);border:2px solid #1d9e75;color:#1d9e75;
-                 font:700 clamp(13px,2.5vw,20px)/1 system-ui;letter-spacing:.08em;
-                 padding:4% 14%;border-radius:4px;cursor:pointer;pointer-events:auto;
-                 box-shadow:0 0 20px rgba(29,158,117,0.3)}
+  .xqSBI_sub{color:#0a4030;font-size:clamp(4px,.9vw,7px);letter-spacing:.18em;font-family:system-ui}
+  #xqNP_introBtn{background:none;border:1px solid #1d9e75;color:#1d9e75;
+                 font:600 clamp(8px,1.8vw,14px)/1 system-ui;letter-spacing:.10em;
+                 padding:3% 10%;border-radius:3px;cursor:pointer;pointer-events:auto}
   #xqNP_introBtn:active{background:rgba(29,158,117,.15)}
   /* Session ready — dark + bold */
   #xqNP_start{position:absolute;inset:0;background:rgba(2,12,8,0.96);display:none;
@@ -1567,7 +1596,7 @@
   /* FX canvas: lasers drawn above everything, pointer-events:none */
   #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3}
   /* NP overlay — positioned container, children are absolute */
-  #xqNP{position:absolute;left:7%;top:10%;width:86%;height:67%;border-radius:2px;overflow:hidden;z-index:2;background:transparent;display:none;pointer-events:auto;cursor:pointer}
+  #xqNP{position:absolute;left:8%;top:12%;width:84%;height:55.4%;border-radius:2px;overflow:hidden;z-index:20;background:transparent;display:none;pointer-events:auto;cursor:pointer}
   #xqNP.on{display:block}
   #xqNP.on.playing{background:rgba(3,10,6,1.0)} /* opaque during music */
   /* Countdown wrapper inside the LED screen */
@@ -22181,11 +22210,6 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(_ci) _ci.textContent=(t['function']||'')+(t.title?' · '+t.title:'');
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
     if(_np){ _np.classList.add('on'); _np.classList.add('playing'); }
-    // Resize NP canvas now that it has real dimensions
-    setTimeout(function(){
-      var nc=document.getElementById('xqNPCanvas');
-      if(nc&&nc.parentElement){nc.width=nc.parentElement.offsetWidth||700;nc.height=nc.parentElement.offsetHeight||500;}
-    },50);
     if(_npFn) _npFn.textContent='';
     // 500ms fallback timer for BPM-null tracks (or when onLevel is silent)
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
@@ -27041,11 +27065,41 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
      SOUNDBOX-STAGE-HOOKS round 2, 2026-09-13.
 ──────────────────────────────────────────────────────────────────────────── -->
 <div id="xqStage">
-  <canvas id="xqCanvas"></canvas>
-  <div id="xqScreen"></div>
-  <div id="xqNP">
-
-    <!-- Screen canvas: abstract music visualization behind all overlays -->
+  <!-- Pass 1 — SS-001 layered stage (2026-09-16) -->
+  <div id="xqStageLB">
+    <!-- L14 Ambient gradient (placeholder until ambient_glow.png arrives) -->
+    <div id="xqAmb"></div>
+    <!-- L01 Stage shell: rear architecture + deck + stairs -->
+    <img id="xqShell" src="assets/soundbox/stage/stage_shell.png" alt="">
+    <!-- L02 LED frame: bezel overlaid at frame-interior=screen coordinates -->
+    <img id="xqLEDFrame" src="assets/soundbox/stage/led_frame.png" alt="">
+    <!-- L10 Live LED surface: mounted at led_frame interior (left:8% top:12% w:84% h:55.4%) -->
+    <div id="xqScreen"></div>
+    <!-- L09 Stage floor: dimmed in Dormant, brought up in Active -->
+    <img id="xqFloor" src="assets/soundbox/stage/stage_floor.png" alt="">
+    <!-- L03-04 Speaker arrays (portrait, right is mirrored) -->
+    <img id="xqSpkL" src="assets/soundbox/stage/speakers.png" alt="">
+    <img id="xqSpkR" src="assets/soundbox/stage/speakers.png" alt="">
+    <!-- L05 Five overhead fixtures (one asset reused ×5) -->
+    <img class="xqFxt" id="xqFxt0" src="assets/soundbox/stage/fixture.png" alt="">
+    <img class="xqFxt" id="xqFxt1" src="assets/soundbox/stage/fixture.png" alt="">
+    <img class="xqFxt" id="xqFxt2" src="assets/soundbox/stage/fixture.png" alt="">
+    <img class="xqFxt" id="xqFxt3" src="assets/soundbox/stage/fixture.png" alt="">
+    <img class="xqFxt" id="xqFxt4" src="assets/soundbox/stage/fixture.png" alt="">
+    <!-- L06 Laser projectors ×2 (mirrored) -->
+    <img id="xqLasPL" src="assets/soundbox/stage/laser_projector.png" alt="">
+    <img id="xqLasPR" src="assets/soundbox/stage/laser_projector.png" alt="">
+    <!-- L07-08 Fog machines ×2 (mirrored) -->
+    <img id="xqFogML" src="assets/soundbox/stage/fog_machine.png" alt="">
+    <img id="xqFogMR" src="assets/soundbox/stage/fog_machine.png" alt="">
+    <!-- L09 foreground Flight cases -->
+    <img id="xqFlight" src="assets/soundbox/stage/flight_cases.png" alt="">
+    <!-- Transparent canvas overlays (L13 spotlights Pass 3; L12 FX) -->
+    <canvas id="xqCanvas"></canvas>
+    <canvas id="xqFX"></canvas>
+    <!-- NP overlay: all screen-state content (welcome, questions, countdown, animation) -->
+    <div id="xqNP">
+      <!-- Screen canvas: abstract music visualization behind all overlays -->
     <canvas id="xqNPCanvas"></canvas>
     <!-- Intro: Sound Box branded entry point (shown before questions) -->
     <div id="xqNP_intro">
@@ -27089,6 +27143,10 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   <div id="xqControlInfo"></div>
   <button class="xqCtrl" id="xqPlayPause" aria-label="Play/Pause">&#9208;</button>
   <button class="xqCtrl" id="xqNext" aria-label="Next">&#9197;</button>
+</div
+    </div>
+  </div>
+</div>
 </div>
 <script>
 (function(){
@@ -27392,8 +27450,9 @@ function drawCountdown(W,H,ts){
 
 // ── Resize ─────────────────────────────────────────────────────────────────
 function resize(){
-  cnv.width=cnv.offsetWidth||window.innerWidth;
-  cnv.height=cnv.offsetHeight||window.innerHeight;
+  var _lb=document.getElementById('xqStageLB');
+  cnv.width=(_lb?_lb.offsetWidth:0)||window.innerWidth;
+  cnv.height=(_lb?_lb.offsetHeight:0)||window.innerHeight;
   if(fxCnv){fxCnv.width=cnv.width;fxCnv.height=cnv.height;}
   buildBg(cnv.width,cnv.height);
 }
@@ -27416,7 +27475,8 @@ function frame(ts){
   if(hit&&isPlaying)_xqSt.beatDecay=1;
   _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/110);
   var bd=_xqSt.beatDecay;
-  ctx.drawImage(bg,0,0,W,H);
+  // Pass 1: PNG layers handle stage background; canvas is transparent overlay
+  ctx.clearRect(0,0,W,H);
   // drawSpots disabled: Stage 5 adds shader spotlights; shell draws dormant fixture bodies
   if(!_stFX){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}
   if(fxCtx){fxCtx.clearRect(0,0,W,H);}
