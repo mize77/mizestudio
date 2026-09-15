@@ -1509,18 +1509,18 @@
   /* Abstract screen animation canvas — fills #xqNP behind all overlays */
   #xqNPCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
   /* Sound Box intro screen */
-  #xqNP_intro{position:absolute;inset:0;background:rgba(2,12,8,0.96);z-index:12;display:none;
-              flex-direction:column;align-items:center;justify-content:center;gap:7%}
+  #xqNP_intro{position:absolute;inset:0;background:rgba(0,20,12,0.97);z-index:12;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6%}
   #xqNP_intro.on{display:flex}
-  .xqSBI_ring{width:30%;aspect-ratio:1;border-radius:50%;border:1.5px solid #1d9e75;
+  .xqSBI_ring{width:36%;aspect-ratio:1;border-radius:50%;border:3px solid #1d9e75;box-shadow:0 0 40px rgba(29,158,117,0.5);
               display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4%}
   .xqSBI_x{color:#1d9e75;font-size:clamp(4px,1vw,8px);letter-spacing:.25em;font-family:system-ui}
-  .xqSBI_t{color:#2dd4c0;font-size:clamp(8px,2vw,14px);font-weight:600;
+  .xqSBI_t{color:#2dd4c0;font-size:clamp(14px,3.5vw,28px);font-weight:700;
             text-align:center;line-height:1.1;font-family:system-ui}
-  .xqSBI_sub{color:#0a4030;font-size:clamp(4px,.9vw,7px);letter-spacing:.18em;font-family:system-ui}
-  #xqNP_introBtn{background:none;border:1px solid #1d9e75;color:#1d9e75;
-                 font:600 clamp(8px,1.8vw,14px)/1 system-ui;letter-spacing:.10em;
-                 padding:3% 10%;border-radius:3px;cursor:pointer;pointer-events:auto}
+  .xqSBI_sub{color:#2ecab8;font-size:clamp(4px,.9vw,7px);letter-spacing:.18em;font-family:system-ui}
+  #xqNP_introBtn{background:rgba(29,158,117,0.15);border:2px solid #1d9e75;color:#1d9e75;
+                 font:700 clamp(13px,2.5vw,20px)/1 system-ui;letter-spacing:.08em;
+                 padding:4% 14%;border-radius:4px;cursor:pointer;pointer-events:auto;
+                 box-shadow:0 0 20px rgba(29,158,117,0.3)}
   #xqNP_introBtn:active{background:rgba(29,158,117,.15)}
   /* Session ready — dark + bold */
   #xqNP_start{position:absolute;inset:0;background:rgba(2,12,8,0.96);display:none;
@@ -22182,6 +22182,11 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(_ci) _ci.textContent=(t['function']||'')+(t.title?' · '+t.title:'');
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
     if(_np){ _np.classList.add('on'); _np.classList.add('playing'); }
+    // Resize NP canvas now that it has real dimensions
+    setTimeout(function(){
+      var nc=document.getElementById('xqNPCanvas');
+      if(nc&&nc.parentElement){nc.width=nc.parentElement.offsetWidth||700;nc.height=nc.parentElement.offsetHeight||500;}
+    },50);
     if(_npFn) _npFn.textContent='';
     // 500ms fallback timer for BPM-null tracks (or when onLevel is silent)
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
@@ -27417,7 +27422,7 @@ function drawNPScreen(ts,bass,mid,high,rms,hit){
   var W=npCnv2.width,H=npCnv2.height;
   if(!W||!H)return;
   // Clear to solid dark when playing (covers module UI), near-transparent when idle
-  npCtx2.fillStyle=_xqSt.playing?'rgba(3,10,6,0.92)':'rgba(2,5,4,0.40)';
+  npCtx2.fillStyle=_xqSt.playing?'rgba(3,10,6,1.0)':'rgba(2,5,4,0.50)';
   npCtx2.fillRect(0,0,W,H);
   if(!_xqSt.playing)return;
   npCtx2.save();npCtx2.globalCompositeOperation='screen';
