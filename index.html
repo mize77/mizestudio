@@ -27429,8 +27429,8 @@ function frame(ts){
   if(hit&&isPlaying)_xqSt.beatDecay=1;
   _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/110);
   var bd=_xqSt.beatDecay;
-  // Background comes from CSS background-image (xquixSoundBoxStage.png)
-  ctx.clearRect(0,0,W,H);
+  // Draw Canvas stage shell (layered: rear wall, truss, speakers, screen bezel, floor)
+  ctx.drawImage(bg,0,0,W,H);
   // drawSpots disabled: Stage 5 adds shader spotlights; shell draws dormant fixture bodies
   if(!_stFX){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}
   if(fxCtx){fxCtx.clearRect(0,0,W,H);}
