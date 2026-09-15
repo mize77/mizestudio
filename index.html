@@ -1498,7 +1498,8 @@
   @media print { header, #controlsPanel, #timelinePanel { display:none; } #stageWrap { width:100vw; margin:0; } #board { box-shadow:none; } }
 
   /* ── XquiX Sound Box canvas stage (canvas rebuild 2026-09-13) ── */
-  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none;background:#071410}
+  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none;
+          background:url(xquixSoundBoxStage.png) center/cover no-repeat}
   #xqStage.on{display:block}
   /* Canvas is purely visual; #xqScreen children must receive touch/click events */
   #xqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
@@ -1508,7 +1509,8 @@
   /* Abstract screen animation canvas — fills #xqNP behind all overlays */
   #xqNPCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
   /* Sound Box intro screen */
-  #xqNP_intro{position:absolute;inset:0;background:rgba(4,16,10,0.95);z-index:12;display:none;flex-direction:column;align-items:center;justify-content:center;gap:7%}
+  #xqNP_intro{position:absolute;inset:0;background:rgba(2,12,8,0.96);z-index:12;display:none;
+              flex-direction:column;align-items:center;justify-content:center;gap:7%}
   #xqNP_intro.on{display:flex}
   .xqSBI_ring{width:30%;aspect-ratio:1;border-radius:50%;border:1.5px solid #1d9e75;
               display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4%}
@@ -1521,7 +1523,7 @@
                  padding:3% 10%;border-radius:3px;cursor:pointer;pointer-events:auto}
   #xqNP_introBtn:active{background:rgba(29,158,117,.15)}
   /* Session ready — dark + bold */
-  #xqNP_start{position:absolute;inset:0;background:#000;display:none;
+  #xqNP_start{position:absolute;inset:0;background:rgba(2,12,8,0.96);display:none;
               flex-direction:column;align-items:center;justify-content:center;gap:6%;z-index:10}
   #xqNP_start.on{display:flex}
   #xqNP_startTitle{color:#0a4030;font-size:clamp(5px,1.2vw,9px);letter-spacing:.18em;
@@ -1567,7 +1569,7 @@
   #xqNP{position:absolute;left:7%;top:10%;width:86%;height:67%;border-radius:2px;overflow:hidden;z-index:2;background:transparent;display:none;pointer-events:auto;cursor:pointer}
   #xqNP.on{display:block}
   /* Countdown wrapper inside the LED screen */
-  #xqNP_cdWrap{position:absolute;inset:0;background:#000;display:none;
+  #xqNP_cdWrap{position:absolute;inset:0;background:rgba(0,0,0,0.92);display:none;
                align-items:center;justify-content:center;flex-direction:column;z-index:10}
   #xqNP_cdWrap.on{display:flex}
   #xqNP_cdN{position:absolute;font:bold clamp(22px,10vw,58px)/1 Georgia,'Times New Roman',serif;color:#ededdd}
@@ -27370,8 +27372,8 @@ function frame(ts){
   if(hit&&isPlaying)_xqSt.beatDecay=1;
   _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/110);
   var bd=_xqSt.beatDecay;
-  // Draw Canvas stage shell (layered: rear wall, truss, speakers, screen bezel, floor)
-  ctx.drawImage(bg,0,0,W,H);
+  // Canvas is a transparent overlay; stage image comes from CSS background
+  ctx.clearRect(0,0,W,H);
   // drawSpots disabled: Stage 5 adds shader spotlights; shell draws dormant fixture bodies
   if(!_stFX){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}
   if(fxCtx){fxCtx.clearRect(0,0,W,H);}
