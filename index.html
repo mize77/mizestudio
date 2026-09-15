@@ -1498,8 +1498,7 @@
   @media print { header, #controlsPanel, #timelinePanel { display:none; } #stageWrap { width:100vw; margin:0; } #board { box-shadow:none; } }
 
   /* ── XquiX Sound Box canvas stage (canvas rebuild 2026-09-13) ── */
-  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none;
-          background:#071210}
+  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none;background:#071410}
   #xqStage.on{display:block}
   /* Canvas is purely visual; #xqScreen children must receive touch/click events */
   #xqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
@@ -1509,8 +1508,7 @@
   /* Abstract screen animation canvas — fills #xqNP behind all overlays */
   #xqNPCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
   /* Sound Box intro screen */
-  #xqNP_intro{position:absolute;inset:0;background:rgba(4,14,10,0.96);z-index:12;display:none;
-              flex-direction:column;align-items:center;justify-content:center;gap:7%}
+  #xqNP_intro{position:absolute;inset:0;background:rgba(4,16,10,0.95);z-index:12;display:none;flex-direction:column;align-items:center;justify-content:center;gap:7%}
   #xqNP_intro.on{display:flex}
   .xqSBI_ring{width:30%;aspect-ratio:1;border-radius:50%;border:1.5px solid #1d9e75;
               display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4%}
@@ -1566,9 +1564,7 @@
   /* FX canvas: lasers drawn above everything, pointer-events:none */
   #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3}
   /* NP overlay — positioned container, children are absolute */
-  #xqNP{position:absolute;left:7%;top:10%;width:86%;height:67%;
-        border-radius:2px;overflow:hidden;z-index:2;background:transparent;
-        display:none;pointer-events:auto;cursor:pointer}
+  #xqNP{position:absolute;left:7%;top:10%;width:86%;height:67%;border-radius:2px;overflow:hidden;z-index:2;background:transparent;display:none;pointer-events:auto;cursor:pointer}
   #xqNP.on{display:block}
   /* Countdown wrapper inside the LED screen */
   #xqNP_cdWrap{position:absolute;inset:0;background:#000;display:none;
@@ -4955,14 +4951,18 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         });
         // Ensure the inserted canvas is non-interactive and behind screen content
         if(_stFX) {
-          // Force energy/laser/haze to absolute zero so beams don't render at startup
+          // Zero all FX immediately
           _stFX.set({ energy: 0, hit: false, laser: 0, haze: 0 });
-          // Find the inserted WebGL canvas and hide it until music plays
-          var _sfxCnv = _stg.querySelector('canvas:not(#xqCanvas):not(#xqFX)');
-          if(_sfxCnv) {
-            cnv.id='xqStageFX';
+          // Identify and hide StageFX canvas — iterate all stage canvases
+          // (querySelector timing can miss it if attach is async)
+          setTimeout(function(){
+            Array.from(_stg.querySelectorAll('canvas')).forEach(function(cnv){
+              if(cnv.id!=='xqCanvas'&&cnv.id!=='xqFX'){
+                cnv.id='xqStageFX';
                 cnv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:0;display:none';
-          }
+              }
+            });
+          }, 0);
         }
       }
       // Home and controls are position:fixed siblings — show them now
@@ -27143,117 +27143,58 @@ function drawFixture(c,W,H,fxf,teal){
 }
 
 function buildBg(W,H){
-  // SS-001 Stage 1 — placeholder Canvas shell.
-  // Layers (back→front): void, rear wall, truss+fixtures (dark/dormant),
-  //   speaker arrays (sides), screen bezel/opening, stage floor.
-  // No spotlights (Stage 5). No fog/lasers (StageFX handles them).
-  bg.width=W; bg.height=H; var c=bgCtx;
-
-  // ── Void (pure black baseline) ─────────────────────────────────────────
-  c.fillStyle='#000'; c.fillRect(0,0,W,H);
-
-  // ── Rear wall (very dark teal-black, subtle texture) ───────────────────
-  c.fillStyle='#0a1810'; c.fillRect(0,0,W,H*0.78);
-
-  // ── Ceiling void above truss ────────────────────────────────────────────
-  c.fillStyle='#000'; c.fillRect(0,0,W,H*0.06);
-
-  // ── Truss bar ───────────────────────────────────────────────────────────
-  c.fillStyle='#303c3a'; c.fillRect(0,H*0.060,W,H*0.020);
-  // Cross-bracing detail
-  c.strokeStyle='#0e1614'; c.lineWidth=H*0.002;
-  for(var i=0;i<12;i++){
-    var tx0=i/12*W, tx1=(i+1)/12*W, ty0=H*0.060, ty1=H*0.080;
-    c.beginPath();c.moveTo(tx0,ty0);c.lineTo(tx1,ty1);c.stroke();
-    c.beginPath();c.moveTo(tx1,ty0);c.lineTo(tx0,ty1);c.stroke();
-  }
-
-  // ── 5 overhead fixture silhouettes (dormant — no cones until Stage 5) ──
-  [0.16,0.30,0.50,0.70,0.84].forEach(function(fx){
-    var x=fx*W, y=H*0.080;
-    c.fillStyle='#1c2422'; rrect(c,x-W*0.016,y,W*0.032,H*0.028,2); c.fill();
-    c.fillStyle='#181e1c'; c.fillRect(x-W*0.005,y+H*0.028,W*0.010,H*0.018);
-    c.fillStyle='#12181a'; c.fillRect(x-W*0.012,y+H*0.044,W*0.024,H*0.014);
-    c.fillStyle='#0e1416'; c.beginPath(); c.arc(x,y+H*0.068,W*0.010,0,Math.PI*2); c.fill();
+  bg.width=W;bg.height=H;var c=bgCtx;
+  // Base — visible dark teal (stage never fully black)
+  c.fillStyle='#0a1c14';c.fillRect(0,0,W,H);
+  // Rear wall
+  c.fillStyle='#0e2018';c.fillRect(0,0,W,H*0.78);
+  // Ceiling
+  c.fillStyle='#060e0a';c.fillRect(0,0,W,H*0.06);
+  // 5 static spotlight cones — always visible, ambient greenish light
+  var FX=[0.16,0.30,0.50,0.70,0.84],FT=[0.10,0.28,0.50,0.72,0.90];
+  FX.forEach(function(fx,i){
+    var fpx=fx*W,fpy=H*0.086,tpx=FT[i]*W,tpy=H*0.775,sp=W*0.062;
+    var g=c.createLinearGradient(fpx,fpy,tpx,tpy);
+    g.addColorStop(0,'rgba(0,210,115,0.28)');g.addColorStop(0.65,'rgba(0,160,85,0.10)');g.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=g;c.beginPath();c.moveTo(fpx,fpy);c.lineTo(tpx-sp,tpy);c.lineTo(tpx+sp,tpy);c.closePath();c.fill();
+    var p=c.createRadialGradient(tpx,tpy,0,tpx,tpy,sp*1.4);
+    p.addColorStop(0,'rgba(0,210,115,0.18)');p.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=p;c.beginPath();c.ellipse(tpx,tpy,sp*1.4,sp*0.42,0,0,Math.PI*2);c.fill();
   });
-
-  // ── Screen bezel — slightly larger than #xqScreen to show physical frame ─
-  // #xqScreen: left=7% top=10% w=86% h=67%
-  c.fillStyle='#080e0c'; rrect(c,W*0.055,H*0.076,W*0.890,H*0.708,W*0.002); c.fill();
-  // Screen opening: empty black (content fills from #xqScreen/#xqNP)
-  c.fillStyle='#000'; rrect(c,W*0.070,H*0.100,W*0.860,H*0.670,W*0.001); c.fill();
-  // Thin teal micro-edge (barely visible at rest, SS-001 §6)
-  c.strokeStyle='rgba(0,160,110,0.10)'; c.lineWidth=1;
-  rrect(c,W*0.070,H*0.100,W*0.860,H*0.670,W*0.001); c.stroke();
-
-  // ── Speaker arrays — left and right of screen ───────────────────────────
-  // Left: occupies x=0 to x=7%; right: x=93% to x=100%
-  [['left',0,W*0.068],['right',W*0.932,W*0.068]].forEach(function(cfg){
-    var side=cfg[0], x0=cfg[1], aw=cfg[2];
-    // Column body
-    c.fillStyle='#162018'; c.fillRect(x0,H*0.08,aw,H*0.70);
-    // Cabinet stack divisions (10 units)
-    for(var i=0;i<10;i++){
-      var cy=H*0.08+i*(H*0.70/10);
-      c.fillStyle=i%2===0?'#1a2420':'#141c18';
-      c.fillRect(x0+aw*0.06,cy+H*0.003,aw*0.88,H*0.70/10-H*0.005);
-      c.strokeStyle='#0d1210'; c.lineWidth=0.5;
-      c.beginPath();c.moveTo(x0,cy+H*0.70/10);c.lineTo(x0+aw,cy+H*0.70/10);c.stroke();
-    }
-    // Inner-edge teal spill (screen light hitting speaker face)
-    var edgeX = side==='left' ? x0+aw : x0;
-    var grd=c.createLinearGradient(edgeX,0,side==='left'?x0:x0+aw,0);
-    grd.addColorStop(0,'rgba(0,180,120,0.06)'); grd.addColorStop(1,'rgba(0,180,120,0)');
-    c.fillStyle=grd; c.fillRect(x0,H*0.08,aw,H*0.70);
-    // Sub-bass cabinet at base
-    c.fillStyle='#0c1210'; rrect(c,x0,H*0.78,aw,H*0.038,1); c.fill();
+  // Truss bar
+  c.fillStyle='#2e3c38';c.fillRect(0,H*0.060,W,H*0.022);
+  c.strokeStyle='#22302c';c.lineWidth=H*0.002;
+  for(var i=0;i<12;i++){var x0=i/12*W,x1=(i+1)/12*W;c.beginPath();c.moveTo(x0,H*0.060);c.lineTo(x1,H*0.082);c.stroke();c.beginPath();c.moveTo(x1,H*0.060);c.lineTo(x0,H*0.082);c.stroke();}
+  // Fixture bodies with glowing lenses
+  FX.forEach(function(fx){
+    var x=fx*W,y=H*0.082;
+    c.fillStyle='#3c4c48';rrect(c,x-W*0.016,y,W*0.032,H*0.028,2);c.fill();
+    c.fillStyle='#303c38';c.fillRect(x-W*0.006,y+H*0.028,W*0.012,H*0.018);
+    c.fillStyle='#1e2e28';c.beginPath();c.arc(x,y+H*0.060,W*0.010,0,Math.PI*2);c.fill();
+    c.fillStyle='rgba(0,230,130,0.55)';c.beginPath();c.arc(x,y+H*0.060,W*0.005,0,Math.PI*2);c.fill();
   });
-
-  // ── Stage floor ──────────────────────────────────────────────────────────
-  c.fillStyle='#0c1a14'; c.fillRect(0,H*0.770,W,H*0.230);
-  // Stage lip (thin bright line at screen/floor boundary)
-  c.fillStyle='#162420'; c.fillRect(W*0.07,H*0.768,W*0.86,H*0.005);
-  // Subtle teal LED strip on lip
-  c.fillStyle='rgba(0,200,140,0.35)'; c.fillRect(W*0.07,H*0.768,W*0.86,H*0.002);
-  // Screen reflection on floor (very subtle, wide, blurred with opacity)
-  var flGrd=c.createLinearGradient(W*0.5,H*0.770,W*0.5,H);
-  flGrd.addColorStop(0,'rgba(0,100,70,0.04)'); flGrd.addColorStop(0.4,'rgba(0,80,55,0.02)'); flGrd.addColorStop(1,'rgba(0,0,0,0)');
-  c.fillStyle=flGrd; c.fillRect(W*0.10,H*0.770,W*0.80,H*0.230);
-  // Floor line marks (tape positions)
-  c.strokeStyle='#0a1210'; c.lineWidth=H*0.003;
-  [[0.40,0.50],[0.55,0.50]].forEach(function(p){
-    var px=p[0]*W,py=p[1]*H,s=W*0.008;
-    c.beginPath();c.moveTo(px-s,py-s);c.lineTo(px+s,py+s);c.stroke();
-    c.beginPath();c.moveTo(px+s,py-s);c.lineTo(px-s,py+s);c.stroke();
+  // Screen bezel
+  c.fillStyle='#0e1e16';rrect(c,W*0.055,H*0.076,W*0.890,H*0.710,W*0.003);c.fill();
+  c.fillStyle='#060e0a';rrect(c,W*0.070,H*0.100,W*0.860,H*0.670,W*0.002);c.fill();
+  c.strokeStyle='rgba(0,210,115,0.35)';c.lineWidth=2;rrect(c,W*0.070,H*0.100,W*0.860,H*0.670,W*0.002);c.stroke();
+  // Left speaker column
+  c.fillStyle='#182820';c.fillRect(0,H*0.08,W*0.068,H*0.70);
+  for(var i=0;i<10;i++){var cy=H*0.08+i*H*0.07;c.fillStyle=i%2?'#182820':'#1e3028';c.fillRect(W*0.005,cy+H*0.003,W*0.058,H*0.067);c.strokeStyle='#243c30';c.lineWidth=0.8;c.beginPath();c.moveTo(0,cy+H*0.07);c.lineTo(W*0.068,cy+H*0.07);c.stroke();}
+  var s1=c.createLinearGradient(W*0.068,0,0,0);s1.addColorStop(0,'rgba(0,190,100,0.12)');s1.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=s1;c.fillRect(0,H*0.08,W*0.068,H*0.70);
+  // Right speaker column
+  c.fillStyle='#182820';c.fillRect(W*0.932,H*0.08,W*0.068,H*0.70);
+  for(var i=0;i<10;i++){var cy=H*0.08+i*H*0.07;c.fillStyle=i%2?'#182820':'#1e3028';c.fillRect(W*0.937,cy+H*0.003,W*0.058,H*0.067);c.strokeStyle='#243c30';c.lineWidth=0.8;c.beginPath();c.moveTo(W*0.932,cy+H*0.07);c.lineTo(W,cy+H*0.07);c.stroke();}
+  var s2=c.createLinearGradient(W*0.932,0,W,0);s2.addColorStop(0,'rgba(0,190,100,0.12)');s2.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=s2;c.fillRect(W*0.932,H*0.08,W*0.068,H*0.70);
+  // Stage floor
+  c.fillStyle='#101e16';c.fillRect(0,H*0.770,W,H*0.230);
+  c.fillStyle='#2c4c3c';c.fillRect(W*0.07,H*0.768,W*0.86,H*0.006);
+  c.fillStyle='rgba(0,230,130,0.55)';c.fillRect(W*0.07,H*0.768,W*0.86,H*0.002);
+  var fl=c.createLinearGradient(0,H*0.770,0,H);fl.addColorStop(0,'rgba(0,170,95,0.12)');fl.addColorStop(0.5,'rgba(0,120,65,0.05)');fl.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=fl;c.fillRect(W*0.07,H*0.770,W*0.86,H*0.230);
+  // Fog machine bodies
+  [[W*0.10,H*0.780],[W*0.90,H*0.780]].forEach(function(p){
+    c.fillStyle='#1e2e28';rrect(c,p[0]-W*0.028,p[1],W*0.056,H*0.024,2);c.fill();
   });
-
-  // ── Ambient background fill — stage looks "ready", not dead/off ──────────
-  // Very faint overhead wash from the fixtures (baked into static shell)
-  var ambGrd=c.createLinearGradient(W*0.5,0,W*0.5,H*0.50);
-  ambGrd.addColorStop(0,'rgba(0,120,80,0.35)');
-  ambGrd.addColorStop(0.5,'rgba(0,80,55,0.15)');
-  ambGrd.addColorStop(1,'rgba(0,0,0,0)');
-  c.fillStyle=ambGrd; c.fillRect(0,0,W,H*0.78);
-  // Subtle teal screen halo (screen is powered, edge bleeds faintly)
-  var halGrd=c.createRadialGradient(W*0.5,H*0.435,W*0.30,W*0.5,H*0.435,W*0.55);
-  halGrd.addColorStop(0,'rgba(0,0,0,0)');
-  halGrd.addColorStop(0.6,'rgba(0,0,0,0)');
-  halGrd.addColorStop(1,'rgba(0,100,70,0.06)');
-  c.fillStyle=halGrd; c.fillRect(W*0.03,H*0.06,W*0.94,H*0.75);
-  // Fixture lens ambient glow (the 5 overhead units, barely on)
-  [0.16,0.30,0.50,0.70,0.84].forEach(function(fx){
-    var x=fx*W, y=H*0.118;
-    var fGrd=c.createRadialGradient(x,y,0,x,y,W*0.06);
-    fGrd.addColorStop(0,'rgba(0,220,150,0.30)'); fGrd.addColorStop(1,'rgba(0,0,0,0)');
-    c.fillStyle=fGrd; c.fillRect(x-W*0.08,y-W*0.01,W*0.16,H*0.18);
-  });
-
-  // ── Fog machine silhouettes at floor level (two outlets per brief) ──────
-  [[W*0.10,H*0.78],[W*0.90,H*0.78]].forEach(function(pos){
-    c.fillStyle='#0d1412'; rrect(c,pos[0]-W*0.028,pos[1],W*0.056,H*0.025,2); c.fill();
-    c.fillStyle='#111918'; rrect(c,pos[0]-W*0.008,pos[1]-H*0.018,W*0.016,H*0.020,1); c.fill();
-  });
-
 }
 
 function drawSpeaker(c,W,H,cxf,side){
@@ -27498,13 +27439,7 @@ resize();requestAnimationFrame(frame);
 var npEl=document.getElementById('xqNP');
 var npHomeEl=document.getElementById('xqNP_home');
 if(npEl){
-  npEl.addEventListener('click',function(e){
-    // Kick animation: random spin impulse + speed boost
-    if(_npA.init){
-      _npA.rvx+=(Math.random()-.5)*400; _npA.rvy+=(Math.random()-.5)*400; _npA.rvz+=(Math.random()-.5)*200;
-      _npA.vx=(Math.random()-.5)*(_npSz.w*0.0030); _npA.vy=(Math.random()-.5)*(_npSz.h*0.0024);
-    }
-  });
+  // NP click does nothing (animation kick removed with bouncing circle)
 }
 // Home button (position:fixed, always reachable)
 if(npHomeEl){
