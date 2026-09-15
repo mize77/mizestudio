@@ -1546,8 +1546,10 @@
              padding:.8% 3.5%;cursor:pointer;font-family:system-ui;
              letter-spacing:.04em;display:none}
   #xqModeBtn.on{display:block}
-  /* Hide the module's own player bar — the stage draws its own controls */
+  /* Hide module UI elements the stage replaces */
   #xqSoundStudio .xqss-player{display:none}
+  /* During playback the NP canvas covers the module; this hides bleed-through */
+  #xqNP.playing ~ #xqScreen, #xqNP.playing + #xqScreen{visibility:hidden}
   /* "Ready to start" screen — shown between Build and countdown */
   #xqNP_start{position:absolute;inset:0;background:#000;display:none;
               flex-direction:column;align-items:center;justify-content:center;
@@ -1568,6 +1570,7 @@
   /* NP overlay — positioned container, children are absolute */
   #xqNP{position:absolute;left:7%;top:10%;width:86%;height:67%;border-radius:2px;overflow:hidden;z-index:2;background:transparent;display:none;pointer-events:auto;cursor:pointer}
   #xqNP.on{display:block}
+  #xqNP.on.playing{background:rgba(3,10,6,1.0)} /* opaque during music */
   /* Countdown wrapper inside the LED screen */
   #xqNP_cdWrap{position:absolute;inset:0;background:rgba(0,0,0,0.92);display:none;
                align-items:center;justify-content:center;flex-direction:column;z-index:10}
@@ -22178,7 +22181,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     var _ci=document.getElementById('xqControlInfo');
     if(_ci) _ci.textContent=(t['function']||'')+(t.title?' · '+t.title:'');
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
-    if(_np) _np.classList.add('on');
+    if(_np){ _np.classList.add('on'); _np.classList.add('playing'); }
     if(_npFn) _npFn.textContent='';
     // 500ms fallback timer for BPM-null tracks (or when onLevel is silent)
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
@@ -22273,7 +22276,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     _xqSt.playing = false; _xqSt.level = null;
     _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
     var _np=document.getElementById('xqNP'),_ni=document.getElementById('xqNP_img'),_nd=document.getElementById('xqNP_def');
-    if(_np) _np.classList.remove('on');
+    if(_np){ _np.classList.remove('on'); _np.classList.remove('playing'); }
     if(_ni){_ni.src='';_ni.style.display='none';}
     if(_nd) _nd.style.display='';
     var _hm2=document.getElementById('xqNP_home'),_ct2=document.getElementById('xqControls');
@@ -27413,7 +27416,8 @@ function drawNPScreen(ts,bass,mid,high,rms,hit){
   if(npCnv2.width!==npCnv2.offsetWidth){npCnv2.width=npCnv2.offsetWidth||300;npCnv2.height=npCnv2.offsetHeight||200;}
   var W=npCnv2.width,H=npCnv2.height;
   if(!W||!H)return;
-  npCtx2.fillStyle=_xqSt.playing?'rgba(3,8,6,0.07)':'rgba(2,5,4,0.30)';
+  // Clear to solid dark when playing (covers module UI), near-transparent when idle
+  npCtx2.fillStyle=_xqSt.playing?'rgba(3,10,6,0.92)':'rgba(2,5,4,0.40)';
   npCtx2.fillRect(0,0,W,H);
   if(!_xqSt.playing)return;
   npCtx2.save();npCtx2.globalCompositeOperation='screen';
