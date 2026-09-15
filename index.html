@@ -1512,7 +1512,7 @@
   /* L01 Stage shell: base layer */
   #xqShell{inset:0;width:100%;height:100%;object-fit:fill;z-index:1}
   /* L02 LED frame: overlaid, wider than stage (calculated from frame interior=screen) */
-  #xqLEDFrame{left:-4.62%;top:1.31%;width:109.3%;height:auto;z-index:8}
+  #xqLEDFrame{left:-4.5%;top:5%;width:108%;height:auto;z-index:8}
   /* L09 Stage floor: dimmed in Dormant per kit §6.3 */
   #xqFloor{inset:0;width:100%;height:100%;object-fit:fill;z-index:6;opacity:0.55}
   /* L03-04 Speaker arrays */
@@ -1520,8 +1520,8 @@
   #xqSpkLW{position:absolute;left:0;top:3%;width:8.5%;height:90%;overflow:hidden;z-index:7}
   #xqSpkRW{position:absolute;right:0;top:3%;width:8.5%;height:90%;overflow:hidden;z-index:7}
   /* Img inside: tall as container, auto width, anchored to inner edge so face is visible */
-  #xqSpkL{position:absolute;height:100%;width:auto;right:0;top:0}
-  #xqSpkR{position:absolute;height:100%;width:auto;left:0;top:0;transform:scaleX(-1)}
+  #xqSpkL{position:absolute;height:100%;width:auto;left:50%;top:0;transform:translateX(-50%)}
+  #xqSpkR{position:absolute;height:100%;width:auto;left:50%;top:0;transform:translateX(-50%) scaleX(-1)}
   /* L05 Five fixtures along truss */
   .xqFxt{top:0.2%;width:5%;height:auto;z-index:8}
   #xqFxt0{left:13.5%}  #xqFxt1{left:27.5%}  #xqFxt2{left:47%}
@@ -1535,7 +1535,7 @@
   /* L09 foreground Flight cases */
   /* FX canvas above all static layers but below NP overlay */
   #xqFX{inset:0;width:100%;height:100%;z-index:25;pointer-events:none}
-  #xqScreen{position:absolute;left:8%;top:12%;width:84%;height:55.4%;border-radius:2px;overflow:hidden;z-index:9;pointer-events:auto;background:#000}
+  #xqScreen{position:absolute;left:8%;top:15.5%;width:83%;height:54.7%;border-radius:2px;overflow:hidden;z-index:9;pointer-events:auto;background:#000}
   #xqScreen *{pointer-events:auto}
   /* Abstract screen animation canvas — fills #xqNP behind all overlays */
   #xqNPCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
@@ -1599,7 +1599,7 @@
   /* FX canvas: lasers drawn above everything, pointer-events:none */
   #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3}
   /* NP overlay — positioned container, children are absolute */
-  #xqNP{position:absolute;left:8%;top:12%;width:84%;height:55.4%;border-radius:2px;overflow:hidden;z-index:20;background:transparent;display:none;pointer-events:auto;cursor:pointer}
+  #xqNP{position:absolute;left:8%;top:15.5%;width:83%;height:54.7%;border-radius:2px;overflow:hidden;z-index:20;background:transparent;display:none;pointer-events:auto;cursor:pointer}
   #xqNP.on{display:block}
   #xqNP.on.playing{background:rgba(3,10,6,1.0)} /* opaque during music */
   /* Countdown wrapper inside the LED screen */
@@ -1622,11 +1622,11 @@
              padding:0.8% 3.5%;cursor:pointer;font-family:system-ui,sans-serif;
              letter-spacing:.04em;display:none}
   #xqNP_home.on{display:block}
-  #xqControls{position:fixed;bottom:0;left:0;right:0;height:9%;z-index:99600;
+  #xqControls{position:fixed;bottom:0;left:0;right:0;height:9%;z-index:99700;
               display:none;align-items:center;justify-content:center;gap:7%;
-              background:rgba(0,0,0,0.58)}
+              background:rgba(0,0,0,0.70)}
   #xqControls.on{display:flex}
-  .xqCtrl{background:none;border:.5px solid rgba(29,158,117,0.38);color:#1d9e75;
+  .xqCtrl{background:none;border:.5px solid rgba(29,158,117,0.38);color:#1d9e75;touch-action:manipulation;
            font-size:clamp(14px,3.5vw,28px);border-radius:50%;
            width:clamp(32px,7vw,56px);height:clamp(32px,7vw,56px);
            cursor:pointer;display:flex;align-items:center;justify-content:center;
