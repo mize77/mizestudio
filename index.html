@@ -1498,8 +1498,7 @@
   @media print { header, #controlsPanel, #timelinePanel { display:none; } #stageWrap { width:100vw; margin:0; } #board { box-shadow:none; } }
 
   /* ── XquiX Sound Box canvas stage (canvas rebuild 2026-09-13) ── */
-  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none;
-          background:url(xquixSoundBoxStage.png) center/cover no-repeat}
+  #xqStage{position:fixed;inset:0;z-index:99500;display:none;pointer-events:none;background:#000}
   #xqStage.on{display:block}
   /* Canvas is purely visual; #xqScreen children must receive touch/click events */
   #xqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
@@ -27154,56 +27153,93 @@ function drawFixture(c,W,H,fxf,teal){
 
 function buildBg(W,H){
   bg.width=W;bg.height=H;var c=bgCtx;
-  // Base — visible dark teal (stage never fully black)
-  c.fillStyle='#0a1c14';c.fillRect(0,0,W,H);
-  // Rear wall
-  c.fillStyle='#0e2018';c.fillRect(0,0,W,H*0.78);
-  // Ceiling
-  c.fillStyle='#060e0a';c.fillRect(0,0,W,H*0.06);
-  // 5 static spotlight cones — always visible, ambient greenish light
-  var FX=[0.16,0.30,0.50,0.70,0.84],FT=[0.10,0.28,0.50,0.72,0.90];
-  FX.forEach(function(fx,i){
-    var fpx=fx*W,fpy=H*0.086,tpx=FT[i]*W,tpy=H*0.775,sp=W*0.062;
-    var g=c.createLinearGradient(fpx,fpy,tpx,tpy);
-    g.addColorStop(0,'rgba(0,210,115,0.28)');g.addColorStop(0.65,'rgba(0,160,85,0.10)');g.addColorStop(1,'rgba(0,0,0,0)');
-    c.fillStyle=g;c.beginPath();c.moveTo(fpx,fpy);c.lineTo(tpx-sp,tpy);c.lineTo(tpx+sp,tpy);c.closePath();c.fill();
-    var p=c.createRadialGradient(tpx,tpy,0,tpx,tpy,sp*1.4);
-    p.addColorStop(0,'rgba(0,210,115,0.18)');p.addColorStop(1,'rgba(0,0,0,0)');
-    c.fillStyle=p;c.beginPath();c.ellipse(tpx,tpy,sp*1.4,sp*0.42,0,0,Math.PI*2);c.fill();
+  c.fillStyle='#000';c.fillRect(0,0,W,H);
+
+  // Rear wall with teal ambient wash — clearly visible
+  c.fillStyle='#0a1e14';c.fillRect(0,0,W,H*0.82);
+  // Teal overhead wash from fixtures
+  var aw=c.createLinearGradient(W/2,0,W/2,H*0.6);
+  aw.addColorStop(0,'rgba(0,200,110,0.30)');aw.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=aw;c.fillRect(0,0,W,H*0.82);
+
+  // Truss bar — visible steel
+  c.fillStyle='#364440';c.fillRect(0,H*0.055,W,H*0.025);
+  c.strokeStyle='#28342e';c.lineWidth=H*0.003;
+  for(var i=0;i<14;i++){var x0=i/14*W,x1=(i+1)/14*W;
+    c.beginPath();c.moveTo(x0,H*0.055);c.lineTo(x1,H*0.080);c.stroke();
+    c.beginPath();c.moveTo(x1,H*0.055);c.lineTo(x0,H*0.080);c.stroke();}
+
+  // 5 overhead fixture bodies + glowing lenses
+  [0.15,0.30,0.50,0.70,0.85].forEach(function(fx){
+    var x=fx*W,y=H*0.080;
+    c.fillStyle='#4a5c58';c.fillRect(x-W*0.018,y,W*0.036,H*0.030);
+    c.fillStyle='#384a46';c.fillRect(x-W*0.007,y+H*0.030,W*0.014,H*0.020);
+    // Active lens glow
+    var lg=c.createRadialGradient(x,y+H*0.065,0,x,y+H*0.065,W*0.040);
+    lg.addColorStop(0,'rgba(0,240,140,0.60)');lg.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=lg;c.fillRect(x-W*0.040,y,W*0.080,H*0.120);
+    c.fillStyle='rgba(0,255,150,0.80)';c.beginPath();c.arc(x,y+H*0.064,W*0.006,0,Math.PI*2);c.fill();
   });
-  // Truss bar
-  c.fillStyle='#2e3c38';c.fillRect(0,H*0.060,W,H*0.022);
-  c.strokeStyle='#22302c';c.lineWidth=H*0.002;
-  for(var i=0;i<12;i++){var x0=i/12*W,x1=(i+1)/12*W;c.beginPath();c.moveTo(x0,H*0.060);c.lineTo(x1,H*0.082);c.stroke();c.beginPath();c.moveTo(x1,H*0.060);c.lineTo(x0,H*0.082);c.stroke();}
-  // Fixture bodies with glowing lenses
-  FX.forEach(function(fx){
-    var x=fx*W,y=H*0.082;
-    c.fillStyle='#3c4c48';rrect(c,x-W*0.016,y,W*0.032,H*0.028,2);c.fill();
-    c.fillStyle='#303c38';c.fillRect(x-W*0.006,y+H*0.028,W*0.012,H*0.018);
-    c.fillStyle='#1e2e28';c.beginPath();c.arc(x,y+H*0.060,W*0.010,0,Math.PI*2);c.fill();
-    c.fillStyle='rgba(0,230,130,0.55)';c.beginPath();c.arc(x,y+H*0.060,W*0.005,0,Math.PI*2);c.fill();
+
+  // 5 spotlight cones — strong teal beams to stage floor
+  [0.15,0.30,0.50,0.70,0.85].forEach(function(fx,i){
+    var tx=[0.08,0.26,0.50,0.74,0.92][i];
+    var g=c.createLinearGradient(fx*W,H*0.080,tx*W,H*0.80);
+    g.addColorStop(0,'rgba(0,220,120,0.35)');g.addColorStop(0.7,'rgba(0,180,100,0.12)');g.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=g;c.beginPath();c.moveTo(fx*W,H*0.080);
+    c.lineTo(tx*W-W*0.07,H*0.800);c.lineTo(tx*W+W*0.07,H*0.800);c.closePath();c.fill();
+    var pg=c.createRadialGradient(tx*W,H*0.800,0,tx*W,H*0.800,W*0.080);
+    pg.addColorStop(0,'rgba(0,220,120,0.22)');pg.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=pg;c.beginPath();c.ellipse(tx*W,H*0.800,W*0.080,H*0.030,0,0,Math.PI*2);c.fill();
   });
-  // Screen bezel
-  c.fillStyle='#0e1e16';rrect(c,W*0.055,H*0.076,W*0.890,H*0.710,W*0.003);c.fill();
-  c.fillStyle='#060e0a';rrect(c,W*0.070,H*0.100,W*0.860,H*0.670,W*0.002);c.fill();
-  c.strokeStyle='rgba(0,210,115,0.35)';c.lineWidth=2;rrect(c,W*0.070,H*0.100,W*0.860,H*0.670,W*0.002);c.stroke();
-  // Left speaker column
-  c.fillStyle='#182820';c.fillRect(0,H*0.08,W*0.068,H*0.70);
-  for(var i=0;i<10;i++){var cy=H*0.08+i*H*0.07;c.fillStyle=i%2?'#182820':'#1e3028';c.fillRect(W*0.005,cy+H*0.003,W*0.058,H*0.067);c.strokeStyle='#243c30';c.lineWidth=0.8;c.beginPath();c.moveTo(0,cy+H*0.07);c.lineTo(W*0.068,cy+H*0.07);c.stroke();}
-  var s1=c.createLinearGradient(W*0.068,0,0,0);s1.addColorStop(0,'rgba(0,190,100,0.12)');s1.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=s1;c.fillRect(0,H*0.08,W*0.068,H*0.70);
-  // Right speaker column
-  c.fillStyle='#182820';c.fillRect(W*0.932,H*0.08,W*0.068,H*0.70);
-  for(var i=0;i<10;i++){var cy=H*0.08+i*H*0.07;c.fillStyle=i%2?'#182820':'#1e3028';c.fillRect(W*0.937,cy+H*0.003,W*0.058,H*0.067);c.strokeStyle='#243c30';c.lineWidth=0.8;c.beginPath();c.moveTo(W*0.932,cy+H*0.07);c.lineTo(W,cy+H*0.07);c.stroke();}
-  var s2=c.createLinearGradient(W*0.932,0,W,0);s2.addColorStop(0,'rgba(0,190,100,0.12)');s2.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=s2;c.fillRect(W*0.932,H*0.08,W*0.068,H*0.70);
+
+  // Screen bezel — bright teal border so it reads as a screen
+  c.strokeStyle='rgba(0,220,130,0.70)';c.lineWidth=3;
+  rrect(c,W*0.070,H*0.100,W*0.860,H*0.670,W*0.003);c.stroke();
+  // Screen interior — dark so content shows
+  c.fillStyle='rgba(2,8,5,0.95)';rrect(c,W*0.072,H*0.102,W*0.856,H*0.666,W*0.002);c.fill();
+
+  // Left speaker stack — visible charcoal
+  c.fillStyle='#1e2e28';c.fillRect(0,H*0.080,W*0.065,H*0.720);
+  for(var i=0;i<12;i++){var cy=H*0.080+i*H*0.060;
+    c.fillStyle=i%2?'#1e2e28':'#263c34';c.fillRect(W*0.004,cy+H*0.003,W*0.057,H*0.057);
+    c.strokeStyle='#2e4840';c.lineWidth=1;c.beginPath();c.moveTo(0,cy+H*0.060);c.lineTo(W*0.065,cy+H*0.060);c.stroke();}
+  // Inner edge spill
+  var se=c.createLinearGradient(W*0.065,0,0,0);
+  se.addColorStop(0,'rgba(0,180,100,0.18)');se.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=se;c.fillRect(0,H*0.080,W*0.065,H*0.720);
+
+  // Right speaker stack — mirror
+  c.fillStyle='#1e2e28';c.fillRect(W*0.935,H*0.080,W*0.065,H*0.720);
+  for(var i=0;i<12;i++){var cy=H*0.080+i*H*0.060;
+    c.fillStyle=i%2?'#1e2e28':'#263c34';c.fillRect(W*0.935+W*0.004,cy+H*0.003,W*0.057,H*0.057);
+    c.strokeStyle='#2e4840';c.lineWidth=1;c.beginPath();c.moveTo(W*0.935,cy+H*0.060);c.lineTo(W,cy+H*0.060);c.stroke();}
+  var se2=c.createLinearGradient(W*0.935,0,W,0);
+  se2.addColorStop(0,'rgba(0,180,100,0.18)');se2.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=se2;c.fillRect(W*0.935,H*0.080,W*0.065,H*0.720);
+
   // Stage floor
-  c.fillStyle='#101e16';c.fillRect(0,H*0.770,W,H*0.230);
-  c.fillStyle='#2c4c3c';c.fillRect(W*0.07,H*0.768,W*0.86,H*0.006);
-  c.fillStyle='rgba(0,230,130,0.55)';c.fillRect(W*0.07,H*0.768,W*0.86,H*0.002);
-  var fl=c.createLinearGradient(0,H*0.770,0,H);fl.addColorStop(0,'rgba(0,170,95,0.12)');fl.addColorStop(0.5,'rgba(0,120,65,0.05)');fl.addColorStop(1,'rgba(0,0,0,0)');
-  c.fillStyle=fl;c.fillRect(W*0.07,H*0.770,W*0.86,H*0.230);
+  c.fillStyle='#0e1e16';c.fillRect(0,H*0.800,W,H*0.200);
+  // Bright LED stage lip
+  c.fillStyle='#2a5040';c.fillRect(W*0.065,H*0.798,W*0.870,H*0.006);
+  c.fillStyle='rgba(0,240,140,0.70)';c.fillRect(W*0.065,H*0.798,W*0.870,H*0.003);
+  // Floor reflection
+  var fr=c.createLinearGradient(W/2,H*0.800,W/2,H);
+  fr.addColorStop(0,'rgba(0,180,100,0.14)');fr.addColorStop(0.6,'rgba(0,100,60,0.05)');fr.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=fr;c.fillRect(W*0.10,H*0.800,W*0.80,H*0.200);
+
+  // Floor moving-head lights at base of screen
+  [0.22,0.38,0.50,0.62,0.78].forEach(function(fx){
+    var x=fx*W,y=H*0.798;
+    c.fillStyle='#3a5050';c.fillRect(x-W*0.015,y-H*0.020,W*0.030,H*0.022);
+    var mg=c.createRadialGradient(x,y,0,x,y,W*0.025);
+    mg.addColorStop(0,'rgba(0,220,130,0.45)');mg.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=mg;c.beginPath();c.arc(x,y,W*0.025,0,Math.PI*2);c.fill();
+  });
+
   // Fog machine bodies
-  [[W*0.10,H*0.780],[W*0.90,H*0.780]].forEach(function(p){
-    c.fillStyle='#1e2e28';rrect(c,p[0]-W*0.028,p[1],W*0.056,H*0.024,2);c.fill();
+  [[W*0.09,H*0.800],[W*0.91,H*0.800]].forEach(function(p){
+    c.fillStyle='#243830';rrect(c,p[0]-W*0.030,p[1],W*0.060,H*0.022,2);c.fill();
   });
 }
 
@@ -27380,8 +27416,7 @@ function frame(ts){
   if(hit&&isPlaying)_xqSt.beatDecay=1;
   _xqSt.beatDecay=Math.max(0,_xqSt.beatDecay-dt/110);
   var bd=_xqSt.beatDecay;
-  // Canvas is a transparent overlay; stage image comes from CSS background
-  ctx.clearRect(0,0,W,H);
+  ctx.drawImage(bg,0,0,W,H);
   // drawSpots disabled: Stage 5 adds shader spotlights; shell draws dormant fixture bodies
   if(!_stFX){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}
   if(fxCtx){fxCtx.clearRect(0,0,W,H);}
@@ -27417,6 +27452,13 @@ var _npBlobs=[],_npHitFlash=0;
 (function(){for(var i=0;i<9;i++)_npBlobs.push({x:Math.random(),y:Math.random(),vx:(Math.random()-.5)*0.00022,vy:(Math.random()-.5)*0.00018,size:0.13+Math.random()*0.22,phase:Math.random()*Math.PI*2,phaseRate:0.00025+Math.random()*0.00030,band:i<3?'bass':i<6?'mid':'high'});})();
 
 function drawNPScreen(ts,bass,mid,high,rms,hit){
+  if(npCnv2){
+    var pr=npCnv2.parentElement;
+    if(pr&&(npCnv2.width<100||npCnv2.height<100)){
+      var r=pr.getBoundingClientRect();
+      if(r.width>100){npCnv2.width=r.width;npCnv2.height=r.height;}
+    }
+  }
   if(!npCnv2||!npCtx2)return;
   if(npCnv2.width!==npCnv2.offsetWidth){npCnv2.width=npCnv2.offsetWidth||300;npCnv2.height=npCnv2.offsetHeight||200;}
   var W=npCnv2.width,H=npCnv2.height;
