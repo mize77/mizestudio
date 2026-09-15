@@ -1512,13 +1512,16 @@
   /* L01 Stage shell: base layer */
   #xqShell{inset:0;width:100%;height:100%;object-fit:fill;z-index:1}
   /* L02 LED frame: overlaid, wider than stage (calculated from frame interior=screen) */
-  #xqLEDFrame{left:-4.62%;top:1.31%;width:109.3%;height:auto;z-index:5}
+  #xqLEDFrame{left:-4.62%;top:1.31%;width:109.3%;height:auto;z-index:8}
   /* L09 Stage floor: dimmed in Dormant per kit §6.3 */
-  #xqFloor{inset:0;width:100%;height:100%;object-fit:fill;z-index:6;opacity:0.30}
+  #xqFloor{inset:0;width:100%;height:100%;object-fit:fill;z-index:6;opacity:0.55}
   /* L03-04 Speaker arrays */
-  /* Speakers: height-driven so they read as tall arrays; overflow clipped by letterbox */
-  #xqSpkL{left:-1%;top:4%;width:auto;height:88%;z-index:7}
-  #xqSpkR{right:-1%;top:4%;width:auto;height:88%;z-index:7;transform:scaleX(-1)}
+  /* Speaker wrappers: 8.5% wide, full-height crop of portrait image */
+  #xqSpkLW{position:absolute;left:0;top:3%;width:8.5%;height:90%;overflow:hidden;z-index:7}
+  #xqSpkRW{position:absolute;right:0;top:3%;width:8.5%;height:90%;overflow:hidden;z-index:7}
+  /* Img inside: tall as container, auto width, anchored to inner edge so face is visible */
+  #xqSpkL{position:absolute;height:100%;width:auto;right:0;top:0}
+  #xqSpkR{position:absolute;height:100%;width:auto;left:0;top:0;transform:scaleX(-1)}
   /* L05 Five fixtures along truss */
   .xqFxt{top:0.2%;width:5%;height:auto;z-index:8}
   #xqFxt0{left:13.5%}  #xqFxt1{left:27.5%}  #xqFxt2{left:47%}
@@ -1532,7 +1535,7 @@
   /* L09 foreground Flight cases */
   /* FX canvas above all static layers but below NP overlay */
   #xqFX{inset:0;width:100%;height:100%;z-index:25;pointer-events:none}
-  #xqScreen{position:absolute;left:8%;top:12%;width:84%;height:55.4%;border-radius:2px;overflow:hidden;z-index:15;pointer-events:auto}
+  #xqScreen{position:absolute;left:8%;top:12%;width:84%;height:55.4%;border-radius:2px;overflow:hidden;z-index:9;pointer-events:auto;background:#000}
   #xqScreen *{pointer-events:auto}
   /* Abstract screen animation canvas — fills #xqNP behind all overlays */
   #xqNPCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
@@ -27077,9 +27080,9 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     <div id="xqScreen"></div>
     <!-- L09 Stage floor: dimmed in Dormant, brought up in Active -->
     <img id="xqFloor" src="assets/soundbox/stage/stage_floor.png" alt="">
-    <!-- L03-04 Speaker arrays (portrait, right is mirrored) -->
-    <img id="xqSpkL" src="assets/soundbox/stage/speakers.png" alt="">
-    <img id="xqSpkR" src="assets/soundbox/stage/speakers.png" alt="">
+    <!-- L03-04 Speaker arrays: wrapper crops portrait image to narrow tall column -->
+    <div id="xqSpkLW"><img id="xqSpkL" src="assets/soundbox/stage/speakers.png" alt=""></div>
+    <div id="xqSpkRW"><img id="xqSpkR" src="assets/soundbox/stage/speakers.png" alt=""></div>
     <!-- L05 fixtures: hidden pending placement master (viewpoint inconsistency, kit §2b) -->
     <!-- L06 laser projectors: hidden pending placement master -->
     <!-- L07-08 fog machines: hidden pending placement master -->
