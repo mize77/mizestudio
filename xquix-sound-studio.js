@@ -822,6 +822,11 @@ return self.XquiXSoundBuilder; })();
     prev() { if (!el || !player || player.idx < 0) return; player.prev(); render(); },
     state: playState,
     session: sessionSummary,
+    // debug(): everything needed to tell "blocked", "silent", "not loaded" and "not started" apart. Paste into a console.
+    debug() {
+      const els = player ? [player.a, player.b].map(a => ({ current: a === player.cur, src: a.currentSrc || a.src || null, crossOrigin: a.crossOrigin, paused: a.paused, ended: a.ended, currentTime: +a.currentTime.toFixed(2), duration: a.duration || null, readyState: a.readyState, networkState: a.networkState, error: a.error ? { code: a.error.code, message: a.error.message } : null, volume: a.volume, muted: a.muted, primed: !!a._primed })) : [];
+      return { state: playState(), analysis: { wanted: analysis.wanted, corsOk: analysis.ok, ctx: analysis.ctx ? analysis.ctx.state : null, attached: !!analysis.node, primed: analysis.primed }, elements: els, ua: navigator.userAgent };
+    },
   };
 
   // ---------------------------------------------------------- lifecycle --
@@ -891,6 +896,6 @@ return self.XquiXSoundBuilder; })();
     onPlayState: null,     // (state) whenever playing/paused/track/ended changes
     prime: transport.prime,   // call inside a user gesture when playback will start later from a timer (Safari)
     play: transport.play, pause: transport.pause, togglePlay: transport.togglePlay, next: transport.next, prev: transport.prev,
-    state: transport.state, session: transport.session,
+    state: transport.state, session: transport.session, debug: transport.debug,
   };
 })();
