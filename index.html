@@ -1540,10 +1540,38 @@
   #xqNP{position:absolute;left:24%;top:16%;width:52%;height:62%;overflow:hidden;z-index:20;background:transparent;display:none;pointer-events:auto;cursor:pointer}
   #xqNP.on{display:block}
   #xqNP.on.playing{background:rgba(3,10,6,1.0)}
+  #xqNPCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:0}
+  #xqNP_intro{position:absolute;inset:0;background:rgba(2,12,8,0.97);z-index:12;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6%;pointer-events:auto}
+  #xqNP_intro.on{display:flex}
+  .xqSBI_ring{width:34%;aspect-ratio:1;border-radius:50%;border:2px solid #1d9e75;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4%;box-shadow:0 0 30px rgba(29,158,117,0.3)}
+  .xqSBI_x{color:#1d9e75;font-size:clamp(5px,1.1vw,9px);letter-spacing:.22em;font-family:system-ui}
+  .xqSBI_t{color:#2dd4c0;font-size:clamp(10px,2.4vw,18px);font-weight:700;text-align:center;line-height:1.15;font-family:system-ui}
+  .xqSBI_sub{color:#2ecab8;font-size:clamp(5px,1vw,8px);letter-spacing:.16em;font-family:system-ui}
+  #xqNP_introBtn{background:rgba(29,158,117,0.12);border:1.5px solid #1d9e75;color:#1d9e75;font:600 clamp(9px,1.9vw,15px)/1 system-ui;letter-spacing:.08em;padding:3% 10%;border-radius:4px;cursor:pointer;pointer-events:auto}
+  #xqNP_introBtn:active{background:rgba(29,158,117,0.25)}
   #xqScreen{position:absolute;left:24%;top:16%;width:52%;height:62%;overflow:hidden;z-index:4;pointer-events:auto;background:#000;display:block}
   
   #xqNP.on{display:block}
   #xqNP.on.playing{background:rgba(3,10,6,1.0)}
+  /* ── NP canvas: must fill #xqNP at full pixel resolution ── */
+  #xqNPCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:0}
+
+  /* ── NP intro screen: centered flex panel ── */
+  #xqNP_intro{position:absolute;inset:0;background:rgba(2,12,8,0.97);z-index:12;display:none;
+              flex-direction:column;align-items:center;justify-content:center;gap:6%;pointer-events:auto}
+  #xqNP_intro.on{display:flex}
+  .xqSBI_ring{width:34%;aspect-ratio:1;border-radius:50%;border:2px solid #1d9e75;
+              display:flex;flex-direction:column;align-items:center;justify-content:center;
+              gap:4%;box-shadow:0 0 30px rgba(29,158,117,0.3)}
+  .xqSBI_x{color:#1d9e75;font-size:clamp(5px,1.1vw,9px);letter-spacing:.22em;font-family:system-ui}
+  .xqSBI_t{color:#2dd4c0;font-size:clamp(10px,2.4vw,18px);font-weight:700;
+            text-align:center;line-height:1.15;font-family:system-ui}
+  .xqSBI_sub{color:#2ecab8;font-size:clamp(5px,1vw,8px);letter-spacing:.16em;font-family:system-ui}
+  #xqNP_introBtn{background:rgba(29,158,117,0.12);border:1.5px solid #1d9e75;color:#1d9e75;
+                 font:600 clamp(9px,1.9vw,15px)/1 system-ui;letter-spacing:.08em;
+                 padding:3% 10%;border-radius:4px;cursor:pointer;pointer-events:auto;
+                 box-shadow:0 0 16px rgba(29,158,117,0.25)}
+  #xqNP_introBtn:active{background:rgba(29,158,117,0.25)}
 
     /* Now-playing strip in control bar */
   #xqControlInfo{position:absolute;top:16%;left:50%;transform:translateX(-50%);
@@ -22183,6 +22211,12 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');
       if(sfx){sfx.style.display='block';sfx.style.zIndex='3';}
     })();
+    // Resize NP canvas now that #xqNP is visible (with timeout so browser paints first)
+    setTimeout(function(){
+      var nc=document.getElementById('xqNPCanvas');
+      if(nc){var r=nc.getBoundingClientRect();
+             if(r.width>50){nc.width=Math.round(r.width);nc.height=Math.round(r.height);}}
+    },80);
     // Show control bar now that music is playing
     var _ctbar=document.getElementById('xqControls'); if(_ctbar) _ctbar.classList.add('on');
     var _ci=document.getElementById('xqControlInfo');
@@ -27483,9 +27517,8 @@ function drawNPScreen(ts,bass,mid,high,rms,hit){
   // Sync canvas bitmap to its displayed size every frame (getBoundingClientRect is reliable)
   (function(){
     var _r=npCnv2.getBoundingClientRect();
-    if(_r.width>50&&(Math.abs(npCnv2.width-_r.width)>4||Math.abs(npCnv2.height-_r.height)>4)){
-      npCnv2.width=Math.round(_r.width);
-      npCnv2.height=Math.round(_r.height);
+    if(_r.width>50&&npCnv2.width!==Math.round(_r.width)){
+      npCnv2.width=Math.round(_r.width);npCnv2.height=Math.round(_r.height);
     }
   })();
   if(!npCnv2||!npCtx2)return;
