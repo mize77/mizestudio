@@ -1537,20 +1537,12 @@
      Center wall: 24% from left, 14% from top, 52% wide, 65% tall.
      Adjust at Checkpoint 2 if the wall boundary needs refinement. */
   #xqScreen *{pointer-events:auto}
+  #xqScreen{
+    position:absolute;
+    left:24%;top:16%;width:52%;height:62%;
+    overflow:hidden;z-index:4;pointer-events:auto;background:#000;display:block
+  }
   #xqNP{position:absolute;left:24%;top:16%;width:52%;height:62%;overflow:hidden;z-index:20;background:transparent;display:none;pointer-events:auto;cursor:pointer}
-  #xqNP.on{display:block}
-  #xqNP.on.playing{background:rgba(3,10,6,1.0)}
-  #xqNPCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:0}
-  #xqNP_intro{position:absolute;inset:0;background:rgba(2,12,8,0.97);z-index:12;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6%;pointer-events:auto}
-  #xqNP_intro.on{display:flex}
-  .xqSBI_ring{width:34%;aspect-ratio:1;border-radius:50%;border:2px solid #1d9e75;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4%;box-shadow:0 0 30px rgba(29,158,117,0.3)}
-  .xqSBI_x{color:#1d9e75;font-size:clamp(5px,1.1vw,9px);letter-spacing:.22em;font-family:system-ui}
-  .xqSBI_t{color:#2dd4c0;font-size:clamp(10px,2.4vw,18px);font-weight:700;text-align:center;line-height:1.15;font-family:system-ui}
-  .xqSBI_sub{color:#2ecab8;font-size:clamp(5px,1vw,8px);letter-spacing:.16em;font-family:system-ui}
-  #xqNP_introBtn{background:rgba(29,158,117,0.12);border:1.5px solid #1d9e75;color:#1d9e75;font:600 clamp(9px,1.9vw,15px)/1 system-ui;letter-spacing:.08em;padding:3% 10%;border-radius:4px;cursor:pointer;pointer-events:auto}
-  #xqNP_introBtn:active{background:rgba(29,158,117,0.25)}
-  #xqScreen{position:absolute;left:24%;top:16%;width:52%;height:62%;overflow:hidden;z-index:4;pointer-events:auto;background:#000;display:block}
-  
   #xqNP.on{display:block}
   #xqNP.on.playing{background:rgba(3,10,6,1.0)}
   /* ── NP canvas: must fill #xqNP at full pixel resolution ── */
@@ -1626,7 +1618,7 @@
              padding:0.8% 3.5%;cursor:pointer;font-family:system-ui,sans-serif;
              letter-spacing:.04em;display:none}
   #xqNP_home.on{display:block}
-  #xqControls{position:fixed;bottom:0;left:0;right:0;height:9%;z-index:9999999;pointer-events:auto;pointer-events:auto;
+  #xqControls{position:fixed;bottom:0;left:0;right:0;height:9%;z-index:9999999;pointer-events:auto;
               display:none;align-items:center;justify-content:center;gap:7%;
               background:rgba(0,0,0,0.70)}
   #xqControls.on{display:flex}
@@ -22213,10 +22205,11 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     })();
     // Resize NP canvas now that #xqNP is visible (with timeout so browser paints first)
     setTimeout(function(){
+      var _lb=document.getElementById('xqStageLB');
+      var _w=_lb?_lb.offsetWidth:window.innerWidth,_h=_lb?_lb.offsetHeight:window.innerHeight;
       var nc=document.getElementById('xqNPCanvas');
-      if(nc){var r=nc.getBoundingClientRect();
-             if(r.width>50){nc.width=Math.round(r.width);nc.height=Math.round(r.height);}}
-    },80);
+      if(nc&&_w>100){nc.width=Math.round(_w*0.52);nc.height=Math.round(_h*0.62);}
+    },50);
     // Show control bar now that music is playing
     var _ctbar=document.getElementById('xqControls'); if(_ctbar) _ctbar.classList.add('on');
     var _ci=document.getElementById('xqControlInfo');
@@ -27453,9 +27446,15 @@ function drawCountdown(W,H,ts){
 // ── Resize ─────────────────────────────────────────────────────────────────
 function resize(){
   var _lb=document.getElementById('xqStageLB');
+  // Also resize NP canvas
+  var _nc=document.getElementById('xqNPCanvas');
   cnv.width=(_lb?_lb.offsetWidth:0)||window.innerWidth;
   cnv.height=(_lb?_lb.offsetHeight:0)||window.innerHeight;
   if(fxCnv){fxCnv.width=cnv.width;fxCnv.height=cnv.height;}
+  // Resize NP canvas to match screen position (52%×62% of letterbox)
+  var _nc=document.getElementById('xqNPCanvas');
+  if(_nc&&cnv.width>100){_nc.width=Math.round(cnv.width*0.52);_nc.height=Math.round(cnv.height*0.62);}
+  if(_nc&&cnv.width>100){_nc.width=Math.round(cnv.width*0.52);_nc.height=Math.round(cnv.height*0.62);}
   buildBg(cnv.width,cnv.height);
 }
 var _rsT;window.addEventListener('resize',function(){clearTimeout(_rsT);_rsT=setTimeout(resize,120);});
@@ -27563,6 +27562,16 @@ if(npHomeEl){
     if(typeof MIZE!=='undefined'&&MIZE.SoundStudio&&typeof MIZE.SoundStudio.exit==='function'){
       MIZE.SoundStudio.exit();
     }
+    // Direct DOM reset — always works even if module exit fails
+    setTimeout(function(){
+      ['xqControls','xqNP_home','xqModeBtn'].forEach(function(id){
+        var el=document.getElementById(id);if(el)el.classList.remove('on');
+      });
+      var np=document.getElementById('xqNP');
+      if(np){np.classList.remove('on','playing');}
+      var introEl=document.getElementById('xqNP_intro');
+      if(introEl){introEl.classList.add('on');var np2=document.getElementById('xqNP');if(np2)np2.classList.add('on');}
+    },100);
   });
 }
 // Stage transport — round 4 API (MIZE.SoundStudio.play/togglePlay/next/prev)
@@ -27598,12 +27607,13 @@ if(_startBtn){
 var _modeBtnEl=document.getElementById('xqModeBtn');
 if(_modeBtnEl){_modeBtnEl.addEventListener('click',function(e){
   e.stopPropagation();
-  if(_stFX){_stFX.destroy();_stFX=null;}
-  clearInterval(_xqSt.fallTimer);_xqSt.fallTimer=null;
-  var stg=document.getElementById('xqStage');if(stg)stg.classList.remove('on');
-  var np=document.getElementById('xqNP');if(np)np.classList.remove('on');
-  ['xqNP_home','xqControls','xqModeBtn'].forEach(function(id){var el=document.getElementById(id);if(el)el.classList.remove('on');});
-  xquixShowHome();
+  try{if(_stFX){_stFX.destroy();_stFX=null;}}catch(ex){}
+  try{clearInterval(_xqSt.fallTimer);_xqSt.fallTimer=null;}catch(ex){}
+  try{if(MIZE&&MIZE.SoundStudio)MIZE.SoundStudio.exit();}catch(ex){}
+  ['xqStage','xqNP','xqNP_home','xqControls','xqModeBtn'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.classList.remove('on','playing');
+  });
+  if(typeof xquixShowHome==='function')xquixShowHome();
 });}
 var _pp=document.getElementById('xqPlayPause');
 var _pr=document.getElementById('xqPrev');
