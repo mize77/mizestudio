@@ -1571,7 +1571,7 @@
                  font-family:system-ui;white-space:nowrap;pointer-events:none;
                  letter-spacing:.04em}
   /* Mode-selection button (bottom-left, always fixed) */
-  #xqModeBtn{position:fixed;bottom:calc(9% + 1.5%);left:3%;z-index:100200;
+  #xqModeBtn{position:fixed;bottom:calc(9% + 1.5%);left:3%;z-index:9999999;touch-action:manipulation;
              background:rgba(0,0,0,.6);border:.5px solid rgba(29,158,117,.38);
              color:#1d9e75;font-size:clamp(7px,1.4vw,11px);border-radius:20px;
              padding:.8% 3.5%;cursor:pointer;font-family:system-ui;
@@ -1612,7 +1612,7 @@
   @keyframes xqNPScratch{to{transform:translateY(100%)}}
   /* Art circle — position:absolute so JS can bounce it around */
   /* Home + controls: position:fixed so they're outside #xqStage's pointer-events:none */
-  #xqNP_home{position:fixed;bottom:calc(9% + 1.5%);right:3%;z-index:100200;
+  #xqNP_home{position:fixed;bottom:calc(9% + 1.5%);right:3%;z-index:9999999;touch-action:manipulation;
              background:rgba(0,0,0,0.6);border:.5px solid rgba(29,158,117,0.38);
              color:#1d9e75;font-size:clamp(7px,1.4vw,11px);border-radius:20px;
              padding:0.8% 3.5%;cursor:pointer;font-family:system-ui,sans-serif;
