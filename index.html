@@ -1531,9 +1531,29 @@
   /* Transparent canvas overlays for future effects (Step 4+) */
   #xqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:30}
   #xqFX{position:absolute;inset:0;width:100%;height:100%;z-index:25;pointer-events:none}
-  /* Placeholder positions for Step 2 (live center screen) */
-  #xqScreen{display:none}   /* hidden until Step 2 */
-  #xqNP{display:none}       /* hidden until Step 2 */
+
+  /* XQ-ENV-001 Step 2: live center screen positioned on the studio wall
+     Derived from photo analysis (1280×853, cover on 16:9, 66.5px clip top+bottom).
+     Center wall: 24% from left, 14% from top, 52% wide, 65% tall.
+     Adjust at Checkpoint 2 if the wall boundary needs refinement. */
+  #xqScreen *{pointer-events:auto}
+  #xqScreen{
+    position:absolute;
+    left:24%;top:14%;width:52%;height:65%;
+    overflow:hidden;
+    z-index:4;pointer-events:auto;
+    background:#000;
+    display:block;   /* Step 2: screen visible */
+  }
+  #xqNP{
+    position:absolute;
+    left:24%;top:14%;width:52%;height:65%;
+    overflow:hidden;
+    z-index:20;
+    background:transparent;display:none;pointer-events:auto;cursor:pointer
+  }
+  #xqNP.on{display:block}
+  #xqNP.on.playing{background:rgba(3,10,6,1.0)}
 
     /* Now-playing strip in control bar */
   #xqControlInfo{position:absolute;top:16%;left:50%;transform:translateX(-50%);
