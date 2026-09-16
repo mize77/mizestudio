@@ -1571,7 +1571,7 @@
                  font-family:system-ui;white-space:nowrap;pointer-events:none;
                  letter-spacing:.04em}
   /* Mode-selection button (bottom-left, always fixed) */
-  #xqModeBtn{position:fixed;bottom:calc(9% + 1.5%);left:3%;z-index:9999999;touch-action:manipulation;
+  #xqModeBtn{position:fixed;pointer-events:auto;bottom:calc(9% + 1.5%);left:3%;z-index:9999999;touch-action:manipulation;
              background:rgba(0,0,0,.6);border:.5px solid rgba(29,158,117,.38);
              color:#1d9e75;font-size:clamp(7px,1.4vw,11px);border-radius:20px;
              padding:.8% 3.5%;cursor:pointer;font-family:system-ui;
@@ -1612,7 +1612,7 @@
   @keyframes xqNPScratch{to{transform:translateY(100%)}}
   /* Art circle — position:absolute so JS can bounce it around */
   /* Home + controls: position:fixed so they're outside #xqStage's pointer-events:none */
-  #xqNP_home{position:fixed;bottom:calc(9% + 1.5%);right:3%;z-index:9999999;touch-action:manipulation;
+  #xqNP_home{position:fixed;pointer-events:auto;bottom:calc(9% + 1.5%);right:3%;z-index:9999999;touch-action:manipulation;
              background:rgba(0,0,0,0.6);border:.5px solid rgba(29,158,117,0.38);
              color:#1d9e75;font-size:clamp(7px,1.4vw,11px);border-radius:20px;
              padding:0.8% 3.5%;cursor:pointer;font-family:system-ui,sans-serif;
@@ -27133,8 +27133,11 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   </div>
   <!-- FX canvas: lasers drawn above screen content -->
   <canvas id="xqFX"></canvas>
-</div>
-<!-- Home button and playback controls: position:fixed so iOS can always tap them -->
+</div><!-- /xqStageLB -->
+</div><!-- /xqStage -->
+<!-- Home button, mode button and playback controls: position:fixed, and REAL siblings of
+     #xqStage. They must not be nested inside it: #xqStage has pointer-events:none, which is
+     inherited, so any descendant without an explicit pointer-events:auto is untappable. -->
 <button id="xqNP_home">&#8249; Home</button>
 <button id="xqModeBtn">&#8942; Modes</button>
 <div id="xqControls">
@@ -27142,12 +27145,6 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   <div id="xqControlInfo"></div>
   <button class="xqCtrl" id="xqPlayPause" aria-label="Play/Pause">&#9208;</button>
   <button class="xqCtrl" id="xqNext" aria-label="Next">&#9197;</button>
-</div
-    </div>
-  </div>
-</div>
-
-  </div>
 </div>
 <script>
 (function(){
