@@ -13,6 +13,7 @@
  *                                mount, background, analyse }
  *   MIZE.SoundStudio.onExit / onTrackChange / onBeat / onLevel   optional host callbacks
  *   MIZE.SoundStudio.analyser()  live AnalyserNode or null
+ *   MIZE.SoundStudio.prime()   call inside a user gesture if play() will come from a timer (Safari)
  *   MIZE.SoundStudio.play/pause/togglePlay/next/prev/state/session   host transport
  *   MIZE.SoundStudio.onSessionBuilt / onPlayState   optional host callbacks
  *                              (see soundbox/STAGE-HOOKS-CONTRACT.md)
@@ -436,21 +437,29 @@ return self.XquiXSoundBuilder; })();
     if (!analysis.ok) console.warn("[SoundStudio] onLevel is off: " + config.audioBase + " does not answer with CORS headers for this origin. Add a CORS policy on the R2 bucket (AllowedOrigins [\"*\"], AllowedMethods [\"GET\",\"HEAD\"], AllowedHeaders [\"Range\"]).");
     return analysis.ok;
   }
+  // The AudioContext is created separately from the media sources so a host
+  // can create it inside a user gesture (prime()) before the CORS probe has
+  // answered; sources are attached only once the probe passed.
+  function analysisEnsureCtx() {
+    if (analysis.ctx) return analysis.ctx;
+    const AC = root.AudioContext || root.webkitAudioContext; if (!AC) return null;
+    try { analysis.ctx = new AC(); } catch (e) { analysis.ctx = null; }
+    return analysis.ctx;
+  }
   function analysisAttach(A, B) {
-    if (analysis.ctx || !analysis.ok) return;
-    const AC = root.AudioContext || root.webkitAudioContext; if (!AC) { analysis.ok = false; return; }
+    if (analysis.node || !analysis.ok) return;
+    const ctx = analysisEnsureCtx(); if (!ctx) { analysis.ok = false; return; }
     try {
-      const ctx = new AC();
       // No analyser smoothing: onsets need frame-to-frame contrast. Bands are
       // smoothed here instead, gently, for the stage's benefit.
       const node = ctx.createAnalyser(); node.fftSize = 2048; node.smoothingTimeConstant = 0;
       analysis.srcA = ctx.createMediaElementSource(A); analysis.srcB = ctx.createMediaElementSource(B);
       analysis.srcA.connect(node); analysis.srcB.connect(node); node.connect(ctx.destination);
-      analysis.ctx = ctx; analysis.node = node;
+      analysis.node = node;
       analysis.freq = new Float32Array(node.frequencyBinCount); analysis.prev = new Float32Array(node.frequencyBinCount).fill(-100);
       analysis.time = new Uint8Array(1024);
       analysis.sm = { bass: 0, mid: 0, high: 0, level: 0 }; analysis.fluxMean = 0; analysis.fluxVar = 0; analysis.fluxPrev = 0; analysis.lastHit = 0;
-    } catch (e) { analysis.ok = false; analysis.ctx = null; analysis.node = null; }
+    } catch (e) { analysis.ok = false; analysis.node = null; }
   }
   function analysisFrame() {
     analysis.raf = null;
@@ -486,12 +495,13 @@ return self.XquiXSoundBuilder; })();
     if (typeof cb === "function") { try { cb({ bass: sm.bass, mid: sm.mid, high: sm.high, level: sm.level, hit, t: player.cur.currentTime || 0 }); } catch (e) {} }
     analysis.raf = requestAnimationFrame(analysisFrame);
   }
-  function analysisRun() { if (analysis.node && !analysis.raf) { if (analysis.ctx.state === "suspended") analysis.ctx.resume().catch(() => {}); analysis.raf = requestAnimationFrame(analysisFrame); } }
+  function analysisResume() { if (analysis.ctx && analysis.ctx.state !== "running") { try { analysis.ctx.resume().catch(() => {}); } catch (e) {} } }
+  function analysisRun() { analysisResume(); if (analysis.node && !analysis.raf) analysis.raf = requestAnimationFrame(analysisFrame); }
   function analysisStop() { if (analysis.raf) { cancelAnimationFrame(analysis.raf); analysis.raf = null; } }
   function analysisClose() {
     analysisStop();
     if (analysis.ctx) { try { analysis.ctx.close(); } catch (e) {} }
-    analysis.ctx = analysis.node = analysis.srcA = analysis.srcB = null; analysis.lastHit = 0;
+    analysis.ctx = analysis.node = analysis.srcA = analysis.srcB = null; analysis.lastHit = 0; analysis.primed = false;
   }
 
   // -------------------------------------------------------------- player --
@@ -502,7 +512,25 @@ return self.XquiXSoundBuilder; })();
     const p = { a: A, b: B, cur: A, idx: -1, plan: [], fading: false, timer: null, onchange: () => {} };
     // Switch both elements to CORS mode and build the analysis graph — only
     // once the probe passed, and before any src is set for the new mode.
-    p.arm = () => { if (analysis.ok && !analysis.ctx) { [A, B].forEach(a => { a.crossOrigin = "anonymous"; }); analysisAttach(A, B); } };
+    p.arm = () => { if (analysis.ok && !analysis.node) { [A, B].forEach(a => { a.crossOrigin = "anonymous"; }); analysisAttach(A, B); } };
+    // prime(): run inside a user gesture. Unlocks both <audio> elements for
+    // later play() calls that come from timers (a countdown), and creates /
+    // resumes the AudioContext while the gesture is live. Safari refuses both
+    // otherwise — the music simply never starts, with no error on screen.
+    const SILENT = "data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    p.prime = () => {
+      if (analysis.wanted) { analysisEnsureCtx(); analysisResume(); }
+      [A, B].forEach(a => {
+        if (a._primed || (a.src && !a.paused)) return;
+        try {
+          a.muted = true; a.src = SILENT;
+          const pr = a.play();
+          const done = () => { a.pause(); a.muted = false; a.removeAttribute("src"); a.load(); a._primed = true; };
+          if (pr && pr.then) pr.then(done, () => { a.muted = false; }); else done();
+        } catch (e) { a.muted = false; }
+      });
+      analysis.primed = true;
+    };
 
     p.load = (plan) => { p.plan = plan; p.idx = -1; };
 
@@ -543,12 +571,13 @@ return self.XquiXSoundBuilder; })();
       p.cur.pause(); p.cur.volume = 1;
       next.src = src; next.volume = 1;
       p.cur = next; p.idx = i;
-      next.play().catch(() => {});
+      analysisResume();
+      next.play().catch(e => { if (e && e.name === "NotAllowedError") console.warn("[SoundStudio] play() was blocked by the browser (" + e.name + "). Call MIZE.SoundStudio.prime() inside the tap that leads to playback — e.g. the tap that starts a countdown."); });
       p.onchange();
       mediaSession(p);
       announce(i);
     };
-    p.toggle = () => { if (p.idx < 0) return p.playIndex(0); p.cur.paused ? p.cur.play() : p.cur.pause(); p.onchange(); };
+    p.toggle = () => { if (p.idx < 0) return p.playIndex(0); if (p.cur.paused) { analysisResume(); p.cur.play().catch(() => {}); } else p.cur.pause(); p.onchange(); };
     p.next = () => p.playIndex(p.idx + 1);
     p.prev = () => (p.cur.currentTime > 5 ? (p.cur.currentTime = 0) : p.playIndex(Math.max(0, p.idx - 1)));
     p.stop = () => { stopBeatClock(); analysisStop(); [A, B].forEach(a => { a.pause(); a.removeAttribute("src"); a.load(); }); p.idx = -1; p.fading = false; p.onchange(); };
@@ -728,7 +757,7 @@ return self.XquiXSoundBuilder; })();
     }));
     el.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { step = Number(b.dataset.step); render(); });
     const build = el.querySelector('[data-act="build"]'); if (build) build.onclick = buildNow;
-    const start = el.querySelector('[data-act="start"]'); if (start) start.onclick = () => { session.started_at = new Date().toISOString(); player.playIndex(0); render(); };
+    const start = el.querySelector('[data-act="start"]'); if (start) start.onclick = () => { player.prime(); session.started_at = new Date().toISOString(); player.playIndex(0); render(); };
     const nw = el.querySelector('[data-act="new"]'); if (nw) nw.onclick = () => { player.stop(); session = null; view = "ask"; step = reached = 0; render(); };
     el.querySelectorAll(".xqss-plan li").forEach(li => li.onclick = () => { player.playIndex(Number(li.dataset.i)); render(); });
     el.querySelectorAll("[data-rate]").forEach(b => b.onclick = () => { session.rating = Number(b.dataset.rate); saveSession(session, session.rating); render(); });
@@ -785,7 +814,8 @@ return self.XquiXSoundBuilder; })();
   }
   function beginSession() { if (session && !session.started_at) session.started_at = new Date().toISOString(); }
   const transport = {
-    play() { if (!el || !player) return; if (player.idx < 0) { if (!session) return; beginSession(); player.playIndex(0); } else if (player.cur.paused) player.cur.play().catch(() => {}); render(); },
+    play() { if (!el || !player) return; if (player.idx < 0) { if (!session) return; beginSession(); player.playIndex(0); } else if (player.cur.paused) { analysisResume(); player.cur.play().catch(() => {}); } render(); },
+    prime() { if (player) player.prime(); return !!player; },
     pause() { if (!el || !player || player.idx < 0) return; player.cur.pause(); render(); },
     togglePlay() { if (!el || !player) return; if (player.idx < 0) return transport.play(); player.toggle(); render(); },
     next() { if (!el || !player || player.idx < 0) return; player.next(); render(); },
@@ -859,6 +889,7 @@ return self.XquiXSoundBuilder; })();
     // Round 4: transport for a stage that draws its own controls (STAGE-HOOKS-CONTRACT.md §"Transport")
     onSessionBuilt: null,  // (summary) once a session has been built and is waiting for Start
     onPlayState: null,     // (state) whenever playing/paused/track/ended changes
+    prime: transport.prime,   // call inside a user gesture when playback will start later from a timer (Safari)
     play: transport.play, pause: transport.pause, togglePlay: transport.togglePlay, next: transport.next, prev: transport.prev,
     state: transport.state, session: transport.session,
   };

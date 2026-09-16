@@ -3,8 +3,45 @@
 *From the Sound Box chat for the Studio chat, 2026-09-12, closing brief
 `SOUNDBOX-STAGE-HOOKS`. **Revised the same day (round 2)** after the Studio's
 first stage build: adds `config.mount`, `config.background`, `onLevel` and
-`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 61 KB; 60 headless
+`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 64 KB; 62 headless
 checks green plus two real-audio tests).*
+
+## Round 5 (2026-09-16) — `prime()`: playback that starts from a timer
+
+The Studio's countdown calls `MIZE.SoundStudio.play()` at count 0, from a
+`setTimeout`, not from the athlete's tap. Safari (and iOS in particular)
+blocks two things outside a user gesture: `HTMLMediaElement.play()` on an
+element that has never played, and creating/resuming an `AudioContext`. So
+the session built, the countdown ran, `play()` was invoked — and nothing
+played. **Two blockers, not one**; the analyser context alone would not
+explain it.
+
+```js
+// in the handler of the tap that starts the countdown — synchronously, before any await/setTimeout
+MIZE.SoundStudio.prime();
+// … later, from the countdown timer:
+MIZE.SoundStudio.play();
+```
+
+`prime()` plays and immediately pauses a 10 ms silent clip on both of the
+module's `<audio>` elements while the gesture is live (that marks them as
+user-started for the rest of the page's life), and creates and resumes the
+analyser's `AudioContext` inside the same gesture. It is idempotent and
+cheap; calling it on every tap that could lead to playback is fine. The
+overlay's own Start button now calls it too. Returns `false` if the overlay
+is not open (call `start()` first).
+
+Also new: when the browser refuses `play()`, the module no longer swallows
+it — the console shows `[SoundStudio] play() was blocked by the browser
+(NotAllowedError)…` naming this fix. Look for that line first when "no
+audio" comes up again.
+
+About the `coaching_assets` 400s reported alongside: **not the module's** —
+it only ever calls `sound_collections`, `sound_functions`, `sound_tracks`,
+`sound_sessions` and `sound.xquix.com`. That request is the Studio's own.
+It matters only if it throws inside the same handler and aborts the
+countdown before `play()` runs; the console warning above is how to tell
+the two apart.
 
 ## Stage FX (2026-09-14) — fog machine + two lasers, `xquix-stage-fx.js`
 
