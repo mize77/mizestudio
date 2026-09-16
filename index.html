@@ -27446,10 +27446,10 @@ function drawCountdown(W,H,ts){
 // ── Resize ─────────────────────────────────────────────────────────────────
 function resize(){
   var _lb=document.getElementById('xqStageLB');
-  // Also resize NP canvas
   var _nc=document.getElementById('xqNPCanvas');
   cnv.width=(_lb?_lb.offsetWidth:0)||window.innerWidth;
   cnv.height=(_lb?_lb.offsetHeight:0)||window.innerHeight;
+  if(_nc&&cnv.width>100){_nc.width=Math.round(cnv.width*0.52);_nc.height=Math.round(cnv.height*0.62);}
   if(fxCnv){fxCnv.width=cnv.width;fxCnv.height=cnv.height;}
   // Resize NP canvas to match screen position (52%×62% of letterbox)
   var _nc=document.getElementById('xqNPCanvas');
@@ -27513,15 +27513,17 @@ var _npBlobs=[],_npHitFlash=0;
 (function(){for(var i=0;i<9;i++)_npBlobs.push({x:Math.random(),y:Math.random(),vx:(Math.random()-.5)*0.00022,vy:(Math.random()-.5)*0.00018,size:0.13+Math.random()*0.22,phase:Math.random()*Math.PI*2,phaseRate:0.00025+Math.random()*0.00030,band:i<3?'bass':i<6?'mid':'high'});})();
 
 function drawNPScreen(ts,bass,mid,high,rms,hit){
-  // Sync canvas bitmap to its displayed size every frame (getBoundingClientRect is reliable)
+  // Size canvas to match #xqNP (52% x 62% of letterbox) — direct, no timing issues
   (function(){
-    var _r=npCnv2.getBoundingClientRect();
-    if(_r.width>50&&npCnv2.width!==Math.round(_r.width)){
-      npCnv2.width=Math.round(_r.width);npCnv2.height=Math.round(_r.height);
+    var lb=document.getElementById('xqStageLB');
+    var lw=lb?lb.offsetWidth:0, lh=lb?lb.offsetHeight:0;
+    if(!lw){lw=window.innerWidth;lh=window.innerHeight;}
+    var tw=Math.round(lw*0.52), th=Math.round(lh*0.62);
+    if(tw>100&&(npCnv2.width!==tw||npCnv2.height!==th)){
+      npCnv2.width=tw; npCnv2.height=th;
     }
   })();
   if(!npCnv2||!npCtx2)return;
-  if(npCnv2.width!==npCnv2.offsetWidth){npCnv2.width=npCnv2.offsetWidth||300;npCnv2.height=npCnv2.offsetHeight||200;}
   var W=npCnv2.width,H=npCnv2.height;
   if(!W||!H)return;
   // Clear to solid dark when playing (covers module UI), near-transparent when idle
