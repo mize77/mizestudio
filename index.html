@@ -27606,19 +27606,7 @@ if(_startBtn){
   });
 }
 // Playback controls now use the real module API
-var _modeBtnEl=document.getElementById('xqModeBtn');
-if(_modeBtnEl){_modeBtnEl.addEventListener('click',function(e){
-  e.stopPropagation();
-  try{if(_stFX){_stFX.destroy();_stFX=null;}}catch(ex){}
-  try{clearInterval(_xqSt.fallTimer);_xqSt.fallTimer=null;}catch(ex){}
-  try{if(MIZE&&MIZE.SoundStudio)MIZE.SoundStudio.exit();}catch(ex){}
-  ['xqStage','xqNP','xqNP_home','xqControls','xqModeBtn'].forEach(function(id){
-    var el=document.getElementById(id);if(el)el.classList.remove('on','playing');
-  });
-  try{localStorage.clear();}catch(e){}
-  if(typeof xquixShowHome==='function')xquixShowHome();
-  document.getElementById('xqStage')?.classList.remove('on');
-});}
+var _modeBtnEl=document.getElementById('xqModeBtn');if(_modeBtnEl){_modeBtnEl.addEventListener('click',function(e){e.stopPropagation();try{if(MIZE&&MIZE.SoundStudio)MIZE.SoundStudio.exit();}catch(x){}window.location.reload();});}
 var _pp=document.getElementById('xqPlayPause');
 var _pr=document.getElementById('xqPrev');
 var _nx=document.getElementById('xqNext');
