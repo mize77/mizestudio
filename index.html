@@ -3641,7 +3641,7 @@ MIZE.Branding.saveToStorage = function(){
       profiles: MIZE.Branding.profiles,
       activeProfileId: MIZE.Branding.activeProfileId
     };
-    localStorage.setItem(MIZE.Branding.STORAGE_KEY, JSON.stringify(data));
+    try{localStorage.setItem(MIZE.Branding.STORAGE_KEY, JSON.stringify(data));}catch(_lsE){try{localStorage.clear();}catch(e){}}
   } catch(e){ /* storage full or unavailable -- fail silently, in-memory config still works for this session */ }
 };
 MIZE.Branding.loadFromStorage = function(){
@@ -4070,7 +4070,7 @@ MIZE.Branding.migrateToAssetModel = function(){
     }
   });
   MIZE.Branding.saveCurrentAsProfile('XquiX Default', 'default');
-  localStorage.setItem(MIZE.Branding.MIGRATION_DONE_KEY, '1');
+  try{localStorage.setItem(MIZE.Branding.MIGRATION_DONE_KEY, '1');}catch(_lsE){try{localStorage.clear();}catch(e){}}
   MIZE.Branding.saveToStorage();
 };
 // ===== Branding Profiles (Milestone 1D) =====
@@ -5074,7 +5074,7 @@ XQUIX.Org = (function(){
     setActiveOrgId(id){
       if(id && !myOrgs.some(o=>o.id===id)) return; // can't activate an org you're not actually a member of
       activeOrgId = id || null;
-      try { localStorage.setItem('xquixActiveOrgV1', activeOrgId||''); } catch(err) {}
+      try { try{localStorage.setItem('xquixActiveOrgV1', activeOrgId||'');}catch(_lsE){try{localStorage.clear();}catch(e){}} } catch(err) {}
       notify();
     },
     getActiveOrgRole(){ const org = myOrgs.find(o=>o.id===activeOrgId); return org ? org.role : null; },
@@ -6390,7 +6390,7 @@ XQUIX.LocalStorageProvider = (function(){
     return 'xquixLibraryAssetsV1_'+kind;
   }
   function load(kind){ try { return JSON.parse(localStorage.getItem(key(kind))||'{}'); } catch(err){ return {}; } }
-  function persist(kind, store){ localStorage.setItem(key(kind), JSON.stringify(store)); }
+  function persist(kind, store){ try{localStorage.setItem(key(kind), JSON.stringify(store));}catch(_lsE){try{localStorage.clear();}catch(e){}} }
   return {
     // ----- Async contract (2A) -- the shape any future provider must match -----
     // Returns the whole store as { name: record, ... }, matching the shape
@@ -6948,7 +6948,7 @@ async function xquixMigrateLibraryToCloud(){
     const localCollections = await LibraryStorage.listCollections();
     const localAssets = await LibraryStorage.listAssets({});
     if(!localCollections.length && !localAssets.length){
-      localStorage.setItem(LIBRARY_CLOUD_MIGRATION_KEY, '1');
+      try{localStorage.setItem(LIBRARY_CLOUD_MIGRATION_KEY, '1');}catch(_lsE){try{localStorage.clear();}catch(e){}}
       return; // nothing to migrate, don't bother asking
     }
     // No confirmation dialog here by design -- this used to ask
@@ -7016,7 +7016,7 @@ async function xquixMigrateLibraryToCloud(){
     const localRecent = await LibraryStorage.listRecentlyUsed();
     for(const rec of localRecent){ if(assetIdMap[rec.id]) await XQUIX.Storage.recordUsage(assetIdMap[rec.id]); }
 
-    localStorage.setItem(LIBRARY_CLOUD_MIGRATION_KEY, '1');
+    try{localStorage.setItem(LIBRARY_CLOUD_MIGRATION_KEY, '1');}catch(_lsE){try{localStorage.clear();}catch(e){}}
     // No result popup either, for the same reason -- logged instead, so
     // the outcome is still fully diagnosable without interrupting
     // anyone's actual session to announce it.
@@ -7527,7 +7527,7 @@ function xquixInviteRecentlyPrompted(inviteId){
   } catch(err) { return false; } // private-browsing / storage disabled -- fail open (prompt as before) rather than silently suppressing invites
 }
 function xquixMarkInvitePrompted(inviteId){
-  try { localStorage.setItem('xquixInvitePromptedAt_' + inviteId, String(Date.now())); } catch(err) {}
+  try { try{localStorage.setItem('xquixInvitePromptedAt_' + inviteId, String(Date.now()));}catch(_lsE){try{localStorage.clear();}catch(e){}} } catch(err) {}
 }
 XQUIX.Auth.onChange(async (user)=>{
   if(!user) return;
@@ -7781,8 +7781,8 @@ MIZE.Sports.TEMPLATES = {
 MIZE.Sports.activeId = 'water_polo';
 const SPORT_TEMPLATES_KEY = 'tpgSportTemplatesV1';
 function loadCustomSportTemplates(){ try { return JSON.parse(localStorage.getItem(SPORT_TEMPLATES_KEY)||'{}'); } catch(err) { return {}; } }
-function saveCustomSportTemplate(tpl){ const all=loadCustomSportTemplates(); all[tpl.id]=MIZE.Storage.stampRecord({ ...tpl, type:'sportTemplate' }); localStorage.setItem(SPORT_TEMPLATES_KEY, JSON.stringify(all)); }
-function deleteCustomSportTemplate(id){ const all=loadCustomSportTemplates(); delete all[id]; localStorage.setItem(SPORT_TEMPLATES_KEY, JSON.stringify(all)); }
+function saveCustomSportTemplate(tpl){ const all=loadCustomSportTemplates(); all[tpl.id]=MIZE.Storage.stampRecord({ ...tpl, type:'sportTemplate' }); try{localStorage.setItem(SPORT_TEMPLATES_KEY, JSON.stringify(all));}catch(_lsE){try{localStorage.clear();}catch(e){}} }
+function deleteCustomSportTemplate(id){ const all=loadCustomSportTemplates(); delete all[id]; try{localStorage.setItem(SPORT_TEMPLATES_KEY, JSON.stringify(all));}catch(_lsE){try{localStorage.clear();}catch(e){}} }
 function allSportTemplates(){ return { ...MIZE.Sports.TEMPLATES, ...loadCustomSportTemplates() }; }
 const TERMINOLOGY_DEFAULTS = { field:'Field', player:'Player', goalkeeper:'Goalkeeper', formation:'Formation', fieldZonesLabel:'Field Zones', playerSetupsLabel:'Player Setups', shotBlockLabel:'Shot Block Corridors', goalieVisionLabel:'Goalie Vision', roles:['Field Player','Goalkeeper'], playingObjectName:'Ball' };
 function term(key){
@@ -8070,7 +8070,7 @@ function applySportTemplateForBoard(id){
   M.W=w; M.H=h; M.fieldX=fx; M.fieldY=fy; M.fieldW=fw; M.fieldH=fh;
   const vb = `0 0 ${w} ${h}`;
   ['fieldSvg','arrows','shotBlockSvg','fieldZonesSvg'].forEach(elId=>{ const el=document.getElementById(elId); if(el) el.setAttribute('viewBox', vb); });
-  localStorage.setItem(ACTIVE_SPORT_KEY, MIZE.Sports.activeId);
+  try{localStorage.setItem(ACTIVE_SPORT_KEY, MIZE.Sports.activeId);}catch(_lsE){try{localStorage.clear();}catch(e){}}
   const label = document.getElementById('devActiveSportLabel');
   if(label){ const all=allSportTemplates(); label.textContent = 'Active on board: ' + (all[MIZE.Sports.activeId]?.name || 'Water Polo'); }
   refreshTerminologyUI();
@@ -9217,7 +9217,7 @@ function toggleDeveloperMode(){
   // visible to happen at all, not an upgrade prompt.
   if(!devModeActive && !(typeof XQUIX!=='undefined' && XQUIX.Entitlements && XQUIX.Entitlements.isPlatformDeveloper && XQUIX.Entitlements.isPlatformDeveloper())) return;
   devModeActive = !devModeActive;
-  localStorage.setItem(DEV_MODE_KEY, devModeActive ? 'true' : 'false');
+  try{localStorage.setItem(DEV_MODE_KEY, devModeActive ? 'true' : 'false');}catch(_lsE){try{localStorage.clear();}catch(e){}}
   applyDeveloperModeVisibility();
   MizeDialog.alert(devModeActive ? 'Developer Mode enabled.' : 'Developer Mode disabled.');
 }
@@ -9230,7 +9230,7 @@ function toggleDeveloperMode(){
 if(typeof XQUIX!=='undefined' && XQUIX.Entitlements) XQUIX.Entitlements.onChange(()=>{
   if(devModeActive && !XQUIX.Entitlements.isPlatformDeveloper()){
     devModeActive = false;
-    localStorage.setItem(DEV_MODE_KEY, 'false');
+    try{localStorage.setItem(DEV_MODE_KEY, 'false');}catch(_lsE){try{localStorage.clear();}catch(e){}}
     applyDeveloperModeVisibility();
   }
 });
@@ -9276,7 +9276,7 @@ function getPresetOrgList(){
   } catch(err) {}
   return [{id:'default', name:'Default'}];
 }
-function savePresetOrgList(list){ localStorage.setItem(ORG_LIST_KEY, JSON.stringify(list)); }
+function savePresetOrgList(list){ try{localStorage.setItem(ORG_LIST_KEY, JSON.stringify(list));}catch(_lsE){try{localStorage.clear();}catch(e){}} }
 // Behavior change from before the rename: previously, when the real org
 // system reported no active org (personal/"My Library" scope -- a
 // genuine, deliberate state), this silently substituted the person's
@@ -9295,7 +9295,7 @@ function getPresetOrgId(){
 }
 function setPresetOrgId(id){
   if(typeof XQUIX!=='undefined' && XQUIX.Org && XQUIX.Org.getMyOrgsSync().length){ XQUIX.Org.setActiveOrgId(id); return; }
-  localStorage.setItem(ACTIVE_ORG_KEY, id);
+  try{localStorage.setItem(ACTIVE_ORG_KEY, id);}catch(_lsE){try{localStorage.clear();}catch(e){}}
 }
 function activeOrgName(){ const org=getPresetOrgList().find(o=>o.id===getPresetOrgId()); return org ? org.name : 'Default'; }
 function getFormationLibraryAll(){ try { return JSON.parse(localStorage.getItem(ORG_FORMATION_LIBRARY_KEY)||'{}'); } catch(err) { return {}; } }
@@ -9304,11 +9304,11 @@ function saveFormationLibraryEntry(orgId, name, tags){
   const all = getFormationLibraryAll();
   if(!all[orgId]) all[orgId] = {};
   all[orgId][name] = { ...MIZE.Storage.makeMetadata('formation', name, tags||[]), state:getState() };
-  localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(all));
+  try{localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(all));}catch(_lsE){try{localStorage.clear();}catch(e){}}
 }
 function deleteFormationLibraryEntry(orgId, name){
   const all = getFormationLibraryAll();
-  if(all[orgId]){ delete all[orgId][name]; localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(all)); }
+  if(all[orgId]){ delete all[orgId][name]; try{localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(all));}catch(_lsE){try{localStorage.clear();}catch(e){}} }
 }
 function getSequenceLibraryAll(){ try { return JSON.parse(localStorage.getItem(ORG_SEQUENCE_LIBRARY_KEY)||'{}'); } catch(err) { return {}; } }
 function getSequenceLibrary(orgId){ return getSequenceLibraryAll()[orgId] || {}; }
@@ -9317,11 +9317,11 @@ function saveSequenceLibraryEntry(orgId, name, tags){
   if(!all[orgId]) all[orgId] = {};
   if(frames.length) frames[currentFrame]=makeFrameState();
   all[orgId][name] = { ...MIZE.Storage.makeMetadata('tacticalPackage', name, tags||[]), frames:frames.length?frames:[makeFrameState()], current:getState() };
-  localStorage.setItem(ORG_SEQUENCE_LIBRARY_KEY, JSON.stringify(all));
+  try{localStorage.setItem(ORG_SEQUENCE_LIBRARY_KEY, JSON.stringify(all));}catch(_lsE){try{localStorage.clear();}catch(e){}}
 }
 function deleteSequenceLibraryEntry(orgId, name){
   const all = getSequenceLibraryAll();
-  if(all[orgId]){ delete all[orgId][name]; localStorage.setItem(ORG_SEQUENCE_LIBRARY_KEY, JSON.stringify(all)); }
+  if(all[orgId]){ delete all[orgId][name]; try{localStorage.setItem(ORG_SEQUENCE_LIBRARY_KEY, JSON.stringify(all));}catch(_lsE){try{localStorage.clear();}catch(e){}} }
 }
 // ===== User identity (for per-user save namespacing) =====
 // Every saved formation/sequence is keyed as "<user name> <item name>" so
@@ -10965,7 +10965,7 @@ document.getElementById('savePresentationBtn').addEventListener('click', async (
   if(!currentSlides.length){ MizeDialog.alert('Add at least one formation or package before saving.'); return; }
   const all=JSON.parse(localStorage.getItem(PRESENTATIONS_KEY)||'{}');
   all[name]={ ...MIZE.Storage.makeMetadata('presentation', name, []), slides: currentSlides.slice() };
-  localStorage.setItem(PRESENTATIONS_KEY, JSON.stringify(all));
+  try{localStorage.setItem(PRESENTATIONS_KEY, JSON.stringify(all));}catch(_lsE){try{localStorage.clear();}catch(e){}}
   renderSavedPresentations();
 });
 function renderSavedPresentations(){
@@ -10980,7 +10980,7 @@ function renderSavedPresentations(){
     edit.onclick=()=>{ document.getElementById('presentationNameInput').value=name; currentSlides=(rec.slides||[]).slice(); renderPresentationSlideList(); };
     const present=document.createElement('button'); present.textContent='Present'; present.title='Enter Presentation Mode with this playlist';
     present.onclick=()=>presentSavedPresentation(rec);
-    const del=MIZE.UI.ConfirmDeleteButton('Delete presentation "'+name+'"?', ()=>{ const a=JSON.parse(localStorage.getItem(PRESENTATIONS_KEY)||'{}'); delete a[name]; localStorage.setItem(PRESENTATIONS_KEY, JSON.stringify(a)); renderSavedPresentations(); }, { title:'Delete presentation' });
+    const del=MIZE.UI.ConfirmDeleteButton('Delete presentation "'+name+'"?', ()=>{ const a=JSON.parse(localStorage.getItem(PRESENTATIONS_KEY)||'{}'); delete a[name]; try{localStorage.setItem(PRESENTATIONS_KEY, JSON.stringify(a));}catch(_lsE){try{localStorage.clear();}catch(e){}} renderSavedPresentations(); }, { title:'Delete presentation' });
     row.appendChild(edit); row.appendChild(present); row.appendChild(del);
     box.appendChild(row);
   });
@@ -11963,7 +11963,7 @@ document.getElementById('presentationRealBtn').onclick=()=>togglePresentation('r
   window.hasModeTutorialQualification = function (mode) { return !!_read()[mode]; };
   window.setModeTutorialQualification = function (mode) {
     var q = _read(); q[mode] = true;
-    try { localStorage.setItem(_KEY, JSON.stringify(q)); } catch(e) {}
+    try { try{localStorage.setItem(_KEY, JSON.stringify(q));}catch(_lsE){try{localStorage.clear();}catch(e){}} } catch(e) {}
   };
   // Set to the mode name while a first-use tutorial is running.
   // exitTutorial() reads this to qualify on deliberate exit;
@@ -15048,7 +15048,7 @@ function showGuestWelcomeScreenIfNeeded(){
     const kind = detectGuestWelcomeDeviceKind();
     populateGuestWelcomeScreen(kind);
     const finish = () => {
-      try { localStorage.setItem(GUEST_WELCOME_SEEN_KEY, '1'); } catch(err){ /* private browsing etc -- shows again next time, harmless */ }
+      try { try{localStorage.setItem(GUEST_WELCOME_SEEN_KEY, '1');}catch(_lsE){try{localStorage.clear();}catch(e){}} } catch(err){ /* private browsing etc -- shows again next time, harmless */ }
       hideGuestOverlays();
       resolve();
     };
@@ -16444,7 +16444,7 @@ document.addEventListener('click', e=>{
 const RECENT_KEY='tpgRecentCmdV1';
 let recentCmdOrder=[];
 try { recentCmdOrder=JSON.parse(localStorage.getItem(RECENT_KEY))||[]; } catch(err) { recentCmdOrder=[]; }
-function persistRecent(){ try { localStorage.setItem(RECENT_KEY, JSON.stringify(recentCmdOrder)); } catch(err) {} }
+function persistRecent(){ try { try{localStorage.setItem(RECENT_KEY, JSON.stringify(recentCmdOrder));}catch(_lsE){try{localStorage.clear();}catch(e){}} } catch(err) {} }
 document.querySelectorAll('.cmdFlyout button:not(.subGroupHeader)').forEach(b=>{
   b.addEventListener('click', ()=>{
     recentCmdOrder=[b.id, ...recentCmdOrder.filter(id=>id!==b.id)].slice(0,20); persistRecent();
@@ -16676,7 +16676,7 @@ try {
   }
 } catch(err) {}
 function saveFieldZonesState(){
-  try { localStorage.setItem(FIELD_ZONES_KEY, JSON.stringify(MIZE.State.fieldZones)); } catch(err) {}
+  try { try{localStorage.setItem(FIELD_ZONES_KEY, JSON.stringify(MIZE.State.fieldZones));}catch(_lsE){try{localStorage.clear();}catch(e){}} } catch(err) {}
 }
 function fieldZoneCurrentLabels(setKey){
   const defaults = fieldZoneDefaultLabels(setKey);
@@ -17261,7 +17261,7 @@ function seedOrgLibrariesIfNeeded(){
       if(st) lib[def.label] = { ...MIZE.Storage.makeMetadata('formation', def.label, ['default']), state: st };
     });
     formLibAll['default'] = lib;
-    localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(formLibAll));
+    try{localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(formLibAll));}catch(_lsE){try{localStorage.clear();}catch(e){}}
   }
   if(!formLibAll['usa_water_polo']){
     const usaLib = {};
@@ -17270,13 +17270,13 @@ function seedOrgLibrariesIfNeeded(){
     const s2 = buildQuickAddComboState('combo5v6');
     if(s2) usaLib['USA WP \u2013 6-on-5 Set'] = { ...MIZE.Storage.makeMetadata('formation', 'USA WP \u2013 6-on-5 Set', ['usa-water-polo','sample']), state:s2 };
     formLibAll['usa_water_polo'] = usaLib;
-    localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(formLibAll));
+    try{localStorage.setItem(ORG_FORMATION_LIBRARY_KEY, JSON.stringify(formLibAll));}catch(_lsE){try{localStorage.clear();}catch(e){}}
   }
   const seqLibAll = getSequenceLibraryAll();
   let seqChanged = false;
   if(!seqLibAll['default']){ seqLibAll['default'] = {}; seqChanged = true; }
   if(!seqLibAll['usa_water_polo']){ seqLibAll['usa_water_polo'] = {}; seqChanged = true; }
-  if(seqChanged) localStorage.setItem(ORG_SEQUENCE_LIBRARY_KEY, JSON.stringify(seqLibAll));
+  if(seqChanged) try{localStorage.setItem(ORG_SEQUENCE_LIBRARY_KEY, JSON.stringify(seqLibAll));}catch(_lsE){try{localStorage.clear();}catch(e){}}
 }
 try { seedOrgLibrariesIfNeeded(); } catch(err) { console.error('seedOrgLibrariesIfNeeded failed (continuing without it):', err); }
 function closeEmptyFieldAddBox(){ document.getElementById('emptyFieldAddBox')?.classList.remove('open'); }
@@ -17460,7 +17460,7 @@ const tooltipsCheckbox=document.getElementById('tooltipsEnabled');
 MIZE.State.tooltips = { enabled: true };
 try { const saved=localStorage.getItem(TOOLTIPS_KEY); if(saved!==null) MIZE.State.tooltips.enabled=saved==='1'; } catch(err) {}
 if(tooltipsCheckbox) tooltipsCheckbox.checked=MIZE.State.tooltips.enabled;
-function setTooltipsEnabled(v){ MIZE.State.tooltips.enabled=v; try { localStorage.setItem(TOOLTIPS_KEY, v?'1':'0'); } catch(err) {} if(!v && tooltipBox) tooltipBox.style.display='none'; }
+function setTooltipsEnabled(v){ MIZE.State.tooltips.enabled=v; try { try{localStorage.setItem(TOOLTIPS_KEY, v?'1':'0');}catch(_lsE){try{localStorage.clear();}catch(e){}} } catch(err) {} if(!v && tooltipBox) tooltipBox.style.display='none'; }
 tooltipsCheckbox?.addEventListener('change', ()=>setTooltipsEnabled(tooltipsCheckbox.checked));
 function showTooltip(text,x,y){
   if(!MIZE.State.tooltips.enabled || !text || !tooltipBox) return;
@@ -17945,7 +17945,7 @@ function importLibraryFromFile(file){
       }
       XQUIX.StorageProvider.replaceStore('formation', existingFormations);
       XQUIX.StorageProvider.replaceStore('sequence', existingPackages);
-      localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(existingSessions));
+      try{localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(existingSessions));}catch(_lsE){try{localStorage.clear();}catch(e){}}
       renderCustomSystems(); renderPackages(); if(typeof renderSavedSessions==='function') renderSavedSessions();
       if(imported){
         MizeDialog.alert(importedLabel);
@@ -18429,7 +18429,7 @@ const AUTOSAVE_KEY = 'tpgAutosaveV1';
 function runAutosave(){
   if(suppressAutosaveUntilRecoveryDecided) return;
   try {
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(MIZE.Storage.stampRecord({ state:getState(), savedAt:new Date().toISOString() })));
+    try{localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(MIZE.Storage.stampRecord({ state:getState(), savedAt:new Date().toISOString() })));}catch(_lsE){try{localStorage.clear();}catch(e){}}
     const el=document.getElementById('autosaveStatus');
     if(el) el.textContent = 'Autosave: '+new Date().toLocaleTimeString();
   } catch(err) { /* storage full or unavailable -- fail silently, autosave is best-effort */ }
@@ -18461,7 +18461,7 @@ function captureSessionHistorySnapshot(){
     const list = getSessionHistory();
     list.unshift(MIZE.Storage.stampRecord({ savedAt:new Date().toISOString(), state:getState() }));
     while(list.length>MAX_SESSION_HISTORY) list.pop();
-    localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(list));
+    try{localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(list));}catch(_lsE){try{localStorage.clear();}catch(e){}}
     renderSessionHistory();
   } catch(err) { /* storage full or unavailable -- best-effort, same as autosave */ }
 }
@@ -18493,7 +18493,7 @@ function saveCheckpoint(label){
   const list=getVersionHistory();
   list.unshift(MIZE.Storage.stampRecord({ label: label||('Checkpoint '+new Date().toLocaleString()), savedAt:new Date().toISOString(), state:getState() }));
   while(list.length>MAX_VERSIONS) list.pop();
-  localStorage.setItem(VERSION_HISTORY_KEY, JSON.stringify(list));
+  try{localStorage.setItem(VERSION_HISTORY_KEY, JSON.stringify(list));}catch(_lsE){try{localStorage.clear();}catch(e){}}
   renderVersionHistory();
 }
 function renderVersionHistory(){
@@ -18735,7 +18735,7 @@ document.getElementById('saveSessionBtn').addEventListener('click', async ()=>{
   const rec=buildSessionRecord(name, coachingDNA);
   const all=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}');
   all[name]=rec;
-  localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(all));
+  try{localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(all));}catch(_lsE){try{localStorage.clear();}catch(e){}}
   renderSavedSessions();
 });
 
@@ -18804,7 +18804,7 @@ function renderSavedSessions(){
     }
     const btnWrap=document.createElement('div'); btnWrap.style.display='flex'; btnWrap.style.gap='4px';
     const load=document.createElement('button'); load.textContent='Load'; load.onclick=()=>loadSessionIntoBuilder(rec);
-    const del=MIZE.UI.ConfirmDeleteButton('Delete session "'+name+'"?', ()=>{ const a2=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}'); delete a2[name]; localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(a2)); renderSavedSessions(); }, { title:'Delete session' });
+    const del=MIZE.UI.ConfirmDeleteButton('Delete session "'+name+'"?', ()=>{ const a2=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}'); delete a2[name]; try{localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(a2));}catch(_lsE){try{localStorage.clear();}catch(e){}} renderSavedSessions(); }, { title:'Delete session' });
     btnWrap.appendChild(load); btnWrap.appendChild(del);
     row.appendChild(meta); row.appendChild(btnWrap);
     box.appendChild(row);
@@ -18946,7 +18946,7 @@ function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
   render();
   btn.addEventListener('click', () => {
     document.body.classList.toggle('field3d');
-    localStorage.setItem('xquixField3d', document.body.classList.contains('field3d') ? '1' : '0');
+    try{localStorage.setItem('xquixField3d', document.body.classList.contains('field3d') ? '1' : '0');}catch(_lsE){try{localStorage.clear();}catch(e){}}
     render();
     if (typeof fitBoardToScreen === 'function') fitBoardToScreen();
   });
@@ -18995,7 +18995,7 @@ function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
     if (bt) bt.style.setProperty('--xq-tilt', deg + 'deg');
     updatePerspective();
     updateArenaAtmosphere(deg);
-    localStorage.setItem('xquixTiltAngle', deg);
+    try{localStorage.setItem('xquixTiltAngle', deg);}catch(_lsE){try{localStorage.clear();}catch(e){}}
   }
 
   apply(); // Apply saved value immediately on load
@@ -19026,7 +19026,7 @@ function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
   }
   function flip(){
     attackDirectionFlipped=!attackDirectionFlipped;
-    localStorage.setItem('xquixAttackDir', attackDirectionFlipped?'1':'0');
+    try{localStorage.setItem('xquixAttackDir', attackDirectionFlipped?'1':'0');}catch(_lsE){try{localStorage.clear();}catch(e){}}
     render();
     apply();
   }
@@ -19479,7 +19479,7 @@ const LibraryStorage = (function(){
     try { const raw = localStorage.getItem(MIZE_LIBRARY_DB_KEY); return raw ? JSON.parse(raw) : emptyDb(); }
     catch(err){ return emptyDb(); }
   }
-  function save(db){ localStorage.setItem(MIZE_LIBRARY_DB_KEY, JSON.stringify(db)); }
+  function save(db){ try{localStorage.setItem(MIZE_LIBRARY_DB_KEY, JSON.stringify(db));}catch(_lsE){try{localStorage.clear();}catch(e){}} }
   function cloudActive(){ return !!(XQUIX.Auth.getCurrentUser() && XQUIX.Auth.getClient()); }
 
   // Populated by every list/get call, so single-item operations
@@ -19951,7 +19951,7 @@ document.querySelectorAll('.libViewModeBtn').forEach(btn=>{
     document.querySelectorAll('.libViewModeBtn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     libState.viewMode = btn.dataset.mode;
-    localStorage.setItem('libViewMode', libState.viewMode);
+    try{localStorage.setItem('libViewMode', libState.viewMode);}catch(_lsE){try{localStorage.clear();}catch(e){}}
     await renderLibraryContent();
   });
 });
@@ -21031,7 +21031,7 @@ async function libResolveDependencies(planAsset, visited, collected){
 
 const OFFLINE_EVENTS_KEY = 'xquixOfflineEventsV1';
 function getOfflineEventRecords(){ try { return JSON.parse(localStorage.getItem(OFFLINE_EVENTS_KEY)||'{}'); } catch(err){ return {}; } }
-function saveOfflineEventRecords(records){ localStorage.setItem(OFFLINE_EVENTS_KEY, JSON.stringify(records)); }
+function saveOfflineEventRecords(records){ try{localStorage.setItem(OFFLINE_EVENTS_KEY, JSON.stringify(records));}catch(_lsE){try{localStorage.clear();}catch(e){}} }
 
 // Available Offline | Not Downloaded | Update Available | Downloading | Download Failed
 async function libGetOfflineStatus(eventId){
@@ -27039,7 +27039,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   // Mute toggle
   document.getElementById('audioMuteToggle')?.addEventListener('click', () => {
     _muted = !_muted;
-    localStorage.setItem('xquixAudioMuted', _muted ? '1' : '0');
+    try{localStorage.setItem('xquixAudioMuted', _muted ? '1' : '0');}catch(_lsE){try{localStorage.clear();}catch(e){}}
     if (_muted) stopAll();
     renderBtns();
   });
@@ -27561,19 +27561,13 @@ if(npEl){
 if(npHomeEl){
   npHomeEl.addEventListener('click',function(e){
     e.stopPropagation();
-    if(typeof MIZE!=='undefined'&&MIZE.SoundStudio&&typeof MIZE.SoundStudio.exit==='function'){
-      MIZE.SoundStudio.exit();
-    }
-    // Direct DOM reset — always works even if module exit fails
-    setTimeout(function(){
-      ['xqControls','xqNP_home','xqModeBtn'].forEach(function(id){
-        var el=document.getElementById(id);if(el)el.classList.remove('on');
-      });
-      var np=document.getElementById('xqNP');
-      if(np){np.classList.remove('on','playing');}
-      var introEl=document.getElementById('xqNP_intro');
-      if(introEl){introEl.classList.add('on');var np2=document.getElementById('xqNP');if(np2)np2.classList.add('on');}
-    },100);
+    // Force stage off and return to home
+    try{if(MIZE&&MIZE.SoundStudio)MIZE.SoundStudio.exit();}catch(e){}
+    document.getElementById('xqStage')?.classList.remove('on');
+    ['xqNP','xqControls','xqNP_home','xqModeBtn'].forEach(function(id){
+      var el=document.getElementById(id);if(el)el.classList.remove('on','playing');
+    });
+    if(typeof xquixShowHome==='function') xquixShowHome();
   });
 }
 // Stage transport — round 4 API (MIZE.SoundStudio.play/togglePlay/next/prev)
