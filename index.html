@@ -4480,8 +4480,14 @@ const XQUIX_HOME_MODES = ['tutorials','coaching','gametracker','presenting','pra
 const XQUIX_HOME_LOCKED_MESSAGE = 'Available on a higher plan.';
 
 function xquixShowHome(){
+  // Hide Sound Box stage if open
+  var stg=document.getElementById('xqStage');
+  if(stg) stg.classList.remove('on');
+  ['xqNP','xqControls','xqNP_home','xqModeBtn'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.classList.remove('on','playing');
+  });
   document.getElementById('xquixHomeScreen')?.classList.add('open');
-  xquixRenderHomeAvailability();
+  try{ xquixRenderHomeAvailability(); }catch(e){}
 }
 function xquixHideHome(){
   document.getElementById('xquixHomeScreen')?.classList.remove('open');
