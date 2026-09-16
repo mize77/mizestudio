@@ -27606,7 +27606,7 @@ if(_startBtn){
   });
 }
 // Playback controls now use the real module API
-var _modeBtnEl=document.getElementById('xqModeBtn');if(_modeBtnEl){_modeBtnEl.addEventListener('click',function(e){e.stopPropagation();try{if(MIZE&&MIZE.SoundStudio)MIZE.SoundStudio.exit();}catch(x){}window.location.reload();});}
+var _modeBtnEl=document.getElementById('xqModeBtn');if(_modeBtnEl){_modeBtnEl.addEventListener('click',function(e){e.stopPropagation();window.location.reload();});}
 var _pp=document.getElementById('xqPlayPause');
 var _pr=document.getElementById('xqPrev');
 var _nx=document.getElementById('xqNext');
