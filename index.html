@@ -27596,6 +27596,7 @@ var _startBtn=document.getElementById('xqNP_startBtn');
 if(_startBtn){
   _startBtn.addEventListener('click',function(e){
     e.stopPropagation();
+    if(window.MIZE&&MIZE.SoundStudio) MIZE.SoundStudio.prime(); // unlock AudioContext on user gesture
     var st=document.getElementById('xqNP_start');
     if(st) st.classList.remove('on');
     _xqSt.countdown=5; _xqSt.countdownNext=0;
