@@ -22234,7 +22234,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     // Music starting: show StageFX canvas and bring it in front of screen
     (function(){
       var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');
-      if(sfx){sfx.style.display='block';sfx.style.zIndex='3';}
+      if(sfx){sfx.style.display='block';sfx.style.zIndex='22'; // above NP(20), lasers cross screen}
     })();
     // Resize NP canvas now that #xqNP is visible (with timeout so browser paints first)
     setTimeout(function(){
@@ -22326,7 +22326,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       // Resume: show StageFX canvas and restore fog
       (function(){
         var sfx=document.querySelector('#xqStage canvas:not(#xqCanvas):not(#xqFX)');
-        if(sfx){sfx.style.display='block';sfx.style.zIndex='3';}
+        if(sfx){sfx.style.display='block';sfx.style.zIndex='22'; // above NP(20), lasers cross screen}
       })();
       if(_stFX) _stFX.set({haze:0.18});
     }
