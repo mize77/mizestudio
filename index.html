@@ -4982,8 +4982,8 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
           // Beams cross exactly at center-top of screen (x=0.50, y=0.84)
           // Fixtures at equal height y=0.06, symmetric at x=0.10 and x=0.90
           beams: [
-            [0.10, 0.06, 0.58, 1.00],
-            [0.90, 0.06, 0.42, 1.00],
+            [0.24, 0.22, 0.57, 1.00],
+            [0.76, 0.22, 0.43, 1.00],
           ],
           teal:  [0.0, 0.84, 0.72],        // XquiX teal
           haze:  0,               // NO fog until music plays
@@ -27633,6 +27633,7 @@ var _introBtn=document.getElementById('xqNP_introBtn');
 if(_introBtn){
   _introBtn.addEventListener('click',function(e){
     e.stopPropagation();
+    if(window.MIZE&&MIZE.SoundStudio&&MIZE.SoundStudio.prime) MIZE.SoundStudio.prime();
     var intro=document.getElementById('xqNP_intro');
     if(intro) intro.classList.remove('on');
     // Hide the NP overlay so #xqScreen (questions) is visible
