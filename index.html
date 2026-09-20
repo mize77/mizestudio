@@ -4979,12 +4979,17 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
           // Laser beam paths for fog-scatter halo. Projectors sit at top (y≈0.845 from bottom),
           // beams angle down to stage-floor corners.
           // Lasers: from upper-centre projectors outward+down to floor corners (SS-001 §19)
-          // Beams cross exactly at center-top of screen (x=0.50, y=0.84)
-          // Fixtures at equal height y=0.06, symmetric at x=0.10 and x=0.90
-          beams: [
-            [0.24, 0.22, 0.57, 1.00],
-            [0.76, 0.22, 0.43, 1.00],
-          ],
+          // Beams calculated dynamically from screen position — works on all viewport sizes
+          beams: (function(){
+            var vw=window.innerWidth,vh=window.innerHeight;
+            var lbW=Math.min(vw,vh*16/9),lbH=lbW*9/16;
+            var lbX=(vw-lbW)/2,lbY=(vh-lbH)/2;
+            var xl=(lbX+lbW*0.24)/vw,xr=(lbX+lbW*0.76)/vw;
+            var yb=1-(lbY+lbH*0.78)/vh,yt=1-(lbY+lbH*0.16)/vh;
+            var xc=(xl+xr)/2,dy=yt-yb;
+            var x1=xl+(xc-xl)/dy*(1-yb),x2=xr+(xc-xr)/dy*(1-yb);
+            return[[xl,yb,x1,1.0],[xr,yb,x2,1.0]];
+          })(),
           teal:  [0.0, 0.84, 0.72],        // XquiX teal
           haze:  0,               // NO fog until music plays
           resolutionScale: _isMobile ? 0.45 : 0.60,
