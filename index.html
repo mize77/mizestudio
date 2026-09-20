@@ -4979,9 +4979,11 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
           // Laser beam paths for fog-scatter halo. Projectors sit at top (y≈0.845 from bottom),
           // beams angle down to stage-floor corners.
           // Lasers: from upper-centre projectors outward+down to floor corners (SS-001 §19)
+          // Two laser projectors: cross from opposite upper positions to opposite floor corners
+          // Left projector (x=0.18, y=0.90) → lower-right; Right → lower-left; cross at centre
           beams: [
-            [0.50, 1.02, 0.045, 0.085],
-            [0.50, 1.02, 0.955, 0.085],
+            [0.18, 0.90, 0.82, 0.06],
+            [0.82, 0.90, 0.18, 0.06],
           ],
           teal:  [0.0, 0.84, 0.72],        // XquiX teal
           haze:  0,               // NO fog until music plays
@@ -22211,7 +22213,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   MIZE.SoundStudio.onLevel = function (l) {
     _xqSt.level = l;
     // Drive StageFX in real-time: energy warms fog, hit flares beam halos
-    if(_stFX) _stFX.set({ energy: l.level, hit: l.hit, laser: l.bass * 0.85 });
+    if(_stFX) _stFX.set({ energy: l.level, hit: l.hit, laser: Math.max(0.18, l.bass*0.80) });
   };
 
   // FALLBACK: setInterval metronome for BPM-null tracks or CORS-off sessions.
