@@ -22234,7 +22234,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     // Music starting: show StageFX canvas and bring it in front of screen
     (function(){
       var sfx=document.getElementById('xqStageFX');
-      if(sfx){sfx.style.display='block';sfx.style.zIndex='22'; // above NP(20), lasers cross screen}
+      if(sfx){sfx.style.display='block';sfx.style.zIndex='3';}
     })();
     // Resize NP canvas now that #xqNP is visible (with timeout so browser paints first)
     setTimeout(function(){
@@ -22326,7 +22326,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       // Resume: show StageFX canvas and restore fog
       (function(){
         var sfx=document.getElementById('xqStageFX');
-        if(sfx){sfx.style.display='block';sfx.style.zIndex='22'; // above NP(20), lasers cross screen}
+        if(sfx){sfx.style.display='block';sfx.style.zIndex='3';}
       })();
       if(_stFX) _stFX.set({haze:0.18});
     }
@@ -22341,6 +22341,9 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     clearInterval(_xqSt.fallTimer); _xqSt.fallTimer = null;
     _xqSt.countdown = 0; _xqSt.countdownNext = 0; // reset so next session starts clean
     if(_stFX){ _stFX.destroy(); _stFX = null; }
+    // Remove the named canvas so a fresh attach on re-open doesn't double up
+    var _oldSfx=document.getElementById('xqStageFX');
+    if(_oldSfx) _oldSfx.parentNode.removeChild(_oldSfx);
     _xqSt.playing = false; _xqSt.level = null;
     _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
     var _np=document.getElementById('xqNP'),_ni=document.getElementById('xqNP_img'),_nd=document.getElementById('xqNP_def');
