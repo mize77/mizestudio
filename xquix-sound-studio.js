@@ -496,6 +496,14 @@ return self.XquiXSoundBuilder; })();
     analysis.raf = requestAnimationFrame(analysisFrame);
   }
   function analysisResume() { if (analysis.ctx && analysis.ctx.state !== "running") { try { analysis.ctx.resume().catch(() => {}); } catch (e) {} } }
+  // Resume and wait — but never longer than `ms`: a browser that will not
+  // resume outside a gesture simply never settles the promise.
+  function analysisResumeAwait(ms) {
+    const ctx = analysis.ctx; if (!ctx) return Promise.resolve("none");
+    if (ctx.state === "running") return Promise.resolve("running");
+    return new Promise(res => { let done = false; const fin = () => { if (!done) { done = true; res(ctx.state); } };
+      try { ctx.resume().then(fin, fin); } catch (e) { fin(); } setTimeout(fin, ms); });
+  }
   function analysisRun() { analysisResume(); if (analysis.node && !analysis.raf) analysis.raf = requestAnimationFrame(analysisFrame); }
   function analysisStop() { if (analysis.raf) { cancelAnimationFrame(analysis.raf); analysis.raf = null; } }
   function analysisClose() {
@@ -507,12 +515,27 @@ return self.XquiXSoundBuilder; })();
   // -------------------------------------------------------------- player --
   // Two <audio> elements alternate so one track can fade into the next.
   function makePlayer() {
-    const A = new Audio(), B = new Audio();
-    [A, B].forEach(a => { a.preload = "auto"; a.crossOrigin = null; });
+    // CORS mode is decided before any src is set: when a host wants analysis,
+    // both elements load in CORS mode from the start (plain playback works
+    // either way; the bucket answers with CORS). If the probe later fails,
+    // playIndex flips them back before the first real src.
+    const mk = () => { const a = new Audio(); a.preload = "auto"; a.crossOrigin = analysisWanted() ? "anonymous" : null; return a; };
+    let A = mk(), B = mk();
     const p = { a: A, b: B, cur: A, idx: -1, plan: [], fading: false, timer: null, onchange: () => {} };
-    // Switch both elements to CORS mode and build the analysis graph — only
-    // once the probe passed, and before any src is set for the new mode.
-    p.arm = () => { if (analysis.ok && !analysis.node) { [A, B].forEach(a => { a.crossOrigin = "anonymous"; }); analysisAttach(A, B); } };
+    // Build the analysis graph on the current elements — only once the probe
+    // passed and the context is actually running (see playIndex).
+    p.arm = () => { if (analysis.ok && !analysis.node) analysisAttach(A, B); };
+    // Last resort when the context refuses to run after the elements are
+    // already routed through it (they would play in silence forever): fresh,
+    // unrouted elements take over and analysis is off for this session.
+    p.reroute = () => {
+      const oldCur = p.cur, src = oldCur.src, t = oldCur.currentTime;
+      [A, B].forEach(a => { try { a.pause(); a.removeAttribute("src"); a.load(); } catch (e) {} });
+      analysisClose(); analysis.ok = false; analysis.wanted = false;
+      A = mk(); B = mk(); p.a = A; p.b = B; wire(A); wire(B);
+      p.cur = A; if (src) { A.src = src; if (t > 0.5) { try { A.currentTime = t; } catch (e) {} } }
+      return A;
+    };
     // prime(): run inside a user gesture. Unlocks both <audio> elements for
     // later play() calls that come from timers (a countdown), and creates /
     // resumes the AudioContext while the gesture is live. Safari refuses both
@@ -565,15 +588,29 @@ return self.XquiXSoundBuilder; })();
     p._beat = { stop: stopBeatClock, pause: pauseBeatClock, run: runBeatClock };
     p.playIndex = (i) => {
       if (i < 0 || i >= p.plan.length) return p.stop();
-      const next = (p.cur === A ? B : A);
+      let next = (p.cur === A ? B : A);
       const src = config.audioBase + p.plan[i].r2_key;
-      stopBeatClock(); p.arm();
+      stopBeatClock();
       p.cur.pause(); p.cur.volume = 1;
+      if (analysis.ok === false && !analysis.node) next.crossOrigin = null;   // probe failed: plain mode
       next.src = src; next.volume = 1;
       p.cur = next; p.idx = i;
-      analysisResume();
       const ctxState = () => analysis.ctx ? analysis.ctx.state : "none";
       const trackId = p.plan[i].track_id || p.plan[i].id;
+      // Route decision, made NOW rather than trusting an earlier prime():
+      // the context must be running before the element is tied to it.
+      const route = () => {
+        if (!analysis.wanted || analysis.ok === false) return Promise.resolve();
+        if (analysis.ok === null) return Promise.resolve();               // probe still pending: play plain this time
+        analysisEnsureCtx();
+        return analysisResumeAwait(700).then(state => {
+          if (state === "running") { p.arm(); return; }
+          if (!analysis.node) { console.warn("[SoundStudio] AudioContext is '" + state + "' at play time — playing without analysis; onLevel stays off this session."); analysis.ok = false; return; }
+          console.warn("[SoundStudio] AudioContext is '" + state + "' with the elements already routed through it — switching to fresh unrouted elements; onLevel off this session.");
+          next = p.reroute();
+        });
+      };
+      route().then(() => {
       console.info("[SoundStudio] play " + trackId + " | ctx=" + ctxState() + " routed=" + !!analysis.node + " primed=" + !!next._primed + " crossOrigin=" + next.crossOrigin);
       next.play().then(() => {
         // 1.5 s later: is time actually advancing, and is the context running? If not, say so and retry once.
@@ -583,11 +620,13 @@ return self.XquiXSoundBuilder; })();
           const advanced = next.currentTime > t0 + 0.2;
           const cs = ctxState();
           if (!advanced || (analysis.node && cs !== "running")) {
-            console.warn("[SoundStudio] " + trackId + " after 1.5 s: currentTime " + t0.toFixed(2) + "→" + next.currentTime.toFixed(2) + ", readyState=" + next.readyState + ", networkState=" + next.networkState + ", error=" + (next.error ? next.error.code + " " + next.error.message : "none") + ", ctx=" + cs + ", muted=" + next.muted + ", volume=" + next.volume + " — retrying resume()+play()");
-            analysisResume(); next.play().catch(() => {});
+            console.warn("[SoundStudio] " + trackId + " after 1.5 s: currentTime " + t0.toFixed(2) + "→" + next.currentTime.toFixed(2) + ", readyState=" + next.readyState + ", networkState=" + next.networkState + ", error=" + (next.error ? next.error.code + " " + next.error.message : "none") + ", ctx=" + cs + ", muted=" + next.muted + ", volume=" + next.volume + (analysis.node && cs !== "running" ? " — context not running: switching to unrouted elements" : " — retrying play()"));
+            if (analysis.node && cs !== "running") { const n2 = p.reroute(); n2.play().catch(() => {}); }
+            else next.play().catch(() => {});
           } else console.info("[SoundStudio] " + trackId + " playing: currentTime " + next.currentTime.toFixed(2) + ", ctx=" + cs);
         }, 1500);
       }).catch(e => { console.warn("[SoundStudio] play() was blocked by the browser (" + (e && e.name) + "). Call MIZE.SoundStudio.prime() inside the tap that leads to playback — e.g. the tap that starts a countdown."); });
+      });
       p.onchange();
       mediaSession(p);
       announce(i);
@@ -615,7 +654,8 @@ return self.XquiXSoundBuilder; })();
       }
       p.onchange("time");
     }
-    [A, B].forEach(a => { on(a, "timeupdate", tick); on(a, "ended", () => { if (!p.fading) p.next(); }); on(a, "play", () => { if (a === p.cur) runBeatClock(); analysisRun(); p.onchange(); }); on(a, "pause", () => { if (a === p.cur && !p.fading) { pauseBeatClock(); analysisStop(); } p.onchange(); }); });
+    function wire(a) { on(a, "timeupdate", tick); on(a, "ended", () => { if (!p.fading) p.next(); }); on(a, "play", () => { if (a === p.cur) runBeatClock(); analysisRun(); p.onchange(); }); on(a, "pause", () => { if (a === p.cur && !p.fading) { pauseBeatClock(); analysisStop(); } p.onchange(); }); }
+    wire(A); wire(B);
     return p;
   }
   function mediaSession(p) {

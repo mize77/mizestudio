@@ -3,8 +3,41 @@
 *From the Sound Box chat for the Studio chat, 2026-09-12, closing brief
 `SOUNDBOX-STAGE-HOOKS`. **Revised the same day (round 2)** after the Studio's
 first stage build: adds `config.mount`, `config.background`, `onLevel` and
-`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 64 KB; 62 headless
+`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 68 KB; 66 headless
 checks green plus two real-audio tests).*
+
+## Round 6 (2026-09-20) — the route is decided at play time, never trusted
+
+Mac Safari: everything ran, the speaker icon lit, no sound; iPhone fine. Cause
+class: the two `<audio>` elements were tied to a Web Audio `AudioContext`
+(for `onLevel`) that was not `running` when the track started — Safari lets
+the element "play" but the graph outputs silence, and `resume()` from a timer
+never settles. `prime()` alone cannot prevent this: seconds pass between the
+tap and `play()`.
+
+Now, in `play()`/`playIndex` for every track:
+
+1. `resume()` is awaited with a 700 ms cap.
+2. Only if the context reports `running` are the elements routed through it
+   (`onLevel` live).
+3. If it does not, the track plays on the plain element — full sound, no
+   analysis this session — and the console says
+   `[SoundStudio] AudioContext is 'suspended' at play time — playing without analysis`.
+4. If the elements were already routed (a later track, a context that
+   dropped out mid-session) and the context refuses, the player swaps to
+   fresh unrouted elements at the same position and continues; message
+   `…switching to fresh unrouted elements`.
+5. 1.5 s after each start, `currentTime` is checked; a stalled track is
+   logged with `readyState`, `networkState`, media `error`, `ctx`, `muted`,
+   `volume`, and the swap in (4) is applied if the context is the reason.
+
+Music first, meters second. The stage should treat `onLevel` as optional per
+session and keep its `onBeat`/idle animation as the fallback — on a browser
+that will not run the context, that is what it gets. `route-test.mjs`
+simulates a context that never resumes (62 + 4 checks green).
+
+`prime()` stays: it is still what unlocks the elements for a timer-started
+`play()`; call it in the tap that leads to playback.
 
 ## Round 5 (2026-09-16) — `prime()`: playback that starts from a timer
 
