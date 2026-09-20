@@ -4971,19 +4971,25 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         if(!stg||typeof MIZE==='undefined'||!MIZE.StageFX) return;
         if(_stFX){try{_stFX.destroy();}catch(e){}  _stFX=null;}
         var old=document.getElementById('xqStageFX');
-        if(old) old.parentNode.removeChild(old);
-        // Read actual screen position — accurate on any viewport
-        var scr=document.getElementById('xqScreen');
-        var r=scr?scr.getBoundingClientRect():{left:0,right:window.innerWidth,top:0,bottom:window.innerHeight};
+        if(old&&old.parentNode) old.parentNode.removeChild(old);
+        // Use letterbox bounds + CSS percentages — reliable even before screen lays out
+        var lb=document.getElementById('xqStageLB');
+        if(!lb){setTimeout(window._buildStageFX,200);return;}
+        var r=lb.getBoundingClientRect();
+        if(r.width<10){setTimeout(window._buildStageFX,200);return;}
         var vw=window.innerWidth,vh=window.innerHeight;
-        var xl=r.left/vw,xr=r.right/vw;
-        var yb=1-r.bottom/vh,yt=1-r.top/vh;
-        var xc=(xl+xr)/2,dy=Math.max(0.01,yt-yb);
-        var x1=xl+(xc-xl)/dy*(1-yb),x2=xr+(xc-xr)/dy*(1-yb);
+        // Screen CSS: left=24% top=16% width=52% height=62% of letterbox
+        var sl=r.left+r.width*0.24, sr=r.left+r.width*0.76;
+        var st=r.top+r.height*0.16,  sb=r.top+r.height*0.78;
+        var xl=sl/vw, xr=sr/vw;
+        var yb=1-sb/vh, yt=1-st/vh;
+        var xc=(xl+xr)/2, dy=Math.max(0.01,yt-yb);
+        var x1=xl+(xc-xl)/dy*(1-yb), x2=xr+(xc-xr)/dy*(1-yb);
+        console.log('[StageFX] beams xl='+xl.toFixed(3)+' xr='+xr.toFixed(3)+' vw='+vw+' vh='+vh);
         var mob=navigator.maxTouchPoints>0;
         _stFX=MIZE.StageFX.attach(stg,{
           sources:[{x:0.10,y:0.10,lean:32},{x:0.90,y:0.10,lean:-32}],
-          spread:0.75,
+          spread:0.38,
           beams:[[xl,yb,x1,1.0],[xr,yb,x2,1.0]],
           teal:[0.0,0.84,0.72],
           haze:0,
@@ -4999,8 +5005,7 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
           });
         },0);
       };
-      // Build after layout settles (150ms ensures getBoundingClientRect is accurate)
-      setTimeout(window._buildStageFX,150);
+      setTimeout(window._buildStageFX,500);
       // Home and controls are position:fixed siblings — show them now
       var _hm=document.getElementById('xqNP_home'),_ct=document.getElementById('xqControls');
       if(_hm) _hm.classList.add('on');
