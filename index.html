@@ -18931,10 +18931,37 @@ document.addEventListener('visibilitychange', function () {
 // the UI.  Showing them mid-tutorial or mid-game-tracker is jarring and
 // the information is not actionable until the coach can open the Library.
 window._shouldDeferConflictAlert = function(){
-  return document.body.classList.contains('tutorialModeActive')
-      || document.body.classList.contains('pxParentMode')
-      || document.body.classList.contains('gameTrackerActive');
+  return true; // always defer — conflicts shown as non-blocking toast, never modal
 };
+
+// Non-blocking toast for sync conflicts — auto-dismisses, never blocks interaction
+(function(){
+  var _toastTimer, _toastCount = 0;
+  function showConflictToast(n){
+    var el = document.getElementById('_xqSyncToast');
+    if(!el){
+      el = document.createElement('div');
+      el.id = '_xqSyncToast';
+      el.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);'
+        +'background:rgba(10,40,30,0.92);color:#2ecab8;border:1px solid rgba(46,202,184,0.25);'
+        +'border-radius:8px;padding:7px 16px;font-size:12px;font-family:system-ui;'
+        +'z-index:9999998;pointer-events:none;opacity:0;transition:opacity 0.35s;white-space:nowrap;';
+      document.body.appendChild(el);
+    }
+    el.textContent = n + ' sync conflict'+(n>1?'s':'')+' saved separately — no data lost';
+    el.style.opacity = '1';
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function(){ el.style.opacity='0'; }, 4000);
+  }
+  // Poll for new deferred conflicts and show toast instead of modal
+  setInterval(function(){
+    var q = window._deferredConflicts;
+    if(q && q.length > 0){
+      showConflictToast(q.length);
+      window._deferredConflicts = [];
+    }
+  }, 1500);
+})();
 
 function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
 

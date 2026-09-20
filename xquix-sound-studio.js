@@ -523,11 +523,11 @@ return self.XquiXSoundBuilder; })();
       [A, B].forEach(a => {
         if (a._primed || (a.src && !a.paused)) return;
         try {
-          a.muted = true; a.src = SILENT;
+          a.src = SILENT;
           const pr = a.play();
-          const done = () => { a.pause(); a.muted = false; a.removeAttribute("src"); a.load(); a._primed = true; };
-          if (pr && pr.then) pr.then(done, () => { a.muted = false; }); else done();
-        } catch (e) { a.muted = false; }
+          const done = () => { if (a.src === SILENT || a.currentSrc === SILENT) { a.pause(); a.removeAttribute("src"); a.load(); } a._primed = true; };
+          if (pr && pr.then) pr.then(done, () => {}); else done();
+        } catch (e) {}
       });
       analysis.primed = true;
     };
@@ -572,7 +572,22 @@ return self.XquiXSoundBuilder; })();
       next.src = src; next.volume = 1;
       p.cur = next; p.idx = i;
       analysisResume();
-      next.play().catch(e => { if (e && e.name === "NotAllowedError") console.warn("[SoundStudio] play() was blocked by the browser (" + e.name + "). Call MIZE.SoundStudio.prime() inside the tap that leads to playback — e.g. the tap that starts a countdown."); });
+      const ctxState = () => analysis.ctx ? analysis.ctx.state : "none";
+      const trackId = p.plan[i].track_id || p.plan[i].id;
+      console.info("[SoundStudio] play " + trackId + " | ctx=" + ctxState() + " routed=" + !!analysis.node + " primed=" + !!next._primed + " crossOrigin=" + next.crossOrigin);
+      next.play().then(() => {
+        // 1.5 s later: is time actually advancing, and is the context running? If not, say so and retry once.
+        const t0 = next.currentTime;
+        setTimeout(() => {
+          if (p.cur !== next || next.paused) return;
+          const advanced = next.currentTime > t0 + 0.2;
+          const cs = ctxState();
+          if (!advanced || (analysis.node && cs !== "running")) {
+            console.warn("[SoundStudio] " + trackId + " after 1.5 s: currentTime " + t0.toFixed(2) + "→" + next.currentTime.toFixed(2) + ", readyState=" + next.readyState + ", networkState=" + next.networkState + ", error=" + (next.error ? next.error.code + " " + next.error.message : "none") + ", ctx=" + cs + ", muted=" + next.muted + ", volume=" + next.volume + " — retrying resume()+play()");
+            analysisResume(); next.play().catch(() => {});
+          } else console.info("[SoundStudio] " + trackId + " playing: currentTime " + next.currentTime.toFixed(2) + ", ctx=" + cs);
+        }, 1500);
+      }).catch(e => { console.warn("[SoundStudio] play() was blocked by the browser (" + (e && e.name) + "). Call MIZE.SoundStudio.prime() inside the tap that leads to playback — e.g. the tap that starts a countdown."); });
       p.onchange();
       mediaSession(p);
       announce(i);
