@@ -4979,11 +4979,11 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
           // Laser beam paths for fog-scatter halo. Projectors sit at top (y≈0.845 from bottom),
           // beams angle down to stage-floor corners.
           // Lasers: from upper-centre projectors outward+down to floor corners (SS-001 §19)
-          // Laser beams: from lower-outside areas upward, crossing near top of scene
-          // Matches reference: beams sweep from floor/side level through screen, X near ceiling
+          // Beams cross exactly at center-top of screen (x=0.50, y=0.84)
+          // Fixtures at equal height y=0.06, symmetric at x=0.10 and x=0.90
           beams: [
-            [0.05, 0.06, 0.58, 0.98],
-            [0.95, 0.06, 0.42, 0.98],
+            [0.10, 0.06, 0.58, 1.00],
+            [0.90, 0.06, 0.42, 1.00],
           ],
           teal:  [0.0, 0.84, 0.72],        // XquiX teal
           haze:  0,               // NO fog until music plays
@@ -22334,7 +22334,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
         var sfx=document.getElementById('xqStageFX');
         if(sfx){sfx.style.display='block';sfx.style.zIndex='22';sfx.style.mixBlendMode='screen';}
       })();
-      if(_stFX) _stFX.set({haze:0.10}); // subtle residual haze between bursts
+      // haze managed by burst only — no immediate fog on resume
     }
     // Session ended — hide the now-playing overlay
     if(st.ended) {
