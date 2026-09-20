@@ -27196,8 +27196,8 @@ function rrect(c,x,y,w,h,r){
 }
 
 // Fixture x fractions, stage target x fractions, teal flag
-var FXPOS=[0.162,0.284,0.400,0.600,0.714,0.838];
-var FTGT =[0.07, 0.22, 0.39, 0.61, 0.78, 0.93 ];
+var FXPOS=[0.27, 0.50, 0.73]  // XQ-ENV-001: three ceiling fixtures;
+var FTGT =[0.18, 0.50, 0.82]  // floor landing positions;
 var FTEAL=[false,false,true, true, false,false  ];
 
 // ── Static background ──────────────────────────────────────────────────────
@@ -27359,42 +27359,53 @@ function drawFixture(c,W,H,fxf,teal){
   c.fillStyle=teal?'#50ffcc':'#80b8c8';c.beginPath();c.arc(x,ly,W*0.002,0,Math.PI*2);c.fill();
 }
 
-function drawSpots(W,H,bass,rms,bd){
-  var pal=_xqSt.palette;
-  ctx.save();ctx.globalCompositeOperation='lighter';
-  var FY=H*0.214,TY=H*0.812;
+function drawSpots(W,H,bass,rms,bd,ts){
+  // Pass 3: three volumetric spotlight beams from XQ-ENV-001 ceiling fixtures
+  // Fixtures at y≈5% (derived from photo analysis), targets on stage floor at y≈82%
+  // Each beam is independent with a phase offset so they don't pulse identically
+  if(!_xqSt.playing) return;
+  var FY=H*0.052; // fixture height — matches ceiling fixture position in studio photo
+  var TY=H*0.820; // floor target height
+  var TEAL=[0,200,140]; // XquiX teal spotlight colour
+  ctx.save(); ctx.globalCompositeOperation='lighter';
   FXPOS.forEach(function(fxf,i){
-    var col=pal[i]||pal[0];
-    var fx=fxf*W,tx=FTGT[i]*W;
-    var inten=0.10+bass*0.22+rms*0.10+bd*0.28;
-    var spread=W*(0.030+bass*0.016+bd*0.012);
+    var phaseOff=[0,1.25,2.50][i];
+    // Independent intensity variation per fixture
+    var variation=0.80+0.20*Math.sin((ts||0)*0.00065+phaseOff);
+    var inten=(0.08+rms*0.28+bass*0.14+bd*0.22)*variation;
+    var spread=W*(0.042+bass*0.012+bd*0.010);
+    var fx=fxf*W, tx=FTGT[i]*W;
     var dx=tx-fx,dy=TY-FY,len=Math.sqrt(dx*dx+dy*dy);
     dx/=len;dy/=len;var px=-dy,py=dx;
+    // Cone beam
     var gr=ctx.createLinearGradient(fx,FY,tx,TY);
-    gr.addColorStop(0,rgba(col,inten*0.55));
-    gr.addColorStop(0.45,rgba(col,inten*0.18));
-    gr.addColorStop(1,rgba(col,0));
-    ctx.beginPath();ctx.moveTo(fx,FY);
-    ctx.lineTo(tx+px*spread,TY+py*spread);ctx.lineTo(tx-px*spread,TY-py*spread);
-    ctx.closePath();ctx.fillStyle=gr;ctx.fill();
-    var pg=ctx.createRadialGradient(tx,TY,0,tx,TY,spread*1.3);
-    pg.addColorStop(0,rgba(col,inten*0.50));pg.addColorStop(1,rgba(col,0));
+    gr.addColorStop(0,'rgba('+TEAL+','+(inten*0.55).toFixed(3)+')');
+    gr.addColorStop(0.5,'rgba('+TEAL+','+(inten*0.18).toFixed(3)+')');
+    gr.addColorStop(1,'rgba('+TEAL+',0)');
+    ctx.fillStyle=gr;
+    ctx.beginPath();
+    ctx.moveTo(fx,FY);
+    ctx.lineTo(tx-px*spread,TY-py*spread);
+    ctx.lineTo(tx+px*spread,TY+py*spread);
+    ctx.closePath(); ctx.fill();
+    // Floor pool
+    var pg=ctx.createRadialGradient(tx,TY,0,tx,TY,spread*1.5);
+    pg.addColorStop(0,'rgba('+TEAL+','+(inten*0.48).toFixed(3)+')');
+    pg.addColorStop(1,'rgba('+TEAL+',0)');
     ctx.fillStyle=pg;
-    ctx.beginPath();ctx.ellipse(tx,TY,spread*1.3,spread*0.42,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(tx,TY,spread*1.5,spread*0.42,0,0,Math.PI*2);
+    ctx.fill();
+    // Fixture lens glow — tiny bright point at fixture body
+    var lg=ctx.createRadialGradient(fx,FY,0,fx,FY,W*0.018);
+    lg.addColorStop(0,'rgba(180,255,220,'+(inten*0.9).toFixed(3)+')');
+    lg.addColorStop(0.4,'rgba('+TEAL+','+(inten*0.35).toFixed(3)+')');
+    lg.addColorStop(1,'rgba('+TEAL+',0)');
+    ctx.fillStyle=lg;
+    ctx.beginPath(); ctx.arc(fx,FY,W*0.018,0,Math.PI*2); ctx.fill();
   });
   ctx.restore();
 }
-
-// ── Lasers — effect-only: flash on hit, drawn on FX canvas above screen ──
-// Colors come from the track's cover-art palette so they match the logo.
-// Lasers are silent between hits; they only fire as a punctuation effect.
-var LASERS=[
-  {ox:0.456,oy:0.155,per:3500,ph:0,   amp:0.40, palI:0, kA:0,kD:0},
-  {ox:0.544,oy:0.155,per:3800,ph:1.8, amp:-0.40,palI:1, kA:0,kD:0},
-  {ox:0.456,oy:0.155,per:5200,ph:3.5, amp:-0.52,palI:3, kA:0,kD:0},
-  {ox:0.544,oy:0.155,per:4800,ph:5.1, amp:0.52, palI:4, kA:0,kD:0},
-];
-var laserFlash=0; // 0-1, spikes to 1 on hit then decays
 
 function drawLasers(W,H,ts,hit,bd){
   if(!_xqSt.playing||!fxCtx)return;
@@ -27509,7 +27520,8 @@ function frame(ts){
   var bd=_xqSt.beatDecay;
   // Pass 1: PNG layers handle stage background; canvas is transparent overlay
   ctx.clearRect(0,0,W,H);
-  // drawSpots disabled: Stage 5 adds shader spotlights; shell draws dormant fixture bodies
+  // Pass 3: spotlight beams from three XQ-ENV-001 ceiling fixtures
+  if(isPlaying) drawSpots(W,H,bass,rms,bd,ts);
   if(!_stFX){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}
   if(fxCtx){fxCtx.clearRect(0,0,W,H);}
   drawNPScreen(ts,bass,mid,high,rms,hit);
