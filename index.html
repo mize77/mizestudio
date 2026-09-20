@@ -4981,7 +4981,7 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         // Screen CSS: left=24% top=16% width=52% height=62% of letterbox
         var sl=r.left+r.width*0.24, sr=r.left+r.width*0.76;
         var st=r.top+r.height*0.16,  sb=r.top+r.height*0.78;
-        var xl=sl/vw, xr=sr/vw;
+        var xl=sl/vw-0.031, xr=sr/vw-0.031; // shifted left 1.5/10 of screen width
         var yb=1-sb/vh, yt=1-st/vh;
         var xc=(xl+xr)/2, dy=Math.max(0.01,yt-yb);
         var x1=xl+(xc-xl)/dy*(1-yb), x2=xr+(xc-xr)/dy*(1-yb);
