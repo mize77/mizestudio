@@ -3,8 +3,36 @@
 *From the Sound Box chat for the Studio chat, 2026-09-12, closing brief
 `SOUNDBOX-STAGE-HOOKS`. **Revised the same day (round 2)** after the Studio's
 first stage build: adds `config.mount`, `config.background`, `onLevel` and
-`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 68 KB; 66 headless
+`analyser()`. Module: `xquix-sound-studio.js` (rebuilt; 71 KB; 66 headless
 checks green plus two real-audio tests).*
+
+## Round 7 (2026-09-20) — pre-roll: the first track starts inside the tap
+
+Mac Safari again: after every deploy (a fresh page load) the first session
+was silent; `play()` from a timer did nothing, and the silent-clip unlock in
+`prime()` did not carry across the ~8 s to the countdown's end. So the
+module stops depending on any unlock surviving:
+
+**`prime()`, called in a tap *after the session is built*, now starts the
+real first track right there — at volume 0.** It keeps playing silently
+through the countdown; the later `play()` only rewinds it to 0 and sets
+volume 1. There is nothing left for an autoplay policy to refuse and no
+context to resume: the element was started by the user. Desktop only (iOS
+ignores `element.volume`; iOS already works on the previous path and keeps
+it). The pre-roll is invisible to the stage — no `onTrackChange`, `state()`
+still says not started — and `debug().preroll` reports it.
+
+**Wiring requirement:** call `MIZE.SoundStudio.prime()` in **both** taps —
+the intro tap (unlocks elements, opens the context) **and** the
+`#xqNP_startBtn` tap that starts the countdown (this is the one that can
+pre-roll, because the session exists by then). Synchronously, first line of
+the handler, before any `await`/`setTimeout`. Console shows
+`[SoundStudio] prime: pre-rolling <track> at volume 0 inside the gesture`
+and, at count 0, `[SoundStudio] play <track> | from pre-roll …`.
+
+If the Studio ever changes the flow so no tap happens between build and
+countdown, the pre-roll has nothing to hook into and Mac Safari is back to
+round 6 behaviour (sound only if the policy allows).
 
 ## Round 6 (2026-09-20) — the route is decided at play time, never trusted
 

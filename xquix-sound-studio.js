@@ -529,7 +529,7 @@ return self.XquiXSoundBuilder; })();
     // already routed through it (they would play in silence forever): fresh,
     // unrouted elements take over and analysis is off for this session.
     p.reroute = () => {
-      const oldCur = p.cur, src = oldCur.src, t = oldCur.currentTime;
+      const oldCur = p.cur, src = oldCur.src, t = oldCur.currentTime; p.pre = null;
       [A, B].forEach(a => { try { a.pause(); a.removeAttribute("src"); a.load(); } catch (e) {} });
       analysisClose(); analysis.ok = false; analysis.wanted = false;
       A = mk(); B = mk(); p.a = A; p.b = B; wire(A); wire(B);
@@ -541,8 +541,28 @@ return self.XquiXSoundBuilder; })();
     // resumes the AudioContext while the gesture is live. Safari refuses both
     // otherwise — the music simply never starts, with no error on screen.
     const SILENT = "data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    // iOS ignores element.volume (read-only at 1), so the pre-roll below is desktop-only.
+    const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    p.pre = null;   // { el, idx } while a track is pre-rolling at volume 0
     p.prime = () => {
       if (analysis.wanted) { analysisEnsureCtx(); analysisResume(); }
+      // Pre-roll: with a session built and nothing playing, START THE REAL
+      // FIRST TRACK NOW, inside the gesture, at volume 0. A timer later only
+      // turns the volume up and rewinds — nothing for an autoplay policy to
+      // refuse, and no context resume to wait for. (Mac Safari, 2026-09-20:
+      // the silent-clip unlock alone did not survive a fresh page load.)
+      if (!IOS && p.idx < 0 && !p.pre && p.plan.length && p.plan[0].r2_key) {
+        try {
+          const el = A;
+          if (analysis.ok === false && !analysis.node) el.crossOrigin = null;
+          if (analysis.wanted && analysis.ok && analysis.ctx && analysis.ctx.state === "running") p.arm();
+          el.src = config.audioBase + p.plan[0].r2_key; el.volume = 0;
+          const pr = el.play(); if (pr && pr.catch) pr.catch(() => {});
+          p.pre = { el, idx: 0 };
+          console.info("[SoundStudio] prime: pre-rolling " + (p.plan[0].track_id || p.plan[0].id) + " at volume 0 inside the gesture");
+          return;
+        } catch (e) { p.pre = null; }
+      }
       [A, B].forEach(a => {
         if (a._primed || (a.src && !a.paused)) return;
         try {
@@ -588,6 +608,21 @@ return self.XquiXSoundBuilder; })();
     p._beat = { stop: stopBeatClock, pause: pauseBeatClock, run: runBeatClock };
     p.playIndex = (i) => {
       if (i < 0 || i >= p.plan.length) return p.stop();
+      if (p.pre) {
+        const pre = p.pre; p.pre = null;
+        if (pre.idx === i && pre.el.src) {
+          // The track has been running silently since the tap: rewind, unmute, announce.
+          stopBeatClock();
+          if (p.cur !== pre.el) { p.cur.pause(); p.cur.volume = 1; }
+          try { pre.el.currentTime = 0; } catch (e) {}
+          pre.el.volume = 1; p.cur = pre.el; p.idx = i;
+          console.info("[SoundStudio] play " + (p.plan[i].track_id || p.plan[i].id) + " | from pre-roll, ctx=" + (analysis.ctx ? analysis.ctx.state : "none") + " routed=" + !!analysis.node + " paused=" + pre.el.paused);
+          if (pre.el.paused) pre.el.play().catch(e => console.warn("[SoundStudio] pre-rolled element refused play(): " + (e && e.name)));
+          p.onchange(); mediaSession(p); announce(i);
+          return;
+        }
+        try { pre.el.pause(); pre.el.volume = 1; } catch (e) {}
+      }
       let next = (p.cur === A ? B : A);
       const src = config.audioBase + p.plan[i].r2_key;
       stopBeatClock();
@@ -634,7 +669,7 @@ return self.XquiXSoundBuilder; })();
     p.toggle = () => { if (p.idx < 0) return p.playIndex(0); if (p.cur.paused) { analysisResume(); p.cur.play().catch(() => {}); } else p.cur.pause(); p.onchange(); };
     p.next = () => p.playIndex(p.idx + 1);
     p.prev = () => (p.cur.currentTime > 5 ? (p.cur.currentTime = 0) : p.playIndex(Math.max(0, p.idx - 1)));
-    p.stop = () => { stopBeatClock(); analysisStop(); [A, B].forEach(a => { a.pause(); a.removeAttribute("src"); a.load(); }); p.idx = -1; p.fading = false; p.onchange(); };
+    p.stop = () => { stopBeatClock(); analysisStop(); p.pre = null; [A, B].forEach(a => { a.pause(); a.volume = 1; a.removeAttribute("src"); a.load(); }); p.idx = -1; p.fading = false; p.onchange(); };
     // Crossfade: when the current track is within N seconds of its end, start
     // the next one quietly and swap the volumes over those seconds.
     function tick() {
@@ -880,7 +915,7 @@ return self.XquiXSoundBuilder; })();
     // debug(): everything needed to tell "blocked", "silent", "not loaded" and "not started" apart. Paste into a console.
     debug() {
       const els = player ? [player.a, player.b].map(a => ({ current: a === player.cur, src: a.currentSrc || a.src || null, crossOrigin: a.crossOrigin, paused: a.paused, ended: a.ended, currentTime: +a.currentTime.toFixed(2), duration: a.duration || null, readyState: a.readyState, networkState: a.networkState, error: a.error ? { code: a.error.code, message: a.error.message } : null, volume: a.volume, muted: a.muted, primed: !!a._primed })) : [];
-      return { state: playState(), analysis: { wanted: analysis.wanted, corsOk: analysis.ok, ctx: analysis.ctx ? analysis.ctx.state : null, attached: !!analysis.node, primed: analysis.primed }, elements: els, ua: navigator.userAgent };
+      return { state: playState(), preroll: !!(player && player.pre), analysis: { wanted: analysis.wanted, corsOk: analysis.ok, ctx: analysis.ctx ? analysis.ctx.state : null, attached: !!analysis.node, primed: analysis.primed }, elements: els, ua: navigator.userAgent };
     },
   };
 
