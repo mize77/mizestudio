@@ -4965,69 +4965,42 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
       if(_stg) _stg.classList.add('on');
       // Attach StageFX (WebGL fog + laser halo) behind the screen.
       // Falls back to null if WebGL unavailable; canvas fog stays active in that case.
-      if(!_stFX && typeof MIZE !== 'undefined' && MIZE.StageFX) {
-        var _isMobile = navigator.maxTouchPoints > 0;
-        _stFX = MIZE.StageFX.attach(_stg, {
-          // Fog outlets: left/right nozzles blowing inward. x/y = 0..1 left/bottom of stage.
-          // Positions match where the fog machine bodies are drawn on the canvas scene.
-          // Two fog outlets, lower-left + lower-right (SS-001 §23)
-          sources: [
-            { x: 0.10, y: 0.10, lean:  32 },
-            { x: 0.90, y: 0.10, lean: -32 },
-          ],
-          spread: 0.75,
-          // Laser beam paths for fog-scatter halo. Projectors sit at top (y≈0.845 from bottom),
-          // beams angle down to stage-floor corners.
-          // Lasers: from upper-centre projectors outward+down to floor corners (SS-001 §19)
-          // Beams calculated dynamically from screen position — works on all viewport sizes
-          beams: (function(){
-            var vw=window.innerWidth,vh=window.innerHeight;
-            var lbW=Math.min(vw,vh*16/9),lbH=lbW*9/16;
-            var lbX=(vw-lbW)/2,lbY=(vh-lbH)/2;
-            var xl=(lbX+lbW*0.24)/vw,xr=(lbX+lbW*0.76)/vw;
-            var yb=1-(lbY+lbH*0.78)/vh,yt=1-(lbY+lbH*0.16)/vh;
-            var xc=(xl+xr)/2,dy=yt-yb;
-            var x1=xl+(xc-xl)/dy*(1-yb),x2=xr+(xc-xr)/dy*(1-yb);
-            return[[xl,yb,x1,1.0],[xr,yb,x2,1.0]];
-          })(),
-          teal:  [0.0, 0.84, 0.72],        // XquiX teal
-          haze:  0,               // NO fog until music plays
-          resolutionScale: _isMobile ? 0.45 : 0.60,
+      // Build StageFX with beams computed from actual screen position
+      window._buildStageFX=function(){
+        var stg=document.getElementById('xqStage');
+        if(!stg||typeof MIZE==='undefined'||!MIZE.StageFX) return;
+        if(_stFX){try{_stFX.destroy();}catch(e){}  _stFX=null;}
+        var old=document.getElementById('xqStageFX');
+        if(old) old.parentNode.removeChild(old);
+        // Read actual screen position — accurate on any viewport
+        var scr=document.getElementById('xqScreen');
+        var r=scr?scr.getBoundingClientRect():{left:0,right:window.innerWidth,top:0,bottom:window.innerHeight};
+        var vw=window.innerWidth,vh=window.innerHeight;
+        var xl=r.left/vw,xr=r.right/vw;
+        var yb=1-r.bottom/vh,yt=1-r.top/vh;
+        var xc=(xl+xr)/2,dy=Math.max(0.01,yt-yb);
+        var x1=xl+(xc-xl)/dy*(1-yb),x2=xr+(xc-xr)/dy*(1-yb);
+        var mob=navigator.maxTouchPoints>0;
+        _stFX=MIZE.StageFX.attach(stg,{
+          sources:[{x:0.10,y:0.10,lean:32},{x:0.90,y:0.10,lean:-32}],
+          spread:0.75,
+          beams:[[xl,yb,x1,1.0],[xr,yb,x2,1.0]],
+          teal:[0.0,0.84,0.72],
+          haze:0,
+          resolutionScale:mob?0.45:0.60,
         });
-        // Ensure the inserted canvas is non-interactive and behind screen content
-        if(_stFX) {
-          // Zero all FX immediately
-          _stFX.set({ energy: 0, hit: false, laser: 0, haze: 0 });
-          // Define beam calculator — uses real screen position so works on all viewport sizes
-          window._calcStFXBeams = function(){
-            if(!_stFX) return;
-            var scr=document.getElementById('xqScreen');
-            if(!scr) return;
-            var r=scr.getBoundingClientRect();
-            var vw=window.innerWidth, vh=window.innerHeight;
-            if(!vw||!vh||r.width<10) return;
-            // Convert to StageFX coords: x left→right, y bottom→top (0=bottom, 1=top)
-            var xl=r.left/vw, xr=r.right/vw;
-            var yb=1-r.bottom/vh, yt=1-r.top/vh;
-            var xc=(xl+xr)/2, dy=yt-yb;
-            if(dy<=0) return;
-            // Beams from screen bottom-corners through screen center-top, extended to y=1
-            var x1e=xl+(xc-xl)/dy*(1-yb);
-            var x2e=xr+(xc-xr)/dy*(1-yb);
-            _stFX.set({beams:[[xl,yb,x1e,1.0],[xr,yb,x2e,1.0]]});
-          };
-          // Identify and hide StageFX canvas — iterate all stage canvases
-          // (querySelector timing can miss it if attach is async)
-          setTimeout(function(){
-            Array.from(_stg.querySelectorAll('canvas')).forEach(function(cnv){
-              if(cnv.id!=='xqCanvas'&&cnv.id!=='xqFX'&&cnv.id!=='xqNPCanvas'){
-                cnv.id='xqStageFX';
-                cnv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:22;display:none;mix-blend-mode:screen';
-              }
-            });
-          }, 0);
-        }
-      }
+        _stFX.set({energy:0,hit:false,laser:0,haze:0});
+        setTimeout(function(){
+          Array.from(stg.querySelectorAll('canvas')).forEach(function(cnv){
+            if(cnv.id!=='xqCanvas'&&cnv.id!=='xqFX'&&cnv.id!=='xqNPCanvas'){
+              cnv.id='xqStageFX';
+              cnv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:22;display:none;mix-blend-mode:screen';
+            }
+          });
+        },0);
+      };
+      // Build after layout settles (150ms ensures getBoundingClientRect is accurate)
+      setTimeout(window._buildStageFX,150);
       // Home and controls are position:fixed siblings — show them now
       var _hm=document.getElementById('xqNP_home'),_ct=document.getElementById('xqControls');
       if(_hm) _hm.classList.add('on');
@@ -22264,7 +22237,6 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     (function(){
       var sfx=document.getElementById('xqStageFX');
       if(sfx){sfx.style.display='block';sfx.style.zIndex='22';sfx.style.mixBlendMode='screen';}
-      if(window._calcStFXBeams) setTimeout(_calcStFXBeams, 50);
     })();
     // Resize NP canvas now that #xqNP is visible (with timeout so browser paints first)
     setTimeout(function(){
@@ -27532,7 +27504,7 @@ function resize(){
   if(_nc&&cnv.width>100){_nc.width=Math.round(cnv.width*0.52);_nc.height=Math.round(cnv.height*0.62);}
   buildBg(cnv.width,cnv.height);
 }
-var _rsT;window.addEventListener('resize',function(){clearTimeout(_rsT);_rsT=setTimeout(function(){resize();if(window._calcStFXBeams)_calcStFXBeams();},120);});
+var _rsT;window.addEventListener('resize',function(){clearTimeout(_rsT);_rsT=setTimeout(function(){resize();if(document.getElementById('xqStage')&&document.getElementById('xqStage').classList.contains('on')&&window._buildStageFX)_buildStageFX();},200);});
 
 // ── Frame loop ──────────────────────────────────────────────────────────────
 var lastTs=0;
