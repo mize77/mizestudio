@@ -4993,6 +4993,24 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         if(_stFX) {
           // Zero all FX immediately
           _stFX.set({ energy: 0, hit: false, laser: 0, haze: 0 });
+          // Define beam calculator — uses real screen position so works on all viewport sizes
+          window._calcStFXBeams = function(){
+            if(!_stFX) return;
+            var scr=document.getElementById('xqScreen');
+            if(!scr) return;
+            var r=scr.getBoundingClientRect();
+            var vw=window.innerWidth, vh=window.innerHeight;
+            if(!vw||!vh||r.width<10) return;
+            // Convert to StageFX coords: x left→right, y bottom→top (0=bottom, 1=top)
+            var xl=r.left/vw, xr=r.right/vw;
+            var yb=1-r.bottom/vh, yt=1-r.top/vh;
+            var xc=(xl+xr)/2, dy=yt-yb;
+            if(dy<=0) return;
+            // Beams from screen bottom-corners through screen center-top, extended to y=1
+            var x1e=xl+(xc-xl)/dy*(1-yb);
+            var x2e=xr+(xc-xr)/dy*(1-yb);
+            _stFX.set({beams:[[xl,yb,x1e,1.0],[xr,yb,x2e,1.0]]});
+          };
           // Identify and hide StageFX canvas — iterate all stage canvases
           // (querySelector timing can miss it if attach is async)
           setTimeout(function(){
@@ -22241,6 +22259,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     (function(){
       var sfx=document.getElementById('xqStageFX');
       if(sfx){sfx.style.display='block';sfx.style.zIndex='22';sfx.style.mixBlendMode='screen';}
+      if(window._calcStFXBeams) setTimeout(_calcStFXBeams, 50);
     })();
     // Resize NP canvas now that #xqNP is visible (with timeout so browser paints first)
     setTimeout(function(){
@@ -27508,7 +27527,7 @@ function resize(){
   if(_nc&&cnv.width>100){_nc.width=Math.round(cnv.width*0.52);_nc.height=Math.round(cnv.height*0.62);}
   buildBg(cnv.width,cnv.height);
 }
-var _rsT;window.addEventListener('resize',function(){clearTimeout(_rsT);_rsT=setTimeout(resize,120);});
+var _rsT;window.addEventListener('resize',function(){clearTimeout(_rsT);_rsT=setTimeout(function(){resize();if(window._calcStFXBeams)_calcStFXBeams();},120);});
 
 // ── Frame loop ──────────────────────────────────────────────────────────────
 var lastTs=0;
