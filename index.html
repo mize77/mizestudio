@@ -863,7 +863,11 @@
   #studioTrack .studioFrame, #studioTrack #stageWrap { transition:opacity .35s ease; }
   .studioFrame { display:none; }
   body.presentation #studioTrack > .studioFrame, body.presentation #studioTrack > #stageWrap { position:absolute; display:flex; align-items:center; justify-content:center;
-    transition: left var(--cam-d) var(--cam-ease), top var(--cam-d) var(--cam-ease), width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease), filter .6s ease; }
+    transition: left var(--cam-d) var(--cam-ease), top var(--cam-d) var(--cam-ease), width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease), transform var(--cam-d) var(--cam-ease), filter .6s ease; }
+  /* Stage 4 -- screen spill (PS-001 §21, restrained approximation): the bright pool throws teal into the
+     room, the side screens a faint neutral light. Only while a screen is on the wall. */
+  body.presentation #studioTrack > .studioFrame.onWall { box-shadow:0 0 42px 6px rgba(150,215,210,.10); }
+  body.presentation.panorama #board, body.presentation #stageWrap.camOff #board { box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(46,202,184,.22), 0 0 110px 18px rgba(46,202,184,.16); }
   body.presentation #board { transition: width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease); }
   body.presentation .studioFrameContent { width:100% !important; height:100% !important; }
   /* Screen focus state (PS-001 §23): the two screens the camera is not on recede. */
@@ -11544,11 +11548,38 @@ let studioSwingTimeout=null;
 // bottom). Boxes are fractions of that letterbox. CENTER is the Sound Box's screen
 // box (one studio); LEFT/RIGHT are the bounding boxes of the two angled panels
 // (photo px 48-212 x 150-656, mirrored). Flat until Stage 4 maps them in perspective.
+// Stage 4: the side panels' four corners (TL, TR, BR, BL), read off the photograph once
+// (photo px: left 41,142 / 190,172 / 190,645 / 41,657; right mirrored) and stored as
+// letterbox fractions. x,y,w,h are the corners' bounding boxes. The centre wall is frontal.
 const PS_SCREENS={
-  left:  { x:0.0375, y:0.1167, w:0.1281, h:0.7028 },
+  left:  { x:0.0320, y:0.1056, w:0.1164, h:0.7152, corners:[[0.0320,0.1056],[0.1484,0.1472],[0.1484,0.8042],[0.0320,0.8208]] },
   center:{ x:0.24,   y:0.16,   w:0.52,   h:0.62   },
-  right: { x:0.8344, y:0.1167, w:0.1281, h:0.7028 },
+  right: { x:0.8516, y:0.1056, w:0.1164, h:0.7152, corners:[[0.8516,0.1472],[0.9680,0.1056],[0.9680,0.8208],[0.8516,0.8042]] },
 };
+// Four-corner fit: the CSS matrix3d that maps a w×h box (origin top-left) onto the
+// quadrilateral `q` (four [x,y] offsets from the box's top-left, TL TR BR BL).
+// Standard 8-unknown projective solve; see XQ-ENV-001 appendix A1.
+function psMatrix3dFromCorners(w,h,q){
+  const src=[[0,0],[w,0],[w,h],[0,h]];
+  const A=[], B=[];
+  for(let i=0;i<4;i++){
+    const [x,y]=src[i], [X,Y]=q[i];
+    A.push([x,y,1,0,0,0,-X*x,-X*y]); B.push(X);
+    A.push([0,0,0,x,y,1,-Y*x,-Y*y]); B.push(Y);
+  }
+  // Gaussian elimination with partial pivoting
+  const n=8;
+  for(let c=0;c<n;c++){
+    let piv=c; for(let r=c+1;r<n;r++) if(Math.abs(A[r][c])>Math.abs(A[piv][c])) piv=r;
+    [A[c],A[piv]]=[A[piv],A[c]]; [B[c],B[piv]]=[B[piv],B[c]];
+    const d=A[c][c]; if(!d) return '';
+    for(let r=0;r<n;r++){ if(r===c) continue; const f=A[r][c]/d; if(!f) continue; for(let k=c;k<n;k++) A[r][k]-=f*A[c][k]; B[r]-=f*B[c]; }
+  }
+  const hh=B.map((v,i)=>v/A[i][i]); // a b c d e f g h
+  const [a,b,c,d,e,f,g,hi]=hh;
+  // matrix3d is column-major: x' = a x + b y + c ; y' = d x + e y + f ; w' = g x + h y + 1
+  return 'matrix3d('+[a,d,0,g, b,e,0,hi, 0,0,1,0, c,f,0,1].map(v=>+v.toFixed(6)).join(',')+')';
+}
 function psRoomRect(){
   const vw=viewportWidth(), vh=viewportHeight();
   const w=Math.min(vw, vh*16/9), h=w*9/16;
@@ -22160,6 +22191,13 @@ function fitBoardToScreen(){
       const box = focused ? reading : psMapWallBox(wall[k], cam, LB);
       el.style.left=box.left+'px'; el.style.top=box.top+'px'; el.style.width=box.width+'px'; el.style.height=box.height+'px';
       el.classList.toggle('camOff', !panorama && !focused);
+      el.classList.toggle('onWall', !focused);
+      // Stage 4: a side screen on the wall is mapped onto its angled panel (four-corner fit).
+      if(wall[k].corners && !focused){
+        const q=wall[k].corners.map(([cx,cy])=>{ const m=psMapWallBox({x:cx,y:cy,w:0,h:0}, cam, LB); return [m.left-box.left, m.top-box.top]; });
+        el.style.transformOrigin='0 0';
+        el.style.transform=psMatrix3dFromCorners(box.width, box.height, q);
+      } else { el.style.transform=''; el.style.transformOrigin=''; }
       if(k==='board'){
         if(focused){ boardW=readW; boardH=readH; }
         else { const cw=box.width-8, ch=box.height-8; boardW=cw; boardH=boardW*ratioH/ratioW; if(boardH>ch){ boardH=ch; boardW=boardH*ratioW/ratioH; } }
