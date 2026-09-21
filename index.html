@@ -5025,6 +5025,7 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
             if(cnv.id!=='xqCanvas'&&cnv.id!=='xqFX'&&cnv.id!=='xqNPCanvas'){
               cnv.id='xqStageFX';
               cnv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:22;display:none;mix-blend-mode:screen';
+              window._xqSFXCanvas=cnv;
             }
           });
         },0);
@@ -22273,7 +22274,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
         });
         sfx=document.getElementById('xqStageFX');
       }
-      if(sfx){sfx.style.display='block';sfx.style.zIndex='22';sfx.style.mixBlendMode='screen';}
+      var _c=window._xqSFXCanvas||document.getElementById('xqStageFX');if(_c){_c.style.display='block';_c.style.zIndex='22';_c.style.mixBlendMode='screen';}
     },400);
     // Resize NP canvas now that #xqNP is visible (with timeout so browser paints first)
     setTimeout(function(){
@@ -22365,7 +22366,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       // Resume: show StageFX canvas and restore fog
       (function(){
         var sfx=document.getElementById('xqStageFX');
-        if(sfx){sfx.style.display='block';sfx.style.zIndex='22';sfx.style.mixBlendMode='screen';}
+        var _c=window._xqSFXCanvas||document.getElementById('xqStageFX');if(_c){_c.style.display='block';_c.style.zIndex='22';_c.style.mixBlendMode='screen';}
       })();
       // haze managed by burst only — no immediate fog on resume
     }
@@ -27846,7 +27847,7 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
       _buildStageFX();
       setTimeout(function(){
         var sfx=document.getElementById('xqStageFX');
-        if(sfx){sfx.style.display='block';sfx.style.zIndex='22';sfx.style.mixBlendMode='screen';}
+        var _c=window._xqSFXCanvas||document.getElementById('xqStageFX');if(_c){_c.style.display='block';_c.style.zIndex='22';_c.style.mixBlendMode='screen';}
         xqEditorApply();
       },200);
     }
