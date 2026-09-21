@@ -5016,9 +5016,9 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         var x1=xl+(xc-xl)/dy*(1-yb), x2=xr+(xc-xr)/dy*(1-yb);
         console.log('[StageFX] beams xl='+xl.toFixed(3)+' xr='+xr.toFixed(3)+' vw='+vw+' vh='+vh);
         var mob=navigator.maxTouchPoints>0;
-        // Fog machine layout comes from window._fogCfg when the stage editor has set it
-        // (?editor=1); otherwise these defaults. _fogParams is defined by the editor script.
-        var fp=window._fogParams?window._fogParams():{sources:[{x:0.10,y:0.10,lean:32},{x:0.90,y:0.10,lean:-32}],spread:0.38,haze:0,rise:0.16};
+        // Fog machine layout comes from window._fogCfg (defaults XQ_FOG_DEFAULTS in the stage script,
+        // overridden live by the Stage Editor when ?editor=1).
+        var fp=window._fogParams?window._fogParams():{sources:[{x:0,y:0.03,lean:32},{x:0.8,y:0.03,lean:-32}],spread:0.76,haze:0.37,rise:0.1};
         _stFX=MIZE.StageFX.attach(stg,{
           sources:fp.sources,
           spread:fp.spread,
@@ -27456,7 +27456,15 @@ function drawSpots(W,H,bass,rms,bd,ts,dim){
   ctx.restore();
 }
 
-window._laserCfg=window._laserCfg||{offsetX:0.000,spread:0.05};
+// Stage tuning defaults — tuned in the Stage Editor (?editor=1) on 2026-09-21, pasted from 'Copy config JSON'.
+// Read by drawLasers()/_laserBeams (lasers) and _buildStageFX via _fogParams (fog). See soundbox/STAGE-EDITOR.md.
+window.XQ_LASER_DEFAULTS={offsetX:0.005,spread:0.17,originY:-0.05,crossY:0.16,width:1.1,sway:3,minAlpha:0.52};
+window.XQ_FOG_DEFAULTS={lx:0,ly:0.03,lLean:32,rx:0.8,ry:0.03,rLean:-32,spread:0.76,haze:0.37,rise:0.1,burstDur:3.9,burstStr:0.74};
+window._laserCfg=Object.assign({},window.XQ_LASER_DEFAULTS,window._laserCfg||{});
+window._fogCfg=Object.assign({},window.XQ_FOG_DEFAULTS,window._fogCfg||{});
+window._fogParams=function(){var F=window._fogCfg;
+  return {sources:[{x:F.lx,y:F.ly,lean:F.lLean},{x:F.rx,y:F.ry,lean:F.rLean}],spread:F.spread,haze:F.haze,rise:F.rise};
+};
 
 // ── Countdown — cinematic 5→1 on FX canvas ─────────────────────────────────
 function drawCountdown(W,H,ts){
@@ -27786,10 +27794,7 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
   if(!/[?&]editor=1/.test(location.search))return;
   var ed=document.getElementById('xqEditor'); if(!ed)return;
 
-  var LASER_DEF={offsetX:0.000,spread:0.05,originY:-0.04,crossY:0.47,width:1.0,sway:1.0,minAlpha:0.18};
-  var FOG_DEF={lx:0.10,ly:0.10,lLean:32,rx:0.90,ry:0.10,rLean:-32,spread:0.38,haze:0.00,rise:0.16,burstDur:1.0,burstStr:0.35};
-  window._laserCfg=Object.assign({},LASER_DEF,window._laserCfg||{});
-  window._fogCfg=Object.assign({},FOG_DEF,window._fogCfg||{});
+  var LASER_DEF=window.XQ_LASER_DEFAULTS, FOG_DEF=window.XQ_FOG_DEFAULTS;  // shared with the stage script
   var L=window._laserCfg, F=window._fogCfg;
 
   // [group, key, label, min, max, step, decimals, suffix]
@@ -27814,10 +27819,6 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
     ['Fog machines','F','burstStr','Burst strength',0.00,1.00,0.01,2,''],
   ];
 
-  // Fog config → StageFX params (sources are 0..1 of the stage viewport, y from bottom)
-  window._fogParams=function(){
-    return {sources:[{x:F.lx,y:F.ly,lean:F.lLean},{x:F.rx,y:F.ry,lean:F.rLean}],spread:F.spread,haze:F.haze,rise:F.rise};
-  };
   function pushFog(){ if(window._stFX) window._stFX.set(window._fogParams()); }
   function pushLasers(){ window._laserAlphaMin=L.minAlpha; if(window._syncStageBeams) window._syncStageBeams(); }
 
