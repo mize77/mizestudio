@@ -27800,39 +27800,22 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
   });
 
   window.xqEditorApply=function(){
-    // Lasers — canvas reads _laserCfg every frame
     window._laserCfg={offsetX:val('xqELaserX'),spread:val('xqELaserSpread')};
-    // Fog — update StageFX haze and sources live
-    if(_stFX){
-      _stFX.set({haze:val('xqEFogSpread')*0.12});
-    }
-    // Update laser brightness minimum
+    if(_stFX) _stFX.set({haze:val('xqEFogSpread')*0.12});
     window._laserAlphaMin=val('xqELaserMin');
-    // Show config in code box
     var lc=window._laserCfg;
-    var cfg='offsetX:'+lc.offsetX.toFixed(3)+
-      ' spread:'+lc.spread.toFixed(2)+
-      ' fogHaze:'+(val('xqEFogSpread')*0.12).toFixed(3)+
-      ' fogLean:L'+Math.round(val('xqEFogLLean'))+'R'+Math.round(val('xqEFogRLean'))+
+    var cfg='offsetX:'+lc.offsetX.toFixed(3)+' spread:'+lc.spread.toFixed(2)+
+      ' haze:'+(val('xqEFogSpread')*0.12).toFixed(3)+
       ' burst:'+val('xqEFogBurst').toFixed(2)+
       ' laserMin:'+val('xqELaserMin').toFixed(2);
     document.getElementById('xqEditorCode').textContent=cfg;
-  }
-  
-  window.xqEditorBurst=function(){if(_stFX&&_stFX.burst)_stFX.burst(1.0,val('xqEFogBurst'));};
-
-  window.xqEditorRebuild=function(){
-    if(window._buildStageFX){
-      // Patch _buildStageFX sources from editor values before rebuilding
-      _buildStageFX();
-      setTimeout(function(){
-        var sfx=document.getElementById('xqStageFX');
-        var _c=window._xqSFXCanvas||document.getElementById('xqStageFX');if(_c){_c.style.display='block';_c.style.zIndex='22';_c.style.mixBlendMode='screen';}
-        xqEditorApply();
-      },200);
-    }
   };
-
+  window.xqEditorBurst=function(){
+    if(_stFX&&_stFX.burst) _stFX.burst(1.0,val('xqEFogBurst'));
+  };
+  window.xqEditorRebuild=function(){
+    if(window._buildStageFX) _buildStageFX();
+  };
   window.xqEditorCopy=function(){
     var txt=document.getElementById('xqEditorCode').textContent;
     navigator.clipboard&&navigator.clipboard.writeText(txt);
