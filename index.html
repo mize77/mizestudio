@@ -22263,19 +22263,17 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
         if(_stFX) _stFX.burst(_bDur[t.role]||1.2, (_bStr[t.role]||0.60)*0.45);
       }, 2000);
     }
-    // Music starting: rebuild StageFX with correct viewport, then show canvas
-    if(window._buildStageFX) _buildStageFX();
+    // Show StageFX canvas — built once at Sound Box open (500ms), just show it here
     setTimeout(function(){
-      var sfx=document.getElementById('xqStageFX');
-      if(!sfx){
+      var _c=window._xqSFXCanvas;
+      if(!_c){
         var stg=document.getElementById('xqStage');
         if(stg) Array.from(stg.querySelectorAll('canvas')).forEach(function(cnv){
-          if(!cnv.id||cnv.id==='')cnv.id='xqStageFX';
+          if(cnv.id!=='xqCanvas'&&cnv.id!=='xqFX'&&cnv.id!=='xqNPCanvas') _c=cnv;
         });
-        sfx=document.getElementById('xqStageFX');
       }
-      var _c=window._xqSFXCanvas||document.getElementById('xqStageFX');if(_c){_c.style.display='block';_c.style.zIndex='22';_c.style.mixBlendMode='screen';}
-    },400);
+      if(_c){_c.style.display='block';_c.style.zIndex='22';_c.style.mixBlendMode='screen';}
+    },100);
     // Resize NP canvas now that #xqNP is visible (with timeout so browser paints first)
     setTimeout(function(){
       var _lb=document.getElementById('xqStageLB');
