@@ -27580,12 +27580,14 @@ function drawLasers(W,H,ts,bass,hit,bd){
   var cfg=window._laserCfg||{offsetX:-0.073,spread:0.35};
   var xl=(sl/vw+cfg.offsetX)*W, xr=(sr/vw+cfg.offsetX)*W;
   var yb=(1-(sb/vh))*H;
+  var spreadPx=(cfg.spread||0.05)*W;
+  var lx=xl-spreadPx, rx=xr+spreadPx;  // origins spread outside screen
   var xc=(xl+xr)/2;
   // Draw crossing beams
   if(!fxCtx) return;
   fxCtx.save();
   fxCtx.globalCompositeOperation='lighter';
-  [[xl,yb,xc+(xl-xc)/Math.abs(yb-H)*H,H],[xr,yb,xc+(xr-xc)/Math.abs(yb-H)*H,H]].forEach(function(b){
+  [[lx,yb,xc+(lx-xc)/Math.abs(yb-H)*H,H],[rx,yb,xc+(rx-xc)/Math.abs(yb-H)*H,H]].forEach(function(b){
     var grd=fxCtx.createLinearGradient(b[0],b[1],b[2],b[3]);
     var col='rgba(0,220,160,';
     grd.addColorStop(0,col+(alpha*0.06).toFixed(3)+')');
