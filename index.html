@@ -22238,7 +22238,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   MIZE.SoundStudio.onLevel = function (l) {
     _xqSt.level = l;
     // Drive StageFX in real-time: energy warms fog, hit flares beam halos
-    if(_stFX) _stFX.set({ energy: l.level, hit: l.hit, laser: Math.max(0.18, l.bass*0.80) });
+    if(_stFX) _stFX.set({ energy: l.level, hit: l.hit, laser: Math.max(0.45, l.bass*0.90) });
   };
 
   // FALLBACK: setInterval metronome for BPM-null tracks or CORS-off sessions.
