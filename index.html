@@ -603,16 +603,16 @@
      places per camera state (wall boxes mapped through the room's camera transform, or
      the reading box for the focused screen). Moves are eased transitions on those boxes
      and on the room's transform -- never a transform on a screen or on #board. */
-  body.presentation #studioTrack { position:fixed; inset:0; z-index:100; display:block; width:auto; height:auto; transform:none; }
+  body.xqStage #studioTrack { position:fixed; inset:0; z-index:100; display:block; width:auto; height:auto; transform:none; }
   :root { --cam-d:1s; --cam-ease:cubic-bezier(.45,.05,.2,1); }
   @media (prefers-reduced-motion:reduce) { :root { --cam-d:0s; } }
   #studioWindowLayer { display:none; position:fixed; inset:0; z-index:40; opacity:1; transition:opacity 1.1s ease; }
-  body.presentation #studioWindowLayer { display:none; }  /* PS-001 Stage 2: the drawn skyline is replaced by the XQ-ENV-001 room (#psRoom) */
+  body.xqStage #studioWindowLayer { display:none; }  /* PS-001 Stage 2: the drawn skyline is replaced by the XQ-ENV-001 room (#psRoom) */
   #studioWindowLayer.dark { opacity:.12; }
   #studioWindowLayer svg { width:100%; height:100%; display:block; }
   #studioWindowMullions { position:absolute; inset:0; background:repeating-linear-gradient(90deg, rgba(28,24,18,.6) 0 5px, transparent 5px 240px), repeating-linear-gradient(0deg, rgba(28,24,18,.6) 0 5px, transparent 5px 240px); }
   #studioWindowBlinds { display:none; position:fixed; top:0; left:0; right:0; height:0; overflow:hidden; background:repeating-linear-gradient(180deg, #0c1220 0px, #0c1220 18px, #05070d 18px, #05070d 20px); box-shadow:inset 0 -10px 14px -8px rgba(0,0,0,.5); transition:height 2s ease; z-index:41; }
-  body.presentation #studioWindowBlinds { display:none; }  /* retired with the window; STUDIO DIM MODE dims the room instead */
+  body.xqStage #studioWindowBlinds { display:none; }  /* retired with the window; STUDIO DIM MODE dims the room instead */
   #studioWindowBlinds.closed { height:100%; }
   .blindsStar { position:absolute; border-radius:50%; background:#fff; animation:blindsStarTwinkle ease-in-out infinite; }
   @keyframes blindsStarTwinkle { 0%,100% { opacity:var(--starMin,.08); } 50% { opacity:var(--starMax,.32); } }
@@ -622,19 +622,24 @@
   #studioBlindsControlBtn.active { background:rgba(255,207,64,.3); border-color:rgba(255,207,64,.7); }
   body.presentation #studioBlindsControlBtn { display:flex; }
   #studioProps { display:none; position:fixed; inset:0; z-index:45; pointer-events:none; }
-  body.presentation #studioProps { display:none; }  /* the photographed room has its own depth */
+  body.xqStage #studioProps { display:none; }  /* the photographed room has its own depth */
   /* ── PS-001 Stage 2 — XQ-ENV-001: the XquiX Studio photograph is the room ──
      One studio (XQ-ENV-001 §1, §40): the same image, letterbox, Dormant filter and
      fixture positions the Sound Box uses. The three screens sit ON its surfaces
      (MIZE, 2026-09-21, option A): centre wall = TACTICAL (the Sound Box's own
      screen box), left/right angled panels = MEDIA / INFORMATION. Flat rectangles
      until Stage 4 maps them in perspective. The camera does not move yet (Stage 3). */
-  #psRoom { display:none; position:fixed; inset:0; background:#000; z-index:38; pointer-events:none; }
-  body.presentation #psRoom { display:flex; align-items:center; justify-content:center; }
+  /* ===== The Studio Stage (shared environment, 2026-09-21) =====
+     body.xqStage = the stage is on; body[data-stage] = which consumer (presentation | home | …).
+     Every rule keyed on body.xqStage describes the stage itself -- room, three screens, camera,
+     navigation chrome, branding screens, fixtures. Rules keyed on body.presentation are
+     Presentation's own (steps, playback bar, 3D View, exit button, field colours). API: XQStage. */
+  #psRoom { display:none; position:fixed; inset:0; background:#000; z-index:38; pointer-events:none; overflow:hidden; }
+  body.xqStage #psRoom { display:flex; align-items:center; justify-content:center; }
   #psRoomLB { position:relative; aspect-ratio:16/9; width:min(100%, calc(100vh*16/9)); overflow:hidden; }
   #psRoomLB .room { position:absolute; inset:0; background-size:cover; background-position:center;
                     filter:brightness(.82) saturate(.92); transition:filter .9s ease; }
-  body.presentation:not(.panorama) #psRoomLB .room { filter:brightness(.7) saturate(.9); }
+  body.xqStage:not(.panorama) #psRoomLB .room { filter:brightness(.7) saturate(.9); }
   body.studioDim.presentation:not(.panorama) #psRoomLB .room { filter:brightness(.38) saturate(.85); }
   body.studioDim #psRoomLB .room { filter:brightness(.42) saturate(.85); }   /* STUDIO DIM MODE (PS-001 §27) */
   body.presentation #studioBlindsControlBtn { display:none; }
@@ -862,54 +867,54 @@
   /* .swinging (the old opacity dip) is no longer applied; kept harmless. */
   #studioTrack .studioFrame, #studioTrack #stageWrap { transition:opacity .35s ease; }
   .studioFrame { display:none; }
-  body.presentation #studioTrack > .studioFrame, body.presentation #studioTrack > #stageWrap { position:absolute; display:flex; align-items:center; justify-content:center;
+  body.xqStage #studioTrack > .studioFrame, body.xqStage #studioTrack > #stageWrap { position:absolute; display:flex; align-items:center; justify-content:center;
     transition: left var(--cam-d) var(--cam-ease), top var(--cam-d) var(--cam-ease), width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease), transform var(--cam-d) var(--cam-ease), filter .6s ease; }
   /* Stage 4 -- screen spill (PS-001 §21, restrained approximation): the bright pool throws teal into the
      room, the side screens a faint neutral light. Only while a screen is on the wall. */
-  body.presentation #studioTrack > .studioFrame.onWall { box-shadow:0 0 42px 6px rgba(150,215,210,.10); }
-  body.presentation.panorama #board, body.presentation #stageWrap.camOff #board { box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(46,202,184,.22), 0 0 110px 18px rgba(46,202,184,.16); }
-  body.presentation #board { transition: width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease); }
-  body.presentation .studioFrameContent { width:100% !important; height:100% !important; }
+  body.xqStage #studioTrack > .studioFrame.onWall { box-shadow:0 0 42px 6px rgba(150,215,210,.10); }
+  body.xqStage.panorama #board, body.xqStage #stageWrap.camOff #board { box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(46,202,184,.22), 0 0 110px 18px rgba(46,202,184,.16); }
+  body.xqStage #board { transition: width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease); }
+  body.xqStage .studioFrameContent { width:100% !important; height:100% !important; }
   /* Screen focus state (PS-001 §23): the two screens the camera is not on recede. */
-  body.presentation:not(.panorama) #studioTrack > .camOff { filter:brightness(.38) saturate(.8); z-index:1; }
-  body.presentation:not(.panorama) #studioTrack > .studioFrame:not(.camOff), body.presentation:not(.panorama) #studioTrack > #stageWrap:not(.camOff) { z-index:2; }
-  body.presentation:not(.panorama) #studioTrack > .studioFrame:not(.camOff) { background:rgba(3,9,11,.9); border-radius:4px; box-shadow:0 0 0 1px rgba(46,202,184,.18), 0 30px 80px rgba(0,0,0,.6); }
-  body.presentation:not(.panorama) #studioTrack > .camOff * { pointer-events:none !important; }
-  body.presentation:not(.panorama) #studioTrack > .camOff { cursor:pointer; }
-  body.presentation:not(.panorama) .camOff .studioFrameLoadRow, body.presentation:not(.panorama) .camOff .studioFramePlaceholder > div:last-of-type:not(.studioFrameLoadRow) { display:none; }
-  body.presentation:not(.panorama) .camOff .studioFramePlaceholderIcon { font-size:26px; margin-bottom:6px; }
-  body.presentation:not(.panorama) .camOff .studioFramePlaceholderLabel { font-size:11px; padding:0 8px; white-space:normal; line-height:1.25; }
+  body.xqStage:not(.panorama) #studioTrack > .camOff { filter:brightness(.38) saturate(.8); z-index:1; }
+  body.xqStage:not(.panorama) #studioTrack > .studioFrame:not(.camOff), body.xqStage:not(.panorama) #studioTrack > #stageWrap:not(.camOff) { z-index:2; }
+  body.xqStage:not(.panorama) #studioTrack > .studioFrame:not(.camOff) { background:rgba(3,9,11,.9); border-radius:4px; box-shadow:0 0 0 1px rgba(46,202,184,.18), 0 30px 80px rgba(0,0,0,.6); }
+  body.xqStage:not(.panorama) #studioTrack > .camOff * { pointer-events:none !important; }
+  body.xqStage:not(.panorama) #studioTrack > .camOff { cursor:pointer; }
+  body.xqStage:not(.panorama) .camOff .studioFrameLoadRow, body.xqStage:not(.panorama) .camOff .studioFramePlaceholder > div:last-of-type:not(.studioFrameLoadRow) { display:none; }
+  body.xqStage:not(.panorama) .camOff .studioFramePlaceholderIcon { font-size:26px; margin-bottom:6px; }
+  body.xqStage:not(.panorama) .camOff .studioFramePlaceholderLabel { font-size:11px; padding:0 8px; white-space:normal; line-height:1.25; }
   /* While the camera moves, the board is not interactive (A2: interactive only when parked on CENTER). */
   body.cameraMoving #board, body.cameraMoving #board * { pointer-events:none !important; }
   #psRoomLB { transition: transform var(--cam-d) var(--cam-ease); will-change:transform; }
   /* ── PS-001 Stage 6 — controls ──
      §32 first-entry move: the studio starts slightly farther back and settles into the
      Panorama over ~1.3 s, once per entry (never when returning to Panorama later). */
-  body.presentation #studioTrack { transition: transform var(--cam-d) var(--cam-ease); transform-origin:50% 50%; }
-  body.presentation.psIntro #psRoomLB, body.presentation.psIntro #studioTrack { transform:scale(.955) !important; }
+  body.xqStage #studioTrack { transition: transform var(--cam-d) var(--cam-ease); transform-origin:50% 50%; }
+  body.xqStage.psIntro #psRoomLB, body.xqStage.psIntro #studioTrack { transform:scale(.955) !important; }
   /* §28 clean audience view: navigation chrome fades after inactivity and returns on any
      pointer, touch or key. Never while a tutorial is running (its rings point at these). */
-  body.presentation #studioNavLeft, body.presentation #studioNavRight, body.presentation #studioFrameDots, body.presentation #exitPresentationBtn,
-  body.presentation #presentationPlaybackBar, body.presentation #timelineCommandsBar { transition: opacity .6s ease; }
-  body.presentation.psIdle:not(.tutorialModeActive) #studioNavLeft, body.presentation.psIdle:not(.tutorialModeActive) #studioNavRight,
-  body.presentation.psIdle:not(.tutorialModeActive) #studioFrameDots, body.presentation.psIdle:not(.tutorialModeActive) #exitPresentationBtn,
-  body.presentation.psIdle:not(.tutorialModeActive) #presentationPlaybackBar, body.presentation.psIdle:not(.tutorialModeActive) #timelineCommandsBar { opacity:0; }
+  body.xqStage #studioNavLeft, body.xqStage #studioNavRight, body.xqStage #studioFrameDots, body.xqStage #exitPresentationBtn,
+  body.xqStage #presentationPlaybackBar, body.xqStage #timelineCommandsBar { transition: opacity .6s ease; }
+  body.xqStage.psIdle:not(.tutorialModeActive) #studioNavLeft, body.xqStage.psIdle:not(.tutorialModeActive) #studioNavRight,
+  body.xqStage.psIdle:not(.tutorialModeActive) #studioFrameDots, body.xqStage.psIdle:not(.tutorialModeActive) #exitPresentationBtn,
+  body.xqStage.psIdle:not(.tutorialModeActive) #presentationPlaybackBar, body.xqStage.psIdle:not(.tutorialModeActive) #timelineCommandsBar { opacity:0; }
   #cameraModeBtn { margin-top:2px; }
   /* ── PS-001 Stage 7 — teal accents (§22): teal as light, not as outline. ──
      Screen recesses: a hairline of indirect teal at a screen's edge while it sits in its
      wall recess, brightening a touch on the screen the camera is on. */
-  body.presentation #studioTrack > .studioFrame.onWall, body.presentation #stageWrap.onWall #board {
+  body.xqStage #studioTrack > .studioFrame.onWall, body.xqStage #stageWrap.onWall #board {
     box-shadow:0 0 0 1px rgba(46,202,184,.16), inset 0 0 0 1px rgba(46,202,184,.10), 0 0 42px 6px rgba(150,215,210,.10); }
-  body.presentation #studioTrack > .studioFrame.camFocus { box-shadow:0 0 0 1px rgba(46,202,184,.28), 0 0 26px 2px rgba(46,202,184,.14), 0 30px 80px rgba(0,0,0,.6); }
+  body.xqStage #studioTrack > .studioFrame.camFocus { box-shadow:0 0 0 1px rgba(46,202,184,.28), 0 0 26px 2px rgba(46,202,184,.14), 0 30px 80px rgba(0,0,0,.6); }
   /* Active-camera indicator: the dot for the screen the camera is on carries the teal light;
      the others stay neutral. In Panorama the ring carries it. */
-  body.presentation #studioFrameDots span.active { background:#2ecab8; box-shadow:0 0 10px 2px rgba(46,202,184,.45); }
-  body.presentation #studioFrameDots span[data-frame="pan"].active { border-color:#2ecab8; background:rgba(46,202,184,.35); box-shadow:0 0 10px 2px rgba(46,202,184,.45); }
-  body.presentation #studioFrameDots span { transition: background .35s ease, box-shadow .35s ease, border-color .35s ease; }
-  body.presentation #studioFrameDots { top:calc(92px + env(safe-area-inset-top)); }  /* below the photographed lamps' glow */
+  body.xqStage #studioFrameDots span.active { background:#2ecab8; box-shadow:0 0 10px 2px rgba(46,202,184,.45); }
+  body.xqStage #studioFrameDots span[data-frame="pan"].active { border-color:#2ecab8; background:rgba(46,202,184,.35); box-shadow:0 0 10px 2px rgba(46,202,184,.45); }
+  body.xqStage #studioFrameDots span { transition: background .35s ease, box-shadow .35s ease, border-color .35s ease; }
+  body.xqStage #studioFrameDots { top:calc(92px + env(safe-area-inset-top)); }  /* below the photographed lamps' glow */
   /* Chevrons: teal on hover/press only (design system §12) */
-  body.presentation #studioNavLeft:hover, body.presentation #studioNavRight:hover { border-color:rgba(46,202,184,.7); box-shadow:0 0 14px rgba(46,202,184,.25); }
-  body.presentation #studioNavLeft:active, body.presentation #studioNavRight:active { background:rgba(46,202,184,.18); }
+  body.xqStage #studioNavLeft:hover, body.xqStage #studioNavRight:hover { border-color:rgba(46,202,184,.7); box-shadow:0 0 14px rgba(46,202,184,.25); }
+  body.xqStage #studioNavLeft:active, body.xqStage #studioNavRight:active { background:rgba(46,202,184,.18); }
   /* ── PS-001 Stage 5 — the immersive tactical window (§15). Only with the camera parked on
      CENTER and 3D View on: the architecture around the screen darkens, the screen boundary
      softens, the water's depth extends a little beyond the screen, the centre wall takes a
@@ -930,17 +935,17 @@
      target that moves the camera to it (PS-001 §9, decision A2). */
   /* Stage 2: in Panorama the three screens are placed on the room's surfaces by
      fitBoardToScreen() (absolute boxes inside the 16:9 letterbox), not flexed. */
-  body.presentation.panorama .studioFrameContent { box-shadow:0 0 0 1px rgba(46,202,184,.12), 0 10px 30px rgba(0,0,0,.6); border-radius:3px; }
+  body.xqStage.panorama .studioFrameContent { box-shadow:0 0 0 1px rgba(46,202,184,.12), 0 10px 30px rgba(0,0,0,.6); border-radius:3px; }
   /* Side-screen placeholders scaled to the narrow panels */
-  body.presentation.panorama .studioFramePlaceholderIcon { font-size:26px; margin-bottom:6px; }
-  body.presentation.panorama .studioFramePlaceholderLabel { font-size:11px; letter-spacing:0; padding:0 8px; white-space:normal; line-height:1.25; }
-  body.presentation.panorama .studioFrameLoadRow { flex-direction:column; gap:6px; margin-top:10px; align-items:center; }
-  body.presentation.panorama .studioFrameLoadRow button { font-size:10px; padding:5px 10px; }
-  body.presentation.panorama .studioFramePlaceholder > div:last-of-type:not(.studioFrameLoadRow) { display:none; }
-  body.presentation.panorama #studioTrack > .studioFrame, body.presentation.panorama #studioTrack > #stageWrap { cursor:pointer; }
-  body.presentation.panorama #studioTrack > .studioFrame *, body.presentation.panorama #studioTrack > #stageWrap * { pointer-events:none !important; }  /* nothing inside a screen is interactive in Panorama -- .studioFrameLoadRow button re-enables pointer-events otherwise */
-  body.presentation.panorama #board { box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(46,202,184,.22), 0 0 40px rgba(46,202,184,.10); }
-  body.presentation.panorama .studioFrameClearBtn { display:none; }
+  body.xqStage.panorama .studioFramePlaceholderIcon { font-size:26px; margin-bottom:6px; }
+  body.xqStage.panorama .studioFramePlaceholderLabel { font-size:11px; letter-spacing:0; padding:0 8px; white-space:normal; line-height:1.25; }
+  body.xqStage.panorama .studioFrameLoadRow { flex-direction:column; gap:6px; margin-top:10px; align-items:center; }
+  body.xqStage.panorama .studioFrameLoadRow button { font-size:10px; padding:5px 10px; }
+  body.xqStage.panorama .studioFramePlaceholder > div:last-of-type:not(.studioFrameLoadRow) { display:none; }
+  body.xqStage.panorama #studioTrack > .studioFrame, body.xqStage.panorama #studioTrack > #stageWrap { cursor:pointer; }
+  body.xqStage.panorama #studioTrack > .studioFrame *, body.xqStage.panorama #studioTrack > #stageWrap * { pointer-events:none !important; }  /* nothing inside a screen is interactive in Panorama -- .studioFrameLoadRow button re-enables pointer-events otherwise */
+  body.xqStage.panorama #board { box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(46,202,184,.22), 0 0 40px rgba(46,202,184,.10); }
+  body.xqStage.panorama .studioFrameClearBtn { display:none; }
   .studioFramePlaceholder { color:rgba(255,255,255,.55); text-align:center; font-family:'Space Grotesk',sans-serif; user-select:none; }
   .studioFramePlaceholderIcon { font-size:64px; margin-bottom:14px; opacity:.7; }
   .studioFramePlaceholderLabel { font-size:24px; font-weight:700; color:rgba(255,255,255,.8); letter-spacing:.02em; }
@@ -954,7 +959,7 @@
   .studioFrameClearBtn { display:none; position:absolute; bottom:8px; right:8px; z-index:50; width:30px; height:30px; border-radius:50%; background:rgba(20,20,20,.85); color:#fff; border:1.5px solid rgba(255,255,255,.5); font-size:14px; align-items:center; justify-content:center; padding:0; box-shadow:0 2px 8px rgba(0,0,0,.5); }
   .studioFrameClearBtn.shown { display:flex; }
   #studioNavLeft, #studioNavRight { display:none; position:fixed; top:calc(50% + 140px); transform:translateY(-50%); z-index:1450; width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.35); color:#fff; font-size:22px; align-items:center; justify-content:center; cursor:pointer; }
-  body.presentation #studioNavLeft, body.presentation #studioNavRight { display:flex; }
+  body.xqStage #studioNavLeft, body.xqStage #studioNavRight { display:flex; }
 
   /* ---- Mode Switcher Panel ----------------------------------------- */
   #modeSwitcherPanel {
@@ -1042,11 +1047,11 @@
   #studioNavRight { right:calc(14px + env(safe-area-inset-right)); }
   #studioNavLeft:disabled, #studioNavRight:disabled { opacity:.25; cursor:default; }
   #studioFrameDots { display:none; position:fixed; top:calc(56px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:1450; gap:8px; }
-  body.presentation #studioFrameDots { display:flex; }
+  body.xqStage #studioFrameDots { display:flex; }
   #studioFrameDots span { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.35); }
   #studioFrameDots span.active { background:#fff; }
   #studioFrameDots span.empty { background:rgba(255,255,255,.12); }
-  body.presentation #studioFrameDots span { cursor:pointer; }
+  body.xqStage #studioFrameDots span { cursor:pointer; }
   #studioFrameDots span[data-frame="pan"] { width:11px; height:11px; margin-left:6px; background:transparent; border:1.5px solid rgba(255,255,255,.45); box-sizing:border-box; }
   #studioFrameDots span[data-frame="pan"].active { border-color:#fff; background:rgba(255,255,255,.4); }
   .edgeTab.active { background:#ffcf40; color:#20200a; }
@@ -1058,35 +1063,35 @@
   #spotlightResizeHandle.shown { display:flex; width:26px; height:26px; margin-left:-13px; margin-top:-13px; border-radius:50%; background:#fff; border:2px solid #ffcf40; cursor:nwse-resize; pointer-events:auto; touch-action:none; align-items:center; justify-content:center; font-size:13px; }
   #presentationWaterBackdrop { display:none; position:absolute; inset:0; background:none; }
   body.presentation #presentationWaterBackdrop { display:none; }
-  body.presentation .studioFrame { position:relative; }
-  body.presentation .studioFrame::before { content:''; position:absolute; inset:0; background:none; z-index:0; }
-  body.presentation .studioFrame .studioFramePlaceholder { position:relative; z-index:1; }
+  body.xqStage .studioFrame { position:relative; }
+  body.xqStage .studioFrame::before { content:''; position:absolute; inset:0; background:none; z-index:0; }
+  body.xqStage .studioFrame .studioFramePlaceholder { position:relative; z-index:1; }
   /* ── Side screens as branding screens (MIZE, 2026-09-21). While a side screen has no content
      it shows a logo -- the coach's presentation logo from Branding if set, else the XquiX Studio
      mark (reused from #splashLogo at runtime). The load buttons appear only when the camera is
      on that screen; on the wall there is nothing to press (PS-001 §28 clean audience view). */
   .studioFrameBrand { display:none; }
-  body.presentation .studioFrame .studioFrameBrand { display:flex; position:absolute; inset:0; align-items:center; justify-content:center; pointer-events:none; z-index:1; }
-  body.presentation .studioFrame.hasContent .studioFrameBrand { display:none; }
+  body.xqStage .studioFrame .studioFrameBrand { display:flex; position:absolute; inset:0; align-items:center; justify-content:center; pointer-events:none; z-index:1; }
+  body.xqStage .studioFrame.hasContent .studioFrameBrand { display:none; }
   .studioFrameBrand img { width:70%; max-height:58%; object-fit:contain; opacity:.85; filter:drop-shadow(0 0 22px rgba(46,202,184,.32)); }
-  body.presentation .studioFrame:not(.camFocus) .studioFramePlaceholder { display:none; }
-  body.presentation .studioFrame.camFocus:not(.hasContent) .studioFrameBrand { align-items:flex-start; padding-top:16%; }
-  body.presentation .studioFrame.camFocus .studioFramePlaceholderIcon, body.presentation .studioFrame.camFocus .studioFramePlaceholderLabel { display:none; }
-  body.presentation .studioFrame.camFocus .studioFramePlaceholder { position:absolute; left:8%; right:8%; bottom:9%; z-index:2;
+  body.xqStage .studioFrame:not(.camFocus) .studioFramePlaceholder { display:none; }
+  body.xqStage .studioFrame.camFocus:not(.hasContent) .studioFrameBrand { align-items:flex-start; padding-top:16%; }
+  body.xqStage .studioFrame.camFocus .studioFramePlaceholderIcon, body.xqStage .studioFrame.camFocus .studioFramePlaceholderLabel { display:none; }
+  body.xqStage .studioFrame.camFocus .studioFramePlaceholder { position:absolute; left:8%; right:8%; bottom:9%; z-index:2;
     display:flex !important; flex-direction:column; align-items:center; justify-content:flex-end; text-align:center; }
-  body.presentation .studioFrame.camFocus .studioFrameLoadRow { display:flex; flex-direction:row; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:0; }
-  body.presentation .studioFrame.camFocus .studioFramePlaceholder > div:last-of-type:not(.studioFrameLoadRow) { max-width:min(520px, 100%); margin:10px auto 0; text-align:center; }
-  body.presentation .studioFrame.camFocus .studioFrameContent ~ .studioFramePlaceholder, body.presentation .studioFrame.camFocus.hasContent .studioFramePlaceholder { display:none !important; }
+  body.xqStage .studioFrame.camFocus .studioFrameLoadRow { display:flex; flex-direction:row; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:0; }
+  body.xqStage .studioFrame.camFocus .studioFramePlaceholder > div:last-of-type:not(.studioFrameLoadRow) { max-width:min(520px, 100%); margin:10px auto 0; text-align:center; }
+  body.xqStage .studioFrame.camFocus .studioFrameContent ~ .studioFramePlaceholder, body.xqStage .studioFrame.camFocus.hasContent .studioFramePlaceholder { display:none !important; }
   #stageLights { display:none; position:fixed; top:0; left:0; width:100%; z-index:1300; pointer-events:none; height:90px; }
   /* Stage 2: the fixtures are the three lamps in the photograph. #stageLights is
      sized to the room letterbox by fitBoardToScreen(); the drawn housings are hidden
      and only the lens glow (tap target) and the spotlight cone remain, in the room's
      teal-white light. */
-  body.presentation .stageLight { top:-58px; }
-  body.presentation .stageLight .stageLightYoke, body.presentation .stageLight .stageLightHousing, body.presentation .stageLight .stageLightBarnDoor { opacity:0; }
-  body.presentation .stageLight .stageLightLens { width:22px; height:22px; background:radial-gradient(circle,#f4ffff 0%,#9ff1ea 40%,rgba(159,241,234,0) 75%); box-shadow:0 0 26px 10px rgba(120,230,222,.45); }
-  body.presentation .stageLight .stageLightCone { background:linear-gradient(to bottom, rgba(190,244,247,.18) 0%, rgba(190,244,247,.07) 30%, rgba(190,244,247,.02) 60%, transparent 88%); }
-  body.presentation #stageLights { display:block; }
+  body.xqStage .stageLight { top:-58px; }
+  body.xqStage .stageLight .stageLightYoke, body.xqStage .stageLight .stageLightHousing, body.xqStage .stageLight .stageLightBarnDoor { opacity:0; }
+  body.xqStage .stageLight .stageLightLens { width:22px; height:22px; background:radial-gradient(circle,#f4ffff 0%,#9ff1ea 40%,rgba(159,241,234,0) 75%); box-shadow:0 0 26px 10px rgba(120,230,222,.45); }
+  body.xqStage .stageLight .stageLightCone { background:linear-gradient(to bottom, rgba(190,244,247,.18) 0%, rgba(190,244,247,.07) 30%, rgba(190,244,247,.02) 60%, transparent 88%); }
+  body.xqStage #stageLights { display:block; }
   .stageLight { position:absolute; top:-6px; width:60px; height:86px; pointer-events:auto; cursor:pointer; }
   .stageLight .stageLightHousing { transition:filter .15s ease; }
   .stageLight:hover .stageLightHousing { filter:brightness(1.35); }
@@ -1102,7 +1107,7 @@
   .stageLight.spotlightDimmed .stageLightCone { display:none; }
   .stageLight.spotlightDimmed .stageLightLens { opacity:.22; box-shadow:none; }
   .stageLight.spotlightResponsible .stageLightCone { background:linear-gradient(to bottom, rgba(255,238,180,.34) 0%, rgba(255,238,180,.16) 55%, rgba(255,238,180,.10) 85%, rgba(255,238,180,.06) 100%); }
-  body.presentation #board { position:relative; flex:0 0 auto; margin:0; box-shadow:0 20px 60px rgba(0,0,0,.5); aspect-ratio:auto; }
+  body.xqStage #board { position:relative; flex:0 0 auto; margin:0; box-shadow:0 20px 60px rgba(0,0,0,.5); aspect-ratio:auto; }
   body.presentation #frameNote { font-size:18px; min-height:60px; }
   #timelinePanel:not(.detached) { position:fixed; top:50%; bottom:auto; left:50%; width:min(760px,92vw); max-height:82vh; max-height:82dvh; border-radius:14px; box-shadow:0 24px 70px rgba(0,0,0,.45); z-index:1530; transform:translate(-50%,-50%) translateY(150vh); transition:transform .25s ease; pointer-events:none; }
   #timelinePanel.detached { z-index:1530; }
@@ -1497,36 +1502,50 @@
      --lbw is the room width: cover the viewport, but never so wide that the centre screen
      (52 % of it) is wider than the viewport, and never under 770 px so three 110 px circles
      always fit on the screen. Phones therefore get a letterboxed room with black bands. */
-  #xquixHomeScreen { --lbw:max(min(max(100vw, calc(100vh * 16 / 9)), calc(100vw * 1.92)), 770px);
-    --circle:clamp(110px, calc(var(--lbw) * 0.105), 175px); --gap:clamp(14px, calc(var(--lbw) * 0.02), 36px);
-    display:none; position:fixed; inset:0; z-index:9000; background:#000; overflow:hidden; }
-  #xquixHomeScreen.open { display:block; animation:xquixHomeIn .45s ease; }
+  /* Home is a consumer of the Studio Stage (XQStage, 2026-09-21): the stage supplies the room,
+     the three screens and the branding logos on the side panels; Home mounts #homeCenterScreen
+     onto the tactical screen (over the board, which stays laid out but hidden). #xquixHomeScreen
+     is only the node's home while Home is closed, plus the .open state flag. */
+  #xquixHomeScreen { display:none; }
+  #homeCenterScreen { --lbw:1440px; --circle:clamp(110px, calc(var(--lbw) * 0.115), 175px); --gap:clamp(14px, calc(var(--lbw) * 0.02), 36px); }
   @keyframes xquixHomeIn { from { opacity:0; } to { opacity:1; } }
-  #homeRoomLB { position:absolute; left:50%; top:50%; width:var(--lbw); height:calc(var(--lbw) * 9 / 16);
-    margin-left:calc(var(--lbw) / -2); margin-top:calc(var(--lbw) * -9 / 32); }
-  #homeRoomLB .room { position:absolute; inset:0; background-size:cover; background-position:center; filter:brightness(1) saturate(1.08); }
   /* The centre wall screen as a surface: a restrained dark glass over the photographed screen,
      lit at the edge (teal as light, DESIGN-SYSTEM §4/§15). Content sits on it, nothing else. */
-  #homeCenterScreen { position:absolute; left:24%; top:16%; width:52%; height:62%; display:flex; flex-direction:column;
+  #stageWrap > #homeCenterScreen { position:absolute; inset:0; z-index:3; display:flex; flex-direction:column;
     align-items:center; justify-content:center; padding:calc(var(--gap) * 1.6) 3% calc(var(--gap) * .8); border-radius:4px;
     background:linear-gradient(180deg, rgba(3,10,10,.50), rgba(3,10,10,.68));
-    box-shadow:inset 0 0 0 1px rgba(46,202,184,.16), 0 0 90px 14px rgba(46,202,184,.10); }
-  #xquixHomeScreen.tutorialsOpen #homeCenterScreen { overflow-y:auto; justify-content:flex-start; }
-  .homeSideScreen { position:absolute; left:0; top:0; transform-origin:0 0; display:flex; align-items:center; justify-content:center;
-    pointer-events:none; background:rgba(0,0,0,.12); box-shadow:0 0 42px 6px rgba(150,215,210,.08); }
-  .homeSideScreen img { width:70%; max-height:58%; object-fit:contain; opacity:.85; filter:drop-shadow(0 0 22px rgba(46,202,184,.32)); }
+    box-shadow:inset 0 0 0 1px rgba(46,202,184,.16), 0 0 90px 14px rgba(46,202,184,.10); animation:xquixHomeIn .45s ease; }
+  #homeCenterScreen.tutorialsOpen { overflow-y:auto; justify-content:flex-start; }
+  /* Home's rules on the stage: the room at the intro's final brightness, a minimum room width so
+     three 110 px circles fit on a phone (the room is cropped at the sides there, never scaled to
+     cover), the board hidden under the mounted screen, no placeholders or load controls on the
+     side screens (branding only), no camera chrome, and the whole stage above the Studio's UI. */
+  body[data-stage="home"] #psRoomLB { width:max(min(100%, calc(100vh * 16 / 9)), 770px); flex:none; }
+  body[data-stage="home"] #psRoomLB .room { filter:brightness(1) saturate(1.08); }
+  body[data-stage="home"] #board { visibility:hidden; }
+  /* Panorama makes everything inside a screen inert (nothing to tap while the camera is back); Home's mounted screen is the exception. */
+  body.xqStage.panorama[data-stage="home"] #studioTrack > #stageWrap > #homeCenterScreen, body.xqStage.panorama[data-stage="home"] #studioTrack > #stageWrap > #homeCenterScreen * { pointer-events:auto !important; }
+  body[data-stage="home"] .studioFramePlaceholder, body[data-stage="home"] .studioFrameClearBtn { display:none !important; }
+  body[data-stage="home"] #studioTrack > .studioFrame, body[data-stage="home"] #studioTrack > #stageWrap { cursor:default; }
+  body[data-stage="home"] #studioNavLeft, body[data-stage="home"] #studioNavRight, body[data-stage="home"] #studioFrameDots,
+  body[data-stage="home"] header, body[data-stage="home"] #edgeTabStack, body[data-stage="home"] #quickCommandBar,
+  body[data-stage="home"] #showQuickCommandBarTab, body[data-stage="home"] #controlsPanel, body[data-stage="home"] #timelinePanel,
+  body[data-stage="home"] #toolPanelBackdrop, body[data-stage="home"] #coachingNotesSidebar, body[data-stage="home"] #closeHeaderBtn { display:none !important; }
+  body[data-stage="home"] #psRoom { z-index:8998; }
+  body[data-stage="home"] #studioTrack { z-index:8999; }
+  body[data-stage="home"] #stageLights { z-index:9000; }
   .xquixHomeEyebrow { font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:700; letter-spacing:.16em; color:#2dd4c8; text-transform:uppercase; margin:0 0 10px; }
   #brandLogoHome { display:none; }
   .xquixHomeHeading { position:absolute; left:0; right:0; top:calc(var(--gap) * .55); margin:0; text-align:center; font-family:'Archivo',system-ui,-apple-system,sans-serif;
     font-size:clamp(11px, calc(var(--lbw) * 0.0085), 14px); font-weight:600; letter-spacing:.3em; text-transform:uppercase; color:#9fc9c6; }
   .xquixHomeHeading .hi { color:#7ff0ec; }
   .xquixHomeCircles { display:grid; grid-template-columns:repeat(3, var(--circle)); gap:var(--gap); justify-content:center; margin-top:calc(var(--gap) * .6); }
-  #xquixHomeScreen.tutorialsOpen .xquixHomeCircles { display:none; }
+  #homeCenterScreen.tutorialsOpen .xquixHomeCircles { display:none; }
   .xquixHomeCircle { position:relative; width:var(--circle); background:none; border:none; padding:0; cursor:pointer; display:flex; flex-direction:column; align-items:center; -webkit-tap-highlight-color:transparent; }
   .xquixHomeCircle img { width:var(--circle); height:var(--circle); border-radius:50%; display:block; transition:transform .2s ease, filter .3s ease, opacity .3s ease; }
   /* Selection (MS-001 §12): the chosen circle responds, the others recede, then the destination takes over. */
-  #xquixHomeScreen.leaving .xquixHomeCircle img { opacity:.35; transform:scale(.96); }
-  #xquixHomeScreen.leaving .xquixHomeCircle.chosen img { opacity:1; transform:scale(1.08); filter:drop-shadow(0 0 26px rgba(46,202,184,.45)); }
+  #homeCenterScreen.leaving .xquixHomeCircle img { opacity:.35; transform:scale(.96); }
+  #homeCenterScreen.leaving .xquixHomeCircle.chosen img { opacity:1; transform:scale(1.08); filter:drop-shadow(0 0 26px rgba(46,202,184,.45)); }
   .xquixHomeCircle:hover img, .xquixHomeCircle:focus-visible img { transform:scale(1.045); }
   .xquixHomeCircle:active img { transform:scale(.98); }
   .xquixHomeCircle:focus-visible { outline:2px solid #2dd4c8; outline-offset:6px; border-radius:50%; }
@@ -1561,7 +1580,7 @@
   @media (prefers-reduced-motion: reduce) {
     .xquixHomeCircle img, .xquixHomeTutorialBanner { transition:none !important; animation:none !important; opacity:1 !important; transform:none !important; }
   }
-  @media (prefers-reduced-motion: reduce) { #xquixHomeScreen.open { animation:none; } }
+  @media (prefers-reduced-motion: reduce) { #stageWrap > #homeCenterScreen { animation:none; } }
   .xquixHomeToast { display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#0d2422; border:1px solid #234745; border-radius:10px; padding:12px 22px; font-size:13.5px; color:#cfe7e4; z-index:9001; box-shadow:0 10px 30px rgba(0,0,0,.5); max-width:min(320px,86vw); text-align:center; }
   .xquixHomeToast.shown { display:block; }
   /* Add-to-Home-Screen guide: reuses the tutorial's own ring
@@ -3084,10 +3103,6 @@
   </div>
 </div>
 <div id="xquixHomeScreen">
- <div id="homeRoomLB">
-  <div class="room" aria-hidden="true"></div>
-  <div class="homeSideScreen" id="homeSideLeft" aria-hidden="true"><img alt="" draggable="false"></div>
-  <div class="homeSideScreen" id="homeSideRight" aria-hidden="true"><img alt="" draggable="false"></div>
   <div id="homeCenterScreen">
   <img id="brandLogoHome" alt="XquiX Studio">
   <h1 class="xquixHomeHeading">Choose your <span class="hi">Studio</span></h1>
@@ -3144,7 +3159,6 @@
         </div>
       </div>
   </div>
- </div>
 </div>
 <div id="xquixHomeToast" class="xquixHomeToast"></div>
 <div id="freeAccessEmailScreen" class="freeAccessOverlay">
@@ -4692,42 +4706,36 @@ function xquixShowHome(){
     var el=document.getElementById(id); if(el) el.classList.remove('on','playing');
   });
   const home=document.getElementById('xquixHomeScreen');
-  home?.classList.remove('leaving');
-  home?.querySelectorAll('.xquixHomeCircle.chosen').forEach(b=>b.classList.remove('chosen'));
+  const screen=document.getElementById('homeCenterScreen');
+  screen?.classList.remove('leaving');
+  screen?.querySelectorAll('.xquixHomeCircle.chosen').forEach(b=>b.classList.remove('chosen'));
   home?.classList.add('open');
   try{ xquixRenderHomeAvailability(); }catch(e){}
-  try{ xquixHomeLayoutRoom(); }catch(e){}
+  // Home on the studio: a consumer of the shared stage. Presentation (another consumer) must
+  // close first; the stage then shows the room and the branding side screens, and Home mounts
+  // its centre screen. Camera locked on the Panorama; no first-entry move (Home has its own fade).
+  if(typeof XQStage!=='undefined' && screen){
+    if(document.body.classList.contains('presentation') && typeof togglePresentation==='function') togglePresentation();
+    XQStage.open('home', { camera:'pan', lockCamera:true, instant:true, intro:false, minRoomWidth:770 });
+    XQStage.setScreen('tactical', screen);
+    xquixHomeApplyRoomWidth();
+  }
 }
 function xquixHideHome(){
   document.getElementById('xquixHomeScreen')?.classList.remove('open');
   xquixHomeCollapseTutorials();
+  if(typeof XQStage!=='undefined' && XQStage.consumer()==='home') XQStage.close();
 }
-// Home on the studio: the room photo is the one XQ-ENV-001 asset already inline for the intro
-// (#splashScreen .room) -- copied at open, not a fourth inline copy. The side panels are the
-// PS_SCREENS quadrilaterals (four-corner fit, same as Presentation's wall screens); the
-// centre screen is CSS percentages of the letterbox and needs no JS.
-function xquixHomeLayoutRoom(){
-  const lb=document.getElementById('homeRoomLB'); if(!lb) return;
-  const room=lb.querySelector('.room');
-  if(room && !room.style.backgroundImage){
-    const src=document.querySelector('#splashScreen .room')||document.querySelector('#psRoomLB .room');
-    if(src && src.style.backgroundImage) room.style.backgroundImage=src.style.backgroundImage;
-  }
-  const logo=(typeof psBrandLogoSrc==='function') ? psBrandLogoSrc() : (document.getElementById('splashLogo')?.src||'');
-  const W=lb.offsetWidth, H=lb.offsetHeight;
-  [['homeSideLeft','left'],['homeSideRight','right']].forEach(([id,k])=>{
-    const el=document.getElementById(id); if(!el) return;
-    const img=el.querySelector('img'); if(img && logo && img.getAttribute('src')!==logo) img.src=logo;
-    const sc=(typeof PS_SCREENS!=='undefined') ? PS_SCREENS[k] : null;
-    if(!sc || !sc.corners || !W){ el.style.display='none'; return; }
-    el.style.display='';
-    const w=sc.w*W, h=sc.h*H;
-    el.style.left=(sc.x*W)+'px'; el.style.top=(sc.y*H)+'px'; el.style.width=w+'px'; el.style.height=h+'px';
-    const q=sc.corners.map(([cx,cy])=>[cx*W-sc.x*W, cy*H-sc.y*H]);
-    el.style.transform=(typeof psMatrix3dFromCorners==='function') ? psMatrix3dFromCorners(w,h,q) : '';
-  });
+// The circles are sized from the room's width (--lbw on the mounted screen), so they scale with
+// the stage; the stage reports its room after every layout (open and resize).
+function xquixHomeApplyRoomWidth(){
+  const screen=document.getElementById('homeCenterScreen'); if(!screen || typeof XQStage==='undefined') return;
+  screen.style.setProperty('--lbw', XQStage.roomRect().width+'px');
 }
-window.addEventListener('resize', ()=>{ if(document.getElementById('xquixHomeScreen')?.classList.contains('open')) xquixHomeLayoutRoom(); });
+document.addEventListener('DOMContentLoaded', ()=>{
+  if(typeof XQStage==='undefined') return;
+  XQStage.on('layout', ()=>{ if(XQStage.consumer()==='home') xquixHomeApplyRoomWidth(); });
+});
 // Re-checks every circle's gate. Safe to call anytime, including
 // before XQUIX.Entitlements data has finished loading -- canFunction()
 // is synchronous and fails open on its own when data isn't ready yet,
@@ -4746,7 +4754,7 @@ function xquixRenderHomeAvailability(){
 }
 function xquixHomeCollapseTutorials(){
   document.getElementById('xquixHomeTutorialBanners')?.classList.remove('open');
-  document.getElementById('xquixHomeScreen')?.classList.remove('tutorialsOpen');
+  document.getElementById('homeCenterScreen')?.classList.remove('tutorialsOpen');
 }
 function xquixHomeToggleTooltip(circleEl){
   const tooltip = circleEl.querySelector('.xquixHomeTooltip');
@@ -4760,7 +4768,7 @@ document.getElementById('xquixHomeCircle_tutorials')?.addEventListener('click', 
   const g = document.getElementById('xquixHomeTutorialBanners');
   const opened = g?.classList.toggle('open');
   // MS-001 §15: the tutorial choice REPLACES the grid on the centre screen; Back restores it.
-  document.getElementById('xquixHomeScreen')?.classList.toggle('tutorialsOpen', !!opened);
+  document.getElementById('homeCenterScreen')?.classList.toggle('tutorialsOpen', !!opened);
 });
 document.getElementById('xquixHomeTutorialsBack')?.addEventListener('click', (e)=>{
   e.stopPropagation();
@@ -4769,7 +4777,7 @@ document.getElementById('xquixHomeTutorialsBack')?.addEventListener('click', (e)
 ['coaching','gametracker','presenting','practice','soundbox'].forEach(mode => {
   document.getElementById('xquixHomeCircle_' + mode)?.addEventListener('click', function(){
     if(this.classList.contains('locked')){ xquixHomeToggleTooltip(this); return; }
-    const home=document.getElementById('xquixHomeScreen');
+    const home=document.getElementById('homeCenterScreen');
     if(home?.classList.contains('leaving')) return;   // one selection at a time
     // MS-001 §12: the chosen circle responds and the others recede for ~380 ms, then the
     // destination takes over via the same event the routing listens to.
@@ -4816,7 +4824,8 @@ document.getElementById('xquixHomeCircle_tutorials')?.addEventListener('click', 
   group?.classList.remove('open');
   group?.parentElement?.classList.remove('drilled');
 });
-document.getElementById('xquixHomeScreen')?.addEventListener('click', (e)=>{
+document.addEventListener('click', (e)=>{
+  if(!document.getElementById('xquixHomeScreen')?.classList.contains('open')) return;
   if(!e.target.closest('.xquixHomeCircle')){
     document.querySelectorAll('.xquixHomeTooltip.shown').forEach(t => t.classList.remove('shown'));
   }
@@ -11720,9 +11729,93 @@ function psMatrix3dFromCorners(w,h,q){
 }
 function psRoomRect(){
   const vw=viewportWidth(), vh=viewportHeight();
-  const w=Math.min(vw, vh*16/9), h=w*9/16;
+  // Letterbox: the whole photograph, never cropped -- except that a consumer whose content
+  // lives ON the wall (Home) may declare a minimum room width, so on a phone the room is
+  // cropped at the sides rather than shrunk until the centre screen is unusable.
+  const minW=(typeof XQStage!=='undefined' && XQStage.isOpen() && XQStage.opts().minRoomWidth) || 0;
+  const w=Math.max(Math.min(vw, vh*16/9), minW), h=w*9/16;
   return { left:(vw-w)/2, top:(vh-h)/2, width:w, height:h };
 }
+// ===== XQStage -- the Studio Stage as a shared environment (2026-09-21) =====
+// The stage owns the room, the three screens, the camera, the layout, the navigation chrome
+// and the branding screens. A consumer (Presentation, Home, later Game Tracker and Practice)
+// opens it, says what the screens hold and whether the camera is free, and closes it.
+// Storage for the camera stays in studioPanorama / studioFrameIndex (the tutorial, the
+// spotlight and auto-navigation read them); this object is the API over them.
+const XQStage=(function(){
+  let _open=false, _consumer=null, _opts={}, _internal=false;
+  const _subs={};
+  const emit=(ev,arg)=>{ (_subs[ev]||[]).forEach(cb=>{ try{ cb(arg); }catch(e){ console.error('XQStage', ev, e); } }); };
+  const el=id=>document.getElementById(id);
+  return {
+    open(consumer, opts){
+      opts=opts||{};
+      if(_open) this.close();
+      _open=true; _consumer=consumer||'presentation'; _opts=opts;
+      document.body.classList.add('xqStage'); document.body.dataset.stage=_consumer;
+      const idx={left:0,center:1,right:2}[opts.camera];
+      studioFrameIndex = (idx===undefined) ? 1 : idx;   // the camera's "last screen" baseline
+      _internal=true;
+      try{
+        if(idx===undefined){ enterPanorama(!!opts.instant, opts.intro!==false); }
+        else {
+          studioPanorama=false; document.body.classList.remove('panorama');
+          if(opts.instant) document.documentElement.style.setProperty('--cam-d','0ms');
+          goToStudioFrame(idx);
+          if(opts.instant) setTimeout(()=>document.documentElement.style.removeProperty('--cam-d'), 80);
+        }
+      } finally { _internal=false; }
+      emit('open', _consumer);
+    },
+    close(){
+      if(!_open) return;
+      const was=_consumer;
+      studioPanorama=false;
+      document.body.classList.remove('xqStage','panorama','cameraMoving','psIdle','psIntro');
+      delete document.body.dataset.stage; delete document.body.dataset.cam;
+      { const lb=el('psRoomLB'); if(lb){ lb.style.transform=''; lb.style.transformOrigin=''; } }
+      ['videoFrame','stageWrap','statsFrame'].forEach(id=>{ const f=el(id); if(!f) return;
+        ['left','top','width','height','transform','transformOrigin'].forEach(k=>{ f.style[k]=''; });
+        f.classList.remove('camOff','onWall','camFocus'); });
+      this.setScreen('tactical', null);
+      _open=false; _consumer=null; _opts={};
+      emit('close', was);
+    },
+    isOpen(){ return _open; },
+    consumer(){ return _consumer; },
+    opts(){ return _opts; },
+    cameraLocked(){ return _open && !!_opts.lockCamera && !_internal; },
+    camera(){ return psCameraState(); },
+    setCamera(state, o){
+      if(!_open) return;
+      const wasInternal=_internal; if(o && o.force) _internal=true;
+      try{ if(state==='pan') enterPanorama(!!(o&&o.instant), false); else goToStudioFrame({left:0,center:1,right:2}[state]); }
+      finally{ _internal=wasInternal; }
+    },
+    roomRect(){ return psRoomRect(); },
+    layout(){ if(_open) fitBoardToScreen(); },
+    get screens(){ return { media:el('videoFrame'), tactical:el('stageWrap'), info:el('statsFrame') }; },
+    // media / info: a node replaces the placeholder (null = empty -> branding screen).
+    // tactical: the board by default; a consumer may mount its own node over it (Home mounts
+    // the mode circles) -- the board keeps its layout underneath, hidden by CSS, not moved.
+    setScreen(key, node){
+      if(key==='tactical'){
+        const wrap=el('stageWrap'); if(!wrap) return;
+        const old=wrap.querySelector(':scope > .stageTacticalMount');
+        if(old && old!==node){ old.classList.remove('stageTacticalMount'); (old._stageHome||document.body).appendChild(old); }
+        if(node){ if(!node._stageHome) node._stageHome=node.parentElement; node.classList.add('stageTacticalMount'); if(node.parentElement!==wrap) wrap.appendChild(node); }
+        document.body.classList.toggle('stageTacticalMounted', !!node);
+        return;
+      }
+      const prefix = key==='media' ? 'video' : key==='info' ? 'stats' : null; if(!prefix) return;
+      if(node) showStudioFrameContent(prefix, node); else clearStudioFrameContent(prefix);
+      emit('screen', {key, empty:!node});
+    },
+    on(ev, cb){ (_subs[ev]=_subs[ev]||[]).push(cb); return ()=>{ _subs[ev]=(_subs[ev]||[]).filter(f=>f!==cb); }; },
+    _emit: emit,
+  };
+})();
+window.XQStage=XQStage;
 // Side screens as branding screens: logo while empty (coach's presentation logo if configured
 // in Branding, else the XquiX Studio mark reused from #splashLogo). Called from fitBoardToScreen.
 // The logo a branding screen shows: the coach's presentation logo when one is defined
@@ -11797,8 +11890,9 @@ function psBeginCameraMove(ms){
 // keeps meaning "which screen the camera is on / was last on", so everything
 // that reads it (tutorial, spotlight radius, auto-navigation) keeps working.
 let studioPanorama=false;
-function enterPanorama(instant){
-  if(!document.body.classList.contains('presentation')) return;
+function enterPanorama(instant, intro){
+  if(!XQStage.isOpen() || XQStage.cameraLocked()) return;
+  if(intro===undefined) intro=true;
   const from=psCameraState();
   studioPanorama=true;
   document.body.classList.add('panorama');
@@ -11807,7 +11901,8 @@ function enterPanorama(instant){
   else if(from!=='pan'){ psBeginCameraMove(psSetCameraDuration(from,'pan')); }
   updateStudioNavUI();
   fitBoardToScreen();
-  if(instant){
+  XQStage._emit('camera', 'pan');
+  if(instant && intro){
     // PS-001 §32: a short first-entry move -- from slightly farther back into the Panorama.
     // Layout is already final (0 ms); the intro class pulls both layers back, then releases.
     document.body.classList.add('psIntro');
@@ -11837,7 +11932,7 @@ window.psCameraMode = (function(){ try{ return localStorage.getItem('xquixCamera
 // §28: navigation chrome fades after 3.5 s without input while presenting, returns on any input.
 (function(){
   let t=null;
-  const wake=()=>{ if(!document.body.classList.contains('presentation')) return; document.body.classList.remove('psIdle'); clearTimeout(t); t=setTimeout(()=>{ if(document.body.classList.contains('presentation')) document.body.classList.add('psIdle'); }, 3500); };
+  const wake=()=>{ if(!XQStage.isOpen()) return; document.body.classList.remove('psIdle'); clearTimeout(t); t=setTimeout(()=>{ if(XQStage.isOpen()) document.body.classList.add('psIdle'); }, 3500); };
   ['pointermove','pointerdown','touchstart','keydown','wheel'].forEach(ev=>document.addEventListener(ev, wake, {passive:true}));
   window.psWakeControls=wake;
 })();
@@ -11846,7 +11941,7 @@ window.psCameraMode = (function(){ try{ return localStorage.getItem('xquixCamera
   const SKIP='#quickCommandBar, #controlsPanel, #timelinePanel, #presentationPlaybackBar, #timelineCommandsBar, #edgeTabStack, #coachingRemote, #spotlightLayer, .fcScrollZone, button, input, select, textarea, a, [contenteditable]';
   document.addEventListener('pointerdown', e=>{
     active=false;
-    if(!document.body.classList.contains('presentation')) return;
+    if(!XQStage.isOpen() || XQStage.cameraLocked()) return;
     if(e.pointerType==='mouse' && e.button!==0) return;
     if(document.body.classList.contains('cameraMoving')) return;
     if(e.target.closest(SKIP)) return;
@@ -11879,6 +11974,7 @@ function updateStudioNavUI(){
   });
 }
 function goToStudioFrame(index){
+  if(XQStage.cameraLocked()) return;
   const newIndex=Math.max(0,Math.min(2,index));
   const from=psCameraState();
   const leavingPanorama=studioPanorama;
@@ -11887,9 +11983,10 @@ function goToStudioFrame(index){
   if(leavingPanorama){ studioPanorama=false; document.body.classList.remove('panorama'); }
   document.body.classList.toggle('qcbHiddenForScreen', studioFrameIndex!==1);
   updateStudioNavUI();
-  if(document.body.classList.contains('presentation')){
+  if(XQStage.isOpen()){
     if(changed) psBeginCameraMove(psSetCameraDuration(from, psCameraState()));
     fitBoardToScreen(); // camera move: room transform + screen boxes ease to the new state
+    if(changed) XQStage._emit('camera', psCameraState());
   }
 }
 function goToStudioFrameSkippingEmpty(requestedIndex, direction){
@@ -11909,7 +12006,7 @@ document.getElementById('studioNavRight').addEventListener('click', ()=>{ if(stu
 });
 document.querySelectorAll('#studioFrameDots span').forEach(dot=>{
   dot.addEventListener('click', ()=>{
-    if(!document.body.classList.contains('presentation')) return;
+    if(!XQStage.isOpen()) return;
     if(dot.dataset.frame==='pan') enterPanorama(); else goToStudioFrame(parseInt(dot.dataset.frame,10));
   });
 });
@@ -12101,12 +12198,7 @@ function togglePresentation(mode){
   const modeHandle=document.getElementById('presentationModeHandle');
   if(isOn){
     body.classList.remove('presentation');
-    studioPanorama=false; body.classList.remove('panorama','cameraMoving','psIdle','psIntro');
-    { const lb=document.getElementById('psRoomLB'); if(lb){ lb.style.transform=''; lb.style.transformOrigin=''; } }
-    ['videoFrame','stageWrap','statsFrame'].forEach(id=>{ const el=document.getElementById(id); if(!el) return;
-      ['left','top','width','height','transform','transformOrigin'].forEach(k=>{ el.style[k]=''; });
-      el.classList.remove('camOff','onWall','camFocus'); });
-    delete body.dataset.cam;
+    XQStage.close();   // room, camera, the three screens' inline layout and every stage body flag
     fitBtn.textContent='Presentation Mode';
     activePresentation=null;
     if(liveCoachingSession){
@@ -12142,8 +12234,7 @@ function togglePresentation(mode){
     document.getElementById('timelinePanel')?.classList.remove('shown');
     closeToolPanels();
     if(!frontCourtActive) setPresentationFieldGeometry(true); // Front Court has its own field geometry -- don't widen over it
-    studioFrameIndex=1;   // baseline: the camera's "last screen" is the board
-    enterPanorama(true);  // PS-001 §31: opens on Panorama, with the §32 first-entry move
+    XQStage.open('presentation', { camera:'pan', instant:true });  // PS-001 §31: opens on Panorama, with the §32 first-entry move
     if(window.psWakeControls) window.psWakeControls();
     fitBtn.textContent = 'Exit Presentation';
     modeHandle?.classList.add('active');
@@ -12716,12 +12807,12 @@ document.addEventListener('keydown', e=>{
   if((e.metaKey||e.ctrlKey) && e.altKey && e.code==='KeyB') { selectAllTeam('blue'); e.preventDefault(); return; }
   if((e.metaKey||e.ctrlKey) && e.altKey && e.code==='KeyW') { selectAllTeam('white'); e.preventDefault(); return; }
   if(e.key==='Escape' && document.body.classList.contains('presentation')) { togglePresentation(); return; }
-  if(document.body.classList.contains('presentation') && !e.metaKey && !e.ctrlKey && !e.altKey && ['0','1','2','3'].includes(e.key)) {
+  if(XQStage.isOpen() && !e.metaKey && !e.ctrlKey && !e.altKey && ['0','1','2','3'].includes(e.key)) {
     // PS-001 §9: 0 = Panorama, 1 = Media, 2 = Tactical, 3 = Information.
     if(e.key==='0') enterPanorama(); else goToStudioFrame(parseInt(e.key,10)-1);
     e.preventDefault(); return;
   }
-  if(document.body.classList.contains('presentation') && (e.key==='ArrowLeft' || e.key==='ArrowRight')) {
+  if(XQStage.isOpen() && (e.key==='ArrowLeft' || e.key==='ArrowRight')) {
     if(activePresentation){ presentationStep(e.key==='ArrowRight'?1:-1); }
     else if(studioPanorama){ if(e.key==='ArrowRight') goToStudioFrameSkippingEmpty(2,-1); else goToStudioFrameSkippingEmpty(0,1); }
     else { goToStudioFrame(studioFrameIndex + (e.key==='ArrowRight'?1:-1)); }
@@ -22326,7 +22417,7 @@ function fitBoardToScreen(){
   // (FC_FULL_HEIGHT), not just the current zoom crop -- see the
   // stageWrap scrolling setup below.
   if(frontCourtActive){
-    const inPresentation=document.body.classList.contains('presentation');
+    const inPresentation=XQStage.isOpen();   // "on the stage": the board is confined to the centre screen's frame
     if(inPresentation && typeof psCameraState==='function' && psCameraState()!=='center'){ toggleFrontCourt(false); return; }
     const margin=20;
     let availW=Math.max(280, viewportWidth()-margin);
@@ -22382,7 +22473,10 @@ function fitBoardToScreen(){
     refreshShotClockPosition();
     return;
   }
-  if(document.body.classList.contains('presentation')){
+  if(XQStage.isOpen()){
+    // The stage's layout: room, camera, reading box for the focused screen, wall boxes for the
+    // others, four-corner fit on the side panels. Presentation, Home and later consumers all
+    // come through here; nothing below is keyed on body.presentation.
     const margin=20;
     const panorama=(typeof studioPanorama!=='undefined') && studioPanorama;
     const ratioW = PRESENT_VIEWBOX_W, ratioH = PRESENT_VIEWBOX_H;
@@ -22431,6 +22525,7 @@ function fitBoardToScreen(){
     refreshFrontCourtScrollZones();
     // Keep --xq-persp proportional to the rendered board height (tilt maths reads it back).
     if(typeof window._updateTiltPerspective==='function') window._updateTiltPerspective();
+    XQStage._emit('layout', { room:LB, camera:cam, focused:focusedKey });
     return;
   }
   const margin=20;
