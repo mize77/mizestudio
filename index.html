@@ -882,6 +882,19 @@
   /* While the camera moves, the board is not interactive (A2: interactive only when parked on CENTER). */
   body.cameraMoving #board, body.cameraMoving #board * { pointer-events:none !important; }
   #psRoomLB { transition: transform var(--cam-d) var(--cam-ease); will-change:transform; }
+  /* ── PS-001 Stage 6 — controls ──
+     §32 first-entry move: the studio starts slightly farther back and settles into the
+     Panorama over ~1.3 s, once per entry (never when returning to Panorama later). */
+  body.presentation #studioTrack { transition: transform var(--cam-d) var(--cam-ease); transform-origin:50% 50%; }
+  body.presentation.psIntro #psRoomLB, body.presentation.psIntro #studioTrack { transform:scale(.955) !important; }
+  /* §28 clean audience view: navigation chrome fades after inactivity and returns on any
+     pointer, touch or key. Never while a tutorial is running (its rings point at these). */
+  body.presentation #studioNavLeft, body.presentation #studioNavRight, body.presentation #studioFrameDots, body.presentation #exitPresentationBtn,
+  body.presentation #presentationPlaybackBar, body.presentation #timelineCommandsBar { transition: opacity .6s ease; }
+  body.presentation.psIdle:not(.tutorialModeActive) #studioNavLeft, body.presentation.psIdle:not(.tutorialModeActive) #studioNavRight,
+  body.presentation.psIdle:not(.tutorialModeActive) #studioFrameDots, body.presentation.psIdle:not(.tutorialModeActive) #exitPresentationBtn,
+  body.presentation.psIdle:not(.tutorialModeActive) #presentationPlaybackBar, body.presentation.psIdle:not(.tutorialModeActive) #timelineCommandsBar { opacity:0; }
+  #cameraModeBtn { margin-top:2px; }
   /* ── PS-001 Stage 5 — the immersive tactical window (§15). Only with the camera parked on
      CENTER and 3D View on: the architecture around the screen darkens, the screen boundary
      softens, the water's depth extends a little beyond the screen, the centre wall takes a
@@ -2405,6 +2418,7 @@
           <button id="spotlightToggleBtn" data-tip="Spotlight tool: click a screen to place a spotlight, dimming the rest of the board.">Spotlight</button>
           <button id="studioWindowDarkenBtn" data-tip="Studio Dim Mode: darkens the studio around the screens so the presentation content stands out. Click again to brighten.">Studio Dim Mode</button>
           <button id="field3dToggleBtn" data-tip="3D Presentation View: tilts the field on a perspective camera for an arena look. Only visible in Presentation mode.">3D View: Off</button>
+          <button id="cameraModeBtn" data-tip="Camera: Assisted moves the camera to the screen that has content when a presentation step loads; Manual leaves the camera where you put it.">Camera: Assisted</button>
           <div id="tiltSliderRow" style="display:flex;flex-direction:column;gap:3px;margin-top:2px;padding:4px 0;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <span style="font-size:11px;color:#7a8a8a;font-weight:600;">3D tilt angle</span>
@@ -11304,6 +11318,7 @@ function updateStudioFrameDots(){
 function navigateToBestAvailableStudioFrame(step){
   const order = ['video','board','stats'];
   const stepHasBoard = !!step.board;
+  if(window.psCameraMode==='manual'){ updateStudioNavUI(); return; } // PS-001 §19: Manual -- the camera stays where the coach put it
   if(studioPanorama){
     // PS-001 §19: with two or more content sources Panorama is the better view; keep it.
     const n=(presentationFrameHasContent.video?1:0)+(stepHasBoard?1:0)+(presentationFrameHasContent.stats?1:0);
@@ -11693,8 +11708,40 @@ function enterPanorama(instant){
   else if(from!=='pan'){ psBeginCameraMove(psSetCameraDuration(from,'pan')); }
   updateStudioNavUI();
   fitBoardToScreen();
-  if(instant) requestAnimationFrame(()=>document.documentElement.style.removeProperty('--cam-d'));
+  if(instant){
+    // PS-001 §32: a short first-entry move -- from slightly farther back into the Panorama.
+    // Layout is already final (0 ms); the intro class pulls both layers back, then releases.
+    document.body.classList.add('psIntro');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const ms = reduced ? 0 : 1300;
+      document.documentElement.style.setProperty('--cam-d', ms+'ms');
+      document.body.classList.remove('psIntro');
+      if(ms) psBeginCameraMove(ms);
+      setTimeout(()=>document.documentElement.style.removeProperty('--cam-d'), ms+80);
+    }));
+  }
 }
+// ===== PS-001 Stage 6: controls =====
+// Camera: Assisted (default) moves the camera when a step loads; Manual never does (§19).
+window.psCameraMode = (function(){ try{ return localStorage.getItem('xquixCameraMode')==='manual' ? 'manual' : 'assisted'; }catch(_e){ return 'assisted'; } })();
+(function(){
+  const btn=document.getElementById('cameraModeBtn'); if(!btn) return;
+  const render=()=>{ btn.textContent='Camera: '+(window.psCameraMode==='manual'?'Manual':'Assisted'); btn.classList.toggle('active', window.psCameraMode==='manual'); };
+  render();
+  btn.addEventListener('click', ()=>{
+    window.psCameraMode = window.psCameraMode==='manual' ? 'assisted' : 'manual';
+    try{ localStorage.setItem('xquixCameraMode', window.psCameraMode); }catch(_e){}
+    render();
+  });
+})();
+// §28: navigation chrome fades after 3.5 s without input while presenting, returns on any input.
+(function(){
+  let t=null;
+  const wake=()=>{ if(!document.body.classList.contains('presentation')) return; document.body.classList.remove('psIdle'); clearTimeout(t); t=setTimeout(()=>{ if(document.body.classList.contains('presentation')) document.body.classList.add('psIdle'); }, 3500); };
+  ['pointermove','pointerdown','touchstart','keydown','wheel'].forEach(ev=>document.addEventListener(ev, wake, {passive:true}));
+  window.psWakeControls=wake;
+})();
 function updateStudioNavUI(){
   const leftBtn=document.getElementById('studioNavLeft'), rightBtn=document.getElementById('studioNavRight');
   // In Panorama the chevrons go to the outer screens (left = Media, right = Information).
@@ -11943,7 +11990,7 @@ function togglePresentation(mode){
   const modeHandle=document.getElementById('presentationModeHandle');
   if(isOn){
     body.classList.remove('presentation');
-    studioPanorama=false; body.classList.remove('panorama','cameraMoving');
+    studioPanorama=false; body.classList.remove('panorama','cameraMoving','psIdle','psIntro');
     { const lb=document.getElementById('psRoomLB'); if(lb){ lb.style.transform=''; lb.style.transformOrigin=''; } }
     delete body.dataset.cam;
     fitBtn.textContent='Presentation Mode';
@@ -11982,7 +12029,8 @@ function togglePresentation(mode){
     closeToolPanels();
     if(!frontCourtActive) setPresentationFieldGeometry(true); // Front Court has its own field geometry -- don't widen over it
     studioFrameIndex=1;   // baseline: the camera's "last screen" is the board
-    enterPanorama(true);  // PS-001 §31: Presentation Studio opens on Panorama (no entry animation)
+    enterPanorama(true);  // PS-001 §31: opens on Panorama, with the §32 first-entry move
+    if(window.psWakeControls) window.psWakeControls();
     fitBtn.textContent = 'Exit Presentation';
     modeHandle?.classList.add('active');
     // Auto-intro jingle: first 5 s of the calm intro section, so everyone
