@@ -761,6 +761,12 @@
   body.presentation.field3d #boardTilt {
     transform: perspective(var(--xq-persp,1650px)) rotateX(var(--xq-tilt,13deg));
   }
+  /* Front Court owns its own rotated, cropped coordinate mapping, and pxToM /
+     mToScreenPx skip the tilt maths while it is active -- so the surface must
+     stay flat too, or the picture and the pointer disagree. Mutually exclusive. */
+  body.presentation.field3d #board.frontcourt #boardTilt { transform:none; }
+  body.presentation.field3d #board.frontcourt #boardTilt::before,
+  body.presentation.field3d #board.frontcourt #boardTilt::after { display:none; }
   /* Light landing on the surface. screen blend = additive light only. */
   body.presentation.field3d #boardTilt::after {
     content:""; position:absolute; inset:0; pointer-events:none; z-index:3;
@@ -830,6 +836,17 @@
   #studioTrack .studioFrame, #studioTrack #stageWrap { transition:opacity .35s ease; }
   .studioFrame { display:none; }
   body.presentation #studioTrack > .studioFrame, body.presentation #studioTrack > #stageWrap { flex:0 0 33.33333%; width:33.33333%; height:100%; display:flex; align-items:center; justify-content:center; }
+  /* PS-001 Stage 1 -- PANORAMA: the same three screens, side by side and live,
+     MEDIA 30% | TACTICAL 40% | INFORMATION 30%. The track is untransformed here.
+     Nothing inside a screen is interactive in Panorama: each screen is one click
+     target that moves the camera to it (PS-001 §9, decision A2). */
+  body.presentation.panorama #studioTrack { width:100%; transform:none; }
+  body.presentation.panorama #studioTrack > .studioFrame { flex:0 0 30%; width:30%; }
+  body.presentation.panorama #studioTrack > #stageWrap { flex:0 0 40%; width:40%; }
+  body.presentation.panorama #studioTrack > .studioFrame, body.presentation.panorama #studioTrack > #stageWrap { cursor:pointer; }
+  body.presentation.panorama #studioTrack > .studioFrame > *, body.presentation.panorama #studioTrack > #stageWrap > * { pointer-events:none; }
+  body.presentation.panorama #board { box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(46,202,184,.22), 0 0 40px rgba(46,202,184,.10); }
+  body.presentation.panorama .studioFrameClearBtn { display:none; }
   .studioFramePlaceholder { color:rgba(255,255,255,.55); text-align:center; font-family:'Space Grotesk',sans-serif; user-select:none; }
   .studioFramePlaceholderIcon { font-size:64px; margin-bottom:14px; opacity:.7; }
   .studioFramePlaceholderLabel { font-size:24px; font-weight:700; color:rgba(255,255,255,.8); letter-spacing:.02em; }
@@ -935,6 +952,9 @@
   #studioFrameDots span { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.35); }
   #studioFrameDots span.active { background:#fff; }
   #studioFrameDots span.empty { background:rgba(255,255,255,.12); }
+  body.presentation #studioFrameDots span { cursor:pointer; }
+  #studioFrameDots span[data-frame="pan"] { width:11px; height:11px; margin-left:6px; background:transparent; border:1.5px solid rgba(255,255,255,.45); box-sizing:border-box; }
+  #studioFrameDots span[data-frame="pan"].active { border-color:#fff; background:rgba(255,255,255,.4); }
   .edgeTab.active { background:#ffcf40; color:#20200a; }
   #spotlightOverlay { display:none; position:fixed; inset:0; z-index:1250; pointer-events:none; touch-action:none; --sx:50%; --sy:50%; --sr:150px; background:radial-gradient(circle at var(--sx) var(--sy), transparent 0, transparent var(--sr), rgba(0,0,0,.74) calc(var(--sr) + 55px), rgba(0,0,0,.74) 100%); }
   #spotlightOverlay.armed { display:block; pointer-events:auto; }
@@ -1872,7 +1892,7 @@
 <div id="spotlightHitArea"></div>
 <div id="spotlightMoveHandle" title="Drag to move the spotlight"></div>
 <div id="spotlightResizeHandle"></div>
-<div id="studioFrameDots"><span data-frame="0"></span><span data-frame="1"></span><span data-frame="2"></span></div>
+<div id="studioFrameDots"><span data-frame="0" title="Media (1)"></span><span data-frame="1" title="Tactical (2)"></span><span data-frame="2" title="Information (3)"></span><span data-frame="pan" title="Panorama (0)"></span></div>
 <div id="studioWindowLayer">
   <svg id="studioWindowSvg" viewBox="800 0 1000 600" preserveAspectRatio="xMidYMid slice">
     <defs>
@@ -11187,12 +11207,18 @@ function libRenderTextIntoStudioFrame(step){
 function updateStudioFrameDots(){
   const order = ['video','board','stats'];
   document.querySelectorAll('#studioFrameDots span').forEach((dot,i)=>{
+    if(dot.dataset.frame==='pan') return;
     dot.classList.toggle('empty', !presentationFrameHasContent[order[i]]);
   });
 }
 function navigateToBestAvailableStudioFrame(step){
   const order = ['video','board','stats'];
-  const stepHasBoard = !!step.board; // distinct from presentationFrameHasContent.board (always true, since the live board is always interactable/navigable) -- this tracks whether THIS step actually provided its own formation/sequence
+  const stepHasBoard = !!step.board;
+  if(studioPanorama){
+    // PS-001 §19: with two or more content sources Panorama is the better view; keep it.
+    const n=(presentationFrameHasContent.video?1:0)+(stepHasBoard?1:0)+(presentationFrameHasContent.stats?1:0);
+    if(n>=2){ updateStudioNavUI(); return; }
+  } // distinct from presentationFrameHasContent.board (always true, since the live board is always interactable/navigable) -- this tracks whether THIS step actually provided its own formation/sequence
   // A step pairing text with a genuine board/video always opens on text
   // first -- the narration for what's about to be shown.
   if(presentationFrameHasContent.stats && (stepHasBoard || step.video)){
@@ -11456,10 +11482,39 @@ function updateWindowViewForFrame(index){
   windowPanAnimFrame=requestAnimationFrame(step);
 }
 let studioSwingTimeout=null;
+// ===== PS-001 Stage 1: PANORAMA camera state =====
+// Panorama is a flag beside studioFrameIndex, not a fourth index: the index
+// keeps meaning "which screen the camera is on / was last on", so everything
+// that reads it (tutorial, spotlight radius, auto-navigation) keeps working.
+let studioPanorama=false;
+function enterPanorama(){
+  if(!document.body.classList.contains('presentation')) return;
+  studioPanorama=true;
+  document.body.classList.add('panorama');
+  document.body.classList.add('qcbHiddenForScreen');
+  const track=document.getElementById('studioTrack');
+  if(track){ track.style.transform=''; track.classList.remove('swinging'); }
+  clearTimeout(studioSwingTimeout);
+  updateWindowViewForFrame(1);
+  updateStudioNavUI();
+  fitBoardToScreen();
+}
+function updateStudioNavUI(){
+  const leftBtn=document.getElementById('studioNavLeft'), rightBtn=document.getElementById('studioNavRight');
+  // In Panorama the chevrons go to the outer screens (left = Media, right = Information).
+  if(leftBtn) leftBtn.disabled=!studioPanorama && studioFrameIndex===0;
+  if(rightBtn) rightBtn.disabled=!studioPanorama && studioFrameIndex===2;
+  document.querySelectorAll('#studioFrameDots span').forEach((dot,i)=>{
+    const isPan=dot.dataset.frame==='pan';
+    dot.classList.toggle('active', isPan ? studioPanorama : (!studioPanorama && i===studioFrameIndex));
+  });
+}
 function goToStudioFrame(index){
   const newIndex=Math.max(0,Math.min(2,index));
-  const changed=newIndex!==studioFrameIndex;
+  const leavingPanorama=studioPanorama;
+  const changed=newIndex!==studioFrameIndex || leavingPanorama;
   studioFrameIndex=newIndex;
+  if(leavingPanorama){ studioPanorama=false; document.body.classList.remove('panorama'); }
   document.body.classList.toggle('qcbHiddenForScreen', studioFrameIndex!==1);
   const track=document.getElementById('studioTrack');
   if(track){
@@ -11471,10 +11526,8 @@ function goToStudioFrame(index){
       updateWindowViewForFrame(studioFrameIndex);
     }
   }
-  const leftBtn=document.getElementById('studioNavLeft'), rightBtn=document.getElementById('studioNavRight');
-  if(leftBtn) leftBtn.disabled=studioFrameIndex===0;
-  if(rightBtn) rightBtn.disabled=studioFrameIndex===2;
-  document.querySelectorAll('#studioFrameDots span').forEach((dot,i)=>dot.classList.toggle('active', i===studioFrameIndex));
+  updateStudioNavUI();
+  if(leavingPanorama) fitBoardToScreen(); // screens go back to one-viewport size
 }
 function goToStudioFrameSkippingEmpty(requestedIndex, direction){
   if(!activePresentation){ goToStudioFrame(requestedIndex); return; } // no step content to judge emptiness against -- every frame stays freely navigable
@@ -11484,8 +11537,19 @@ function goToStudioFrameSkippingEmpty(requestedIndex, direction){
   if(idx>=0 && idx<=2) goToStudioFrame(idx);
   // Ran off the end without finding content in that direction -- nothing to do, matches the existing disabled-at-boundary feel.
 }
-document.getElementById('studioNavLeft').addEventListener('click', ()=>goToStudioFrameSkippingEmpty(studioFrameIndex-1, -1));
-document.getElementById('studioNavRight').addEventListener('click', ()=>goToStudioFrameSkippingEmpty(studioFrameIndex+1, 1));
+document.getElementById('studioNavLeft').addEventListener('click', ()=>{ if(studioPanorama) goToStudioFrameSkippingEmpty(0, 1); else goToStudioFrameSkippingEmpty(studioFrameIndex-1, -1); });
+document.getElementById('studioNavRight').addEventListener('click', ()=>{ if(studioPanorama) goToStudioFrameSkippingEmpty(2, -1); else goToStudioFrameSkippingEmpty(studioFrameIndex+1, 1); });
+// Panorama: each screen is one click target that moves the camera to it (PS-001 §9).
+// The dots are the compact spatial navigation of §29: ● Media ● Tactical ● Info ◉ Panorama.
+[['videoFrame',0],['stageWrap',1],['statsFrame',2]].forEach(([id,i])=>{
+  document.getElementById(id)?.addEventListener('click', ()=>{ if(studioPanorama) goToStudioFrame(i); });
+});
+document.querySelectorAll('#studioFrameDots span').forEach(dot=>{
+  dot.addEventListener('click', ()=>{
+    if(!document.body.classList.contains('presentation')) return;
+    if(dot.dataset.frame==='pan') enterPanorama(); else goToStudioFrame(parseInt(dot.dataset.frame,10));
+  });
+});
 // Swipe is scoped to the video/stats placeholder frames specifically -- the
 // pool frame already has its own drag/draw pointer handling, and keeping
 // swipe-to-change-frame off of it avoids any risk of the two conflicting.
@@ -11687,6 +11751,7 @@ function togglePresentation(mode){
   const modeHandle=document.getElementById('presentationModeHandle');
   if(isOn){
     body.classList.remove('presentation');
+    studioPanorama=false; body.classList.remove('panorama');
     fitBtn.textContent='Presentation Mode';
     activePresentation=null;
     if(liveCoachingSession){
@@ -11722,7 +11787,8 @@ function togglePresentation(mode){
     document.getElementById('timelinePanel')?.classList.remove('shown');
     closeToolPanels();
     if(!frontCourtActive) setPresentationFieldGeometry(true); // Front Court has its own field geometry -- don't widen over it
-    goToStudioFrame(1);
+    goToStudioFrame(1);   // baseline: the camera's "last screen" is the board
+    enterPanorama();      // PS-001 §31: Presentation Studio opens on Panorama
     fitBtn.textContent = 'Exit Presentation';
     modeHandle?.classList.add('active');
     // Auto-intro jingle: first 5 s of the calm intro section, so everyone
@@ -12312,8 +12378,14 @@ document.addEventListener('keydown', e=>{
   if((e.metaKey||e.ctrlKey) && e.altKey && e.code==='KeyB') { selectAllTeam('blue'); e.preventDefault(); return; }
   if((e.metaKey||e.ctrlKey) && e.altKey && e.code==='KeyW') { selectAllTeam('white'); e.preventDefault(); return; }
   if(e.key==='Escape' && document.body.classList.contains('presentation')) { togglePresentation(); return; }
+  if(document.body.classList.contains('presentation') && !e.metaKey && !e.ctrlKey && !e.altKey && ['0','1','2','3'].includes(e.key)) {
+    // PS-001 §9: 0 = Panorama, 1 = Media, 2 = Tactical, 3 = Information.
+    if(e.key==='0') enterPanorama(); else goToStudioFrame(parseInt(e.key,10)-1);
+    e.preventDefault(); return;
+  }
   if(document.body.classList.contains('presentation') && (e.key==='ArrowLeft' || e.key==='ArrowRight')) {
     if(activePresentation){ presentationStep(e.key==='ArrowRight'?1:-1); }
+    else if(studioPanorama){ if(e.key==='ArrowRight') goToStudioFrameSkippingEmpty(2,-1); else goToStudioFrameSkippingEmpty(0,1); }
     else { goToStudioFrame(studioFrameIndex + (e.key==='ArrowRight'?1:-1)); }
     e.preventDefault(); return;
   }
@@ -17638,6 +17710,10 @@ function toggleFrontCourt(on){
   const inPresentationWidened=document.body.classList.contains('presentation');
   frontCourtActive=on;
   board.classList.toggle('frontcourt', on);
+  // 3D View and Front Court are mutually exclusive (see the #board.frontcourt
+  // #boardTilt rule): the toggle is disabled while Front Court is on.
+  { const f3=document.getElementById('field3dToggleBtn');
+    if(f3){ f3.disabled=on; f3.title=on?'3D View is not available while Front Court is on.':''; } }
   if(on){
     // Front Court's crop/rotation math is tuned specifically for the normal
     // 29x24 field -- if presentation's widened venue was showing, switch
@@ -19011,6 +19087,7 @@ function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
   }
   render();
   btn.addEventListener('click', () => {
+    if (typeof frontCourtActive!=='undefined' && frontCourtActive) return; // mutually exclusive with Front Court
     document.body.classList.toggle('field3d');
     try{localStorage.setItem('xquixField3d', document.body.classList.contains('field3d') ? '1' : '0');}catch(_lsE){}
     render();
@@ -21921,6 +21998,7 @@ function fitBoardToScreen(){
     if(inPresentation){
       const maxScreenW=availH*(PRESENT_VIEWBOX_W/PRESENT_VIEWBOX_H);
       availW=Math.max(280, Math.min(availW, maxScreenW));
+      if(typeof studioPanorama!=='undefined' && studioPanorama) availW=Math.max(200, Math.min(availW, viewportWidth()*0.40-margin));
     }
     // ratioW uses the playable pool width (M.fieldH) rather than the full
     // board height (M.H) -- M.H includes 2m of purely decorative margin
@@ -21966,7 +22044,9 @@ function fitBoardToScreen(){
   }
   if(document.body.classList.contains('presentation')){
     const margin=20;
-    const availW=Math.max(280, viewportWidth()-margin);
+    const panorama=(typeof studioPanorama!=='undefined') && studioPanorama;
+    // Panorama: the three screens share one viewport, 30 / 40 / 30 (PS-001 §4).
+    const availW=Math.max(panorama?200:280, (panorama ? viewportWidth()*0.40 : viewportWidth())-margin);
     const availH=Math.max(220, viewportHeight()-margin);
     // Presentation mode shows the full 35x28 venue now, so the board's own
     // aspect ratio must match that, not the normal 29:24 -- otherwise the
@@ -21977,14 +22057,22 @@ function fitBoardToScreen(){
     board.style.width=boardW+'px';
     board.style.height=boardH+'px';
     updateShotClockCenterTransform();
+    // Side screens: same panel proportions as the board; in Panorama they get their own 30% cells.
+    let sideW=boardW, sideH=boardH;
+    if(panorama){
+      sideW=Math.max(160, viewportWidth()*0.30-margin); sideH=sideW*ratioH/ratioW;
+      if(sideH>availH){ sideH=availH; sideW=sideH*ratioW/ratioH; }
+    }
     ['videoContent','statsContent'].forEach(id=>{
       const el=document.getElementById(id);
-      if(el){ el.style.width=boardW+'px'; el.style.height=boardH+'px'; }
+      if(el){ el.style.width=sideW+'px'; el.style.height=sideH+'px'; }
     });
     document.querySelectorAll('.player').forEach(place);
     placeBall();
     document.querySelectorAll('.extraBall').forEach(place);
     refreshFrontCourtScrollZones();
+    // Keep --xq-persp proportional to the rendered board height (tilt maths reads it back).
+    if(typeof window._updateTiltPerspective==='function') window._updateTiltPerspective();
     return;
   }
   const margin=20;

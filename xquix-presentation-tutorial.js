@@ -220,19 +220,19 @@ function buildPresentationModeSteps() {
       autoComplete: function () { setTimeout(function () { reveal('#presentationBtn'); }, 0); }
     },
     { // 3
-      instruction: 'Tap Presentation Mode.\n\nThe button below it, Presentation Mode (Realistic Field), is the same view with the pool at its true proportions instead of stretched to fill the screen.',
+      instruction: 'Tap Presentation Mode.',
       bannerSide: 'left', skipDimPhase: true, useShadeHighlight: true,
       onEnter: function () { reveal('#presentationBtn'); },
       highlight: '#presentationBtn',
-      allowedSelectors: ['#presentationBtn', '#presentationRealBtn'],
+      allowedSelectors: ['#presentationBtn'],
       validate: { type: 'custom', fn: inPresentation },
       autoComplete: function () { if (!inPresentation() && typeof togglePresentation === 'function') togglePresentation('fit'); }
     },
-    ack('You are presenting. The editing tools are gone, the field fills the screen, and the studio backdrop with its stage lights is on.\n\nA short intro jingle plays each time you enter; you can mute it in the Menu under Presentation → Presentation Sound.\n\nThe Menu tab stays at the edge of the screen, so every tool in this tutorial is one tap away.', { bannerSide: 'left', skipDimPhase: true }),
+    ack('You are presenting. The editing tools are gone and the studio backdrop with its stage lights is on.\n\nThis opening view is the Panorama: all three screens side by side, with the board in the middle.\n\nA short intro jingle plays each time you enter; you can mute it in the Menu under Presentation → Presentation Sound.\n\nThe Menu tab stays at the edge of the screen, so every tool in this tutorial is one tap away.', { bannerSide: 'left', skipDimPhase: true }),
 
     /* ------------------------------------------------ Lesson 2 · the three screens */
     { // 5
-      instruction: 'Presentation Mode has three screens side by side: a video screen on the left, the board in the middle, and a stats screen on the right. The arrows at the edges turn the camera.\n\nTap the right arrow to turn to the stats screen.',
+      instruction: 'The three screens: a video screen on the left, the board in the middle, and a stats screen on the right. Tapping a screen moves the camera to it; the arrows at the edges turn the camera too, and the row of dots at the top shows where it is. The ring at the end of that row brings the Panorama back.\n\nTap the right arrow to turn to the stats screen.',
       bannerSide: 'left', skipDimPhase: true,
       highlight: '#studioNavRight',
       validate: { type: 'custom', fn: function () { return frameIdx() === 2; } },
@@ -395,7 +395,7 @@ function buildPresentationModeSteps() {
       validate: { type: 'custom', fn: function () { return !inPresentation(); } },
       autoComplete: function () { if (inPresentation() && typeof togglePresentation === 'function') togglePresentation(); }
     },
-    ack('You are back in editing, and the board is as you left it.\n\nOn a computer, Esc also leaves Presentation Mode, and the ← → keys move between the three screens.\n\nEverything you used — Presentation Mode, the three screens, the Remote Control, the spotlight and the shot clock — is part of the Free version.', { bannerSide: 'left', skipDimPhase: true })
+    ack('You are back in editing, and the board is as you left it.\n\nOn a computer, Esc also leaves Presentation Mode, the ← → keys move between the three screens, and 0 1 2 3 jump to the Panorama, video, board and stats screens.\n\nEverything you used — Presentation Mode, the three screens, the Remote Control, the spotlight and the shot clock — is part of the Free version.', { bannerSide: 'left', skipDimPhase: true })
   ];
 }
 
