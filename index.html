@@ -1033,6 +1033,18 @@
   body.presentation .studioFrame { position:relative; }
   body.presentation .studioFrame::before { content:''; position:absolute; inset:0; background:none; z-index:0; }
   body.presentation .studioFrame .studioFramePlaceholder { position:relative; z-index:1; }
+  /* ── Side screens as branding screens (MIZE, 2026-09-21). While a side screen has no content
+     it shows a logo -- the coach's presentation logo from Branding if set, else the XquiX Studio
+     mark (reused from #splashLogo at runtime). The load buttons appear only when the camera is
+     on that screen; on the wall there is nothing to press (PS-001 §28 clean audience view). */
+  .studioFrameBrand { display:none; }
+  body.presentation .studioFrame .studioFrameBrand { display:flex; position:absolute; inset:0; align-items:center; justify-content:center; pointer-events:none; z-index:1; }
+  body.presentation .studioFrame.hasContent .studioFrameBrand { display:none; }
+  .studioFrameBrand img { width:70%; max-height:58%; object-fit:contain; opacity:.85; filter:drop-shadow(0 0 22px rgba(46,202,184,.32)); }
+  body.presentation .studioFrame:not(.camFocus) .studioFramePlaceholder { display:none; }
+  body.presentation .studioFrame.camFocus:not(.hasContent) .studioFrameBrand { align-items:flex-start; padding-top:16%; }
+  body.presentation .studioFrame.camFocus .studioFramePlaceholderIcon, body.presentation .studioFrame.camFocus .studioFramePlaceholderLabel { display:none; }
+  body.presentation .studioFrame.camFocus .studioFramePlaceholder { position:absolute; left:0; right:0; bottom:14%; z-index:2; }
   #stageLights { display:none; position:fixed; top:0; left:0; width:100%; z-index:1300; pointer-events:none; height:90px; }
   /* Stage 2: the fixtures are the three lamps in the photograph. #stageLights is
      sized to the room letterbox by fitBoardToScreen(); the drawn housings are hidden
@@ -2074,6 +2086,7 @@
 <img id="brandSponsorZoneB" alt="" data-sponsor-zone="sponsorZoneB">
 <div id="studioTrack">
 <div class="studioFrame" id="videoFrame">
+  <div class="studioFrameBrand" aria-hidden="true"><img alt="" draggable="false"></div>
   <div class="studioFramePlaceholder" id="videoFramePlaceholder">
     <div class="studioFramePlaceholderIcon">&#127916;</div>
     <div class="studioFramePlaceholderLabel">Video &amp; Game Footage</div>
@@ -2187,6 +2200,7 @@
 </div>
 </div>
 <div class="studioFrame" id="statsFrame">
+  <div class="studioFrameBrand" aria-hidden="true"><img alt="" draggable="false"></div>
   <div class="studioFramePlaceholder" id="statsFramePlaceholder">
     <div class="studioFramePlaceholderIcon">&#128202;</div>
     <div class="studioFramePlaceholderLabel">Stats &amp; Info</div>
@@ -11599,6 +11613,26 @@ function psRoomRect(){
   const w=Math.min(vw, vh*16/9), h=w*9/16;
   return { left:(vw-w)/2, top:(vh-h)/2, width:w, height:h };
 }
+// Side screens as branding screens: logo while empty (coach's presentation logo if configured
+// in Branding, else the XquiX Studio mark reused from #splashLogo). Called from fitBoardToScreen.
+function psApplySideBranding(){
+  const pres=document.getElementById('brandLogoPresentation');
+  const cfg=(typeof MIZE!=='undefined' && MIZE.Branding && MIZE.Branding.presentationLogo) || null;
+  // Coach-defined only: Branding's presentation logo when the coach set a URL or uploaded an asset
+  // (the slot otherwise falls back to a built-in file, which is not the coach's brand).
+  const asset = (cfg && cfg._assetId && MIZE.Branding.getAsset) ? MIZE.Branding.getAsset(cfg._assetId) : null;
+  const isDefaultAsset = !asset || /\bdefault\b/.test(String(asset.tags||'')) || /field-center-logo\.png$/.test(asset.href||'');
+  const custom = (cfg && cfg.enabled!==false && (cfg.href || (asset && !isDefaultAsset)) && pres && pres.getAttribute('src')) ? pres.src : '';
+  const mark = document.getElementById('splashLogo');
+  const src = custom || (mark ? mark.src : '');
+  ['video','stats'].forEach(k=>{
+    const frame=document.getElementById(k+'Frame'); if(!frame) return;
+    const content=document.getElementById(k+'Content');
+    frame.classList.toggle('hasContent', !!(content && content.classList.contains('loaded')));
+    const img=frame.querySelector('.studioFrameBrand img');
+    if(img && src && img.getAttribute('src')!==src) img.src=src;
+  });
+}
 // ===== PS-001 Stage 3: the camera =====
 // One camera language (PS-001 §10-§12): the room leans and zooms toward the target
 // surface -- modestly, so the 1280-px photograph stays sharp (MIZE, 2026-09-21) --
@@ -11747,6 +11781,7 @@ function showStudioFrameContent(prefix, node){
   if(existingMedia) existingMedia.remove();
   content.insertBefore(node, content.firstChild);
   content.classList.add('loaded');
+  document.getElementById(prefix+'Frame')?.classList.add('hasContent');
   document.getElementById(prefix+'ClearBtn').classList.add('shown');
 }
 function clearStudioFrameContent(prefix){
@@ -11755,6 +11790,7 @@ function clearStudioFrameContent(prefix){
   const existingMedia=content.querySelector(':scope > video, :scope > iframe, :scope > img, :scope > div');
   if(existingMedia) existingMedia.remove();
   content.classList.remove('loaded');
+  document.getElementById(prefix+'Frame')?.classList.remove('hasContent');
   document.getElementById(prefix+'FramePlaceholder').style.display='flex';
   document.getElementById(prefix+'ClearBtn').classList.remove('shown');
 }
@@ -22193,7 +22229,8 @@ function fitBoardToScreen(){
     const frameEls={video:document.getElementById('videoFrame'), board:document.getElementById('stageWrap'), stats:document.getElementById('statsFrame')};
     const wall={ video:PS_SCREENS.left, board:PS_SCREENS.center, stats:PS_SCREENS.right };
     const cam=psCameraState();
-    document.body.dataset.cam=cam;   // Stage 5: CSS keys the immersive window off the camera state
+    document.body.dataset.cam=cam;
+    psApplySideBranding();   // Stage 5: CSS keys the immersive window off the camera state
     psApplyRoomCamera(cam, LB);
     // Reading box: the focused screen at one-viewport size, centred (as Presentation Mode always sized it).
     const availW=Math.max(280, viewportWidth()-margin), availH=Math.max(220, viewportHeight()-margin);
@@ -22208,6 +22245,7 @@ function fitBoardToScreen(){
       el.style.left=box.left+'px'; el.style.top=box.top+'px'; el.style.width=box.width+'px'; el.style.height=box.height+'px';
       el.classList.toggle('camOff', !panorama && !focused);
       el.classList.toggle('onWall', !focused);
+      el.classList.toggle('camFocus', focused);
       // Stage 4: a side screen on the wall is mapped onto its angled panel (four-corner fit).
       if(wall[k].corners && !focused){
         const q=wall[k].corners.map(([cx,cy])=>{ const m=psMapWallBox({x:cx,y:cy,w:0,h:0}, cam, LB); return [m.left-box.left, m.top-box.top]; });
