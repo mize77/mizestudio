@@ -1622,6 +1622,8 @@
   #xqEditor.on{display:block}
   #xqEditor.collapsed .xqEditorBody{display:none}
   #xqEditorTab{cursor:pointer;text-align:center;padding:4px;color:#50ffcc;font-size:11px;letter-spacing:.1em;user-select:none}
+  #xqEditor.collapsed .xqEditorBody{display:none}
+  #xqEditorTab{cursor:pointer;text-align:center;padding:4px;color:#50ffcc;font-size:11px;letter-spacing:.1em;user-select:none}
   #xqEditor h3{margin:0 0 10px;font-size:13px;color:#50ffcc;letter-spacing:.06em}
   .xqERow{display:flex;align-items:center;gap:8px;margin:5px 0}
   .xqERow label{width:140px;flex-shrink:0;color:#8ec8b8;font-size:11px}
@@ -27768,6 +27770,12 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
 (function(){
   // Activate with ?editor=1
   if(!/[?&]editor=1/.test(location.search)) return;
+  window.xqEditorToggle=function(){
+    var ed=document.getElementById('xqEditor');
+    var tab=document.getElementById('xqEditorTab');
+    ed.classList.toggle('collapsed');
+    tab.textContent=ed.classList.contains('collapsed')?'⚙ STAGE EDITOR ▲':'⚙ STAGE EDITOR ▼';
+  };
   window.xqEditorToggle=function(){
     var ed=document.getElementById('xqEditor');
     var tab=document.getElementById('xqEditorTab');
