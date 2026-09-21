@@ -27564,7 +27564,7 @@ function frame(ts){
   (function(){var t=isPlaying?0.20:1.0;if(_xqSt.countdown>0)t=Math.max(0.20,1.0-(5-_xqSt.countdown)/5*0.80);_xqSt.spotDim=(_xqSt.spotDim||1.0)+(t-(_xqSt.spotDim||1.0))*Math.min(1,dt*0.003);})();
   if(isPlaying||_xqSt.countdown>0)drawSpots(W,H,bass,rms,bd,ts,_xqSt.spotDim);
   if(!_stFX){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}
-  if(fxCtx){fxCtx.clearRect(0,0,W,H);}
+  if(fxCtx){fxCtx.clearRect(0,0,W,H); if(isPlaying) drawLasers(W,H,ts,bass,hit,bd);}
   drawNPScreen(ts,bass,mid,high,rms,hit);
   // HTML countdown inside #xqNP
   if(_xqSt.countdown>0){
@@ -27595,6 +27595,44 @@ var npCnv2=document.getElementById('xqNPCanvas');
 var npCtx2=npCnv2?npCnv2.getContext('2d'):null;
 var _npBlobs=[],_npHitFlash=0;
 (function(){for(var i=0;i<9;i++)_npBlobs.push({x:Math.random(),y:Math.random(),vx:(Math.random()-.5)*0.00022,vy:(Math.random()-.5)*0.00018,size:0.13+Math.random()*0.22,phase:Math.random()*Math.PI*2,phaseRate:0.00025+Math.random()*0.00030,band:i<3?'bass':i<6?'mid':'high'});})();
+
+function drawLasers(W,H,ts,bass,hit,bd){
+  if(!_xqSt.playing) return;
+  // Laser flash: spikes on hit, fades quickly
+  if(hit) window._laserFlash=1.0;
+  window._laserFlash=Math.max(0,(window._laserFlash||0)-0.06);
+  var alpha=Math.max(0.18, (window._laserFlash||0)*0.85 + bass*0.25);
+  if(alpha<0.05) return;
+  // Beam endpoints from _buildStageFX config (same coords)
+  var lb=document.getElementById('xqStageLB');
+  if(!lb) return;
+  var r=lb.getBoundingClientRect();
+  var vw=window.innerWidth,vh=window.innerHeight;
+  var sl=r.left+r.width*0.24, sr=r.left+r.width*0.76;
+  var sb=r.top+r.height*0.78;
+  var xl=(sl/vw-0.073)*W, xr=(sr/vw-0.073)*W;
+  var yb=(1-(sb/vh))*H;
+  var xc=(xl+xr)/2;
+  // Draw crossing beams
+  if(!fxCtx) return;
+  fxCtx.save();
+  fxCtx.globalCompositeOperation='lighter';
+  [[xl,yb,xc+(xl-xc)/Math.abs(yb-H)*H,H],[xr,yb,xc+(xr-xc)/Math.abs(yb-H)*H,H]].forEach(function(b){
+    var grd=fxCtx.createLinearGradient(b[0],b[1],b[2],b[3]);
+    var col='rgba(0,220,160,';
+    grd.addColorStop(0,col+(alpha*0.06).toFixed(3)+')');
+    grd.addColorStop(0.5,col+(alpha*0.35).toFixed(3)+')');
+    grd.addColorStop(1,col+'0)');
+    fxCtx.strokeStyle=grd; fxCtx.lineWidth=W*0.0014;
+    fxCtx.shadowBlur=W*0.012; fxCtx.shadowColor='rgba(0,220,160,0.6)';
+    fxCtx.beginPath(); fxCtx.moveTo(b[0],b[1]); fxCtx.lineTo(b[2],b[3]); fxCtx.stroke();
+    // Bright core
+    fxCtx.strokeStyle=col+(alpha*0.9).toFixed(3)+')';
+    fxCtx.lineWidth=W*0.0004; fxCtx.shadowBlur=0;
+    fxCtx.beginPath(); fxCtx.moveTo(b[0],b[1]); fxCtx.lineTo(b[2],b[3]); fxCtx.stroke();
+  });
+  fxCtx.restore();
+}
 
 function drawNPScreen(ts,bass,mid,high,rms,hit){
   // Size canvas to match #xqNP (52% x 62% of letterbox) — direct, no timing issues
