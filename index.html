@@ -27448,6 +27448,7 @@ function drawSpots(W,H,bass,rms,bd,ts,dim){
   ctx.restore();
 }
 
+window._laserCfg=window._laserCfg||{offsetX:-0.073,spread:0.35};
 function drawLasers(W,H,ts,hit,bd){
   if(!_xqSt.playing||!fxCtx)return;
   if(hit){
@@ -27833,10 +27834,7 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
 
   window.xqEditorApply=function(){
     if(!window._stFX) return;
-    var offset=val('xqELaserX');
-    var originY=val('xqELaserOriginY');
-    var spread=val('xqELaserSpread');
-    var crossY=val('xqELaserY');
+    window._laserCfg={offsetX:val('xqELaserX'),spread:val('xqELaserSpread')};
     var lb=document.getElementById('xqStageLB');
     if(!lb) return;
     var r=lb.getBoundingClientRect();
