@@ -1620,6 +1620,8 @@
     font-family:system-ui,sans-serif;font-size:12px;color:#2ecab8;
     padding:12px 16px 16px;display:none;pointer-events:auto}
   #xqEditor.on{display:block}
+  #xqEditor.collapsed .xqEditorBody{display:none}
+  #xqEditorTab{cursor:pointer;text-align:center;padding:4px;color:#50ffcc;font-size:11px;letter-spacing:.1em;user-select:none}
   #xqEditor h3{margin:0 0 10px;font-size:13px;color:#50ffcc;letter-spacing:.06em}
   .xqERow{display:flex;align-items:center;gap:8px;margin:5px 0}
   .xqERow label{width:140px;flex-shrink:0;color:#8ec8b8;font-size:11px}
@@ -27707,7 +27709,9 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
 
 <!-- Sound Box Stage Editor — activate with ?editor=1 in URL -->
 <div id="xqEditor">
-  <h3>⚙ SOUND BOX STAGE EDITOR</h3>
+  <div id="xqEditorTab" onclick="xqEditorToggle()">⚙ STAGE EDITOR ▲</div>
+  <div class="xqEditorBody">
+  <h3 style="margin:8px 0 10px">SOUND BOX STAGE EDITOR</h3>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
     <div>
       <div style="color:#50ffcc;font-size:10px;letter-spacing:.1em;margin-bottom:4px">LASERS</div>
@@ -27756,6 +27760,7 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
     <button onclick="xqEditorCopy()">📋 Copy Config</button>
   </div>
   <div id="xqEditorCode">Tap Apply to see config</div>
+  </div>
 </div>
 <script>
 
@@ -27763,8 +27768,14 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
 (function(){
   // Activate with ?editor=1
   if(!/[?&]editor=1/.test(location.search)) return;
+  window.xqEditorToggle=function(){
+    var ed=document.getElementById('xqEditor');
+    var tab=document.getElementById('xqEditorTab');
+    ed.classList.toggle('collapsed');
+    tab.textContent=ed.classList.contains('collapsed')?'⚙ STAGE EDITOR ▲':'⚙ STAGE EDITOR ▼';
+  };
   var el=document.getElementById('xqEditor');
-  if(el) el.classList.add('on');
+  if(el){ el.classList.add('on'); el.classList.add('collapsed'); }
 
   function val(id){ return parseFloat(document.getElementById(id).value); }
   function show(id,v){ document.getElementById(id).textContent=v.toFixed(3); }
