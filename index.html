@@ -1612,6 +1612,26 @@
   @keyframes xqNPScratch{to{transform:translateY(100%)}}
   /* Art circle — position:absolute so JS can bounce it around */
   /* Home + controls: position:fixed so they're outside #xqStage's pointer-events:none */
+
+  /* ── Sound Box Stage Editor ── */
+  #xqEditor{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+    width:min(680px,98vw);background:rgba(4,16,12,0.97);border:1px solid rgba(0,200,140,0.35);
+    border-bottom:none;border-radius:10px 10px 0 0;z-index:9999999;
+    font-family:system-ui,sans-serif;font-size:12px;color:#2ecab8;
+    padding:12px 16px 16px;display:none;pointer-events:auto}
+  #xqEditor.on{display:block}
+  #xqEditor h3{margin:0 0 10px;font-size:13px;color:#50ffcc;letter-spacing:.06em}
+  .xqERow{display:flex;align-items:center;gap:8px;margin:5px 0}
+  .xqERow label{width:140px;flex-shrink:0;color:#8ec8b8;font-size:11px}
+  .xqERow input[type=range]{flex:1;accent-color:#1d9e75}
+  .xqERow span{width:48px;text-align:right;color:#50ffcc;font-size:11px}
+  .xqEBtns{display:flex;gap:8px;margin-top:12px}
+  .xqEBtns button{flex:1;padding:6px;background:rgba(0,180,120,0.15);
+    border:1px solid rgba(0,200,140,0.4);border-radius:5px;color:#2ecab8;cursor:pointer;font-size:11px}
+  #xqEditorCode{margin-top:8px;background:rgba(0,0,0,0.4);padding:6px 8px;
+    border-radius:4px;font-size:10px;color:#8ec8b8;word-break:break-all;
+    border:1px solid rgba(0,200,140,0.2)}
+  /* ── 
   #xqNP_home{position:fixed;pointer-events:auto;bottom:calc(9% + 1.5%);right:3%;z-index:9999999;touch-action:manipulation;
              background:rgba(0,0,0,0.6);border:.5px solid rgba(29,158,117,0.38);
              color:#1d9e75;font-size:clamp(7px,1.4vw,11px);border-radius:20px;
@@ -27682,6 +27702,145 @@ function _xqDoPlay(){
 if(_pp) _pp.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();_xqDoPlay();});
 if(_pr) _pr.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();if(_ms('prev'))MIZE.SoundStudio.prev();});
 if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();if(_ms('next'))MIZE.SoundStudio.next();});
+})();
+</script>
+
+<!-- Sound Box Stage Editor — activate with ?editor=1 in URL -->
+<div id="xqEditor">
+  <h3>⚙ SOUND BOX STAGE EDITOR</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
+    <div>
+      <div style="color:#50ffcc;font-size:10px;letter-spacing:.1em;margin-bottom:4px">LASERS</div>
+      <div class="xqERow"><label>Offset X (left/right)</label>
+        <input type="range" id="xqELaserX" min="-0.4" max="0.4" step="0.005" value="-0.073">
+        <span id="xqELaserXV">-0.073</span></div>
+      <div class="xqERow"><label>Origin Y (height)</label>
+        <input type="range" id="xqELaserOriginY" min="0.0" max="0.4" step="0.01" value="0.22">
+        <span id="xqELaserOriginYV">0.22</span></div>
+      <div class="xqERow"><label>Spread (angle)</label>
+        <input type="range" id="xqELaserSpread" min="0.05" max="0.5" step="0.01" value="0.26">
+        <span id="xqELaserSpreadV">0.26</span></div>
+      <div class="xqERow"><label>Cross height</label>
+        <input type="range" id="xqELaserY" min="0.5" max="1.2" step="0.01" value="1.0">
+        <span id="xqELaserYV">1.00</span></div>
+      <div class="xqERow"><label>Min brightness</label>
+        <input type="range" id="xqELaserMin" min="0" max="0.5" step="0.01" value="0.10">
+        <span id="xqELaserMinV">0.10</span></div>
+    </div>
+    <div>
+      <div style="color:#50ffcc;font-size:10px;letter-spacing:.1em;margin-bottom:4px">FOG MACHINES</div>
+      <div class="xqERow"><label>Left machine X</label>
+        <input type="range" id="xqEFogLX" min="0.0" max="0.5" step="0.01" value="0.10">
+        <span id="xqEFogLXV">0.10</span></div>
+      <div class="xqERow"><label>Right machine X</label>
+        <input type="range" id="xqEFogRX" min="0.5" max="1.0" step="0.01" value="0.90">
+        <span id="xqEFogRXV">0.90</span></div>
+      <div class="xqERow"><label>Left lean (direction)</label>
+        <input type="range" id="xqEFogLLean" min="-60" max="60" step="1" value="32">
+        <span id="xqEFogLLeanV">32°</span></div>
+      <div class="xqERow"><label>Right lean (direction)</label>
+        <input type="range" id="xqEFogRLean" min="-60" max="60" step="1" value="-32">
+        <span id="xqEFogRLeanV">-32°</span></div>
+      <div class="xqERow"><label>Spread (plume width)</label>
+        <input type="range" id="xqEFogSpread" min="0.1" max="1.2" step="0.02" value="0.22">
+        <span id="xqEFogSpreadV">0.22</span></div>
+      <div class="xqERow"><label>Burst strength</label>
+        <input type="range" id="xqEFogBurst" min="0" max="0.5" step="0.01" value="0.08">
+        <span id="xqEFogBurstV">0.08</span></div>
+    </div>
+  </div>
+  <div class="xqEBtns">
+    <button onclick="xqEditorApply()">▶ Apply</button>
+    <button onclick="xqEditorBurst()">💨 Test Fog</button>
+    <button onclick="xqEditorRebuild()">🔄 Rebuild FX</button>
+    <button onclick="xqEditorCopy()">📋 Copy Config</button>
+  </div>
+  <div id="xqEditorCode">Tap Apply to see config</div>
+</div>
+<script>
+
+// ── Sound Box Stage Editor ──────────────────────────────────────────────────
+(function(){
+  // Activate with ?editor=1
+  if(!/[?&]editor=1/.test(location.search)) return;
+  var el=document.getElementById('xqEditor');
+  if(el) el.classList.add('on');
+
+  function val(id){ return parseFloat(document.getElementById(id).value); }
+  function show(id,v){ document.getElementById(id).textContent=v.toFixed(3); }
+
+  // Live update labels
+  ['xqELaserX','xqELaserOriginY','xqELaserSpread','xqELaserY','xqELaserMin','xqEFogLX','xqEFogRX','xqEFogLLean','xqEFogRLean','xqEFogSpread','xqEFogBurst'].forEach(function(id){
+    var out=id+'V';
+    document.getElementById(id).addEventListener('input',function(){
+      var v=parseFloat(this.value); show(out, id.indexOf('Lean')>=0?v.toFixed(0)+'°':v);
+    });
+  });
+
+  window.xqEditorApply=function(){
+    if(!window._stFX) return;
+    var offset=val('xqELaserX');
+    var originY=val('xqELaserOriginY');
+    var spread=val('xqELaserSpread');
+    var crossY=val('xqELaserY');
+    var lb=document.getElementById('xqStageLB');
+    if(!lb) return;
+    var r=lb.getBoundingClientRect();
+    var vw=window.innerWidth,vh=window.innerHeight;
+    var sl=r.left+r.width*0.24, sr=r.left+r.width*0.76;
+    var xl=sl/vw+offset, xr=sr/vw+offset;
+    var yb=1-originY;
+    var xc=(xl+xr)/2;
+    var dy=Math.max(0.01,crossY-yb);
+    var x1=xl+spread*(xr-xl)/Math.max(0.01,xr-xl)*dy+spread;
+    var x2=xr-spread*(xr-xl)/Math.max(0.01,xr-xl)*dy-spread;
+    // Simple: left beam goes right, right beam goes left, crossing at xc,crossY
+    x1=xc+(xl-xc)*(crossY-1)/(yb-crossY+0.001)*-1;
+    x2=xc+(xr-xc)*(crossY-1)/(yb-crossY+0.001)*-1;
+    if(_stFX&&_stFX.set) _stFX.set({
+      beams:[[xl,yb,x1,crossY],[xr,yb,x2,crossY]],
+      haze: val('xqEFogSpread')*0.08
+    });
+    // Update fog sources
+    window._xqEditorFogCfg={
+      lx:val('xqEFogLX'), rx:val('xqEFogRX'),
+      lLean:val('xqEFogLLean'), rLean:val('xqEFogRLean'),
+      spread:val('xqEFogSpread'), burst:val('xqEFogBurst'),
+      laserOffset:offset, originY:originY, crossY:crossY
+    };
+    var cfg='laserOffset:'+offset.toFixed(3)+
+      ' originY:'+originY.toFixed(2)+
+      ' crossY:'+crossY.toFixed(2)+
+      ' fogL:{x:'+val('xqEFogLX').toFixed(2)+',lean:'+Math.round(val('xqEFogLLean'))+'}'+
+      ' fogR:{x:'+val('xqEFogRX').toFixed(2)+',lean:'+Math.round(val('xqEFogRLean'))+'}'+
+      ' spread:'+val('xqEFogSpread').toFixed(2)+
+      ' burst:'+val('xqEFogBurst').toFixed(2);
+    document.getElementById('xqEditorCode').textContent=cfg;
+  };
+
+  window.xqEditorBurst=function(){
+    var cfg=window._xqEditorFogCfg||{};
+    if(_stFX&&_stFX.burst) _stFX.burst(1.2, cfg.burst||val('xqEFogBurst'));
+  };
+
+  window.xqEditorRebuild=function(){
+    if(window._buildStageFX){
+      // Patch _buildStageFX sources from editor values before rebuilding
+      _buildStageFX();
+      setTimeout(function(){
+        var sfx=document.getElementById('xqStageFX');
+        if(sfx){sfx.style.display='block';sfx.style.zIndex='22';sfx.style.mixBlendMode='screen';}
+        xqEditorApply();
+      },200);
+    }
+  };
+
+  window.xqEditorCopy=function(){
+    var txt=document.getElementById('xqEditorCode').textContent;
+    navigator.clipboard&&navigator.clipboard.writeText(txt);
+    document.getElementById('xqEditorCode').textContent='✓ Copied! Paste to Studio chat.';
+    setTimeout(function(){document.getElementById('xqEditorCode').textContent=txt;},2000);
+  };
 })();
 </script>
 </body></html>
