@@ -681,7 +681,7 @@
     display:none; position:absolute; inset:0;
     z-index:1; pointer-events:none;
   }
-  body.presentation #arenaAtmosphere { display:none; }  /* Stage 2: the room is the environment */
+  body.xqStage #arenaAtmosphere { display:none; }  /* Stage 2: the room is the environment */
   /* Shared defaults for all atmosphere layers */
   #arenaCeiling, #arenaSides, #arenaGlow, #arenaFloor, #arenaVignette {
     position:absolute; inset:0;
@@ -701,7 +701,7 @@
     z-index:5; pointer-events:none;
   }
   #arenaOverlay * { pointer-events:none; }
-  body.presentation #arenaOverlay { display:none; }
+  body.xqStage #arenaOverlay { display:none; }
   #arenaVignette {
     background:
       radial-gradient(ellipse 64% 52% at 50% 64%,
@@ -823,17 +823,17 @@
      as paper rather than as an arena floor. Darken it to match the atmosphere. */
   /* Stage 2: in the photographed studio the white venue deck reads as paper on the
      wall, so the dark deck (formerly 3D-only) applies in Presentation Mode always. */
-  body.presentation #fieldBgRect { fill: #0c1e2a; }
+  body.xqStage #fieldBgRect { fill: #0c1e2a; }
   /* Goal-line frame panels on the left and right are also white by default. */
-  body.presentation #goalFrameL1,
-  body.presentation #goalFrameL2,
-  body.presentation #goalFrameR1,
-  body.presentation #goalFrameR2 { fill: #0c1e2a; }
+  body.xqStage #goalFrameL1,
+  body.xqStage #goalFrameL2,
+  body.xqStage #goalFrameR1,
+  body.xqStage #goalFrameR2 { fill: #0c1e2a; }
   /* Sideline bands stay, but softer against the dark deck. */
-  body.presentation #fieldSideBands { opacity:.72; }
-  body.presentation #board { background:transparent; }
-  body.presentation #presentationFieldGroup .presDeck { fill:#0c1e2a; }
-  body.presentation #presentationFieldGroup text { fill:#8fd8d0; opacity:.85; }
+  body.xqStage #fieldSideBands { opacity:.72; }
+  body.xqStage #board { background:transparent; }
+  body.xqStage #presentationFieldGroup .presDeck { fill:#0c1e2a; }
+  body.xqStage #presentationFieldGroup text { fill:#8fd8d0; opacity:.85; }
   /* Darken the water backdrop -- the white venue deck reads as paper not pool
      without this, and depth is mostly light falloff not shape. */
   body.presentation.field3d #presentationWaterBackdrop { filter:brightness(.55); }
@@ -1062,7 +1062,7 @@
   #spotlightMoveHandle.shown { display:flex; width:26px; height:26px; margin-left:-13px; margin-top:-13px; border-radius:50%; background:transparent; border:none; cursor:move; pointer-events:auto; touch-action:none; align-items:center; justify-content:center; }
   #spotlightResizeHandle.shown { display:flex; width:26px; height:26px; margin-left:-13px; margin-top:-13px; border-radius:50%; background:#fff; border:2px solid #ffcf40; cursor:nwse-resize; pointer-events:auto; touch-action:none; align-items:center; justify-content:center; font-size:13px; }
   #presentationWaterBackdrop { display:none; position:absolute; inset:0; background:none; }
-  body.presentation #presentationWaterBackdrop { display:none; }
+  body.xqStage #presentationWaterBackdrop { display:none; }
   body.xqStage .studioFrame { position:relative; }
   body.xqStage .studioFrame::before { content:''; position:absolute; inset:0; background:none; z-index:0; }
   body.xqStage .studioFrame .studioFramePlaceholder { position:relative; z-index:1; }
@@ -1531,6 +1531,26 @@
   body[data-stage="home"] header, body[data-stage="home"] #edgeTabStack, body[data-stage="home"] #quickCommandBar,
   body[data-stage="home"] #showQuickCommandBarTab, body[data-stage="home"] #controlsPanel, body[data-stage="home"] #timelinePanel,
   body[data-stage="home"] #toolPanelBackdrop, body[data-stage="home"] #coachingNotesSidebar, body[data-stage="home"] #closeHeaderBtn { display:none !important; }
+  /* Game Tracker LIVE on the stage: side screens stay lit and readable (no focus dimming), no
+     camera chrome, live information column on the right screen. The tracker's own chrome
+     (z 999980+) sits above all of it, the shield included. */
+  body[data-stage="gametracker"] #studioTrack > .camOff { filter:none; }
+  body[data-stage="gametracker"] #studioNavLeft, body[data-stage="gametracker"] #studioNavRight, body[data-stage="gametracker"] #studioFrameDots { display:none !important; }
+  body[data-stage="gametracker"] .studioFramePlaceholder, body[data-stage="gametracker"] .studioFrameClearBtn { display:none !important; }
+  body[data-stage="gametracker"] #statsContent { display:block; overflow:hidden; }
+  #gtLiveInfo { position:absolute; inset:0; padding:8% 7%; color:#dff3f1; font-family:'Archivo',system-ui,-apple-system,sans-serif; font-size:12.5px; line-height:1.35; overflow:hidden; background:linear-gradient(180deg, rgba(3,10,10,.55), rgba(3,10,10,.75)); }
+  #gtLiveInfo .gtLiHead { text-align:center; margin-bottom:10px; }
+  #gtLiveInfo .gtLiTeam { font-size:12px; font-weight:600; color:#9fc9c6; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #gtLiveInfo .gtLiScore { font-size:34px; font-weight:700; color:#f2fbfa; line-height:1.15; margin:2px 0; }
+  #gtLiveInfo .gtLiClock { font-size:13px; color:#7ff0ec; letter-spacing:.12em; margin-top:4px; }
+  #gtLiveInfo .gtLiSection { font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:#4bb8bd; margin:10px 0 4px; border-top:1px solid rgba(46,202,184,.18); padding-top:6px; }
+  #gtLiveInfo .gtLiCounts div { display:flex; justify-content:space-between; gap:6px; padding:1px 0; }
+  #gtLiveInfo .gtLiCounts span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #gtLiveInfo .gtLiCounts b { color:#f2fbfa; }
+  #gtLiveInfo .gtLiLast div { padding:1px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #gtLiveInfo .gtLiT { color:#7c9a98; font-variant-numeric:tabular-nums; }
+  #gtLiveInfo .gtLiLast i { color:#9fc9c6; font-style:normal; }
+  #gtLiveInfo .gtLiEmpty { color:#7c9a98; }
   body[data-stage="home"] #psRoom { z-index:8998; }
   body[data-stage="home"] #studioTrack { z-index:8999; }
   body[data-stage="home"] #stageLights { z-index:9000; }
@@ -5201,8 +5221,7 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
   if(mode === 'gametracker'){
     // Exit presentation mode first so its background and stage setup
     // don't linger underneath the tracker UI.
-    if(document.body.classList.contains('presentation')) togglePresentation();
-    if(window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function') window.XquiXGameTracker.open();
+    xquixOpenGameTracker();
   } else if(mode === 'presenting'){
     if(!document.body.classList.contains('presentation')) togglePresentation('fit');
   } else if(mode === 'practice'){
@@ -11736,6 +11755,63 @@ function psRoomRect(){
   const w=Math.max(Math.min(vw, vh*16/9), minW), h=w*9/16;
   return { left:(vw-w)/2, top:(vh-h)/2, width:w, height:h };
 }
+// ===== Game Tracker LIVE on the stage (briefs/GAMETRACKER-STUDIO-REVIEW.md Step 3, 2026-09-21) =====
+// The tracker is untouched: it opens exactly as before, in Front Court with its own bars,
+// sheets and shield. On a landscape viewport of 900 px or wider the Studio opens the stage
+// first, so the tracker's field lands on the centre screen (the reading box, between the side
+// panels and below the tracker's top bar), the right screen shows live game information from
+// the tracker's read-only liveRecord(), and the left screen is the branding screen. Camera
+// locked; the Panorama framing is kept so both side screens stay in view. Phones and any
+// portrait orientation never open the stage (MIZE, 2026-09-21).
+function gtStageFits(){ return viewportWidth()>=900 && viewportWidth()>viewportHeight(); }
+function xquixOpenGameTracker(){
+  const T=window.XquiXGameTracker;
+  if(!(T && typeof T.open==='function')) return false;
+  if(document.body.classList.contains('presentation')) togglePresentation();
+  if(typeof xquixHideHome==='function') xquixHideHome();
+  if(typeof XQStage!=='undefined' && gtStageFits()){
+    XQStage.open('gametracker', { camera:'center', lockCamera:true, instant:true, roomCamera:'pan', readingBetweenPanels:true,
+      insetTop:()=>{ const t=document.getElementById('xgtTop'); return t ? t.getBoundingClientRect().height : 0; } });
+    gtLiveInfoMount();
+  }
+  T.open();
+  return true;
+}
+let _gtLiveNode=null, _gtLiveClock=null, _gtHooked=false;
+function gtLiveInfoMount(){
+  if(!_gtLiveNode){ _gtLiveNode=document.createElement('div'); _gtLiveNode.id='gtLiveInfo'; }
+  XQStage.setScreen('info', _gtLiveNode);
+  gtLiveInfoRender('state');
+  if(!_gtHooked && window.XquiXGameTracker && typeof window.XquiXGameTracker.onChange==='function'){
+    _gtHooked=true;
+    window.XquiXGameTracker.onChange(kind=>{ if(XQStage.consumer()==='gametracker') gtLiveInfoRender(kind); });
+    window.XquiXGameTracker.onClose(()=>{
+      if(XQStage.consumer()!=='gametracker') return;
+      XQStage.close();
+      fitBoardToScreen();   // back to the plain Coaching layout the tracker restored
+    });
+  }
+}
+const gtEsc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function gtLiveInfoRender(kind){
+  const T=window.XquiXGameTracker; if(!_gtLiveNode || !T || typeof T.liveRecord!=='function') return;
+  let r; try{ r=T.liveRecord(); }catch(e){ return; }
+  if(kind==='clock'){ const c=_gtLiveNode.querySelector('.gtLiClock'); if(c) c.textContent='Q'+r.q+' · '+r.clockText; const q=_gtLiveNode.querySelector('.gtLiQ'); if(q) q.textContent='Q'+r.q; return; }
+  const evs=r.events||[];
+  const actions=evs.filter(e=>e && e.context && e.context.kind==='action');
+  const counts={}; actions.forEach(e=>{ const k=e.actionLabel||e.action; if(!k) return; counts[k]=(counts[k]||0)+1; });
+  const top=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const last=actions.slice(-5).reverse();
+  const who=e=>e.actor && e.actor.number!=null ? '#'+e.actor.number : (e.trackedPlayer && e.trackedPlayer.number!=null ? '#'+e.trackedPlayer.number : '');
+  _gtLiveNode.innerHTML=
+    '<div class="gtLiHead"><div class="gtLiTeam">'+gtEsc(r.game&&r.game.home||'My team')+'</div>'+
+      (r.trackScore ? '<div class="gtLiScore">'+gtEsc(r.finalScore.home)+' – '+gtEsc(r.finalScore.away)+'</div>' : '<div class="gtLiScore gtLiQ">Q'+gtEsc(r.q)+'</div>')+
+      '<div class="gtLiTeam">'+gtEsc(r.game&&r.game.away||'Opponent')+'</div>'+
+      '<div class="gtLiClock">Q'+gtEsc(r.q)+' · '+gtEsc(r.clockText)+'</div></div>'+
+    '<div class="gtLiSection">This game · '+actions.length+' action'+(actions.length===1?'':'s')+'</div>'+
+    (top.length ? '<div class="gtLiCounts">'+top.map(([k,n])=>'<div><span>'+gtEsc(k)+'</span><b>'+n+'</b></div>').join('')+'</div>' : '<div class="gtLiEmpty">Nothing recorded yet</div>')+
+    (last.length ? '<div class="gtLiSection">Last</div><div class="gtLiLast">'+last.map(e=>'<div><span class="gtLiT">'+gtEsc(e.gameClockText||'')+'</span> '+gtEsc(who(e))+' '+gtEsc(e.actionLabel||e.action||'')+(e.outcomeLabel?' <i>'+gtEsc(e.outcomeLabel)+'</i>':'')+'</div>').join('')+'</div>' : '');
+}
 // ===== XQStage -- the Studio Stage as a shared environment (2026-09-21) =====
 // The stage owns the room, the three screens, the camera, the layout, the navigation chrome
 // and the branding screens. A consumer (Presentation, Home, later Game Tracker and Practice)
@@ -11773,7 +11849,7 @@ const XQStage=(function(){
       studioPanorama=false;
       document.body.classList.remove('xqStage','panorama','cameraMoving','psIdle','psIntro');
       delete document.body.dataset.stage; delete document.body.dataset.cam;
-      { const lb=el('psRoomLB'); if(lb){ lb.style.transform=''; lb.style.transformOrigin=''; } }
+      { const lb=el('psRoomLB'); if(lb){ ['transform','transformOrigin','position','left','top','width','height'].forEach(k=>{ lb.style[k]=''; }); } }
       ['videoFrame','stageWrap','statsFrame'].forEach(id=>{ const f=el(id); if(!f) return;
         ['left','top','width','height','transform','transformOrigin'].forEach(k=>{ f.style[k]=''; });
         f.classList.remove('camOff','onWall','camFocus'); });
@@ -12595,8 +12671,7 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
     var inPres = document.body.classList.contains('presentation');
     if (inPres && mode !== 'presenting') togglePresentation();
     if (mode === 'gametracker') {
-      if (window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function')
-        window.XquiXGameTracker.open();
+      xquixOpenGameTracker();
     } else if (mode === 'presenting') {
       if (!document.body.classList.contains('presentation')) togglePresentation('fit');
     } else if (mode === 'practice') {
@@ -12621,9 +12696,7 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
       });
       obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
-    if (document.body.classList.contains('presentation')) togglePresentation();
-    if (window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function')
-      window.XquiXGameTracker.open();
+    xquixOpenGameTracker();
     if (typeof MIZE !== 'undefined' && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start === 'function')
       setTimeout(function () { MIZE.GameTrackerTutorial.start(name); }, 300);
   }
@@ -22405,6 +22478,64 @@ document.getElementById('libImportConfirmBtn')?.addEventListener('click', async 
 // innerWidth/innerHeight on the rare browser without it at all.
 function viewportWidth(){ return window.visualViewport ? window.visualViewport.width : window.innerWidth; }
 function viewportHeight(){ return window.visualViewport ? window.visualViewport.height : window.innerHeight; }
+// The stage's layout, shared by the Presentation/stage branch and the Front Court branch of
+// fitBoardToScreen (2026-09-21): positions the room, the fixtures strip and the three screens
+// for the current camera and returns the boxes. Consumer options it honours:
+//   roomCamera  -- apply this camera's room transform / wall mapping instead of the focused
+//                  state's (Game Tracker LIVE keeps the Panorama framing so the side screens
+//                  stay in view while the board takes the reading box)
+//   insetTop    -- px (or a function) the reading box and the room start below (a consumer's
+//                  own top bar; the tracker's chrome). viewportHeight() is already reduced
+//                  by such chrome, so this is only the offset
+//   readingBetweenPanels -- the reading box never covers the side panels (fits the gap)
+function psStageLayout(){
+  const margin=20;
+  const opts=XQStage.opts()||{};
+  const inset=(typeof opts.insetTop==='function') ? (opts.insetTop()||0) : (opts.insetTop||0);
+  const panorama=(typeof studioPanorama!=='undefined') && studioPanorama;
+  const ratioW = PRESENT_VIEWBOX_W, ratioH = PRESENT_VIEWBOX_H;
+  // The room letterbox (XQ-ENV-001): 16:9, centred. The fixtures strip follows it.
+  const LB=psRoomRect(); LB.top+=inset;
+  const lights=document.getElementById('stageLights');
+  if(lights){ lights.style.left=LB.left+'px'; lights.style.width=LB.width+'px'; lights.style.top=LB.top+'px'; }
+  // The letterbox element follows the same rect as the JS (the CSS sizing uses 100vh, which a
+  // consumer's chrome -- the tracker's bars -- makes wrong): inline size, cleared on close.
+  { const lb=document.getElementById('psRoomLB'); if(lb){ lb.style.position='absolute'; lb.style.left=LB.left+'px'; lb.style.top=LB.top+'px'; lb.style.width=LB.width+'px'; lb.style.height=LB.height+'px'; } }
+  const frameEls={video:document.getElementById('videoFrame'), board:document.getElementById('stageWrap'), stats:document.getElementById('statsFrame')};
+  const wall={ video:PS_SCREENS.left, board:PS_SCREENS.center, stats:PS_SCREENS.right };
+  const cam=psCameraState();
+  const roomCam=opts.roomCamera||cam;
+  document.body.dataset.cam=cam;
+  psApplySideBranding();   // Stage 5: CSS keys the immersive window off the camera state
+  psApplyRoomCamera(roomCam, LB);
+  // Reading box: the focused screen at one-viewport size, centred (as Presentation Mode always sized it).
+  let availW=Math.max(280, viewportWidth()-margin); const availH=Math.max(220, viewportHeight()-margin);
+  if(opts.readingBetweenPanels){
+    const l=psMapWallBox(wall.video, roomCam, LB), r=psMapWallBox(wall.stats, roomCam, LB);
+    availW=Math.max(280, Math.min(availW, (r.left-16)-(l.left+l.width+16)));
+  }
+  let readW=availW, readH=readW*ratioH/ratioW; if(readH>availH){ readH=availH; readW=readH*ratioW/ratioH; }
+  const reading={ left:(viewportWidth()-readW)/2, top:inset+(viewportHeight()-readH)/2, width:readW, height:readH };
+  const focusedKey = panorama ? null : ['video','board','stats'][studioFrameIndex];
+  const boxes={};
+  Object.keys(wall).forEach(k=>{
+    const el=frameEls[k]; if(!el) return;
+    const focused = k===focusedKey;
+    const box = focused ? reading : psMapWallBox(wall[k], roomCam, LB);
+    boxes[k]=box;
+    el.style.left=box.left+'px'; el.style.top=box.top+'px'; el.style.width=box.width+'px'; el.style.height=box.height+'px';
+    el.classList.toggle('camOff', !panorama && !focused);
+    el.classList.toggle('onWall', !focused);
+    el.classList.toggle('camFocus', focused);
+    // Stage 4: a side screen on the wall is mapped onto its angled panel (four-corner fit).
+    if(wall[k].corners && !focused){
+      const q=wall[k].corners.map(([cx,cy])=>{ const m=psMapWallBox({x:cx,y:cy,w:0,h:0}, roomCam, LB); return [m.left-box.left, m.top-box.top]; });
+      el.style.transformOrigin='0 0';
+      el.style.transform=psMatrix3dFromCorners(box.width, box.height, q);
+    } else { el.style.transform=''; el.style.transformOrigin=''; }
+  });
+  return { LB, cam, roomCam, reading, focusedKey, boxes };
+}
 function fitBoardToScreen(){
   const board=document.getElementById('board');
   if(!board) return;
@@ -22426,10 +22557,18 @@ function fitBoardToScreen(){
     // within the studio" frame the normal (non-Front-Court) presentation
     // view already uses -- otherwise the board expands to the full
     // viewport width, hiding the studio backdrop on the sides entirely.
+    let stageReading=null;
     if(inPresentation){
-      const maxScreenW=availH*(PRESENT_VIEWBOX_W/PRESENT_VIEWBOX_H);
-      availW=Math.max(280, Math.min(availW, maxScreenW));
-      if(typeof studioPanorama!=='undefined' && studioPanorama) availW=Math.max(200, Math.min(availW, viewportWidth()*0.40-margin));
+      // On the stage the board lives in the reading box the stage lays out (Front Court is
+      // CENTER-only, so the board is the focused screen); the frames and the room are
+      // positioned by the same pass, so the board never drifts from its screen.
+      const st=psStageLayout();
+      if(st.focusedKey==='board'){ stageReading=st.reading; availW=Math.max(280, st.reading.width); }
+      else {
+        const maxScreenW=availH*(PRESENT_VIEWBOX_W/PRESENT_VIEWBOX_H);
+        availW=Math.max(280, Math.min(availW, maxScreenW));
+        if(typeof studioPanorama!=='undefined' && studioPanorama) availW=Math.max(200, Math.min(availW, viewportWidth()*0.40-margin));
+      }
     }
     // ratioW uses the playable pool width (M.fieldH) rather than the full
     // board height (M.H) -- M.H includes 2m of purely decorative margin
@@ -22449,7 +22588,7 @@ function fitBoardToScreen(){
     board.style.height=boardH+'px';
     updateShotClockCenterTransform();
     const wrap=document.getElementById('stageWrap');
-    if(wrap){ wrap.style.height=availH+'px'; wrap.style.overflowY='auto'; }
+    if(wrap){ wrap.style.height=(stageReading ? stageReading.height : availH)+'px'; wrap.style.overflowY='auto'; }
     // #board itself has touch-action:none (needed elsewhere to keep the
     // browser from hijacking player-drag gestures), which also silently
     // blocks the browser from ever starting a native scroll on touch
@@ -22471,50 +22610,18 @@ function fitBoardToScreen(){
     if(wrap) wrap.scrollTop = pxPerUnit * (-FC_FULL_MIN_Y);
     refreshFrontCourtScrollZones();
     refreshShotClockPosition();
+    if(inPresentation) XQStage._emit('layout', { room:psRoomRect(), camera:psCameraState(), focused:'board', frontCourt:true });
     return;
   }
   if(XQStage.isOpen()){
-    // The stage's layout: room, camera, reading box for the focused screen, wall boxes for the
-    // others, four-corner fit on the side panels. Presentation, Home and later consumers all
-    // come through here; nothing below is keyed on body.presentation.
-    const margin=20;
-    const panorama=(typeof studioPanorama!=='undefined') && studioPanorama;
+    // The stage's layout (psStageLayout): room, camera, reading box for the focused screen,
+    // wall boxes for the others. Presentation, Home and Game Tracker all come through here;
+    // nothing below is keyed on body.presentation. This branch then sizes the board.
+    const st=psStageLayout();
     const ratioW = PRESENT_VIEWBOX_W, ratioH = PRESENT_VIEWBOX_H;
-    // The room letterbox (XQ-ENV-001): 16:9, centred. The fixtures strip follows it.
-    const LB=psRoomRect();
-    const lights=document.getElementById('stageLights');
-    if(lights){ lights.style.left=LB.left+'px'; lights.style.width=LB.width+'px'; lights.style.top=LB.top+'px'; }
-    const frameEls={video:document.getElementById('videoFrame'), board:document.getElementById('stageWrap'), stats:document.getElementById('statsFrame')};
-    const wall={ video:PS_SCREENS.left, board:PS_SCREENS.center, stats:PS_SCREENS.right };
-    const cam=psCameraState();
-    document.body.dataset.cam=cam;
-    psApplySideBranding();   // Stage 5: CSS keys the immersive window off the camera state
-    psApplyRoomCamera(cam, LB);
-    // Reading box: the focused screen at one-viewport size, centred (as Presentation Mode always sized it).
-    const availW=Math.max(280, viewportWidth()-margin), availH=Math.max(220, viewportHeight()-margin);
-    let readW=availW, readH=readW*ratioH/ratioW; if(readH>availH){ readH=availH; readW=readH*ratioW/ratioH; }
-    const reading={ left:(viewportWidth()-readW)/2, top:(viewportHeight()-readH)/2, width:readW, height:readH };
-    const focusedKey = panorama ? null : ['video','board','stats'][studioFrameIndex];
     let boardW, boardH;
-    Object.keys(wall).forEach(k=>{
-      const el=frameEls[k]; if(!el) return;
-      const focused = k===focusedKey;
-      const box = focused ? reading : psMapWallBox(wall[k], cam, LB);
-      el.style.left=box.left+'px'; el.style.top=box.top+'px'; el.style.width=box.width+'px'; el.style.height=box.height+'px';
-      el.classList.toggle('camOff', !panorama && !focused);
-      el.classList.toggle('onWall', !focused);
-      el.classList.toggle('camFocus', focused);
-      // Stage 4: a side screen on the wall is mapped onto its angled panel (four-corner fit).
-      if(wall[k].corners && !focused){
-        const q=wall[k].corners.map(([cx,cy])=>{ const m=psMapWallBox({x:cx,y:cy,w:0,h:0}, cam, LB); return [m.left-box.left, m.top-box.top]; });
-        el.style.transformOrigin='0 0';
-        el.style.transform=psMatrix3dFromCorners(box.width, box.height, q);
-      } else { el.style.transform=''; el.style.transformOrigin=''; }
-      if(k==='board'){
-        if(focused){ boardW=readW; boardH=readH; }
-        else { const cw=box.width-8, ch=box.height-8; boardW=cw; boardH=boardW*ratioH/ratioW; if(boardH>ch){ boardH=ch; boardW=boardH*ratioW/ratioH; } }
-      }
-    });
+    if(st.focusedKey==='board'){ boardW=st.reading.width; boardH=st.reading.height; }
+    else { const b=st.boxes.board; const cw=b.width-8, ch=b.height-8; boardW=cw; boardH=boardW*ratioH/ratioW; if(boardH>ch){ boardH=ch; boardW=boardH*ratioW/ratioH; } }
     board.style.width=boardW+'px';
     board.style.height=boardH+'px';
     updateShotClockCenterTransform();
@@ -22525,7 +22632,7 @@ function fitBoardToScreen(){
     refreshFrontCourtScrollZones();
     // Keep --xq-persp proportional to the rendered board height (tilt maths reads it back).
     if(typeof window._updateTiltPerspective==='function') window._updateTiltPerspective();
-    XQStage._emit('layout', { room:LB, camera:cam, focused:focusedKey });
+    XQStage._emit('layout', { room:st.LB, camera:st.cam, focused:st.focusedKey, reading:st.reading, boxes:st.boxes });
     return;
   }
   const margin=20;
@@ -27533,8 +27640,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
   function wire() {
     if (!window.MIZE || !window.MIZE.Parent) return;
     MIZE.Parent.onStartGameTracking = function () {
-      if (typeof xquixHideHome === 'function') xquixHideHome();
-      if (window.XquiXGameTracker && typeof window.XquiXGameTracker.open === 'function') window.XquiXGameTracker.open();
+      xquixOpenGameTracker();
     };
     MIZE.Parent.onUseTacticalBoard = function () {
       if (typeof xquixHideHome === 'function') xquixHideHome();

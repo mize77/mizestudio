@@ -2442,6 +2442,7 @@ function paintClock() {
   t.textContent = fmt(S.clock);
   t.className = S.running ? 'run' : '';
   el('xgtQ').textContent = 'Q' + S.q + ' ✎';
+  xgtEmit('change', 'clock');
 }
 function openClock() {
   var wasRunning = S.running;
@@ -2961,6 +2962,7 @@ function openShootout() {
 /* ==================================================================== render */
 function render() {
   if (!el('xgtRoot')) return;
+  xgtEmit('change', 'state');
   var sc = scoreOf();
   el('xgtHs').textContent = sc[0]; el('xgtAs').textContent = sc[1];
   el('xgtScore').style.display = S.trackScore ? 'contents' : 'none'; // kept in sync every render, not just at setup, since S.trackScore could in principle change after buildChrome()'s one-time HTML already ran. 'contents' (not 'flex') so the two .tm children lay out as direct members of xgtClockRow's own flex row, not as a nested box within it
@@ -4344,6 +4346,15 @@ function xgtBuildStatsPdf(jsPDFCtor, opts) {
     return opts.filename;
   });
 }
+// Read-only hooks for the Studio Stage (2026-09-21, briefs/GAMETRACKER-STUDIO-REVIEW.md
+// Step 3): the Studio shows live game information beside the tracker while it runs on the
+// stage. Nothing here changes tracking; listeners get no arguments beyond a kind string and
+// read through API.liveRecord(). Errors in a listener never reach the tracker.
+var _xgtHooks = { change: [], close: [] };
+function xgtEmit(kind, detail) {
+  var list = _xgtHooks[kind] || [];
+  for (var i = 0; i < list.length; i++) { try { list[i](detail); } catch (err) {} }
+}
 var API = {
   open: function () {
     if (S.active) return;
@@ -4446,6 +4457,7 @@ var API = {
       try { if (typeof loadState === 'function') loadState(S.savedBoardState); } catch (err) {}
       S.savedBoardState = null;
     }
+    xgtEmit('close');
   },
   isOpen: function () { return S.active; },
   state: S,
@@ -4456,6 +4468,18 @@ var API = {
   FIELD_PLAYER_ACTIONS: FIELD_PLAYER_ACTIONS,
   GOALKEEPER_ACTIONS: GOALKEEPER_ACTIONS,
   events: function () { return S.events.slice(); },
+  // Studio Stage hooks (read-only). liveRecord() has the shape of a saved session record
+  // (what renderSessionStatsHtml takes) plus the clock, built fresh from the live state --
+  // a snapshot, never S itself.
+  liveRecord: function () {
+    var sc = scoreOf();
+    return { trackingMode: S.trackingMode, playerRole: S.playerRole, trackedPlayer: S.me,
+      game: S.game, finalScore: { home: sc[0], away: sc[1] }, trackScore: S.trackScore,
+      q: S.q, clock: S.clock, clockText: fmt(S.clock), running: S.running,
+      regulationEnded: !!S.regulationEnded, events: S.events.slice() };
+  },
+  onChange: function (cb) { if (typeof cb === 'function') _xgtHooks.change.push(cb); },
+  onClose: function (cb) { if (typeof cb === 'function') _xgtHooks.close.push(cb); },
   // Read-only stats rendering for a SAVED session record (Phase B --
   // "View Stats" from the Coaching Library), completely separate from
   // openStats() and never touching the live S object. This matters: a
