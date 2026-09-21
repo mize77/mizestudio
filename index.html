@@ -27449,40 +27449,6 @@ function drawSpots(W,H,bass,rms,bd,ts,dim){
 }
 
 window._laserCfg=window._laserCfg||{offsetX:-0.073,spread:0.35};
-function drawLasers(W,H,ts,hit,bd){
-  if(!_xqSt.playing||!fxCtx)return;
-  if(hit){
-    laserFlash=1;
-    LASERS.forEach(function(l){l.kA=(Math.random()-.5)*0.6;l.kD=1;});
-  }
-  laserFlash=Math.max(0,laserFlash-0.045); // decays over ~22 frames (~370 ms at 60fps)
-  if(laserFlash<0.04) return; // invisible between hits — don't draw
-  var alpha=laserFlash*0.90+bd*0.10;
-  var pal=_xqSt.palette;
-  fxCtx.save();fxCtx.globalCompositeOperation='lighter';
-  LASERS.forEach(function(l,i){
-    l.kD=Math.max(0,l.kD-0.06);
-    var col=pal[l.palI]||pal[i%pal.length]||'#1d9e75';
-    var a=l.amp*Math.sin(ts/l.per*Math.PI*2+l.ph)+l.kA*l.kD;
-    var ox=l.ox*W,oy=l.oy*H,len=H*1.65;
-    var tx=ox+Math.sin(a)*len,ty=oy+Math.cos(a)*len;
-    // Outer haze
-    fxCtx.lineWidth=W*0.011; fxCtx.strokeStyle=rgba(col,alpha*0.06);
-    fxCtx.shadowBlur=0; fxCtx.beginPath();fxCtx.moveTo(ox,oy);fxCtx.lineTo(tx,ty);fxCtx.stroke();
-    // Mid glow
-    fxCtx.lineWidth=W*0.003; fxCtx.strokeStyle=rgba(col,alpha*0.48);
-    fxCtx.beginPath();fxCtx.moveTo(ox,oy);fxCtx.lineTo(tx,ty);fxCtx.stroke();
-    // Core
-    fxCtx.lineWidth=W*0.0012; fxCtx.strokeStyle=rgba(col,alpha*0.96);
-    fxCtx.shadowBlur=W*0.020; fxCtx.shadowColor=col;
-    fxCtx.beginPath();fxCtx.moveTo(ox,oy);fxCtx.lineTo(tx,ty);fxCtx.stroke();
-    // White hot centre
-    fxCtx.lineWidth=W*0.0004; fxCtx.strokeStyle='rgba(255,255,255,'+(alpha*0.9).toFixed(3)+')';
-    fxCtx.shadowBlur=W*0.004; fxCtx.shadowColor='#fff';
-    fxCtx.beginPath();fxCtx.moveTo(ox,oy);fxCtx.lineTo(tx,ty);fxCtx.stroke();
-  });
-  fxCtx.restore();
-}
 
 // ── Countdown — cinematic 5→1 on FX canvas ─────────────────────────────────
 function drawCountdown(W,H,ts){
