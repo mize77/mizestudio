@@ -882,6 +882,20 @@
   /* While the camera moves, the board is not interactive (A2: interactive only when parked on CENTER). */
   body.cameraMoving #board, body.cameraMoving #board * { pointer-events:none !important; }
   #psRoomLB { transition: transform var(--cam-d) var(--cam-ease); will-change:transform; }
+  /* ── PS-001 Stage 5 — the immersive tactical window (§15). Only with the camera parked on
+     CENTER and 3D View on: the architecture around the screen darkens, the screen boundary
+     softens, the water's depth extends a little beyond the screen, the centre wall takes a
+     stronger teal cast. The Presentation Studio is still there -- the room just recedes. */
+  body.presentation.field3d[data-cam="center"] #psRoomLB .room { filter:brightness(.48) saturate(.95); }
+  body.presentation.field3d.studioDim[data-cam="center"] #psRoomLB .room { filter:brightness(.3) saturate(.9); }
+  body.presentation.field3d[data-cam="center"] #stageWrap { overflow:visible; }
+  body.presentation.field3d[data-cam="center"] #stageWrap::before { content:""; position:absolute; inset:-22% -16%; pointer-events:none; z-index:0;
+    background:radial-gradient(58% 56% at 50% 56%, rgba(46,202,184,.30), rgba(46,202,184,.12) 42%, rgba(46,202,184,0) 72%); mix-blend-mode:screen;
+    opacity:0; animation:psWindowIn .9s var(--cam-ease) forwards; }
+  @keyframes psWindowIn { to { opacity:1; } }
+  body.presentation.field3d[data-cam="center"] #board { box-shadow:0 30px 90px rgba(0,0,0,.62), 0 0 140px 28px rgba(40,150,170,.30), 0 70px 170px rgba(46,202,184,.18); }
+  body.presentation.field3d[data-cam="center"] #boardTilt::after { opacity:1.15; }
+  @media (prefers-reduced-motion:reduce) { body.presentation.field3d[data-cam="center"] #stageWrap::before { animation:none; opacity:1; } }
   /* PS-001 Stage 1 -- PANORAMA: the same three screens, side by side and live,
      MEDIA 30% | TACTICAL 40% | INFORMATION 30%. The track is untransformed here.
      Nothing inside a screen is interactive in Panorama: each screen is one click
@@ -11895,6 +11909,7 @@ function togglePresentation(mode){
     body.classList.remove('presentation');
     studioPanorama=false; body.classList.remove('panorama','cameraMoving');
     { const lb=document.getElementById('psRoomLB'); if(lb){ lb.style.transform=''; lb.style.transformOrigin=''; } }
+    delete body.dataset.cam;
     fitBtn.textContent='Presentation Mode';
     activePresentation=null;
     if(liveCoachingSession){
@@ -22178,6 +22193,7 @@ function fitBoardToScreen(){
     const frameEls={video:document.getElementById('videoFrame'), board:document.getElementById('stageWrap'), stats:document.getElementById('statsFrame')};
     const wall={ video:PS_SCREENS.left, board:PS_SCREENS.center, stats:PS_SCREENS.right };
     const cam=psCameraState();
+    document.body.dataset.cam=cam;   // Stage 5: CSS keys the immersive window off the camera state
     psApplyRoomCamera(cam, LB);
     // Reading box: the focused screen at one-viewport size, centred (as Presentation Mode always sized it).
     const availW=Math.max(280, viewportWidth()-margin), availH=Math.max(220, viewportHeight()-margin);
