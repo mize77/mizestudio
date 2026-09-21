@@ -895,6 +895,21 @@
   body.presentation.psIdle:not(.tutorialModeActive) #studioFrameDots, body.presentation.psIdle:not(.tutorialModeActive) #exitPresentationBtn,
   body.presentation.psIdle:not(.tutorialModeActive) #presentationPlaybackBar, body.presentation.psIdle:not(.tutorialModeActive) #timelineCommandsBar { opacity:0; }
   #cameraModeBtn { margin-top:2px; }
+  /* ── PS-001 Stage 7 — teal accents (§22): teal as light, not as outline. ──
+     Screen recesses: a hairline of indirect teal at a screen's edge while it sits in its
+     wall recess, brightening a touch on the screen the camera is on. */
+  body.presentation #studioTrack > .studioFrame.onWall, body.presentation #stageWrap.onWall #board {
+    box-shadow:0 0 0 1px rgba(46,202,184,.16), inset 0 0 0 1px rgba(46,202,184,.10), 0 0 42px 6px rgba(150,215,210,.10); }
+  body.presentation #studioTrack > .studioFrame.camFocus { box-shadow:0 0 0 1px rgba(46,202,184,.28), 0 0 26px 2px rgba(46,202,184,.14), 0 30px 80px rgba(0,0,0,.6); }
+  /* Active-camera indicator: the dot for the screen the camera is on carries the teal light;
+     the others stay neutral. In Panorama the ring carries it. */
+  body.presentation #studioFrameDots span.active { background:#2ecab8; box-shadow:0 0 10px 2px rgba(46,202,184,.45); }
+  body.presentation #studioFrameDots span[data-frame="pan"].active { border-color:#2ecab8; background:rgba(46,202,184,.35); box-shadow:0 0 10px 2px rgba(46,202,184,.45); }
+  body.presentation #studioFrameDots span { transition: background .35s ease, box-shadow .35s ease, border-color .35s ease; }
+  body.presentation #studioFrameDots { top:calc(92px + env(safe-area-inset-top)); }  /* below the photographed lamps' glow */
+  /* Chevrons: teal on hover/press only (design system §12) */
+  body.presentation #studioNavLeft:hover, body.presentation #studioNavRight:hover { border-color:rgba(46,202,184,.7); box-shadow:0 0 14px rgba(46,202,184,.25); }
+  body.presentation #studioNavLeft:active, body.presentation #studioNavRight:active { background:rgba(46,202,184,.18); }
   /* ── PS-001 Stage 5 — the immersive tactical window (§15). Only with the camera parked on
      CENTER and 3D View on: the architecture around the screen darkens, the screen boundary
      softens, the water's depth extends a little beyond the screen, the centre wall takes a
