@@ -11841,6 +11841,33 @@ window.psCameraMode = (function(){ try{ return localStorage.getItem('xquixCamera
   ['pointermove','pointerdown','touchstart','keydown','wheel'].forEach(ev=>document.addEventListener(ev, wake, {passive:true}));
   window.psWakeControls=wake;
 })();
+(function(){
+  let active=false, pid=null, sx=0, sy=0, t0=0, swipedAt=0;
+  const SKIP='#quickCommandBar, #controlsPanel, #timelinePanel, #presentationPlaybackBar, #timelineCommandsBar, #edgeTabStack, #coachingRemote, #spotlightLayer, .fcScrollZone, button, input, select, textarea, a, [contenteditable]';
+  document.addEventListener('pointerdown', e=>{
+    active=false;
+    if(!document.body.classList.contains('presentation')) return;
+    if(e.pointerType==='mouse' && e.button!==0) return;
+    if(document.body.classList.contains('cameraMoving')) return;
+    if(e.target.closest(SKIP)) return;
+    if(document.body.dataset.cam==='center' && e.target.closest('#board')) return;
+    active=true; pid=e.pointerId; sx=e.clientX; sy=e.clientY; t0=performance.now();
+  }, {passive:true});
+  document.addEventListener('pointerup', e=>{
+    if(!active || e.pointerId!==pid) return;
+    active=false;
+    const dx=e.clientX-sx, dy=e.clientY-sy, dt=performance.now()-t0;
+    if(Math.abs(dx)<60 || Math.abs(dx)<Math.abs(dy)*1.5 || dt>900) return;
+    const dir = dx<0 ? 1 : -1;   // swipe left = look further right
+    swipedAt=performance.now();
+    if(window.psWakeControls) window.psWakeControls();
+    if(studioPanorama) goToStudioFrame(dir>0 ? 2 : 0);
+    else if(studioFrameIndex+dir>=0 && studioFrameIndex+dir<=2) goToStudioFrameSkippingEmpty(studioFrameIndex+dir, dir);
+  }, {passive:true});
+  document.addEventListener('pointercancel', ()=>{ active=false; }, {passive:true});
+  document.addEventListener('click', e=>{ if(performance.now()-swipedAt<350){ e.stopPropagation(); e.preventDefault(); } }, true);
+  window.psSwipeThreshold=60;
+})();
 function updateStudioNavUI(){
   const leftBtn=document.getElementById('studioNavLeft'), rightBtn=document.getElementById('studioNavRight');
   // In Panorama the chevrons go to the outer screens (left = Media, right = Information).
@@ -11886,23 +11913,8 @@ document.querySelectorAll('#studioFrameDots span').forEach(dot=>{
     if(dot.dataset.frame==='pan') enterPanorama(); else goToStudioFrame(parseInt(dot.dataset.frame,10));
   });
 });
-// Swipe is scoped to the video/stats placeholder frames specifically -- the
-// pool frame already has its own drag/draw pointer handling, and keeping
-// swipe-to-change-frame off of it avoids any risk of the two conflicting.
-let studioSwipeStartX=null;
-function attachStudioSwipe(el){
-  if(!el) return;
-  el.addEventListener('pointerdown', e=>{ studioSwipeStartX=e.clientX; });
-  el.addEventListener('pointerup', e=>{
-    if(studioSwipeStartX===null) return;
-    const dx=e.clientX-studioSwipeStartX;
-    studioSwipeStartX=null;
-    if(Math.abs(dx)<40) return;
-    goToStudioFrameSkippingEmpty(studioFrameIndex + (dx<0 ? 1 : -1), dx<0 ? 1 : -1);
-  });
-}
-attachStudioSwipe(document.getElementById('videoFrame'));
-attachStudioSwipe(document.getElementById('statsFrame'));
+// Swipe: the studio-wide gesture above (2026-09-21) replaced the earlier swipe that was
+// scoped to the video/stats frames only -- swiping on the room did nothing.
 
 // ===== Video frame: load from URL or local file =====
 function parseVideoUrl(rawUrl){
@@ -12091,6 +12103,9 @@ function togglePresentation(mode){
     body.classList.remove('presentation');
     studioPanorama=false; body.classList.remove('panorama','cameraMoving','psIdle','psIntro');
     { const lb=document.getElementById('psRoomLB'); if(lb){ lb.style.transform=''; lb.style.transformOrigin=''; } }
+    ['videoFrame','stageWrap','statsFrame'].forEach(id=>{ const el=document.getElementById(id); if(!el) return;
+      ['left','top','width','height','transform','transformOrigin'].forEach(k=>{ el.style[k]=''; });
+      el.classList.remove('camOff','onWall','camFocus'); });
     delete body.dataset.cam;
     fitBtn.textContent='Presentation Mode';
     activePresentation=null;
@@ -18031,6 +18046,7 @@ function toggleFrontCourt(on){
     recordHistory('Front Court View');
   }
   const inPresentationWidened=document.body.classList.contains('presentation');
+  if(on && inPresentationWidened && typeof psCameraState==='function' && psCameraState()!=='center') goToStudioFrame(1);
   frontCourtActive=on;
   board.classList.toggle('frontcourt', on);
   // 3D View and Front Court are mutually exclusive (see the #board.frontcourt
@@ -22311,6 +22327,7 @@ function fitBoardToScreen(){
   // stageWrap scrolling setup below.
   if(frontCourtActive){
     const inPresentation=document.body.classList.contains('presentation');
+    if(inPresentation && typeof psCameraState==='function' && psCameraState()!=='center'){ toggleFrontCourt(false); return; }
     const margin=20;
     let availW=Math.max(280, viewportWidth()-margin);
     const availH=Math.max(220, viewportHeight()-margin);
