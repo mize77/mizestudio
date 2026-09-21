@@ -27568,7 +27568,7 @@ function drawLasers(W,H,ts,bass,hit,bd){
   // Laser flash: spikes on hit, fades quickly
   if(hit) window._laserFlash=1.0;
   window._laserFlash=Math.max(0,(window._laserFlash||0)-0.06);
-  var alpha=Math.max(0.18, (window._laserFlash||0)*0.85 + bass*0.25);
+  var alpha=Math.max(window._laserAlphaMin||0.18,(window._laserFlash||0)*0.85+bass*0.25);
   if(alpha<0.05) return;
   // Beam endpoints from _buildStageFX config (same coords)
   var lb=document.getElementById('xqStageLB');
@@ -27800,45 +27800,26 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
   });
 
   window.xqEditorApply=function(){
-    // Update laser config — drawLasers reads this every frame
+    // Lasers — canvas reads _laserCfg every frame
     window._laserCfg={offsetX:val('xqELaserX'),spread:val('xqELaserSpread')};
-    var yb=1-originY;
-    var xc=(xl+xr)/2;
-    var dy=Math.max(0.01,crossY-yb);
-    var x1=xl+spread*(xr-xl)/Math.max(0.01,xr-xl)*dy+spread;
-    var x2=xr-spread*(xr-xl)/Math.max(0.01,xr-xl)*dy-spread;
-    // Simple: left beam goes right, right beam goes left, crossing at xc,crossY
-    x1=xc+(xl-xc)*(crossY-1)/(yb-crossY+0.001)*-1;
-    x2=xc+(xr-xc)*(crossY-1)/(yb-crossY+0.001)*-1;
-    if(_stFX&&_stFX.set) _stFX.set({
-      beams:[[xl,yb,x1,crossY],[xr,yb,x2,crossY]],
-      haze: val('xqEFogSpread')*0.08
-    });
-    // Update fog sources
-    // Show config
-    var cfg2=window._laserCfg||{};
-    document.getElementById('xqEditorCode').textContent=
-      'laserOffset:'+cfg2.offsetX.toFixed(3)+' spread:'+cfg2.spread.toFixed(2);
-    window._xqEditorFogCfg={
-      lx:val('xqEFogLX'), rx:val('xqEFogRX'),
-      lLean:val('xqEFogLLean'), rLean:val('xqEFogRLean'),
-      spread:val('xqEFogSpread'), burst:val('xqEFogBurst'),
-      laserOffset:offset, originY:originY, crossY:crossY
-    };
-    var cfg='laserOffset:'+offset.toFixed(3)+
-      ' originY:'+originY.toFixed(2)+
-      ' crossY:'+crossY.toFixed(2)+
-      ' fogL:{x:'+val('xqEFogLX').toFixed(2)+',lean:'+Math.round(val('xqEFogLLean'))+'}'+
-      ' fogR:{x:'+val('xqEFogRX').toFixed(2)+',lean:'+Math.round(val('xqEFogRLean'))+'}'+
-      ' spread:'+val('xqEFogSpread').toFixed(2)+
-      ' burst:'+val('xqEFogBurst').toFixed(2);
+    // Fog — update StageFX haze and sources live
+    if(_stFX){
+      _stFX.set({haze:val('xqEFogSpread')*0.12});
+    }
+    // Update laser brightness minimum
+    window._laserAlphaMin=val('xqELaserMin');
+    // Show config in code box
+    var lc=window._laserCfg;
+    var cfg='offsetX:'+lc.offsetX.toFixed(3)+
+      ' spread:'+lc.spread.toFixed(2)+
+      ' fogHaze:'+(val('xqEFogSpread')*0.12).toFixed(3)+
+      ' fogLean:L'+Math.round(val('xqEFogLLean'))+'R'+Math.round(val('xqEFogRLean'))+
+      ' burst:'+val('xqEFogBurst').toFixed(2)+
+      ' laserMin:'+val('xqELaserMin').toFixed(2);
     document.getElementById('xqEditorCode').textContent=cfg;
-  };
-
-  window.xqEditorBurst=function(){
-    var cfg=window._xqEditorFogCfg||{};
-    if(_stFX&&_stFX.burst) _stFX.burst(1.2, cfg.burst||val('xqEFogBurst'));
-  };
+  }
+  
+  window.xqEditorBurst=function(){if(_stFX&&_stFX.burst)_stFX.burst(1.0,val('xqEFogBurst'));};
 
   window.xqEditorRebuild=function(){
     if(window._buildStageFX){
