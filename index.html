@@ -1595,8 +1595,8 @@
                  display:flex;align-items:center;justify-content:center;
                  transition:background .18s;pointer-events:auto}
   #xqNP_startBtn:active{background:rgba(29,158,117,0.2)}
-  /* FX canvas: lasers drawn above everything, pointer-events:none */
-  #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3}
+  /* FX canvas: lasers drawn above the screen (#xqNP z20, StageFX z22) and below #xqCanvas (z30) */
+  #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:25}
   /* NP overlay coordinates set in XQ-ENV-001 CSS block above */
   /* Countdown wrapper inside the LED screen */
   #xqNP_cdWrap{position:absolute;inset:0;background:rgba(0,0,0,0.92);display:none;
@@ -1613,28 +1613,33 @@
   /* Art circle — position:absolute so JS can bounce it around */
   /* Home + controls: position:fixed so they're outside #xqStage's pointer-events:none */
 
-  /* ── Sound Box Stage Editor ── */
-  #xqEditor{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-    width:min(680px,98vw);background:rgba(4,16,12,0.97);border:1px solid rgba(0,200,140,0.35);
-    border-bottom:none;border-radius:10px 10px 0 0;z-index:9999999;
-    font-family:system-ui,sans-serif;font-size:12px;color:#2ecab8;
-    padding:12px 16px 16px;display:none;pointer-events:auto}
+  /* ── Sound Box Stage Editor (?editor=1) — dev overlay, XquiX functional-UI treatment ── */
+  #xqEditor{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(760px,98vw);
+    background:rgba(10,13,13,0.96);border:1px solid rgba(255,255,255,0.09);border-bottom:none;
+    border-radius:8px 8px 0 0;z-index:9999999;font-family:system-ui,-apple-system,sans-serif;font-size:12px;
+    color:#c8d0ce;display:none;pointer-events:auto;box-shadow:0 -6px 30px rgba(0,0,0,0.5)}
   #xqEditor.on{display:block}
-  #xqEditor.collapsed .xqEditorBody{display:none}
-  #xqEditorTab{cursor:pointer;text-align:center;padding:6px;color:#50ffcc;font-size:11px;letter-spacing:.1em;user-select:none;position:sticky;bottom:0;background:rgba(4,16,12,0.98);border-top:1px solid rgba(0,200,140,0.2);margin-top:4px}
-  #xqEditor.collapsed .xqEditorBody{display:none}
-  #xqEditorTab{cursor:pointer;text-align:center;padding:6px;color:#50ffcc;font-size:11px;letter-spacing:.1em;user-select:none;position:sticky;bottom:0;background:rgba(4,16,12,0.98);border-top:1px solid rgba(0,200,140,0.2);margin-top:4px}
-  #xqEditor h3{margin:0 0 10px;font-size:13px;color:#50ffcc;letter-spacing:.06em}
-  .xqERow{display:flex;align-items:center;gap:8px;margin:5px 0}
-  .xqERow label{width:140px;flex-shrink:0;color:#8ec8b8;font-size:11px}
-  .xqERow input[type=range]{flex:1;accent-color:#1d9e75}
-  .xqERow span{width:48px;text-align:right;color:#50ffcc;font-size:11px}
-  .xqEBtns{display:flex;gap:8px;margin-top:12px}
-  .xqEBtns button{flex:1;padding:6px;background:rgba(0,180,120,0.15);
-    border:1px solid rgba(0,200,140,0.4);border-radius:5px;color:#2ecab8;cursor:pointer;font-size:11px}
-  #xqEditorCode{margin-top:8px;background:rgba(0,0,0,0.4);padding:6px 8px;
-    border-radius:4px;font-size:10px;color:#8ec8b8;word-break:break-all;
-    border:1px solid rgba(0,200,140,0.2)}
+  #xqEditor.collapsed .xqEdBody{display:none}
+  .xqEdTab{cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:8px 14px;
+    color:#9aa5a2;font-size:11px;letter-spacing:.08em;user-select:none;border-bottom:1px solid rgba(255,255,255,0.06)}
+  .xqEdTab b{color:#2ecab8;font-weight:600;letter-spacing:.1em}
+  .xqEdBody{padding:10px 14px 12px;max-height:60vh;overflow:auto}
+  .xqEdCols{display:grid;grid-template-columns:1fr 1fr;gap:4px 22px}
+  @media (max-width:560px){.xqEdCols{grid-template-columns:1fr}}
+  .xqEdH{color:#2ecab8;font-size:10px;letter-spacing:.12em;margin:6px 0 4px;text-transform:uppercase}
+  .xqEdRow{display:grid;grid-template-columns:118px 1fr 50px;align-items:center;gap:8px;margin:3px 0}
+  .xqEdRow label{color:#c8d0ce;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .xqEdRow input[type=range]{width:100%;margin:0;accent-color:#1d9e75}
+  .xqEdRow output{text-align:right;color:#2ecab8;font-size:11px;font-variant-numeric:tabular-nums}
+  .xqEdBtns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .xqEdBtns button{flex:1;min-width:110px;padding:7px 8px;background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.12);border-radius:5px;color:#e6ebe9;cursor:pointer;font-size:11px;
+    transition:border-color .15s,background .15s}
+  .xqEdBtns button:hover{border-color:rgba(46,202,184,0.6);background:rgba(46,202,184,0.08)}
+  .xqEdBtns button:active{background:rgba(46,202,184,0.18)}
+  #xqEdCode{margin-top:8px;background:rgba(0,0,0,0.45);padding:6px 8px;border-radius:4px;font-size:10px;
+    color:#9aa5a2;font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-all;
+    border:1px solid rgba(255,255,255,0.06);max-height:110px;overflow:auto}
   /* ── 
   #xqNP_home{position:fixed;pointer-events:auto;bottom:calc(9% + 1.5%);right:3%;z-index:9999999;touch-action:manipulation;
              background:rgba(0,0,0,0.6);border:.5px solid rgba(29,158,117,0.38);
@@ -5011,15 +5016,20 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         var x1=xl+(xc-xl)/dy*(1-yb), x2=xr+(xc-xr)/dy*(1-yb);
         console.log('[StageFX] beams xl='+xl.toFixed(3)+' xr='+xr.toFixed(3)+' vw='+vw+' vh='+vh);
         var mob=navigator.maxTouchPoints>0;
+        // Fog machine layout comes from window._fogCfg when the stage editor has set it
+        // (?editor=1); otherwise these defaults. _fogParams is defined by the editor script.
+        var fp=window._fogParams?window._fogParams():{sources:[{x:0.10,y:0.10,lean:32},{x:0.90,y:0.10,lean:-32}],spread:0.38,haze:0,rise:0.16};
         _stFX=MIZE.StageFX.attach(stg,{
-          sources:[{x:0.10,y:0.10,lean:32},{x:0.90,y:0.10,lean:-32}],
-          spread:0.38,
-          beams:[[0.1,0.1,0.9,0.9],[0.9,0.1,0.1,0.9]], // TEST: big X across full viewport
+          sources:fp.sources,
+          spread:fp.spread,
+          rise:fp.rise,
+          beams:[[0.1,0.1,0.9,0.9],[0.9,0.1,0.1,0.9]], // replaced by _syncStageBeams below
           teal:[0.0,0.84,0.72],
-          haze:0,
+          haze:fp.haze,
           resolutionScale:mob?0.45:0.60,
         });
-        _stFX.set({energy:0,hit:false,laser:0,haze:0});
+        _stFX.set({energy:0,hit:false,laser:0,haze:fp.haze});
+        if(window._syncStageBeams) window._syncStageBeams();
         setTimeout(function(){
           Array.from(stg.querySelectorAll('canvas')).forEach(function(cnv){
             if(cnv.id!=='xqCanvas'&&cnv.id!=='xqFX'&&cnv.id!=='xqNPCanvas'){
@@ -27200,8 +27210,6 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     </div>
     <div id="xqNP_fn"></div>
   </div>
-  <!-- FX canvas: lasers drawn above screen content -->
-  <canvas id="xqFX"></canvas>
 </div><!-- /xqStageLB -->
 </div><!-- /xqStage -->
 <!-- Home button, mode button and playback controls: position:fixed, and REAL siblings of
@@ -27448,7 +27456,7 @@ function drawSpots(W,H,bass,rms,bd,ts,dim){
   ctx.restore();
 }
 
-window._laserCfg=window._laserCfg||{offsetX:-0.073,spread:0.35};
+window._laserCfg=window._laserCfg||{offsetX:0.000,spread:0.05};
 
 // ── Countdown — cinematic 5→1 on FX canvas ─────────────────────────────────
 function drawCountdown(W,H,ts){
@@ -27563,42 +27571,73 @@ var npCtx2=npCnv2?npCnv2.getContext('2d'):null;
 var _npBlobs=[],_npHitFlash=0;
 (function(){for(var i=0;i<9;i++)_npBlobs.push({x:Math.random(),y:Math.random(),vx:(Math.random()-.5)*0.00022,vy:(Math.random()-.5)*0.00018,size:0.13+Math.random()*0.22,phase:Math.random()*Math.PI*2,phaseRate:0.00025+Math.random()*0.00030,band:i<3?'bass':i<6?'mid':'high'});})();
 
+// Beam geometry shared by the canvas lasers and the StageFX halo sync.
+// Letterbox fractions: screen (#xqNP) spans x 24%..76%, y 16%..78% of #xqStageLB.
+// Config (window._laserCfg): offsetX, spread (origin distance outside the screen),
+// originY (origin distance below the bottom edge, +down), crossY (aim height), sway.
+window._laserBeams=function(W,H,ts,bass){
+  var cfg=window._laserCfg||{}; bass=bass||0; ts=ts||0;
+  var ox=(cfg.offsetX||0)*W;
+  var spreadPx=(cfg.spread!=null?cfg.spread:0.05)*W;
+  var oy=H*(1+(cfg.originY!=null?-cfg.originY:0.04));
+  var lx=W*0.24-spreadPx+ox, rx=W*0.76+spreadPx+ox;
+  var swayAmt=cfg.sway!=null?cfg.sway:1;
+  var sway=Math.sin(ts*0.0011)*W*(0.010+bass*0.035)*swayAmt;
+  var cx=W*0.50+ox+sway, cy=H*(cfg.crossY!=null?cfg.crossY:0.47)-bass*H*0.05;
+  var topY=-H*0.04;
+  function beam(x0,y0){
+    var dx=cx-x0, dy=cy-y0; if(!dy) dy=-1;
+    var t=(topY-y0)/dy;
+    return [x0,y0,x0+dx*t,topY];
+  }
+  return [beam(lx,oy),beam(rx,oy)];
+};
+// Push the same two lines into StageFX (viewport fractions, y up) so fog halos follow the beams.
+window._syncStageBeams=function(){
+  if(!_stFX) return;
+  var lb=document.getElementById('xqStageLB'); if(!lb) return;
+  var r=lb.getBoundingClientRect(); if(r.width<10) return;
+  var vw=window.innerWidth||1, vh=window.innerHeight||1;
+  var b=window._laserBeams(r.width,r.height,0,0);
+  function cv(p){ return [(r.left+p[0])/vw,1-(r.top+p[1])/vh,(r.left+p[2])/vw,1-(r.top+p[3])/vh]; }
+  _stFX.set({beams:[cv(b[0]),cv(b[1])]});
+};
+
 function drawLasers(W,H,ts,bass,hit,bd){
-  if(!_xqSt.playing) return;
-  // Laser flash: spikes on hit, fades quickly
+  // Two crossing beams on #xqFX. All geometry in letterbox fractions:
+  // #xqFX is inset:0 of #xqStageLB, and the screen (#xqNP) spans
+  // x 24%..76%, y 16%..78% of that same box — no viewport math needed.
+  if(!fxCtx) return;
+  bass=bass||0;
+  // Flash spikes on a hit and decays; base glow follows bass
   if(hit) window._laserFlash=1.0;
   window._laserFlash=Math.max(0,(window._laserFlash||0)-0.06);
-  var alpha=Math.max(window._laserAlphaMin||0.18,(window._laserFlash||0)*0.85+bass*0.25);
+  var flash=window._laserFlash||0;
+  var cfgA=window._laserCfg||{};
+  var minA=cfgA.minAlpha!=null?cfgA.minAlpha:(window._laserAlphaMin!=null?window._laserAlphaMin:0.18);
+  var alpha=Math.max(minA,flash*0.85+bass*0.55);
   if(alpha<0.05) return;
-  // Beam endpoints from _buildStageFX config (same coords)
-  var lb=document.getElementById('xqStageLB');
-  if(!lb) return;
-  var r=lb.getBoundingClientRect();
-  var vw=window.innerWidth,vh=window.innerHeight;
-  var sl=r.left+r.width*0.24, sr=r.left+r.width*0.76;
-  var sb=r.top+r.height*0.78;
-  var cfg=window._laserCfg||{offsetX:-0.073,spread:0.35};
-  var xl=(sl/vw+cfg.offsetX)*W, xr=(sr/vw+cfg.offsetX)*W;
-  var yb=(1-(sb/vh))*H;
-  var spreadPx=(cfg.spread||0.05)*W;
-  var lx=xl-spreadPx, rx=xr+spreadPx;  // origins spread outside screen
-  var xc=(xl+xr)/2;
-  // Draw crossing beams
-  if(!fxCtx) return;
+  var cfg=window._laserCfg||{};
+  var beams=window._laserBeams(W,H,ts,bass);
+  var col='rgba(0,220,160,';
+  var wBase=W*0.0012*(cfg.width!=null?cfg.width:1)*(1+bass*1.6+flash*0.8);
   fxCtx.save();
   fxCtx.globalCompositeOperation='lighter';
-  [[lx,yb,xc+(lx-xc)/Math.abs(yb-H)*H,H],[rx,yb,xc+(rx-xc)/Math.abs(yb-H)*H,H]].forEach(function(b){
+  beams.forEach(function(b){
+    // Soft halo
     var grd=fxCtx.createLinearGradient(b[0],b[1],b[2],b[3]);
-    var col='rgba(0,220,160,';
-    grd.addColorStop(0,col+(alpha*0.06).toFixed(3)+')');
-    grd.addColorStop(0.5,col+(alpha*0.35).toFixed(3)+')');
+    grd.addColorStop(0,col+(alpha*0.55).toFixed(3)+')');
+    grd.addColorStop(0.45,col+(alpha*0.35).toFixed(3)+')');
     grd.addColorStop(1,col+'0)');
-    fxCtx.strokeStyle=grd; fxCtx.lineWidth=W*0.0014;
-    fxCtx.shadowBlur=W*0.012; fxCtx.shadowColor='rgba(0,220,160,0.6)';
+    fxCtx.strokeStyle=grd; fxCtx.lineWidth=wBase*2.4;
+    fxCtx.shadowBlur=W*(0.010+bass*0.010); fxCtx.shadowColor='rgba(0,220,160,'+(0.45+bass*0.35).toFixed(3)+')';
     fxCtx.beginPath(); fxCtx.moveTo(b[0],b[1]); fxCtx.lineTo(b[2],b[3]); fxCtx.stroke();
     // Bright core
-    fxCtx.strokeStyle=col+(alpha*0.9).toFixed(3)+')';
-    fxCtx.lineWidth=W*0.0004; fxCtx.shadowBlur=0;
+    var core=fxCtx.createLinearGradient(b[0],b[1],b[2],b[3]);
+    core.addColorStop(0,'rgba(200,255,235,'+(alpha*0.95).toFixed(3)+')');
+    core.addColorStop(0.6,col+(alpha*0.7).toFixed(3)+')');
+    core.addColorStop(1,col+'0)');
+    fxCtx.strokeStyle=core; fxCtx.lineWidth=Math.max(0.6,wBase*0.45); fxCtx.shadowBlur=0;
     fxCtx.beginPath(); fxCtx.moveTo(b[0],b[1]); fxCtx.lineTo(b[2],b[3]); fxCtx.stroke();
   });
   fxCtx.restore();
@@ -27724,121 +27763,104 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
 })();
 </script>
 
-<!-- Sound Box Stage Editor — activate with ?editor=1 in URL -->
+<!-- Sound Box Stage Editor — activate with ?editor=1 in URL. Every control is live; nothing here is decorative. -->
 <div id="xqEditor">
-  <div id="xqEditorTab" onclick="(function(){var e=document.getElementById('xqEditor');var t=document.getElementById('xqEditorTab');e.classList.toggle('collapsed');t.textContent=e.classList.contains('collapsed')?'⚙ STAGE EDITOR — tap to open':'⚙ STAGE EDITOR — tap to close';})()">⚙ STAGE EDITOR — tap to open</div>
-  <div class="xqEditorBody">
-  <h3 style="margin:8px 0 10px">SOUND BOX STAGE EDITOR</h3>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
-    <div>
-      <div style="color:#50ffcc;font-size:10px;letter-spacing:.1em;margin-bottom:4px">LASERS</div>
-      <div class="xqERow"><label>Offset X (left/right)</label>
-        <input type="range" id="xqELaserX" min="-0.4" max="0.4" step="0.005" value="-0.073">
-        <span id="xqELaserXV">-0.073</span></div>
-      <div class="xqERow"><label>Origin Y (height)</label>
-        <input type="range" id="xqELaserOriginY" min="0.0" max="0.4" step="0.01" value="0.22">
-        <span id="xqELaserOriginYV">0.22</span></div>
-      <div class="xqERow"><label>Spread (angle)</label>
-        <input type="range" id="xqELaserSpread" min="0.05" max="0.5" step="0.01" value="0.26">
-        <span id="xqELaserSpreadV">0.26</span></div>
-      <div class="xqERow"><label>Cross height</label>
-        <input type="range" id="xqELaserY" min="0.5" max="1.2" step="0.01" value="1.0">
-        <span id="xqELaserYV">1.00</span></div>
-      <div class="xqERow"><label>Min brightness</label>
-        <input type="range" id="xqELaserMin" min="0" max="0.5" step="0.01" value="0.10">
-        <span id="xqELaserMinV">0.10</span></div>
+  <div class="xqEdTab" id="xqEdTab"><b>STAGE EDITOR</b><span id="xqEdTabHint">tap to expand</span></div>
+  <div class="xqEdBody">
+    <div class="xqEdCols" id="xqEdCols"></div>
+    <div class="xqEdBtns">
+      <button type="button" id="xqEdFog">Test fog burst</button>
+      <button type="button" id="xqEdReset">Reset to defaults</button>
+      <button type="button" id="xqEdCopy">Copy config JSON</button>
     </div>
-    <div>
-      <div style="color:#50ffcc;font-size:10px;letter-spacing:.1em;margin-bottom:4px">FOG MACHINES</div>
-      <div class="xqERow"><label>Left machine X</label>
-        <input type="range" id="xqEFogLX" min="0.0" max="0.5" step="0.01" value="0.10">
-        <span id="xqEFogLXV">0.10</span></div>
-      <div class="xqERow"><label>Right machine X</label>
-        <input type="range" id="xqEFogRX" min="0.5" max="1.0" step="0.01" value="0.90">
-        <span id="xqEFogRXV">0.90</span></div>
-      <div class="xqERow"><label>Left lean (direction)</label>
-        <input type="range" id="xqEFogLLean" min="-60" max="60" step="1" value="32">
-        <span id="xqEFogLLeanV">32°</span></div>
-      <div class="xqERow"><label>Right lean (direction)</label>
-        <input type="range" id="xqEFogRLean" min="-60" max="60" step="1" value="-32">
-        <span id="xqEFogRLeanV">-32°</span></div>
-      <div class="xqERow"><label>Spread (plume width)</label>
-        <input type="range" id="xqEFogSpread" min="0.1" max="1.2" step="0.02" value="0.22">
-        <span id="xqEFogSpreadV">0.22</span></div>
-      <div class="xqERow"><label>Burst strength</label>
-        <input type="range" id="xqEFogBurst" min="0" max="0.5" step="0.01" value="0.08">
-        <span id="xqEFogBurstV">0.08</span></div>
-    </div>
-  </div>
-  <div class="xqEBtns">
-    <button onclick="xqEditorApply()">▶ Apply</button>
-    <button onclick="xqEditorBurst()">💨 Test Fog</button>
-    <button onclick="xqEditorRebuild()">🔄 Rebuild FX</button>
-    <button onclick="xqEditorCopy()">📋 Copy Config</button>
-  </div>
-  <div id="xqEditorCode">Tap Apply to see config</div>
+    <div id="xqEdCode"></div>
   </div>
 </div>
 <script>
-
 // ── Sound Box Stage Editor ──────────────────────────────────────────────────
-  window.xqEditorToggle=function(){
-    var ed=document.getElementById('xqEditor');
-    var tab=document.getElementById('xqEditorTab');
-    if(!ed)return;
-    ed.classList.toggle('collapsed');
-    tab.textContent=ed.classList.contains('collapsed')?'⚙ STAGE EDITOR — tap to expand':'⚙ STAGE EDITOR — tap to close';
+// Live tuning of the two effect systems that exist on the stage:
+//   window._laserCfg  → read every frame by drawLasers() on #xqFX (2D canvas)
+//   window._fogCfg    → pushed to _stFX.set() live, and read by _buildStageFX on rebuild/resize
+// The StageFX WebGL beam halos are kept on the same lines as the canvas lasers via _syncStageBeams().
+(function(){
+  if(!/[?&]editor=1/.test(location.search))return;
+  var ed=document.getElementById('xqEditor'); if(!ed)return;
+
+  var LASER_DEF={offsetX:0.000,spread:0.05,originY:-0.04,crossY:0.47,width:1.0,sway:1.0,minAlpha:0.18};
+  var FOG_DEF={lx:0.10,ly:0.10,lLean:32,rx:0.90,ry:0.10,rLean:-32,spread:0.38,haze:0.00,rise:0.16,burstDur:1.0,burstStr:0.35};
+  window._laserCfg=Object.assign({},LASER_DEF,window._laserCfg||{});
+  window._fogCfg=Object.assign({},FOG_DEF,window._fogCfg||{});
+  var L=window._laserCfg, F=window._fogCfg;
+
+  // [group, key, label, min, max, step, decimals, suffix]
+  var CONTROLS=[
+    ['Lasers','L','offsetX','Offset X',-0.40,0.40,0.005,3,''],
+    ['Lasers','L','spread','Origin spread',0.00,0.50,0.01,2,''],
+    ['Lasers','L','originY','Origin Y',-0.30,0.30,0.01,2,''],
+    ['Lasers','L','crossY','Cross height',0.10,0.90,0.01,2,''],
+    ['Lasers','L','width','Beam width',0.2,4.0,0.1,1,'×'],
+    ['Lasers','L','sway','Sway',0.0,3.0,0.1,1,'×'],
+    ['Lasers','L','minAlpha','Min brightness',0.00,0.60,0.01,2,''],
+    ['Fog machines','F','lx','Left machine X',0.00,0.50,0.01,2,''],
+    ['Fog machines','F','ly','Left nozzle Y',0.00,0.40,0.01,2,''],
+    ['Fog machines','F','lLean','Left lean',-60,60,1,0,'°'],
+    ['Fog machines','F','rx','Right machine X',0.50,1.00,0.01,2,''],
+    ['Fog machines','F','ry','Right nozzle Y',0.00,0.40,0.01,2,''],
+    ['Fog machines','F','rLean','Right lean',-60,60,1,0,'°'],
+    ['Fog machines','F','spread','Plume spread',0.10,1.20,0.02,2,''],
+    ['Fog machines','F','haze','Haze floor',0.00,0.60,0.01,2,''],
+    ['Fog machines','F','rise','Rise speed',0.04,0.60,0.01,2,''],
+    ['Fog machines','F','burstDur','Burst length',0.3,5.0,0.1,1,'s'],
+    ['Fog machines','F','burstStr','Burst strength',0.00,1.00,0.01,2,''],
+  ];
+
+  // Fog config → StageFX params (sources are 0..1 of the stage viewport, y from bottom)
+  window._fogParams=function(){
+    return {sources:[{x:F.lx,y:F.ly,lean:F.lLean},{x:F.rx,y:F.ry,lean:F.rLean}],spread:F.spread,haze:F.haze,rise:F.rise};
   };
-  (function(){
-    if(!/[?&]editor=1/.test(location.search))return;
-    var ed=document.getElementById('xqEditor');
-    if(ed){ed.classList.add('on');ed.classList.add('collapsed');}
+  function pushFog(){ if(window._stFX) window._stFX.set(window._fogParams()); }
+  function pushLasers(){ window._laserAlphaMin=L.minAlpha; if(window._syncStageBeams) window._syncStageBeams(); }
 
-    function val(id){return parseFloat(document.getElementById(id).value);}
-
-    // Update label next to each slider on input
-    document.querySelectorAll('#xqEditor input[type=range]').forEach(function(inp){
-      inp.addEventListener('input',function(){
-        var out=document.getElementById(this.id+'V');
-        if(out) out.textContent=parseFloat(this.value).toFixed(this.step<0.01?3:2)+(this.id.indexOf('Lean')>=0?'°':'');
-      });
+  // Build rows
+  var cols=document.getElementById('xqEdCols'), groups={};
+  CONTROLS.forEach(function(c){
+    var g=c[0]; if(!groups[g]){var d=document.createElement('div');d.innerHTML='<div class="xqEdH">'+g+'</div>';cols.appendChild(d);groups[g]=d;}
+    var cfg=c[1]==='L'?L:F, key=c[2];
+    var row=document.createElement('div'); row.className='xqEdRow';
+    row.innerHTML='<label>'+c[3]+'</label><input type="range" min="'+c[4]+'" max="'+c[5]+'" step="'+c[6]+'"><output></output>';
+    var inp=row.querySelector('input'), out=row.querySelector('output');
+    function show(){ out.textContent=Number(cfg[key]).toFixed(c[7])+c[8]; }
+    inp.value=cfg[key]; show();
+    inp.addEventListener('input',function(){
+      cfg[key]=parseFloat(inp.value); show();
+      if(c[1]==='L') pushLasers(); else pushFog();
+      render();
     });
+    row._refresh=function(){ inp.value=cfg[key]; show(); };
+    groups[g].appendChild(row);
+  });
 
-    window.xqEditorApply=function(){
-      // LASERS: update position + spread (canvas reads every frame)
-      window._laserCfg={offsetX:val('xqELaserX'),spread:val('xqELaserSpread')};
-      window._laserAlphaMin=val('xqELaserMin');
+  function render(){
+    document.getElementById('xqEdCode').textContent=
+      'window._laserCfg='+JSON.stringify(L)+';\nwindow._fogCfg='+JSON.stringify(F)+';';
+  }
+  function refreshAll(){ cols.querySelectorAll('.xqEdRow').forEach(function(r){r._refresh();}); render(); }
 
-      // FOG HAZE: set directly on StageFX
-      if(window._stFX) window._stFX.set({haze:val('xqEFogSpread')*0.15});
+  document.getElementById('xqEdTab').onclick=function(){
+    ed.classList.toggle('collapsed');
+    document.getElementById('xqEdTabHint').textContent=ed.classList.contains('collapsed')?'tap to expand':'tap to collapse';
+  };
+  document.getElementById('xqEdFog').onclick=function(){ if(window._stFX) window._stFX.burst(F.burstDur,F.burstStr); };
+  document.getElementById('xqEdReset').onclick=function(){
+    Object.assign(L,LASER_DEF); Object.assign(F,FOG_DEF); pushLasers(); pushFog(); refreshAll();
+  };
+  document.getElementById('xqEdCopy').onclick=function(){
+    var box=document.getElementById('xqEdCode'), txt=box.textContent;
+    var done=function(){ box.textContent='Copied.'; setTimeout(render,1200); };
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done,done); else done();
+  };
 
-      // Show result
-      var out='laserOffset:'+val('xqELaserX').toFixed(3)+
-        ' spread:'+val('xqELaserSpread').toFixed(3)+
-        ' min:'+val('xqELaserMin').toFixed(2)+
-        ' fogHaze:'+(val('xqEFogSpread')*0.15).toFixed(3)+
-        ' burst:'+val('xqEFogBurst').toFixed(2);
-      document.getElementById('xqEditorCode').textContent=out;
-    };
-
-    window.xqEditorBurst=function(){
-      if(window._stFX) window._stFX.burst(1.0,val('xqEFogBurst'));
-    };
-
-    window.xqEditorRebuild=function(){
-      if(window._buildStageFX) window._buildStageFX();
-      setTimeout(function(){
-        var c=window._xqSFXCanvas;
-        if(c){c.style.display='block';c.style.zIndex='22';c.style.mixBlendMode='screen';}
-      },400);
-    };
-
-    window.xqEditorCopy=function(){
-      var txt=document.getElementById('xqEditorCode').textContent;
-      if(navigator.clipboard)navigator.clipboard.writeText(txt);
-      var box=document.getElementById('xqEditorCode');
-      box.textContent='✓ Copied!';
-      setTimeout(function(){box.textContent=txt;},2000);
-    };
-  })();</script>
+  ed.classList.add('on'); ed.classList.add('collapsed');
+  pushLasers(); pushFog(); render();
+})();</script>
 </body></html>
