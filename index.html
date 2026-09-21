@@ -598,7 +598,14 @@
   body.presentation #workspace { width:100vw; height:100vh; height:100dvh; margin:0; display:block; overflow:hidden; }
   body.presentation #stageWrap { width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center; padding:0; }
   #studioTrack { display:contents; }
-  body.presentation #studioTrack { display:flex; width:300%; height:100%; transform:translateX(-33.33333%); transition:transform .65s cubic-bezier(.65,0,.35,1); position:relative; z-index:100; }
+  /* PS-001 Stage 3: no sliding track any more. In presentation #studioTrack is a fixed
+     stage and the three screens are absolutely positioned boxes that fitBoardToScreen()
+     places per camera state (wall boxes mapped through the room's camera transform, or
+     the reading box for the focused screen). Moves are eased transitions on those boxes
+     and on the room's transform -- never a transform on a screen or on #board. */
+  body.presentation #studioTrack { position:fixed; inset:0; z-index:100; display:block; width:auto; height:auto; transform:none; }
+  :root { --cam-d:1s; --cam-ease:cubic-bezier(.45,.05,.2,1); }
+  @media (prefers-reduced-motion:reduce) { :root { --cam-d:0s; } }
   #studioWindowLayer { display:none; position:fixed; inset:0; z-index:40; opacity:1; transition:opacity 1.1s ease; }
   body.presentation #studioWindowLayer { display:none; }  /* PS-001 Stage 2: the drawn skyline is replaced by the XQ-ENV-001 room (#psRoom) */
   #studioWindowLayer.dark { opacity:.12; }
@@ -627,6 +634,8 @@
   #psRoomLB { position:relative; aspect-ratio:16/9; width:min(100%, calc(100vh*16/9)); overflow:hidden; }
   #psRoomLB .room { position:absolute; inset:0; background-size:cover; background-position:center;
                     filter:brightness(.82) saturate(.92); transition:filter .9s ease; }
+  body.presentation:not(.panorama) #psRoomLB .room { filter:brightness(.7) saturate(.9); }
+  body.studioDim.presentation:not(.panorama) #psRoomLB .room { filter:brightness(.38) saturate(.85); }
   body.studioDim #psRoomLB .room { filter:brightness(.42) saturate(.85); }   /* STUDIO DIM MODE (PS-001 §27) */
   body.presentation #studioBlindsControlBtn { display:none; }
   #propCamera { position:absolute; bottom:0; left:3%; width:90px; height:90px; opacity:.55; }
@@ -850,18 +859,31 @@
   .fieldZoneLabelName { font-size:0.55px; font-weight:500; letter-spacing:.01em; }
   #spotlightToggleBtn.active { background:#ffcf40; color:#20200a; }
   #studioWindowDarkenBtn.active { background:#ffcf40; border-color:#ffcf40; color:#20200a; }
-  #studioTrack.swinging .studioFrame, #studioTrack.swinging #stageWrap { opacity:.55; transition:opacity .3s ease; }
+  /* .swinging (the old opacity dip) is no longer applied; kept harmless. */
   #studioTrack .studioFrame, #studioTrack #stageWrap { transition:opacity .35s ease; }
   .studioFrame { display:none; }
-  body.presentation #studioTrack > .studioFrame, body.presentation #studioTrack > #stageWrap { flex:0 0 33.33333%; width:33.33333%; height:100%; display:flex; align-items:center; justify-content:center; }
+  body.presentation #studioTrack > .studioFrame, body.presentation #studioTrack > #stageWrap { position:absolute; display:flex; align-items:center; justify-content:center;
+    transition: left var(--cam-d) var(--cam-ease), top var(--cam-d) var(--cam-ease), width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease), filter .6s ease; }
+  body.presentation #board { transition: width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease); }
+  body.presentation .studioFrameContent { width:100% !important; height:100% !important; }
+  /* Screen focus state (PS-001 §23): the two screens the camera is not on recede. */
+  body.presentation:not(.panorama) #studioTrack > .camOff { filter:brightness(.38) saturate(.8); z-index:1; }
+  body.presentation:not(.panorama) #studioTrack > .studioFrame:not(.camOff), body.presentation:not(.panorama) #studioTrack > #stageWrap:not(.camOff) { z-index:2; }
+  body.presentation:not(.panorama) #studioTrack > .studioFrame:not(.camOff) { background:rgba(3,9,11,.9); border-radius:4px; box-shadow:0 0 0 1px rgba(46,202,184,.18), 0 30px 80px rgba(0,0,0,.6); }
+  body.presentation:not(.panorama) #studioTrack > .camOff * { pointer-events:none !important; }
+  body.presentation:not(.panorama) #studioTrack > .camOff { cursor:pointer; }
+  body.presentation:not(.panorama) .camOff .studioFrameLoadRow, body.presentation:not(.panorama) .camOff .studioFramePlaceholder > div:last-of-type:not(.studioFrameLoadRow) { display:none; }
+  body.presentation:not(.panorama) .camOff .studioFramePlaceholderIcon { font-size:26px; margin-bottom:6px; }
+  body.presentation:not(.panorama) .camOff .studioFramePlaceholderLabel { font-size:11px; padding:0 8px; white-space:normal; line-height:1.25; }
+  /* While the camera moves, the board is not interactive (A2: interactive only when parked on CENTER). */
+  body.cameraMoving #board, body.cameraMoving #board * { pointer-events:none !important; }
+  #psRoomLB { transition: transform var(--cam-d) var(--cam-ease); will-change:transform; }
   /* PS-001 Stage 1 -- PANORAMA: the same three screens, side by side and live,
      MEDIA 30% | TACTICAL 40% | INFORMATION 30%. The track is untransformed here.
      Nothing inside a screen is interactive in Panorama: each screen is one click
      target that moves the camera to it (PS-001 §9, decision A2). */
   /* Stage 2: in Panorama the three screens are placed on the room's surfaces by
      fitBoardToScreen() (absolute boxes inside the 16:9 letterbox), not flexed. */
-  body.presentation.panorama #studioTrack { position:fixed; inset:0; width:auto; height:auto; display:block; transform:none; }
-  body.presentation.panorama #studioTrack > .studioFrame, body.presentation.panorama #studioTrack > #stageWrap { position:absolute; flex:none; display:flex; align-items:center; justify-content:center; }
   body.presentation.panorama .studioFrameContent { box-shadow:0 0 0 1px rgba(46,202,184,.12), 0 10px 30px rgba(0,0,0,.6); border-radius:3px; }
   /* Side-screen placeholders scaled to the narrow panels */
   body.presentation.panorama .studioFramePlaceholderIcon { font-size:26px; margin-bottom:6px; }
@@ -11532,22 +11554,67 @@ function psRoomRect(){
   const w=Math.min(vw, vh*16/9), h=w*9/16;
   return { left:(vw-w)/2, top:(vh-h)/2, width:w, height:h };
 }
+// ===== PS-001 Stage 3: the camera =====
+// One camera language (PS-001 §10-§12): the room leans and zooms toward the target
+// surface -- modestly, so the 1280-px photograph stays sharp (MIZE, 2026-09-21) --
+// while the target screen takes the reading box and the other two stay on the wall.
+// scale/tx are chosen so the photo never shows its edge: for LEFT/RIGHT the origin is
+// the panel's centre (x 10.2 %), S 1.5 puts the room's edge exactly at the viewport
+// edge with tx +5 %. Swap in a larger render later and these numbers still hold.
+const PS_CAMERA={
+  pan:    null,
+  left:   { ox:0.1016, oy:0.468, S:1.5, tx:0.05 },
+  center: { ox:0.50,   oy:0.47,  S:1.3, tx:0    },
+  right:  { ox:0.8984, oy:0.468, S:1.5, tx:-0.05 },
+};
+const PS_CAMERA_MS={ toScreen:1000, neighbour:1000, across:1400, toPan:900 };
+let _camState='pan', _camMoveTimer=null;
+function psCameraState(){ return studioPanorama ? 'pan' : ['left','center','right'][studioFrameIndex]; }
+function psApplyRoomCamera(state, LB){
+  const lb=document.getElementById('psRoomLB'); if(!lb) return;
+  const c=PS_CAMERA[state];
+  if(!c){ lb.style.transformOrigin=''; lb.style.transform=''; return; }
+  lb.style.transformOrigin=(c.ox*LB.width)+'px '+(c.oy*LB.height)+'px';
+  lb.style.transform='translate('+(c.tx*LB.width)+'px,0) scale('+c.S+')';
+}
+// A wall box (fractions of the letterbox) as it appears on screen under the camera.
+function psMapWallBox(b, state, LB){
+  const c=PS_CAMERA[state];
+  const S=c?c.S:1, ox=c?c.ox*LB.width:0, oy=c?c.oy*LB.height:0, tx=c?c.tx*LB.width:0;
+  const x=b.x*LB.width, y=b.y*LB.height, w=b.w*LB.width, h=b.h*LB.height;
+  return { left:LB.left+tx+ox+(x-ox)*S, top:LB.top+oy+(y-oy)*S, width:w*S, height:h*S };
+}
+// Duration per move (PS-001 §12), set on :root as --cam-d; entry is instant.
+function psSetCameraDuration(from, to){
+  let ms=PS_CAMERA_MS.toScreen;
+  if(to==='pan') ms=PS_CAMERA_MS.toPan;
+  else if(from==='pan') ms=PS_CAMERA_MS.toScreen;
+  else if((from==='left'&&to==='right')||(from==='right'&&to==='left')) ms=PS_CAMERA_MS.across;
+  else ms=PS_CAMERA_MS.neighbour;
+  document.documentElement.style.setProperty('--cam-d', ms+'ms');
+  return ms;
+}
+function psBeginCameraMove(ms){
+  document.body.classList.add('cameraMoving');
+  clearTimeout(_camMoveTimer);
+  _camMoveTimer=setTimeout(()=>document.body.classList.remove('cameraMoving'), ms+60);
+}
 // ===== PS-001 Stage 1: PANORAMA camera state =====
 // Panorama is a flag beside studioFrameIndex, not a fourth index: the index
 // keeps meaning "which screen the camera is on / was last on", so everything
 // that reads it (tutorial, spotlight radius, auto-navigation) keeps working.
 let studioPanorama=false;
-function enterPanorama(){
+function enterPanorama(instant){
   if(!document.body.classList.contains('presentation')) return;
+  const from=psCameraState();
   studioPanorama=true;
   document.body.classList.add('panorama');
   document.body.classList.add('qcbHiddenForScreen');
-  const track=document.getElementById('studioTrack');
-  if(track){ track.style.transform=''; track.classList.remove('swinging'); }
-  clearTimeout(studioSwingTimeout);
-  updateWindowViewForFrame(1);
+  if(instant){ document.documentElement.style.setProperty('--cam-d','0ms'); }
+  else if(from!=='pan'){ psBeginCameraMove(psSetCameraDuration(from,'pan')); }
   updateStudioNavUI();
   fitBoardToScreen();
+  if(instant) requestAnimationFrame(()=>document.documentElement.style.removeProperty('--cam-d'));
 }
 function updateStudioNavUI(){
   const leftBtn=document.getElementById('studioNavLeft'), rightBtn=document.getElementById('studioNavRight');
@@ -11561,23 +11628,17 @@ function updateStudioNavUI(){
 }
 function goToStudioFrame(index){
   const newIndex=Math.max(0,Math.min(2,index));
+  const from=psCameraState();
   const leavingPanorama=studioPanorama;
   const changed=newIndex!==studioFrameIndex || leavingPanorama;
   studioFrameIndex=newIndex;
   if(leavingPanorama){ studioPanorama=false; document.body.classList.remove('panorama'); }
   document.body.classList.toggle('qcbHiddenForScreen', studioFrameIndex!==1);
-  const track=document.getElementById('studioTrack');
-  if(track){
-    track.style.transform='translateX(-'+(studioFrameIndex*33.33333)+'%)';
-    if(changed){
-      track.classList.add('swinging');
-      clearTimeout(studioSwingTimeout);
-      studioSwingTimeout=setTimeout(()=>track.classList.remove('swinging'), 650);
-      updateWindowViewForFrame(studioFrameIndex);
-    }
-  }
   updateStudioNavUI();
-  if(leavingPanorama) fitBoardToScreen(); // screens go back to one-viewport size
+  if(document.body.classList.contains('presentation')){
+    if(changed) psBeginCameraMove(psSetCameraDuration(from, psCameraState()));
+    fitBoardToScreen(); // camera move: room transform + screen boxes ease to the new state
+  }
 }
 function goToStudioFrameSkippingEmpty(requestedIndex, direction){
   if(!activePresentation){ goToStudioFrame(requestedIndex); return; } // no step content to judge emptiness against -- every frame stays freely navigable
@@ -11801,7 +11862,8 @@ function togglePresentation(mode){
   const modeHandle=document.getElementById('presentationModeHandle');
   if(isOn){
     body.classList.remove('presentation');
-    studioPanorama=false; body.classList.remove('panorama');
+    studioPanorama=false; body.classList.remove('panorama','cameraMoving');
+    { const lb=document.getElementById('psRoomLB'); if(lb){ lb.style.transform=''; lb.style.transformOrigin=''; } }
     fitBtn.textContent='Presentation Mode';
     activePresentation=null;
     if(liveCoachingSession){
@@ -11837,8 +11899,8 @@ function togglePresentation(mode){
     document.getElementById('timelinePanel')?.classList.remove('shown');
     closeToolPanels();
     if(!frontCourtActive) setPresentationFieldGeometry(true); // Front Court has its own field geometry -- don't widen over it
-    goToStudioFrame(1);   // baseline: the camera's "last screen" is the board
-    enterPanorama();      // PS-001 §31: Presentation Studio opens on Panorama
+    studioFrameIndex=1;   // baseline: the camera's "last screen" is the board
+    enterPanorama(true);  // PS-001 §31: Presentation Studio opens on Panorama (no entry animation)
     fitBtn.textContent = 'Exit Presentation';
     modeHandle?.classList.add('active');
     // Auto-intro jingle: first 5 s of the calm intro section, so everyone
@@ -22083,36 +22145,30 @@ function fitBoardToScreen(){
     const lights=document.getElementById('stageLights');
     if(lights){ lights.style.left=LB.left+'px'; lights.style.width=LB.width+'px'; lights.style.top=LB.top+'px'; }
     const frameEls={video:document.getElementById('videoFrame'), board:document.getElementById('stageWrap'), stats:document.getElementById('statsFrame')};
-    let boardW, boardH, sideW, sideH;
-    if(panorama){
-      // Stage 2: screens ON the room's surfaces. Boxes are fractions of the letterbox.
-      const boxes={ video:PS_SCREENS.left, board:PS_SCREENS.center, stats:PS_SCREENS.right };
-      Object.keys(boxes).forEach(k=>{
-        const b=boxes[k], el=frameEls[k]; if(!el) return;
-        el.style.left=(LB.left+b.x*LB.width)+'px'; el.style.top=(LB.top+b.y*LB.height)+'px';
-        el.style.width=(b.w*LB.width)+'px'; el.style.height=(b.h*LB.height)+'px';
-      });
-      const cb=PS_SCREENS.center, cw=cb.w*LB.width-8, ch=cb.h*LB.height-8;
-      boardW=cw; boardH=boardW*ratioH/ratioW; if(boardH>ch){ boardH=ch; boardW=boardH*ratioW/ratioH; }
-      sideW=PS_SCREENS.left.w*LB.width-6; sideH=PS_SCREENS.left.h*LB.height-6;   // portrait panels: content fills, media letterboxes inside
-    } else {
-      Object.values(frameEls).forEach(el=>{ if(el){ el.style.left=''; el.style.top=''; el.style.width=''; el.style.height=''; } });
-      const availW=Math.max(280, viewportWidth()-margin);
-      const availH=Math.max(220, viewportHeight()-margin);
-      // Presentation mode shows the full 35x28 venue now, so the board's own
-      // aspect ratio must match that, not the normal 29:24 -- otherwise the
-      // wider/taller content would itself get squeezed back into the old shape.
-      boardW=availW; boardH=boardW*ratioH/ratioW;
-      if(boardH>availH){ boardH=availH; boardW=boardH*ratioW/ratioH; }
-      sideW=boardW; sideH=boardH;
-    }
+    const wall={ video:PS_SCREENS.left, board:PS_SCREENS.center, stats:PS_SCREENS.right };
+    const cam=psCameraState();
+    psApplyRoomCamera(cam, LB);
+    // Reading box: the focused screen at one-viewport size, centred (as Presentation Mode always sized it).
+    const availW=Math.max(280, viewportWidth()-margin), availH=Math.max(220, viewportHeight()-margin);
+    let readW=availW, readH=readW*ratioH/ratioW; if(readH>availH){ readH=availH; readW=readH*ratioW/ratioH; }
+    const reading={ left:(viewportWidth()-readW)/2, top:(viewportHeight()-readH)/2, width:readW, height:readH };
+    const focusedKey = panorama ? null : ['video','board','stats'][studioFrameIndex];
+    let boardW, boardH;
+    Object.keys(wall).forEach(k=>{
+      const el=frameEls[k]; if(!el) return;
+      const focused = k===focusedKey;
+      const box = focused ? reading : psMapWallBox(wall[k], cam, LB);
+      el.style.left=box.left+'px'; el.style.top=box.top+'px'; el.style.width=box.width+'px'; el.style.height=box.height+'px';
+      el.classList.toggle('camOff', !panorama && !focused);
+      if(k==='board'){
+        if(focused){ boardW=readW; boardH=readH; }
+        else { const cw=box.width-8, ch=box.height-8; boardW=cw; boardH=boardW*ratioH/ratioW; if(boardH>ch){ boardH=ch; boardW=boardH*ratioW/ratioH; } }
+      }
+    });
     board.style.width=boardW+'px';
     board.style.height=boardH+'px';
     updateShotClockCenterTransform();
-    ['videoContent','statsContent'].forEach(id=>{
-      const el=document.getElementById(id);
-      if(el){ el.style.width=sideW+'px'; el.style.height=sideH+'px'; }
-    });
+    ['videoContent','statsContent'].forEach(id=>{ const el=document.getElementById(id); if(el){ el.style.width=''; el.style.height=''; } });
     document.querySelectorAll('.player').forEach(place);
     placeBall();
     document.querySelectorAll('.extraBall').forEach(place);
