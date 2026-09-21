@@ -27711,7 +27711,7 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
 
 <!-- Sound Box Stage Editor — activate with ?editor=1 in URL -->
 <div id="xqEditor">
-  <div id="xqEditorTab" onclick="xqEditorToggle()">⚙ STAGE EDITOR ▲</div>
+  <div id="xqEditorTab" onclick="(function(){var e=document.getElementById('xqEditor');var t=document.getElementById('xqEditorTab');e.classList.toggle('collapsed');t.textContent=e.classList.contains('collapsed')?'⚙ STAGE EDITOR — tap to open':'⚙ STAGE EDITOR — tap to close';})()">⚙ STAGE EDITOR — tap to open</div>
   <div class="xqEditorBody">
   <h3 style="margin:8px 0 10px">SOUND BOX STAGE EDITOR</h3>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
