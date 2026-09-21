@@ -27783,59 +27783,60 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
   window.xqEditorToggle=function(){
     var ed=document.getElementById('xqEditor');
     var tab=document.getElementById('xqEditorTab');
-    if(!ed) return;
+    if(!ed)return;
     ed.classList.toggle('collapsed');
     tab.textContent=ed.classList.contains('collapsed')?'⚙ STAGE EDITOR — tap to expand':'⚙ STAGE EDITOR — tap to close';
   };
   (function(){
-    if(!/[?&]editor=1/.test(location.search)) return;
-    var el=document.getElementById('xqEditor');
-    if(el){ el.classList.add('on'); el.classList.add('collapsed'); }
+    if(!/[?&]editor=1/.test(location.search))return;
+    var ed=document.getElementById('xqEditor');
+    if(ed){ed.classList.add('on');ed.classList.add('collapsed');}
 
-    function val(id){ return parseFloat(document.getElementById(id).value); }
-    function showVal(id,v){ document.getElementById(id+'V').textContent=
-      (id.indexOf('Lean')>=0)?Math.round(v)+'°':parseFloat(v).toFixed(id.indexOf('Spread')>=0?2:3); }
+    function val(id){return parseFloat(document.getElementById(id).value);}
 
-    // Live label updates
-    ['xqELaserX','xqELaserSpread','xqELaserMin',
-     'xqEFogSpread','xqEFogBurst','xqEFogLX','xqEFogRX','xqEFogLLean','xqEFogRLean'].forEach(function(id){
-      var el2=document.getElementById(id);
-      if(el2) el2.addEventListener('input',function(){ showVal(id,this.value); });
+    // Update label next to each slider on input
+    document.querySelectorAll('#xqEditor input[type=range]').forEach(function(inp){
+      inp.addEventListener('input',function(){
+        var out=document.getElementById(this.id+'V');
+        if(out) out.textContent=parseFloat(this.value).toFixed(this.step<0.01?3:2)+(this.id.indexOf('Lean')>=0?'°':'');
+      });
     });
 
     window.xqEditorApply=function(){
-      // 1. Lasers — canvas drawLasers reads _laserCfg every frame
-      window._laserCfg={offsetX:val('xqELaserX'), spread:val('xqELaserSpread')};
+      // LASERS: update position + spread (canvas reads every frame)
+      window._laserCfg={offsetX:val('xqELaserX'),spread:val('xqELaserSpread')};
       window._laserAlphaMin=val('xqELaserMin');
 
-      // 2. Fog — update StageFX haze live
-      if(window._stFX) window._stFX.set({haze:val('xqEFogSpread')*0.12});
+      // FOG HAZE: set directly on StageFX
+      if(window._stFX) window._stFX.set({haze:val('xqEFogSpread')*0.15});
 
-      // 3. Show config for copying
-      var lc=window._laserCfg;
-      var cfg='laserOffset:'+lc.offsetX.toFixed(3)+
-        ' laserSpread:'+lc.spread.toFixed(2)+
-        ' laserMin:'+val('xqELaserMin').toFixed(2)+
-        ' fogHaze:'+(val('xqEFogSpread')*0.12).toFixed(3)+
-        ' fogBurst:'+val('xqEFogBurst').toFixed(2)+
-        ' fogL:{x:'+val('xqEFogLX').toFixed(2)+',lean:'+Math.round(val('xqEFogLLean'))+'}'+
-        ' fogR:{x:'+val('xqEFogRX').toFixed(2)+',lean:'+Math.round(val('xqEFogRLean'))+'}';
-      document.getElementById('xqEditorCode').textContent=cfg;
+      // Show result
+      var out='laserOffset:'+val('xqELaserX').toFixed(3)+
+        ' spread:'+val('xqELaserSpread').toFixed(3)+
+        ' min:'+val('xqELaserMin').toFixed(2)+
+        ' fogHaze:'+(val('xqEFogSpread')*0.15).toFixed(3)+
+        ' burst:'+val('xqEFogBurst').toFixed(2);
+      document.getElementById('xqEditorCode').textContent=out;
     };
 
     window.xqEditorBurst=function(){
-      if(window._stFX&&window._stFX.burst) window._stFX.burst(1.0,val('xqEFogBurst'));
+      if(window._stFX) window._stFX.burst(1.0,val('xqEFogBurst'));
     };
 
     window.xqEditorRebuild=function(){
       if(window._buildStageFX) window._buildStageFX();
+      setTimeout(function(){
+        var c=window._xqSFXCanvas;
+        if(c){c.style.display='block';c.style.zIndex='22';c.style.mixBlendMode='screen';}
+      },400);
     };
 
     window.xqEditorCopy=function(){
       var txt=document.getElementById('xqEditorCode').textContent;
-      if(navigator.clipboard) navigator.clipboard.writeText(txt);
-      document.getElementById('xqEditorCode').textContent='✓ Copied! Paste to Studio chat.';
-      setTimeout(function(){ document.getElementById('xqEditorCode').textContent=txt; },2000);
+      if(navigator.clipboard)navigator.clipboard.writeText(txt);
+      var box=document.getElementById('xqEditorCode');
+      box.textContent='✓ Copied!';
+      setTimeout(function(){box.textContent=txt;},2000);
     };
   })();</script>
 </body></html>
