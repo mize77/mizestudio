@@ -27577,7 +27577,8 @@ function drawLasers(W,H,ts,bass,hit,bd){
   var vw=window.innerWidth,vh=window.innerHeight;
   var sl=r.left+r.width*0.24, sr=r.left+r.width*0.76;
   var sb=r.top+r.height*0.78;
-  var xl=(sl/vw-0.073)*W, xr=(sr/vw-0.073)*W;
+  var cfg=window._laserCfg||{offsetX:-0.073,spread:0.35};
+  var xl=(sl/vw+cfg.offsetX)*W, xr=(sr/vw+cfg.offsetX)*W;
   var yb=(1-(sb/vh))*H;
   var xc=(xl+xr)/2;
   // Draw crossing beams
@@ -27799,14 +27800,8 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
   });
 
   window.xqEditorApply=function(){
-    if(!window._stFX) return;
+    // Update laser config — drawLasers reads this every frame
     window._laserCfg={offsetX:val('xqELaserX'),spread:val('xqELaserSpread')};
-    var lb=document.getElementById('xqStageLB');
-    if(!lb) return;
-    var r=lb.getBoundingClientRect();
-    var vw=window.innerWidth,vh=window.innerHeight;
-    var sl=r.left+r.width*0.24, sr=r.left+r.width*0.76;
-    var xl=sl/vw+offset, xr=sr/vw+offset;
     var yb=1-originY;
     var xc=(xl+xr)/2;
     var dy=Math.max(0.01,crossY-yb);
@@ -27820,6 +27815,10 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
       haze: val('xqEFogSpread')*0.08
     });
     // Update fog sources
+    // Show config
+    var cfg2=window._laserCfg||{};
+    document.getElementById('xqEditorCode').textContent=
+      'laserOffset:'+cfg2.offsetX.toFixed(3)+' spread:'+cfg2.spread.toFixed(2);
     window._xqEditorFogCfg={
       lx:val('xqEFogLX'), rx:val('xqEFogRX'),
       lLean:val('xqEFogLLean'), rLean:val('xqEFogRLean'),
