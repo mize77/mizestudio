@@ -12151,6 +12151,7 @@ const XQStage=(function(){
       const panel=document.createElement('div'); panel.className='stageConsolePanel';
       spec.groups.forEach(g=>{
         const grp=document.createElement('div'); grp.className='stageConsoleGroup';
+        if(g.label) grp.dataset.group=String(g.label).toLowerCase();
         if(g.label){ const l=document.createElement('div'); l.className='stageConsoleLabel'; l.textContent=g.label; grp.appendChild(l); }
         const row=document.createElement('div'); row.className='stageConsoleRow';
         (g.items||[]).forEach(it=>{
@@ -12983,9 +12984,10 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
       });
       obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
-    // The tutorials ring the tracker's own bars and sheets: until they have a stage variant
-    // (briefs/GAMETRACKER-STUDIO-REVIEW.md §5.5) a tutorial opens the tracker without the stage.
-    xquixOpenGameTracker({ stage:false });
+    // The tutorials run wherever the tracker runs: on the Studio Stage in landscape >= 900 px
+    // (the tutorial maps the bar targets to the floor console and the side screens itself,
+    // gametracker/TUTORIALS-ON-THE-STAGE.md), with the tracker's own bars elsewhere.
+    xquixOpenGameTracker();
     if (typeof MIZE !== 'undefined' && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start === 'function')
       setTimeout(function () { MIZE.GameTrackerTutorial.start(name); }, 300);
   }
