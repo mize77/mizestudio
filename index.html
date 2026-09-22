@@ -1691,6 +1691,33 @@
   #prExitFallback { display:none; position:fixed; left:3%; bottom:3%; z-index:9999999; pointer-events:auto; touch-action:manipulation;
     background:rgba(0,0,0,.6); border:.5px solid rgba(46,202,184,.45); color:#2ecab8; font:600 12px/1 system-ui,sans-serif; border-radius:20px; padding:9px 16px; cursor:pointer; }
   body[data-stage="practice"]:not(.prConsole) #prExitFallback { display:block; }
+  /* Build on the stage: the Practice Studio panels on the three screens, in the stage's dark functional UI */
+  body.xqStage[data-stage="practice"] #studioTrack > .studioFrame .prScreen, body.xqStage[data-stage="practice"] #studioTrack > .studioFrame .prScreen * { pointer-events:auto !important; }
+  .prScreen { position:absolute; inset:0; overflow:auto; box-sizing:border-box; padding:10px 9px; background:linear-gradient(180deg, rgba(2,8,8,.86), rgba(2,8,8,.94));
+    color:#eaf7f5; font:12px/1.35 'Archivo',system-ui,sans-serif; -webkit-overflow-scrolling:touch; }
+  #prBuildCenter { z-index:6; padding:16px 18px; font-size:13px; background:linear-gradient(180deg, rgba(4,12,13,.96), rgba(3,9,10,.98)); }
+  .prScreen .psPanel { background:transparent; border:none; padding:0; min-width:0; flex:none; border-radius:0; }
+  .prScreen .psPanelTitle { color:#5fc9cc; font-size:10px; letter-spacing:.16em; margin:0 0 8px; }
+  #prBuildCenter .psPanelTitle { font-size:11px; }
+  .prScreen [style*="color"] { color:#9ab8b6 !important; }
+  .prScreen input, .prScreen select { background:rgba(255,255,255,.06) !important; color:#eaf7f5 !important; border:1px solid rgba(255,255,255,.16) !important; border-radius:6px !important; }
+  .prScreen input::placeholder { color:#7c9a98; }
+  .prScreen button { appearance:none; background:linear-gradient(180deg, rgba(38,50,52,.95), rgba(22,30,31,.95)); color:#eef9f8; border:1px solid rgba(255,255,255,.16); border-radius:7px; cursor:pointer; font-family:inherit; }
+  .prScreen button:hover { border-color:rgba(46,202,184,.45); }
+  .prScreen button:disabled { opacity:.38; }
+  .prScreen .drillCard, .prScreen .sessionDrillRow, .prScreen .versionRow { background:rgba(255,255,255,.04); border:1px solid rgba(46,202,184,.18); color:#eaf7f5; }
+  .prScreen .blockSection { background:rgba(46,202,184,.05); border:1px solid rgba(46,202,184,.25); }
+  .prScreen .blockSectionTitle, .prScreen .drillCardTitle, .prScreen .versionLabel { color:#f2fbfa; }
+  .prScreen .blockTypeBadge { background:rgba(46,202,184,.18); color:#7ff0ec; }
+  .prScreen .versionTime, .prScreen .blockEmptyNote { color:#9ab8b6; }
+  .prScreen .dnaChip { background:rgba(46,202,184,.14); color:#7ff0ec; border-color:rgba(46,202,184,.3); }
+  #prBuildLeft .drillCardRow, #prBuildRight .versionRow { flex-wrap:wrap; }
+  #prBuildLeft .drillCard { padding:6px 7px; }
+  #prBuildLeft .drillCard input[type=number] { width:42px; }
+  #prBuildRight .versionRow { gap:6px; padding:6px; }
+  body.prBuild #board { visibility:hidden; }   /* Build's centre screen is the builder, not the board (Run and Preview show it) */
+  /* Save and Run live on the floor console in Build */
+  body.prBuild #prBuildCenter #saveSessionBtn, body.prBuild #prBuildCenter #runSessionBtn { display:none; }
   /* Step 2: with the floor console in use (landscape >= 900 px) the Sound Box's fixed buttons are not shown */
   body.sbConsole #xqNP_home, body.sbConsole #xqModeBtn, body.sbConsole #xqControls { display:none !important; }
   /* ---- The Sound Box as a stage consumer (briefs/SOUNDBOX-STAGE-CONSUMER.md, Step 1) ---- */
@@ -19531,7 +19558,7 @@ document.getElementById('exportSceneObjectsBtn').addEventListener('click', ()=>{
 // ===== Autosave =====
 // The coach's own board. While a Practice Run is on the stage the board shows a drill (temporary);
 // autosave and session history keep the board the coach left, never a drill.
-function xqCoachBoardState(){ return (typeof _prRun!=='undefined' && _prRun && _prRun.saved) ? _prRun.saved.state : getState(); }
+function xqCoachBoardState(){ return (typeof _prStage!=='undefined' && _prStage && _prStage.saved) ? _prStage.saved.state : getState(); }
 const AUTOSAVE_KEY = 'tpgAutosaveV1';
 function runAutosave(){
   if(suppressAutosaveUntilRecoveryDecided) return;
@@ -19643,6 +19670,9 @@ function openPracticeStudio(){
   // protecting this single entry point naturally covers everything
   // inside it, the same pattern used for Branding Manager.
   if(!xquixRequireFunction('Open / close Practice Studio')) return;
+  // Build on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md §3a) where the stage fits; phones and
+  // portrait keep the panel until Step 5 gives Build its tabbed centre screen.
+  if(typeof prStageFits==='function' && prStageFits() && typeof XQStage!=='undefined'){ prOpenBuild(); return; }
   document.getElementById('practiceStudioView').style.display='block';
   renderDrillLibrary();
   renderSessionBuilder();
@@ -19801,7 +19831,9 @@ function renderSessionBuilder(){
       const row=document.createElement('div'); row.className='sessionDrillRow';
       const label=document.createElement('span'); label.textContent=(i+1)+'. '+d.formationName+' — '+d.durationMinutes+' min';
       const dcontrols=document.createElement('div'); dcontrols.className='sdrControls';
-      const load=document.createElement('button'); load.textContent='Load'; load.title=d.state ? 'Load this drill\'s formation onto the board' : 'This drill has no saved tactical content (from an older session)'; load.disabled=!d.state; load.onclick=()=>{ recordHistory('Load Drill: '+d.formationName); loadState(d.state); };
+      const onStage=(typeof _prStage!=='undefined' && _prStage && _prStage.phase==='build');
+      const load=document.createElement('button'); load.textContent=onStage?'Preview':'Load'; load.title=onStage ? 'Show this drill on the board (a Run from this drill; changes are temporary)' : (d.state ? 'Load this drill\'s formation onto the board' : 'This drill has no saved tactical content (from an older session)'); load.disabled=!onStage && !d.state;
+      load.onclick=()=>{ if(onStage){ prPreviewDrill(bi,i); return; } recordHistory('Load Drill: '+d.formationName); loadState(d.state); };
       const dup=document.createElement('button'); dup.textContent='↑'; dup.title='Move up'; dup.onclick=()=>moveSessionDrill(bi,i,-1);
       const ddown=document.createElement('button'); ddown.textContent='↓'; ddown.title='Move down'; ddown.onclick=()=>moveSessionDrill(bi,i,1);
       const drm=document.createElement('button'); drm.textContent='×'; drm.title='Remove'; drm.onclick=()=>removeSessionDrill(bi,i);
@@ -19846,38 +19878,98 @@ document.getElementById('saveSessionBtn').addEventListener('click', async ()=>{
   renderSavedSessions();
 });
 
-// ===== Practice Run on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md, Step 1) =====
-// A saved session -- or the one in the builder -- walked drill by drill on the stage: the drill's
-// formation live on the centre screen (edits are temporary: leaving a drill and coming back reloads
-// its saved formation), Previous / Next on the floor console. The coach's own board, undo history
-// and Front Court state are saved on entry and restored by ONE routine, prRunCleanup(), which every
-// route out goes through: it is bound to the stage's 'close' event, so Exit, Modes, Home, or any
-// other consumer opening the stage all end the Run the same way. A Run writes nothing.
-var _prRun=null;   // var, not let: autosave (earlier in this script) reads it before this line runs
+// ===== Practice on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md) =====
+// One consumer, 'practice', two phases. BUILD (§3a): the Drill Library on the left screen, the session
+// being built on the centre screen, Saved Sessions on the right, Save / Run / Exit / Modes on the floor
+// -- the existing Practice Studio panels, moved onto the screens and restyled, so every save / load /
+// delete runs the code it always ran. RUN (Step 1): a session walked drill by drill, the drill's
+// formation live on the centre screen (edits are temporary), Previous / Next on the floor.
+// The coach's own board, undo history and Front Court are saved when Practice takes the stage and
+// restored by ONE routine, prCleanup(), bound to the stage's 'close' event: Exit from Build, Modes,
+// Home, or any other consumer opening the stage all end Practice the same way. Nothing is recorded.
+var _prStage=null;   // { saved, phase:'build'|'run' } while Practice holds the stage (var: autosave reads it early)
+var _prRun=null;     // { rec, name, drills, i, fromBuild } during a Run
+function prStageFits(){ return window.innerWidth>=900 && window.innerWidth>window.innerHeight; }
 function prRunDrills(rec){
   const out=[]; (rec && Array.isArray(rec.blocks) ? rec.blocks : []).forEach((b,bi)=>{
     (b.drills||[]).forEach(d=>out.push({ block:b.name||'', blockIndex:bi, name:d.formationName||'Drill', minutes:d.durationMinutes||0, tags:d.coachingDNA||[], state:d.state||null }));
   });
   return out;
 }
-function prRunCameraOpts(){
-  const wide=window.innerWidth>=900 && window.innerWidth>window.innerHeight;
-  return wide ? { camera:'center', roomCamera:'pan', readingBox:'screen' } : { camera:'center', readingBox:'screen', fitScreen:true };
+function prCameraOpts(){
+  return prStageFits() ? { camera:'center', roomCamera:'pan', readingBox:'screen' } : { camera:'center', readingBox:'screen', fitScreen:true };
 }
-function openPracticeRun(rec){
-  const drills=prRunDrills(rec);
-  if(!drills.length){ if(typeof MizeDialog!=='undefined') MizeDialog.alert('This session has no drills to run yet.'); return false; }
-  if(typeof XQStage==='undefined') return false;
-  if(window.XquiXGameTracker && typeof XquiXGameTracker.isOpen==='function' && XquiXGameTracker.isOpen()){ if(typeof xquixHomeShowToast==='function') xquixHomeShowToast('Close the Game Tracker first.'); return false; }
-  if(_prRun) prRunCleanup();
+// Practice takes the stage (once); the coach's board is saved here and nowhere else.
+function prEnsureStage(){
+  if(_prStage && XQStage.consumer()==='practice') return;
   if(document.body.classList.contains('presentation') && typeof togglePresentation==='function') togglePresentation();
   if(typeof closeToolPanels==='function') closeToolPanels();
   const wasFC=!!frontCourtActive; if(wasFC) toggleFrontCourt(false);
   let saved=null; try{ saved={ state:getState(), undo:undoStack.slice(), redo:redoStack.slice(), frontCourt:wasFC }; }catch(e){}
-  _prRun={ rec, name:rec.name||'Practice session', drills, i:-1, saved };
   closePracticeStudio();
-  XQStage.open('practice', Object.assign({ lockCamera:true, instant:true }, prRunCameraOpts()));
-  prRunGo(0);
+  XQStage.open('practice', Object.assign({ lockCamera:true, instant:true }, prCameraOpts()));   // (closes any previous consumer first)
+  _prStage={ saved, phase:null };
+}
+// ---- BUILD
+const _prHomes=[];   // where the moved panels came from: [node, parent, nextSibling]
+function prMove(node, into){ if(!node) return; _prHomes.push([node, node.parentNode, node.nextSibling]); into.appendChild(node); }
+function prBuildMount(){
+  if(document.getElementById('prBuildCenter')) return;
+  const mk=(id)=>{ const d=document.createElement('div'); d.id=id; d.className='prScreen'; return d; };
+  const left=mk('prBuildLeft'), center=mk('prBuildCenter'), right=mk('prBuildRight');
+  document.body.appendChild(center);   // the tactical mount returns it here
+  const savedTitle=[...document.querySelectorAll('#sessionBuilderPanel .psPanelTitle')].find(t=>/Saved Sessions/.test(t.textContent));
+  const savedWrap=document.createElement('div'); savedWrap.className='psPanel'; right.appendChild(savedWrap);
+  [savedTitle, document.getElementById('sessionTagFilter'), document.getElementById('savedSessionsList')].forEach(n=>prMove(n, savedWrap));
+  prMove(document.getElementById('drillLibraryPanel'), left);
+  prMove(document.getElementById('sessionBuilderPanel'), center);
+  XQStage.setScreen('media', left); XQStage.setScreen('info', right); XQStage.setScreen('tactical', center);
+  document.body.classList.add('prBuild');
+}
+function prBuildUnmount(){
+  if(!document.getElementById('prBuildCenter') && !_prHomes.length) return;
+  while(_prHomes.length){ const [n,parent,next]=_prHomes.pop(); if(parent) parent.insertBefore(n, next && next.parentNode===parent ? next : null); }
+  if(typeof XQStage!=='undefined' && XQStage.consumer()==='practice'){ XQStage.setScreen('tactical', null); XQStage.setScreen('media', null); XQStage.setScreen('info', null); }
+  ['prBuildLeft','prBuildCenter','prBuildRight'].forEach(id=>document.getElementById(id)?.remove());
+  document.body.classList.remove('prBuild');
+}
+function prOpenBuild(){
+  prEnsureStage();
+  if(_prRun) prRunStop();
+  _prStage.phase='build';
+  document.getElementById('prDrillNote')?.remove();
+  prBuildMount();
+  renderDrillLibrary(); renderSessionBuilder(); renderSavedSessions();
+  XQStage.setControls({ groups:[
+    { label:'Session', items:[
+      { id:'save', label:'Save', title:'Save this session', onTap:()=>document.getElementById('saveSessionBtn')?.click() },
+      { id:'run', label:'▶ Run', big:true, title:'Run this session drill by drill', onTap:()=>document.getElementById('runSessionBtn')?.click() },
+    ]},
+    { label:'System', items:[
+      { id:'exit', label:'Exit', title:'Back to the Coaching board', onTap:()=>{ if(XQStage.consumer()==='practice') XQStage.close(); } },
+      { id:'modes', label:'Modes', title:'Choose a mode', onTap:prRunModes },
+    ]},
+  ]});
+  setTimeout(prRunConsoleShown, 0);
+}
+function prPreviewDrill(bi, di){
+  let idx=0; for(let b=0;b<bi;b++) idx+=(currentSessionBlocks[b].drills||[]).length; idx+=di;
+  const name=(document.getElementById('sessionNameInput').value||'').trim() || 'Current session';
+  openPracticeRun(buildSessionRecord(name, []), idx);
+}
+// ---- RUN
+function openPracticeRun(rec, startIndex){
+  const drills=prRunDrills(rec);
+  if(!drills.length){ if(typeof MizeDialog!=='undefined') MizeDialog.alert('This session has no drills to run yet.'); return false; }
+  if(typeof XQStage==='undefined') return false;
+  if(window.XquiXGameTracker && typeof XquiXGameTracker.isOpen==='function' && XquiXGameTracker.isOpen()){ if(typeof xquixHomeShowToast==='function') xquixHomeShowToast('Close the Game Tracker first.'); return false; }
+  const fromBuild=!!(_prStage && _prStage.phase==='build' && XQStage.consumer()==='practice');
+  prEnsureStage();
+  if(_prRun) prRunStop();
+  prBuildUnmount();
+  _prStage.phase='run';
+  _prRun={ rec, name:rec.name||'Practice session', drills, i:-1, fromBuild };
+  prRunGo(startIndex||0);
   return true;
 }
 function prRunGo(i){
@@ -19891,7 +19983,7 @@ function prRunGo(i){
   let note=document.getElementById('prDrillNote');
   if(!d.state){
     if(!note){ note=document.createElement('div'); note.id='prDrillNote'; document.getElementById('stageWrap')?.appendChild(note); }
-    note.innerHTML=''; note.appendChild(document.createTextNode(d.name)); const sm=document.createElement('small'); sm.textContent='No formation saved for this drill'+(d.minutes?' \u00b7 '+d.minutes+' min':''); note.appendChild(sm);
+    note.innerHTML=''; note.appendChild(document.createTextNode(d.name)); const sm=document.createElement('small'); sm.textContent='No formation saved for this drill'+(d.minutes?' · '+d.minutes+' min':''); note.appendChild(sm);
   } else if(note) note.remove();
   prRunConsole();
   if(typeof fitBoardToScreen==='function') fitBoardToScreen();
@@ -19906,40 +19998,48 @@ function prRunConsole(){
   XQStage.setControls({ groups:[
     { label:'Drill', items:[
       { id:'prev', label:'Previous', title:'Previous drill', disabled:r.i===0, onTap:()=>prRunGo(r.i-1) },
-      { id:'drill', label:'Drill '+(r.i+1)+' of '+r.drills.length, sub:d.name, big:true, title:d.block ? d.block+' \u00b7 '+d.name : d.name },
+      { id:'drill', label:'Drill '+(r.i+1)+' of '+r.drills.length, sub:d.name, big:true, title:d.block ? d.block+' · '+d.name : d.name },
       { id:'next', label:'Next', title:'Next drill', disabled:r.i===r.drills.length-1, onTap:()=>prRunGo(r.i+1) },
     ]},
     { label:'System', items:[
-      { id:'exit', label:'Exit', title:'Back to Practice Studio', onTap:prRunExit },
+      { id:'exit', label:'Exit', title:r.fromBuild ? 'Back to the session builder' : 'Back to Practice Studio', onTap:prRunExit },
       { id:'modes', label:'Modes', title:'Choose a mode', onTap:prRunModes },
     ]},
   ]});
   setTimeout(prRunConsoleShown, 0);
 }
-function prRunConsoleShown(){ document.body.classList.toggle('prConsole', !!(_prRun && XQStage.consumer()==='practice' && XQStage.consoleVisible())); }
-function prRunExit(){ if(XQStage.consumer()==='practice') XQStage.close(); else prRunCleanup(); openPracticeStudio(); }
-function prRunModes(){ if(typeof xquixShowHome==='function') xquixShowHome(); else prRunExit(); }   // opening Home closes the stage -> prRunCleanup
-// THE way out. Idempotent; safe to call when no Run is active.
-function prRunCleanup(){
-  const r=_prRun; if(!r) return;
-  _prRun=null;
-  document.getElementById('prDrillNote')?.remove();
-  document.body.classList.remove('prConsole');
-  if(typeof XQStage!=='undefined' && XQStage.consumer()==='practice') XQStage.close();   // (re-entrant: _prRun is already null)
-  if(r.saved){
+// end the Run's own state (not Practice): the stage stays with Practice
+function prRunStop(){ _prRun=null; document.getElementById('prDrillNote')?.remove(); }
+function prRunConsoleShown(){ document.body.classList.toggle('prConsole', !!(_prStage && XQStage.consumer()==='practice' && XQStage.consoleVisible())); }
+function prRunExit(){
+  if(_prRun && _prRun.fromBuild && XQStage.consumer()==='practice'){ prOpenBuild(); return; }   // Run -> Build, same stage
+  if(XQStage.consumer()==='practice') XQStage.close(); else prCleanup();
+  openPracticeStudio();
+}
+function prRunModes(){ if(typeof xquixShowHome==='function') xquixShowHome(); else if(XQStage.consumer()==='practice') XQStage.close(); }   // Home takes the stage -> close -> prCleanup
+// THE way out of Practice. Idempotent; safe when Practice is not on the stage.
+function prCleanup(){
+  const st=_prStage;
+  prRunStop();
+  prBuildUnmount();
+  _prStage=null;
+  document.body.classList.remove('prConsole','prBuild');
+  if(typeof XQStage!=='undefined' && XQStage.consumer()==='practice') XQStage.close();   // re-entrant: _prStage is already null
+  if(st && st.saved){
     const wasReady=historyReady; historyReady=false;
-    try{ loadState(r.saved.state); }catch(e){}
-    historyReady=wasReady; undoStack=r.saved.undo||[]; redoStack=r.saved.redo||[]; if(typeof updateHistoryUI==='function') updateHistoryUI();
-    if(r.saved.frontCourt && !frontCourtActive) toggleFrontCourt(true);
+    try{ loadState(st.saved.state); }catch(e){}
+    historyReady=wasReady; undoStack=st.saved.undo||[]; redoStack=st.saved.redo||[]; if(typeof updateHistoryUI==='function') updateHistoryUI();
+    if(st.saved.frontCourt && !frontCourtActive) toggleFrontCourt(true);
   }
   if(typeof fitBoardToScreen==='function') fitBoardToScreen();
 }
+var prRunCleanup=prCleanup;   // the Step 1 name
 if(typeof XQStage!=='undefined'){
-  XQStage.on('close', c=>{ if(c==='practice' && _prRun) prRunCleanup(); });
+  XQStage.on('close', c=>{ if(c==='practice' && _prStage) prCleanup(); });
   XQStage.on('layout', ()=>{ if(XQStage.consumer()==='practice') setTimeout(prRunConsoleShown, 0); });
 }
-// (the button's markup comes after this script -- listen at the document)
-document.addEventListener('click', e=>{ if(e.target && e.target.closest && e.target.closest('#prExitFallback')){ e.stopPropagation(); prRunExit(); } }, true);
+// (the fallback button's markup comes after this script -- listen at the document)
+document.addEventListener('click', e=>{ if(e.target && e.target.closest && e.target.closest('#prExitFallback')){ e.stopPropagation(); if(_prRun) prRunExit(); else if(XQStage.consumer()==='practice') XQStage.close(); } }, true);
 document.getElementById('runSessionBtn')?.addEventListener('click', ()=>{
   if(!currentSessionBlocks.length || !currentSessionBlocks.some(b=>b.drills.length)){ MizeDialog.alert('Add at least one block with a drill before running the session.'); return; }
   const name=(document.getElementById('sessionNameInput').value||'').trim() || 'Current session';
