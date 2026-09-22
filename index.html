@@ -874,6 +874,14 @@
   body.xqStage #studioTrack > .studioFrame.onWall { box-shadow:0 0 42px 6px rgba(150,215,210,.10); }
   body.xqStage.panorama #board, body.xqStage #stageWrap.camOff #board { box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(46,202,184,.22), 0 0 110px 18px rgba(46,202,184,.16); }
   body.xqStage #board { transition: width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease); }
+  /* centerFill (Presentation, MIZE 2026-09-22): the pool fills the centre screen; the venue is cut off at the
+     screen's edge, no outlined box. The pool's light still spills into the room (Stage 4), from the screen. */
+  body.xqStage.psFill #stageWrap { overflow:hidden; }
+  body.xqStage.psFill #board, body.xqStage.psFill.panorama #board, body.xqStage.psFill #stageWrap.camOff #board, body.xqStage.psFill #stageWrap.onWall #board { box-shadow:none !important; max-width:none; }
+  body.xqStage.psFill #stageWrap.onWall { box-shadow:0 0 110px 18px rgba(46,202,184,.14); }
+  /* The floor console is Presentation's in the Full Studio View only; a zoomed camera shows a screen's own controls. */
+  body.xqStage[data-stage="presentation"] #stageConsole { transition:opacity .35s ease; }
+  body.xqStage[data-stage="presentation"]:not(.panorama) #stageConsole { opacity:0; pointer-events:none; }
   body.xqStage .studioFrameContent { width:100% !important; height:100% !important; }
   /* Screen focus state (PS-001 §23): the two screens the camera is not on recede. */
   body.xqStage:not(.panorama) #studioTrack > .camOff { filter:brightness(.38) saturate(.8); z-index:1; }
@@ -10025,8 +10033,21 @@ function rotatePoint(x, y, deg){
   const cos = Math.cos(rad), sin = Math.sin(rad);
   return { x: x*cos - y*sin, y: x*sin + y*cos };
 }
-function meterPxX(m) { return rect().width / (frontCourtActive ? M.fieldH : (presentationFieldWidened ? PRESENT_VIEWBOX_W : M.W)) * m; }
-function meterPxY(m) { return rect().height / (frontCourtActive ? FC_FULL_HEIGHT : (presentationFieldWidened ? PRESENT_VIEWBOX_H : M.H)) * m; }
+// Sizes in metres use the board's LAYOUT size, never its on-screen box: on the Studio Stage the board's
+// screen is scaled by the camera (a wall box, a camera move in progress), and sizing players from that
+// box made a player's size relative to the field change with the camera (MIZE, 2026-09-22).
+// Wherever the board is interactive and settled (CENTER, Coaching) the two are the same.
+// The size the layout GAVE the board (its inline px), not what it renders mid-way: the screen frames
+// ease their width/height with the camera, and the board (max-width:100 % of its frame) only reaches
+// its size at the end of the move -- players sized from the rendered box lagged one camera state behind.
+function boardLayoutSize(){
+  const sw=parseFloat(board.style.width), sh=parseFloat(board.style.height);
+  if(/px$/.test(board.style.width) && /px$/.test(board.style.height) && sw>0 && sh>0) return {width:sw, height:sh};
+  const w=board.offsetWidth, h=board.offsetHeight; if(w>0 && h>0) return {width:w, height:h};
+  const r=rect(); return {width:r.width, height:r.height};
+}
+function meterPxX(m) { return boardLayoutSize().width / (frontCourtActive ? M.fieldH : (presentationFieldWidened ? PRESENT_VIEWBOX_W : M.W)) * m; }
+function meterPxY(m) { return boardLayoutSize().height / (frontCourtActive ? FC_FULL_HEIGHT : (presentationFieldWidened ? PRESENT_VIEWBOX_H : M.H)) * m; }
 function clamp(v,a,b) { return Math.max(a,Math.min(b,v)); }
 function boardToFieldX(x) { return clamp(x - M.fieldX, 0, M.fieldW); }
 function boardToFieldY(y) { return clamp(y - M.fieldY, 0, M.fieldH); }
@@ -11719,6 +11740,7 @@ function updatePresentationPlaybackUI(){
   const counter=document.getElementById('presentationSlideCounter');
   const prevBtn=document.getElementById('presentationPrevBtn'), nextBtn=document.getElementById('presentationNextBtn');
   const noteEl=document.getElementById('presentationCoachNote');
+  if(typeof psPresConsoleRefresh==='function') psPresConsoleRefresh();
   if(!activePresentation){ bar.classList.remove('active'); if(noteEl) noteEl.classList.remove('show'); return; }
   bar.classList.add('active');
   const total=activePresentation.slides.length;
@@ -12211,6 +12233,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 // spotlight and auto-navigation read them); this object is the API over them.
 const XQStage=(function(){
   let _open=false, _consumer=null, _opts={}, _internal=false;
+  const _mounted={ media:null, info:null };   // side-screen nodes a consumer mounted (setScreen)
   const _subs={};
   const emit=(ev,arg)=>{ (_subs[ev]||[]).forEach(cb=>{ try{ cb(arg); }catch(e){ console.error('XQStage', ev, e); } }); };
   const el=id=>document.getElementById(id);
@@ -12238,13 +12261,17 @@ const XQStage=(function(){
       if(!_open) return;
       const was=_consumer;
       studioPanorama=false;
-      document.body.classList.remove('xqStage','panorama','cameraMoving','psIdle','psIntro');
+      document.body.classList.remove('xqStage','panorama','cameraMoving','psIdle','psIntro','psFill');
       delete document.body.dataset.stage; delete document.body.dataset.cam;
       { const lb=el('psRoomLB'); if(lb){ ['transform','transformOrigin','position','left','top','width','height'].forEach(k=>{ lb.style[k]=''; }); } }
       ['videoFrame','stageWrap','statsFrame'].forEach(id=>{ const f=el(id); if(!f) return;
         ['left','top','width','height','transform','transformOrigin'].forEach(k=>{ f.style[k]=''; });
         f.classList.remove('camOff','onWall','camFocus'); });
       this.setScreen('tactical', null);
+      // Side screens a consumer mounted with setScreen go back to branding when it leaves (Practice's panels
+      // left their frames marked loaded, so Presentation opened with neither logo). Content the coach loaded
+      // in Presentation (showStudioFrameContent) is not a mount and stays.
+      ['media','info'].forEach(k=>{ const n=_mounted[k]; _mounted[k]=null; const c=el(k==='media'?'videoContent':'statsContent'); if(n && c && (c.contains(n) || !n.isConnected)) this.setScreen(k, null); });
       this.setRoomLayer(null);
       this.setRoomOverlay(null);
       this.setControls(null);
@@ -12278,6 +12305,7 @@ const XQStage=(function(){
         return;
       }
       const prefix = key==='media' ? 'video' : key==='info' ? 'stats' : null; if(!prefix) return;
+      _mounted[key]=node||null;
       if(node) showStudioFrameContent(prefix, node); else clearStudioFrameContent(prefix);
       emit('screen', {key, empty:!node});
     },
@@ -12417,10 +12445,19 @@ const PS_CAMERA_MS={ toScreen:1000, neighbour:1000, across:1400, toPan:900 };
 // The camera for a state. A consumer opened with { fitScreen:true } gets a CENTER camera whose scale
 // makes the photographed centre screen as wide as the viewport (phones and portrait: the Sound Box,
 // briefs/SOUNDBOX-STAGE-CONSUMER.md §3.5) instead of PS_CAMERA's fixed 1.3.
+// centerFill (Presentation, MIZE 2026-09-22): the pool fills the centre screen instead of the whole venue box
+// sitting inside it. Evaluated on every layout -- it is off while the 3D tilt or Front Court is on.
+function psCenterFillOn(){
+  if(typeof XQStage==='undefined' || !XQStage.isOpen()) return false;
+  const f=(XQStage.opts()||{}).centerFill; return typeof f==='function' ? !!f() : !!f;
+}
+// The metres of pool that fill the centre screen: the 20 m field with 1 m of water above and below; across,
+// the field and its goals with 1 m to spare. The rest of the venue is cut off at the screen's edge.
+const PS_FILL_H=22, PS_FILL_W=27;
 function psCam(state, LB){
   const c=PS_CAMERA[state]; if(!c) return c;
   const opts=(typeof XQStage!=='undefined' && XQStage.isOpen()) ? (XQStage.opts()||{}) : {};
-  if(state==='center' && opts.fitScreen && LB && LB.width){
+  if(state==='center' && (opts.fitScreen || psCenterFillOn()) && LB && LB.width){
     const byW=(viewportWidth()*0.985)/(PS_SCREENS.center.w*LB.width), byH=(viewportHeight()*0.92)/(PS_SCREENS.center.h*LB.height);
     const S=Math.max(1, Math.min(byW, byH));   // as wide as the viewport, unless the screen would then be taller than it (landscape phones)
     return { ox:c.ox, oy:c.oy, S:S, tx:0 };
@@ -12587,7 +12624,8 @@ document.getElementById('studioNavRight').addEventListener('click', ()=>{ if(stu
 // Panorama: each screen is one click target that moves the camera to it (PS-001 §9).
 // The dots are the compact spatial navigation of §29: ● Media ● Tactical ● Info ◉ Panorama.
 [['videoFrame',0],['stageWrap',1],['statsFrame',2]].forEach(([id,i])=>{
-  document.getElementById(id)?.addEventListener('click', ()=>{ if(studioPanorama) goToStudioFrame(i); });
+  // (a press from the floor console reaches a screen's own load button and bubbles here: it must not move the camera)
+  document.getElementById(id)?.addEventListener('click', ()=>{ if(studioPanorama && !window._psConsolePress) goToStudioFrame(i); });
 });
 document.querySelectorAll('#studioFrameDots span').forEach(dot=>{
   dot.addEventListener('click', ()=>{
@@ -12623,6 +12661,7 @@ function showStudioFrameContent(prefix, node){
   content.classList.add('loaded');
   document.getElementById(prefix+'Frame')?.classList.add('hasContent');
   document.getElementById(prefix+'ClearBtn').classList.add('shown');
+  if(typeof psPresConsoleRefresh==='function') psPresConsoleRefresh();
 }
 function clearStudioFrameContent(prefix){
   if(prefix==='stats') closeStatsExternalWindow();
@@ -12631,8 +12670,12 @@ function clearStudioFrameContent(prefix){
   if(existingMedia) existingMedia.remove();
   content.classList.remove('loaded');
   document.getElementById(prefix+'Frame')?.classList.remove('hasContent');
-  document.getElementById(prefix+'FramePlaceholder').style.display='flex';
+  // No inline display: the stage's CSS decides (the placeholder shows only on the focused screen; on the
+  // wall an empty side screen is a logo). An inline 'flex' here overrode that, and every cleared screen --
+  // a consumer leaving the stage, the coach's own clear button -- showed its load buttons in the Panorama.
+  document.getElementById(prefix+'FramePlaceholder').style.removeProperty('display');
   document.getElementById(prefix+'ClearBtn').classList.remove('shown');
+  if(typeof psPresConsoleRefresh==='function') psPresConsoleRefresh();
 }
 // Nest each clear button inside its own content container (once, at setup)
 // so it's always positioned relative to -- and rendered on top of -- the
@@ -12819,7 +12862,10 @@ function togglePresentation(mode){
     document.getElementById('timelinePanel')?.classList.remove('shown');
     closeToolPanels();
     if(!frontCourtActive) setPresentationFieldGeometry(true); // Front Court has its own field geometry -- don't widen over it
-    XQStage.open('presentation', { camera:'pan', instant:true });  // PS-001 §31: opens on Panorama, with the §32 first-entry move
+    // PS-001 §31: opens on Panorama, with the §32 first-entry move. centerFill (MIZE, 2026-09-22): with the tilt
+    // off, the pool fills the centre screen -- no outlined venue box -- and CENTER's camera frames that screen.
+    XQStage.open('presentation', { camera:'pan', instant:true, centerFill:()=>!document.body.classList.contains('field3d') && !frontCourtActive });
+    psPresConsoleRefresh(true);
     if(window.psWakeControls) window.psWakeControls();
     fitBtn.textContent = 'Exit Presentation';
     modeHandle?.classList.add('active');
@@ -12830,6 +12876,59 @@ function togglePresentation(mode){
     if (typeof window._applyTiltAngle === 'function') window._applyTiltAngle();
   }
   fitBoardToScreen();
+}
+
+// ===== Presentation's floor console (MIZE, 2026-09-22) =====
+// In the Full Studio View the Stage Control Surface is standard: load the side screens without moving the
+// camera, step a loaded presentation, leave. LEFT SCREEN · PRESENTATION · RIGHT SCREEN · SYSTEM, in the
+// stage's own left-to-right order. The controls press the screens' own load buttons, so the entitlement
+// gates, the prompts and the file pickers are the ones the coach already knows. A zoomed camera hides the
+// console (CSS) and the focused screen shows its own buttons, as before.
+let _psConsoleShape=null;
+if(typeof XQStage!=='undefined') XQStage.on('layout', ()=>{ if(XQStage.consumer()==='presentation') psPresConsoleRefresh(); });
+function psPresConsoleRefresh(force){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='presentation') { _psConsoleShape=null; return; }
+  const hasPres=!!(activePresentation && activePresentation.slides && activePresentation.slides.length);
+  const loaded=k=>!!document.getElementById(k+'Content')?.classList.contains('loaded');
+  const press=id=>()=>{ window._psConsolePress=true; try{ document.getElementById(id)?.click(); } finally { window._psConsolePress=false; } };   // the camera stays put
+  // Landscape >= 900 px, like every console consumer: on a phone the room's floor is a few dozen pixels tall
+  // and the screens' own buttons (zoomed in) stay the way to load them. Rotation is followed on 'layout'.
+  const fits=window.innerWidth>=900 && window.innerWidth>window.innerHeight;
+  const shape=!fits ? 'none' : hasPres ? 'pres' : 'plain';
+  if(shape==='none'){ if(_psConsoleShape!=='none'){ _psConsoleShape='none'; XQStage.setControls(null); } return; }
+  if(force || shape!==_psConsoleShape){
+    _psConsoleShape=shape;
+    const groups=[
+      { label:'Left screen', items:[
+        { id:'mediaUrl', label:'Video URL', title:'Load a video onto the left screen (YouTube, Vimeo or a video link)', onTap:press('videoLoadUrlBtn') },
+        { id:'mediaFile', label:'File', title:'Load a video file onto the left screen', onTap:press('videoLoadFileBtn') },
+        { id:'mediaClear', label:'Clear', title:'Clear the left screen', disabled:!loaded('video'), onTap:()=>clearStudioFrameContent('video') },
+      ]},
+    ];
+    if(hasPres) groups.push({ label:'Presentation', items:[
+      { id:'stepPrev', label:'\u25C0', title:'Previous step', onTap:()=>presentationStep(-1) },
+      { id:'step', label:'Step', big:true, title:'The current step' },
+      { id:'stepNext', label:'\u25B6', title:'Next step', onTap:()=>presentationStep(1) },
+    ]});
+    groups.push({ label:'Right screen', items:[
+      { id:'infoUrl', label:'Website', title:'Load a website onto the right screen', onTap:press('statsLoadUrlBtn') },
+      { id:'infoFile', label:'File', title:'Load an image or PDF onto the right screen', onTap:press('statsLoadFileBtn') },
+      { id:'infoClear', label:'Clear', title:'Clear the right screen', disabled:!loaded('stats'), onTap:()=>clearStudioFrameContent('stats') },
+    ]});
+    groups.push({ label:'System', items:[
+      { id:'exit', label:'Exit', title:'Leave Presentation Mode', onTap:()=>{ if(document.body.classList.contains('presentation')) togglePresentation(); } },
+      { id:'modes', label:'Modes', title:'Choose a mode', onTap:()=>{ if(typeof xquixShowHome==='function') xquixShowHome(); else togglePresentation(); } },
+    ]});
+    XQStage.setControls({ groups });
+  }
+  XQStage.updateControl('mediaClear', { disabled:!loaded('video') });
+  XQStage.updateControl('infoClear', { disabled:!loaded('stats') });
+  if(hasPres){
+    const n=activePresentation.slides.length;
+    XQStage.updateControl('step', { label:'Step '+(activeSlideIndex+1)+' / '+n });
+    XQStage.updateControl('stepPrev', { disabled:activeSlideIndex<=0 });
+    XQStage.updateControl('stepNext', { disabled:activeSlideIndex>=n-1 });
+  }
 }
 
 // ===== Spotlight tool =====
@@ -23230,7 +23329,9 @@ function psStageLayout(){
     availW=Math.max(280, Math.min(availW, (r.left-16)-(l.left+l.width+16)));
   }
   let reading;
-  if(opts.readingBox==='screen'){
+  if(psCenterFillOn() && !panorama && studioFrameIndex===1){
+    reading=psMapWallBox(wall.board, roomCam, LB);   // the photographed screen, edge to edge
+  } else if(opts.readingBox==='screen'){
     // The focused screen's content is fitted INTO the photographed centre screen (the wall
     // box, inset 3 %), so it reads as displayed on the studio screen, not floating over the
     // room (MIZE, 2026-09-21). Game Tracker LIVE uses this; the frame stays visible around it.
@@ -23367,7 +23468,16 @@ function fitBoardToScreen(){
     const st=psStageLayout();
     const ratioW = PRESENT_VIEWBOX_W, ratioH = PRESENT_VIEWBOX_H;
     let boardW, boardH;
-    if(st.focusedKey==='board'){ boardW=st.reading.width; boardH=st.reading.height; }
+    const fill=psCenterFillOn();
+    document.body.classList.toggle('psFill', fill);
+    if(fill){
+      // The pool fills the screen (the frame clips the venue at its edge; #stageWrap centres the board):
+      // metres per px from PS_FILL_H x PS_FILL_W, the board keeps the venue's 35:28, so nothing is stretched.
+      const b=(st.focusedKey==='board') ? st.reading : st.boxes.board;
+      const ppm=Math.min(b.height/PS_FILL_H, b.width/PS_FILL_W);
+      boardW=ppm*ratioW; boardH=ppm*ratioH;
+    }
+    else if(st.focusedKey==='board'){ boardW=st.reading.width; boardH=st.reading.height; }
     else { const b=st.boxes.board; const cw=b.width-8, ch=b.height-8; boardW=cw; boardH=boardW*ratioH/ratioW; if(boardH>ch){ boardH=ch; boardW=boardH*ratioW/ratioH; } }
     board.style.width=boardW+'px';
     board.style.height=boardH+'px';
