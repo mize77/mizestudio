@@ -1670,6 +1670,8 @@
   #sbNowInfo .sbTime { margin-top:10px; text-align:center; color:#9ab8b6; font-variant-numeric:tabular-nums; }
   #sbNowInfo .sbBar { height:3px; background:rgba(255,255,255,.10); border-radius:2px; margin:6px 10% 0; overflow:hidden; }
   #sbNowInfo .sbBar i { display:block; height:100%; width:0; background:#2ecab8; transition:width .5s linear; }
+  /* Step 4: under the fitted CENTER camera (phones, portrait) the side screens are off the edges or cut -- not shown */
+  body[data-stage="soundbox"][data-cam="center"] #videoFrame, body[data-stage="soundbox"][data-cam="center"] #statsFrame { visibility:hidden; }
   /* Step 2: with the floor console in use (landscape >= 900 px) the Sound Box's fixed buttons are not shown */
   body.sbConsole #xqNP_home, body.sbConsole #xqModeBtn, body.sbConsole #xqControls { display:none !important; }
   /* ---- The Sound Box as a stage consumer (briefs/SOUNDBOX-STAGE-CONSUMER.md, Step 1) ---- */
@@ -5373,7 +5375,10 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
       // effect canvases, all in letterbox fractions -- is the stage's room layer. #xqStage (the
       // Sound Box's own black backdrop with a second copy of the photograph) is no longer shown.
       if(typeof XQStage!=='undefined'){
-        XQStage.open('soundbox', { camera:'pan', lockCamera:true, instant:true, intro:false });
+        // Landscape >= 900 px: the whole room (Panorama), side screens and console. Narrower or portrait:
+        // the CENTER camera fitted so the Sound Box's screen is as wide as the viewport; the Sound Box's
+        // own fixed buttons stay there (Step 4). Rotation is followed on the stage's layout event.
+        XQStage.open('soundbox', { camera:(window._xqSB && !_xqSB.consoleFits()) ? 'center' : 'pan', lockCamera:true, instant:true, intro:false, fitScreen:true });
         XQStage.setRoomLayer(document.getElementById('xqStageLB'));   // screen, NP overlay, lighting, StageFX fog (blends with the room)
         XQStage.setRoomOverlay(document.getElementById('xqFX'));      // the lasers: over the screens (SS-001 §34-35)
         if(window._xqSB) _xqSB.console('idle');                       // the floor console: SYSTEM (Modes · Home); SESSION from Session Ready
@@ -12311,6 +12316,19 @@ const PS_CAMERA={
   right:  { ox:0.8984, oy:0.468, S:1.5, tx:-0.05 },
 };
 const PS_CAMERA_MS={ toScreen:1000, neighbour:1000, across:1400, toPan:900 };
+// The camera for a state. A consumer opened with { fitScreen:true } gets a CENTER camera whose scale
+// makes the photographed centre screen as wide as the viewport (phones and portrait: the Sound Box,
+// briefs/SOUNDBOX-STAGE-CONSUMER.md §3.5) instead of PS_CAMERA's fixed 1.3.
+function psCam(state, LB){
+  const c=PS_CAMERA[state]; if(!c) return c;
+  const opts=(typeof XQStage!=='undefined' && XQStage.isOpen()) ? (XQStage.opts()||{}) : {};
+  if(state==='center' && opts.fitScreen && LB && LB.width){
+    const byW=(viewportWidth()*0.985)/(PS_SCREENS.center.w*LB.width), byH=(viewportHeight()*0.92)/(PS_SCREENS.center.h*LB.height);
+    const S=Math.max(1, Math.min(byW, byH));   // as wide as the viewport, unless the screen would then be taller than it (landscape phones)
+    return { ox:c.ox, oy:c.oy, S:S, tx:0 };
+  }
+  return c;
+}
 let _camState='pan', _camMoveTimer=null;
 function psCameraState(){ return studioPanorama ? 'pan' : ['left','center','right'][studioFrameIndex]; }
 function psApplyRoomCamera(state, LB){
@@ -12327,14 +12345,14 @@ function psApplyRoomCamera(state, LB){
   });
 }
 function psApplyRoomTransform(node, state, LB){
-  const c=PS_CAMERA[state];
+  const c=psCam(state, LB);
   if(!c){ node.style.transformOrigin=''; node.style.transform=''; return; }
   node.style.transformOrigin=(c.ox*LB.width)+'px '+(c.oy*LB.height)+'px';
   node.style.transform='translate('+(c.tx*LB.width)+'px,0) scale('+c.S+')';
 }
 // A wall box (fractions of the letterbox) as it appears on screen under the camera.
 function psMapWallBox(b, state, LB){
-  const c=PS_CAMERA[state];
+  const c=psCam(state, LB);
   const S=c?c.S:1, ox=c?c.ox*LB.width:0, oy=c?c.oy*LB.height:0, tx=c?c.tx*LB.width:0;
   const x=b.x*LB.width, y=b.y*LB.height, w=b.w*LB.width, h=b.h*LB.height;
   return { left:LB.left+tx+ox+(x-ox)*S, top:LB.top+oy+(y-oy)*S, width:w*S, height:h*S };
@@ -28929,12 +28947,18 @@ function _xqNowTick(){
   if(el && el.duration>0){ line=(line?line+' · ':'')+_xqMmss(el.currentTime)+' / '+_xqMmss(el.duration); if(bar) bar.style.width=Math.min(100, el.currentTime/el.duration*100).toFixed(1)+'%'; }
   if(elS) elS.textContent=line;
 }
-window._xqSB={ home:_xqActHome, start:_xqActStart, console:_xqConsole, consoleUpdate:_xqConsoleUpdate,
+window._xqSB={ home:_xqActHome, start:_xqActStart, console:_xqConsole, consoleUpdate:_xqConsoleUpdate, consoleFits:_xqConsoleFits,
   sessionBuilt:function(s){ _xqSide.plan=s; _xqSide.track=null; _xqPlanRender(); },
   track:function(t){ _xqSide.track=t; _xqPlanRender(); _xqNowRender(); },
   playing:function(on){ document.body.classList.toggle('sbPlaying', !!on && XQStage.consumer()==='soundbox'); },
   clearScreens:_xqSideClear };
-if(typeof XQStage!=='undefined') XQStage.on('layout', function(){ if(XQStage.consumer()==='soundbox' && document.body.classList.contains('sbConsole')!==_xqConsoleFits()) _xqConsole(); });
+if(typeof XQStage!=='undefined') XQStage.on('layout', function(){
+  if(XQStage.consumer()!=='soundbox') return;
+  // a rotation or resize across the 900 px / landscape line: camera and console follow
+  var want=_xqConsoleFits() ? 'pan' : 'center';
+  if(XQStage.camera()!==want){ XQStage.setCamera(want, { instant:true, force:true }); return; }   // setCamera lays out again -> back here
+  if(document.body.classList.contains('sbConsole')!==_xqConsoleFits()) _xqConsole();
+});
 // Home button (position:fixed; the layouts without a console)
 if(npHomeEl){
   npHomeEl.addEventListener('click',function(e){ e.stopPropagation(); _xqActHome(); });
