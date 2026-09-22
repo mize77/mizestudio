@@ -1629,8 +1629,15 @@
   body[data-stage="home"] #psRoom, body[data-stage="soundbox"] #psRoom { z-index:8998; }
   body[data-stage="home"] #studioTrack, body[data-stage="soundbox"] #studioTrack { z-index:8999; }
   body[data-stage="home"] #stageLights, body[data-stage="soundbox"] #stageLights { z-index:9000; }
-  /* The room layer (XQStage.setRoomLayer): on the room rect, over the screens and the console, inert. */
-  body.xqStage #studioTrack > .stageRoomLayer { position:absolute; z-index:10; overflow:hidden; pointer-events:none; transition: transform var(--cam-d) var(--cam-ease); will-change:transform; }
+  /* The room layer (XQStage.setRoomLayer): on the room rect inside #psRoom -- the photograph's own stacking
+     context, no z-index/transform of its own so a blending canvas inside it blends with the room -- below the
+     screens; inert. The overlay (setRoomOverlay): the same rect in #studioTrack, above the screens and the console. */
+  body.xqStage #psRoom > .stageRoomLayer { position:absolute; overflow:hidden; pointer-events:none; }
+  body.xqStage #studioTrack > .stageRoomOverlay { position:absolute; z-index:10; pointer-events:none; inset:auto; }
+  /* #psRoom is inert and #studioTrack sits over it: while the Sound Box is the consumer the track lets
+     the pointer through to the Sound Box's screen, and only its own screens and console catch it. */
+  body[data-stage="soundbox"] #studioTrack { pointer-events:none; }
+  body[data-stage="soundbox"] #studioTrack > .studioFrame { pointer-events:auto; }
   /* ---- The Sound Box as a stage consumer (briefs/SOUNDBOX-STAGE-CONSUMER.md, Step 1) ---- */
   body[data-stage="soundbox"] #psRoomLB .room { filter:brightness(.82) saturate(.92); animation:none; }   /* the Sound Box's Dormant room */
   body[data-stage="soundbox"] #stageWrap { visibility:hidden; }                                          /* the board is not a Sound Box screen */
@@ -1930,7 +1937,9 @@
   #xqEdCode{margin-top:8px;background:rgba(0,0,0,0.45);padding:6px 8px;border-radius:4px;font-size:10px;
     color:#9aa5a2;font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-all;
     border:1px solid rgba(255,255,255,0.06);max-height:110px;overflow:auto}
-  /* ── 
+  /* ── Home button, Modes button and transport: position:fixed siblings of the room layer.
+     (Until 2026-09-21 this comment was never closed, so the three rules below were dead: that is
+     how the Sound Box "lost its command bar" and its Home button. Step 2 moves them to the console.) */
   #xqNP_home{position:fixed;pointer-events:auto;bottom:calc(9% + 1.5%);right:3%;z-index:9999999;touch-action:manipulation;
              background:rgba(0,0,0,0.6);border:.5px solid rgba(29,158,117,0.38);
              color:#1d9e75;font-size:clamp(7px,1.4vw,11px);border-radius:20px;
@@ -1946,7 +1955,7 @@
            width:clamp(32px,7vw,56px);height:clamp(32px,7vw,56px);
            cursor:pointer;display:flex;align-items:center;justify-content:center;
            touch-action:manipulation;transition:background .15s}
-  .xqCtrl:active{background:rgba(29,158,117,0.2)}50%{transform:scaleY(1)}}
+  .xqCtrl:active{background:rgba(29,158,117,0.2)}
 
 </style>
 <!-- Milestone 4: first external dependency this app has ever had. Loaded
@@ -5327,7 +5336,8 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
       // Sound Box's own black backdrop with a second copy of the photograph) is no longer shown.
       if(typeof XQStage!=='undefined'){
         XQStage.open('soundbox', { camera:'pan', lockCamera:true, instant:true, intro:false });
-        XQStage.setRoomLayer(document.getElementById('xqStageLB'));
+        XQStage.setRoomLayer(document.getElementById('xqStageLB'));   // screen, NP overlay, lighting, StageFX fog (blends with the room)
+        XQStage.setRoomOverlay(document.getElementById('xqFX'));      // the lasers: over the screens (SS-001 §34-35)
       }
       // Attach StageFX (WebGL fog + laser halo) behind the screen.
       // Falls back to null if WebGL unavailable; canvas fog stays active in that case.
@@ -5364,7 +5374,7 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
           Array.from(stg.querySelectorAll('canvas')).forEach(function(cnv){
             if(cnv.id!=='xqCanvas'&&cnv.id!=='xqFX'&&cnv.id!=='xqNPCanvas'){
               cnv.id='xqStageFX';
-              cnv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:22;display:none;mix-blend-mode:screen';
+              cnv.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:22;display:none;mix-blend-mode:screen';
               window._xqSFXCanvas=cnv;
             }
           });
@@ -12112,6 +12122,7 @@ const XQStage=(function(){
         f.classList.remove('camOff','onWall','camFocus'); });
       this.setScreen('tactical', null);
       this.setRoomLayer(null);
+      this.setRoomOverlay(null);
       this.setControls(null);
       _open=false; _consumer=null; _opts={};
       emit('close', was);
@@ -12152,15 +12163,24 @@ const XQStage=(function(){
     // three screens and the console, inert to the pointer (its own descendants opt back in).
     // The Sound Box's effects live here: lasers that cross the screens, fog on the floor,
     // its own centre-screen content. One layer at a time; close() clears it.
-    setRoomLayer(node){
-      const track=el('studioTrack'); if(!track) return;
-      const old=track.querySelector(':scope > .stageRoomLayer');
-      if(old && old!==node){ old.classList.remove('stageRoomLayer'); ['position','left','top','width','height','transform','transformOrigin'].forEach(k=>{ old.style[k]=''; }); (old._stageHome||document.body).appendChild(old); }
-      if(node){ if(!node._stageHome) node._stageHome=node.parentElement; node.classList.add('stageRoomLayer'); if(node.parentElement!==track) track.appendChild(node); }
-      document.body.classList.toggle('stageRoomLayerOn', !!node);
+    // The layer sits in #psRoom, the same stacking context as the photograph: a canvas that
+    // blends (mix-blend-mode) blends with the room. It is therefore BELOW the three screens
+    // and the console. A consumer that must draw over the screens (the Sound Box's lasers)
+    // gives that node to setRoomOverlay: same rect, in #studioTrack above everything.
+    // Neither is transformed by the camera: they get the camera-mapped rect instead, so no
+    // stacking context is created and the blend keeps working under every camera.
+    setRoomLayer(node){ this._mountLayer('psRoom', 'stageRoomLayer', node); },
+    setRoomOverlay(node){ this._mountLayer('studioTrack', 'stageRoomOverlay', node); },
+    roomLayer(){ const c=el('psRoom'); return c ? c.querySelector(':scope > .stageRoomLayer') : null; },
+    roomOverlay(){ const c=el('studioTrack'); return c ? c.querySelector(':scope > .stageRoomOverlay') : null; },
+    _mountLayer(containerId, cls, node){
+      const c=el(containerId); if(!c) return;
+      const old=c.querySelector(':scope > .'+cls);
+      if(old && old!==node){ old.classList.remove(cls); ['position','left','top','width','height','transform','transformOrigin'].forEach(k=>{ old.style[k]=''; }); (old._stageHome||document.body).appendChild(old); }
+      if(node){ if(!node._stageHome) node._stageHome=node.parentElement; node.classList.add(cls); if(node.parentElement!==c) c.appendChild(node); }
+      document.body.classList.toggle(cls+'On', !!node);
       if(node && _open) this.layout();
     },
-    roomLayer(){ const track=el('studioTrack'); return track ? track.querySelector(':scope > .stageRoomLayer') : null; },
     // ---- Stage Control Surface (2026-09-21, Step 5) ----
     // The physical console in the studio floor. A consumer describes its controls once:
     //   setControls({ groups:[ { label:'GAME', items:[ { id:'clock', label:'Q1 · 8:00', big:true, active:false, onTap:fn }, … ] }, … ] })
@@ -12246,9 +12266,15 @@ function psCameraState(){ return studioPanorama ? 'pan' : ['left','center','righ
 function psApplyRoomCamera(state, LB){
   const lb=document.getElementById('psRoomLB'); if(!lb) return;
   psApplyRoomTransform(lb, state, LB);
-  // A consumer's room layer (XQStage.setRoomLayer) is the same rect under the same camera.
-  const layer=(typeof XQStage!=='undefined') ? XQStage.roomLayer() : null;
-  if(layer){ layer.style.position='absolute'; layer.style.left=LB.left+'px'; layer.style.top=LB.top+'px'; layer.style.width=LB.width+'px'; layer.style.height=LB.height+'px'; psApplyRoomTransform(layer, state, LB); }
+  // A consumer's room layer / overlay (XQStage.setRoomLayer / setRoomOverlay) gets the room's
+  // rect as the camera shows it -- a rect, not a transform, so it never becomes a stacking
+  // context (a blending canvas inside it must blend with the photograph).
+  if(typeof XQStage!=='undefined') [XQStage.roomLayer(), XQStage.roomOverlay()].forEach(layer=>{
+    if(!layer) return;
+    const m=psMapWallBox({x:0,y:0,w:1,h:1}, state, LB);
+    layer.style.position='absolute'; layer.style.left=m.left+'px'; layer.style.top=m.top+'px'; layer.style.width=m.width+'px'; layer.style.height=m.height+'px';
+    layer.style.transform=''; layer.style.transformOrigin='';
+  });
 }
 function psApplyRoomTransform(node, state, LB){
   const c=PS_CAMERA[state];
