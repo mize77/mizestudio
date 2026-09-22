@@ -1659,7 +1659,11 @@
   #sbPlanInfo li.now { border-left-color:#2ecab8; }
   #sbPlanInfo li.now .f { color:#7ff0ec; }
   #sbPlanInfo li.done { opacity:.45; }
-  #sbNowInfo .sbCover { width:58%; max-width:150px; aspect-ratio:1; border-radius:8px; margin:0 auto 10px; display:block; object-fit:cover; background:rgba(255,255,255,.04); box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  #sbNowInfo .sbSection:not(:first-child) { margin-top:12px; border-top:1px solid rgba(46,202,184,.18); padding-top:6px; }
+  #sbNowInfo .sbWords { margin:6px 0 14px; text-align:center; }
+  #sbNowInfo .sbWords span { display:block; font-size:13.5px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#7ff0ec; line-height:1.9; }
+  #sbNowInfo .sbWords span:nth-child(2) { color:#c9f3f0; }
+  #sbNowInfo .sbWords span:nth-child(3) { color:#2ecab8; }
   #sbNowInfo .sbTitle { font-size:17px; font-weight:700; color:#f2fbfa; line-height:1.2; text-align:center; }
   #sbNowInfo .sbFn { font-size:12px; color:#7ff0ec; letter-spacing:.12em; text-transform:uppercase; text-align:center; margin-top:3px; }
   #sbNowInfo .sbAct { margin-top:10px; color:#d9efec; text-align:center; font-style:italic; }
@@ -1874,6 +1878,10 @@
   #xqNP.on.playing{background:rgba(3,10,6,1.0)}
   /* ── NP canvas: must fill #xqNP at full pixel resolution ── */
   #xqNPCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:0}
+  /* The dancing cover: round, over the canvas, moved and scaled by the frame loop (left/top in % of the screen) */
+  #xqNP_art{position:absolute;left:50%;top:50%;width:34%;aspect-ratio:1;border-radius:50%;object-fit:cover;z-index:2;pointer-events:none;
+            transform:translate(-50%,-50%);will-change:transform,left,top;box-shadow:0 0 40px rgba(46,202,184,.35), 0 18px 50px rgba(0,0,0,.6);
+            border:2px solid rgba(46,202,184,.55);user-select:none;-webkit-user-drag:none}
 
   /* ── NP intro screen: centered flex panel ── */
   #xqNP_intro{position:absolute;inset:0;background:rgba(2,12,8,0.97);z-index:12;display:none;
@@ -23375,9 +23383,8 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       // even when CORS headers aren't set for canvas sampling.
       var dispImg = new Image();
       dispImg.onload = function () {
-        var _ni=document.getElementById('xqNP_img'),_nd=document.getElementById('xqNP_def');
-        if(_ni){_ni.src=_url;_ni.style.display='block';}
-        if(_nd) _nd.style.display='none';
+        var _art=document.getElementById('xqNP_art');
+        if(_art){ _art.src=_url; if(_xqSt.playing && _xqSt.countdown<=0) _art.style.display=''; }
         _xqSt.coverImg = dispImg;
         // Separately attempt palette sampling with crossOrigin (needs CORS)
         var palImg = new Image(); palImg.crossOrigin='anonymous';
@@ -23399,10 +23406,13 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       };
       dispImg.onerror = function(){
         _xqSt.coverImg = null;
+        var _art=document.getElementById('xqNP_art'); if(_art){ _art.removeAttribute('src'); _art.style.display='none'; }
       };
       dispImg.src = _url;
     } else if (!t.coverKey) {
+      // no cover for this collection: no art on the screen (an honest gap, not a placeholder)
       _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
+      var _art0=document.getElementById('xqNP_art'); if(_art0){ _art0.removeAttribute('src'); _art0.style.display='none'; }
     }
   };
 
@@ -23461,10 +23471,9 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(_oldSfx) _oldSfx.parentNode.removeChild(_oldSfx);
     _xqSt.playing = false; _xqSt.level = null;
     _xqSt.lastCoverKey = null; _xqSt.coverImg = null;
-    var _np=document.getElementById('xqNP'),_ni=document.getElementById('xqNP_img'),_nd=document.getElementById('xqNP_def');
+    var _np=document.getElementById('xqNP'),_art=document.getElementById('xqNP_art');
     if(_np){ _np.classList.remove('on'); _np.classList.remove('playing'); }
-    if(_ni){_ni.src='';_ni.style.display='none';}
-    if(_nd) _nd.style.display='';
+    if(_art){ _art.removeAttribute('src'); _art.style.display='none'; }
     var _hm2=document.getElementById('xqNP_home'),_ct2=document.getElementById('xqControls');
     if(_hm2) _hm2.classList.remove('on'); if(_ct2) _ct2.classList.remove('on');
     // Return to Sound Box intro screen (not mode selection)
@@ -28276,6 +28285,9 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
       <div id="xqNP_cdN">5</div>
     </div>
     <div id="xqNP_fn"></div>
+    <!-- The collection's cover on the centre screen, dancing to the music (MIZE, 2026-09-21: it belongs
+         on the centre screen, not on a side screen). Shown from the end of the countdown while a cover exists. -->
+    <img id="xqNP_art" alt="" draggable="false" style="display:none">
   </div>
 </div><!-- /xqStageLB -->
 </div><!-- /xqStage -->
@@ -28619,6 +28631,7 @@ function frame(ts){
   if(!_stFX&&typeof tickFog==='function'&&typeof drawFog==='function'){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}   // the canvas-fog fallback is not in this build; without WebGL there is no fog rather than an error every frame
   if(fxCtx){fxCtx.clearRect(0,0,W,H); if(isPlaying) drawLasers(W,H,ts,bass,hit,bd);}
   drawNPScreen(ts,bass,mid,high,rms,hit);
+  if(isPlaying) _npArtTick(dt,bass,rms,bd,hit);
   // HTML countdown inside #xqNP
   if(_xqSt.countdown>0){
     if(!_xqSt.countdownNext) _xqSt.countdownNext=ts+920;
@@ -28637,11 +28650,37 @@ function frame(ts){
         var _cdWrap=document.getElementById('xqNP_cdWrap');
         var _artEl=document.getElementById('xqNP_art');
         if(_cdWrap) _cdWrap.classList.remove('on');
-        if(_artEl) _artEl.style.display='';
-        _npInitAnim();
+        if(_artEl && _artEl.getAttribute('src')) _artEl.style.display='';
+        _npArtKick(0.9);
       }
     }
   }
+}
+// ── The dancing cover (#xqNP_art): drifts and bounces inside the screen, breathes with the
+//    bass, jumps on a hit; a tap on the screen kicks it. Position in fractions of the screen.
+var _npArt={ x:0.5, y:0.5, vx:0.00008, vy:0.00006, s:1 };
+function _npArtKick(strength){
+  var a=Math.random()*Math.PI*2, k=(strength||1)*0.00035;
+  _npArt.vx+=Math.cos(a)*k; _npArt.vy+=Math.sin(a)*k;
+}
+function _npArtTick(dt,bass,rms,bd,hit){
+  var art=document.getElementById('xqNP_art'); if(!art || art.style.display==='none') return;
+  var r=0.17;   // half the width (34 % of the screen), as a fraction of the screen width
+  var np=document.getElementById('xqNP'); var aspect=np && np.offsetHeight ? np.offsetWidth/np.offsetHeight : 16/9;
+  var ry=r*aspect;   // the same radius as a fraction of the screen height
+  // drift, a little faster with the music; bounce off the edges; friction so a kick settles
+  var sp=1+rms*1.2+bass*0.8;
+  _npArt.x+=_npArt.vx*dt*sp; _npArt.y+=_npArt.vy*dt*sp;
+  if(_npArt.x<r){ _npArt.x=r; _npArt.vx=Math.abs(_npArt.vx); } if(_npArt.x>1-r){ _npArt.x=1-r; _npArt.vx=-Math.abs(_npArt.vx); }
+  if(_npArt.y<ry){ _npArt.y=ry; _npArt.vy=Math.abs(_npArt.vy); } if(_npArt.y>1-ry){ _npArt.y=1-ry; _npArt.vy=-Math.abs(_npArt.vy); }
+  var f=Math.pow(0.9975, dt); _npArt.vx*=f; _npArt.vy*=f;
+  var minV=0.00005; if(Math.abs(_npArt.vx)<minV) _npArt.vx=(_npArt.vx<0?-1:1)*minV; if(Math.abs(_npArt.vy)<minV*0.8) _npArt.vy=(_npArt.vy<0?-1:1)*minV*0.8;
+  if(hit) _npArtKick(0.35);
+  // breathe with the bass, jump on the beat
+  var target=1+bass*0.16+bd*0.14;
+  _npArt.s+=(target-_npArt.s)*Math.min(1,dt*0.02);
+  art.style.left=(_npArt.x*100).toFixed(2)+'%'; art.style.top=(_npArt.y*100).toFixed(2)+'%';
+  art.style.transform='translate(-50%,-50%) scale('+_npArt.s.toFixed(3)+') rotate('+((_npArt.x-0.5)*6).toFixed(2)+'deg)';
 }
 // ── Abstract screen animation (SS-001 §7-§10, replaces bouncing circle) ─
 var npCnv2=document.getElementById('xqNPCanvas');
@@ -28765,7 +28804,9 @@ resize();requestAnimationFrame(frame);
 var npEl=document.getElementById('xqNP');
 var npHomeEl=document.getElementById('xqNP_home');
 if(npEl){
-  // NP click does nothing (animation kick removed with bouncing circle)
+  // A tap on the screen while the music plays kicks the cover (the pointer reaches #xqNP itself only
+  // when nothing else on the screen takes it -- intro, Session Ready and the countdown have their own buttons)
+  npEl.addEventListener('click',function(e){ if(_xqSt.playing && _xqSt.countdown<=0) _npArtKick(1.4); });
 }
 // The Sound Box's actions, in one place: the stage console (Step 2) and the fixed buttons
 // (kept for the layouts without a console, Step 4) call the same functions.
@@ -28866,9 +28907,11 @@ function _xqNowRender(){
   var t=_xqSide.track; if(!t) return;
   var n=_xqSideMount('sbNowInfo','info'); if(!n) return;
   var item=(_xqSide.plan && _xqSide.plan.plan||[]).filter(function(p){ return p.trackIndex===t.trackIndex; })[0]||null;
-  var cover=(t.coverKey && t.coverBase) ? t.coverBase+t.coverKey : null;
-  n.innerHTML='<div class="sbSection">Now playing</div>'+
-    (cover?'<img class="sbCover" alt="" src="'+_xqEsc(cover)+'">':'')+
+  // The three Sound Box words (MS-001 §7) stand in for the motivating / focus text MIZE wants here
+  // (2026-09-21); the activity line under them is the module's own "what to focus on" for this track.
+  n.innerHTML='<div class="sbSection">Focus</div>'+
+    '<div class="sbWords"><span>Listening</span><span>Emotions</span><span>Performance</span></div>'+
+    '<div class="sbSection">Now playing</div>'+
     (t.title?'<div class="sbTitle">'+_xqEsc(t.title)+'</div>':'')+
     (t['function']?'<div class="sbFn">'+_xqEsc(t['function'])+(t.role?' · '+_xqEsc(t.role):'')+'</div>':'')+
     (item && item.activity?'<div class="sbAct">'+_xqEsc(item.activity)+'</div>':'')+
