@@ -19874,8 +19874,27 @@ document.getElementById('saveSessionBtn').addEventListener('click', async ()=>{
   const rec=buildSessionRecord(name, coachingDNA);
   const all=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}');
   all[name]=rec;
-  try{localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(all));}catch(_lsE){}
+  // Never fail silently (2026-09-22: a coach's save "did nothing"). The browser can refuse the write --
+  // most often because this site's storage is full (Safari allows about 5 MB, and every session keeps a
+  // full copy of each drill's formation). Say so, and say what is using the space.
+  let saveErr=null;
+  try{ localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(all)); }catch(_lsE){ saveErr=_lsE; }
+  let back=null; try{ back=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}')[name]; }catch(e){}
+  if(saveErr || !back){
+    console.error('Practice session save failed:', saveErr);
+    let detail='';
+    try{
+      const bd=libGetStorageBreakdown(); const sessBytes=JSON.stringify(rec).length;
+      detail='\n\nThis session needs about '+formatBytes(sessBytes)+'. Storage in use on this device: '+formatBytes(bd.totalBytes)+' \u2014 '+
+        bd.rows.slice(0,3).map(r=>r.label+' '+formatBytes(r.bytes)).join(', ')+'.';
+    }catch(e){}
+    const full = saveErr && /quota|exceeded|full/i.test(String(saveErr.name||'')+' '+String(saveErr.message||''));
+    MizeDialog.alert((full ? 'The session could not be saved: this browser\u2019s storage for XquiX Studio is full.' : 'The session could not be saved on this device'+(saveErr ? ' ('+(saveErr.name||'error')+': '+(saveErr.message||'')+').' : '.'))+detail+
+      (full ? '\n\nDeleting old checkpoints (Version History) or unused formations frees space. Nothing was lost: the session is still in the builder.' : '\n\nThe session is still in the builder.'), 'Session not saved');
+    return;
+  }
   renderSavedSessions();
+  if(typeof xquixHomeShowToast==='function') xquixHomeShowToast('Session \u201c'+name+'\u201d saved.');
 });
 
 // ===== Practice on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md) =====
