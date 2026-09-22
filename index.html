@@ -1642,6 +1642,30 @@
      the pointer through to the Sound Box's screen, and only its own screens and console catch it. */
   body[data-stage="soundbox"] #studioTrack { pointer-events:none; }
   body[data-stage="soundbox"] #studioTrack > .studioFrame { pointer-events:auto; }
+  /* Step 3: the side screens -- LEFT the session plan, RIGHT now playing (stage grammar, STUDIO-STAGE.md §1a).
+     Same panel treatment as the Game Tracker's screens; while the music plays they recede (body.sbPlaying):
+     readable, but the centre screen, the lasers, the fog and the lighting are the focus (MIZE, 2026-09-21). */
+  .sbPanel { position:absolute; inset:0; padding:8% 7%; color:#eaf7f5; font-family:'Archivo',system-ui,-apple-system,sans-serif; font-size:13.5px; line-height:1.38; overflow:hidden; background:linear-gradient(180deg, rgba(2,8,8,.70), rgba(2,8,8,.86)); transition:opacity .6s ease; }
+  body.sbPlaying .sbPanel { opacity:.62; }
+  .sbPanel .sbSection { font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:#5fc9cc; margin:0 0 6px; }
+  .sbPanel .sbSection + .sbSection { margin-top:10px; border-top:1px solid rgba(46,202,184,.18); padding-top:6px; }
+  .sbPanel .sbSub { font-size:12px; color:#9fc9c6; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #sbPlanInfo ol { list-style:none; margin:0; padding:0; }
+  #sbPlanInfo li { display:grid; grid-template-columns:1.4em 1fr auto; column-gap:6px; align-items:baseline; padding:4px 0 4px 6px; border-left:2px solid transparent; margin-left:-8px; white-space:nowrap; overflow:hidden; }
+  #sbPlanInfo li .n { color:#7c9a98; font-variant-numeric:tabular-nums; }
+  #sbPlanInfo li .f { color:#f2fbfa; font-weight:600; overflow:hidden; text-overflow:ellipsis; }
+  #sbPlanInfo li .r { grid-column:2; color:#9ab8b6; font-size:10px; letter-spacing:.1em; text-transform:uppercase; line-height:1.1; }
+  #sbPlanInfo li .t { color:#9ab8b6; font-variant-numeric:tabular-nums; font-size:12px; }
+  #sbPlanInfo li.now { border-left-color:#2ecab8; }
+  #sbPlanInfo li.now .f { color:#7ff0ec; }
+  #sbPlanInfo li.done { opacity:.45; }
+  #sbNowInfo .sbCover { width:58%; max-width:150px; aspect-ratio:1; border-radius:8px; margin:0 auto 10px; display:block; object-fit:cover; background:rgba(255,255,255,.04); box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  #sbNowInfo .sbTitle { font-size:17px; font-weight:700; color:#f2fbfa; line-height:1.2; text-align:center; }
+  #sbNowInfo .sbFn { font-size:12px; color:#7ff0ec; letter-spacing:.12em; text-transform:uppercase; text-align:center; margin-top:3px; }
+  #sbNowInfo .sbAct { margin-top:10px; color:#d9efec; text-align:center; font-style:italic; }
+  #sbNowInfo .sbTime { margin-top:10px; text-align:center; color:#9ab8b6; font-variant-numeric:tabular-nums; }
+  #sbNowInfo .sbBar { height:3px; background:rgba(255,255,255,.10); border-radius:2px; margin:6px 10% 0; overflow:hidden; }
+  #sbNowInfo .sbBar i { display:block; height:100%; width:0; background:#2ecab8; transition:width .5s linear; }
   /* Step 2: with the floor console in use (landscape >= 900 px) the Sound Box's fixed buttons are not shown */
   body.sbConsole #xqNP_home, body.sbConsole #xqModeBtn, body.sbConsole #xqControls { display:none !important; }
   /* ---- The Sound Box as a stage consumer (briefs/SOUNDBOX-STAGE-CONSUMER.md, Step 1) ---- */
@@ -12217,6 +12241,16 @@ const XQStage=(function(){
       con.appendChild(panel); con.style.display='block';
       document.body.classList.add('stageConsoleOn');
       this.layout();
+      this._evenControls();
+    },
+    // Every control on the console stands as tall as the tallest one (MIZE, 2026-09-21: Modes and
+    // Home the same height as the transport). Measured, not guessed: a big control with a sub-line
+    // sets the height for the rest.
+    _evenControls(){
+      const btns=[...document.querySelectorAll('#stageConsole .stageConsoleBtn')]; if(!btns.length) return;
+      btns.forEach(b=>{ b.style.minHeight=''; });
+      const h=Math.max(...btns.map(b=>b.offsetHeight));
+      btns.forEach(b=>{ b.style.minHeight=h+'px'; });
     },
     updateControl(id, patch){
       const b=document.querySelector('#stageConsole .stageConsoleBtn[data-id="'+id+'"]'); if(!b) return;
@@ -12225,6 +12259,7 @@ const XQStage=(function(){
       if(patch.sub!==undefined){ const l=b.querySelector('.stageConsoleBtnSub'); if(l) l.textContent=patch.sub; }
       if(patch.active!==undefined) b.classList.toggle('active', !!patch.active);
       if(patch.disabled!==undefined) b.disabled=!!patch.disabled;
+      if(patch.label!==undefined || patch.sub!==undefined) this._evenControls();
     },
     _emit: emit,
   };
@@ -23322,7 +23357,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     var _ctbar=document.getElementById('xqControls'); if(_ctbar) _ctbar.classList.add('on');
     var _ci=document.getElementById('xqControlInfo');
     if(_ci) _ci.textContent=(t['function']||'')+(t.title?' · '+t.title:'');
-    if(window._xqSB) _xqSB.consoleUpdate({ playing:true, sub:(t['function']||'')+(t.title?' · '+t.title:'') });
+    if(window._xqSB){ _xqSB.consoleUpdate({ playing:true, sub:(t['function']||'')+(t.title?' · '+t.title:'') }); _xqSB.track(t); _xqSB.playing(true); }
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
     if(_np){ _np.classList.add('on'); _np.classList.add('playing'); }
     if(_npFn) _npFn.textContent='';
@@ -23383,7 +23418,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(np) np.classList.add('on');
     if(st) st.classList.add('on');
     // Session Ready: the SESSION controls appear on the stage console (MIZE, 2026-09-21)
-    if(window._xqSB) _xqSB.console('session', { playing:false, sub: s.total+' tracks · '+Math.round(s.durationS/60)+' min' });
+    if(window._xqSB){ _xqSB.console('session', { playing:false, sub: s.total+' tracks · '+Math.round(s.durationS/60)+' min' }); _xqSB.sessionBuilt(s); }
   };
 
   // onPlayState: fires on every play/pause/track change.
@@ -23392,7 +23427,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     _xqSt.playState = st;
     var pp = document.getElementById('xqPlayPause');
     if(pp) pp.innerHTML = st.playing ? '&#9208;' : '&#9654;';
-    if(window._xqSB) _xqSB.consoleUpdate({ playing: !!st.playing });
+    if(window._xqSB){ _xqSB.consoleUpdate({ playing: !!st.playing }); _xqSB.playing(!!st.playing); }
     if(!st.playing){
       // Pause: hide StageFX canvas so no beams/fog show while paused
       (function(){
@@ -23413,7 +23448,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(st.ended) {
       var np = document.getElementById('xqNP');
       if(np) np.classList.remove('on');
-      if(window._xqSB) _xqSB.console('idle');   // session over: SESSION leaves the console, SYSTEM stays
+      if(window._xqSB){ _xqSB.console('idle'); _xqSB.clearScreens(); }   // session over: SESSION leaves the console, the screens go back to branding, SYSTEM stays
     }
   };
 
@@ -23451,7 +23486,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(_cdEl2) _cdEl2.classList.remove('on');
     if(_ci2) _ci2.textContent='';
     var _np2=document.getElementById('xqNP'); if(_np2) _np2.classList.add('on');
-    if(window._xqSB) _xqSB.console('idle');
+    if(window._xqSB){ _xqSB.console('idle'); _xqSB.clearScreens(); }
   };
 </script>
 <script>
@@ -28745,7 +28780,7 @@ function _xqActHome(){
   if(np){np.classList.remove('playing');np.classList.add('on');}
   var intro=document.getElementById('xqNP_intro');
   if(intro)intro.classList.add('on');
-  _xqConsole('idle');
+  _xqConsole('idle'); _xqSideClear();
 }
 function _xqActStart(){
   // Session Ready -> the countdown (music starts when it reaches zero, see frame())
@@ -28796,7 +28831,66 @@ function _xqConsoleUpdate(patch){
   if(typeof XQStage==='undefined' || XQStage.consumer()!=='soundbox' || _xqCon.phase!=='session' || !document.body.classList.contains('sbConsole')) return;
   XQStage.updateControl('play', { label:_xqCon.playing?'Pause':'Play', sub:_xqCon.sub||'', active:_xqCon.playing });
 }
-window._xqSB={ home:_xqActHome, start:_xqActStart, console:_xqConsole, consoleUpdate:_xqConsoleUpdate };
+// ---- The side screens (Step 3). LEFT (media): the session plan from onSessionBuilt / session().
+// RIGHT (info): now playing from onTrackChange, the plan item's activity line, elapsed / duration.
+// Nothing here is invented: a field the module did not send is a line left out.
+var _xqSide={ plan:null, track:null, timer:null };
+function _xqEsc(v){ return String(v==null?'':v).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function _xqMmss(sec){ sec=Math.max(0,Math.round(sec||0)); return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
+function _xqSideMount(id, screen){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='soundbox') return null;
+  var n=document.getElementById(id);
+  if(!n){ n=document.createElement('div'); n.id=id; n.className='sbPanel'; }
+  var host=screen==='media' ? document.getElementById('videoContent') : document.getElementById('statsContent');
+  if(!host || n.parentElement!==host) XQStage.setScreen(screen, n);
+  return n;
+}
+function _xqSideClear(){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='soundbox') return;
+  ['sbPlanInfo','sbNowInfo'].forEach(function(id){ var n=document.getElementById(id); if(n){ XQStage.setScreen(n.id==='sbPlanInfo'?'media':'info', null); n.remove(); } });
+  _xqSide.plan=null; _xqSide.track=null; clearInterval(_xqSide.timer); _xqSide.timer=null;
+  document.body.classList.remove('sbPlaying');
+}
+function _xqPlanRender(){
+  var s=_xqSide.plan; if(!s || !s.plan || !s.plan.length){ return; }
+  var n=_xqSideMount('sbPlanInfo','media'); if(!n) return;
+  var cur=_xqSide.track ? _xqSide.track.trackIndex : 0;   // 1-based, 0 = not started
+  var head='<div class="sbSection">Session plan</div>'+
+    '<div class="sbSub">'+_xqEsc(s.total)+' tracks · '+_xqEsc(Math.round((s.durationS||0)/60))+' min'+(s.situation?' · '+_xqEsc(s.situation):'')+'</div>';
+  n.innerHTML=head+'<ol>'+s.plan.map(function(p){
+    var i=p.trackIndex, cls=(cur && i===cur)?'now':(cur && i<cur)?'done':'';
+    return '<li class="'+cls+'"><span class="n">'+i+'</span><span class="f">'+_xqEsc(p['function']||'')+'</span><span class="t">'+_xqMmss(p.durationS)+'</span>'+(p.role?'<span class="r">'+_xqEsc(p.role)+'</span>':'')+'</li>';
+  }).join('')+'</ol>';
+}
+function _xqNowRender(){
+  var t=_xqSide.track; if(!t) return;
+  var n=_xqSideMount('sbNowInfo','info'); if(!n) return;
+  var item=(_xqSide.plan && _xqSide.plan.plan||[]).filter(function(p){ return p.trackIndex===t.trackIndex; })[0]||null;
+  var cover=(t.coverKey && t.coverBase) ? t.coverBase+t.coverKey : null;
+  n.innerHTML='<div class="sbSection">Now playing</div>'+
+    (cover?'<img class="sbCover" alt="" src="'+_xqEsc(cover)+'">':'')+
+    (t.title?'<div class="sbTitle">'+_xqEsc(t.title)+'</div>':'')+
+    (t['function']?'<div class="sbFn">'+_xqEsc(t['function'])+(t.role?' · '+_xqEsc(t.role):'')+'</div>':'')+
+    (item && item.activity?'<div class="sbAct">'+_xqEsc(item.activity)+'</div>':'')+
+    '<div class="sbTime"><span class="sbEl">'+(t.total?'Track '+_xqEsc(t.trackIndex)+' of '+_xqEsc(t.total):'')+'</span></div><div class="sbBar"><i></i></div>';
+  _xqNowTick();
+  clearInterval(_xqSide.timer); _xqSide.timer=setInterval(_xqNowTick, 1000);
+}
+function _xqNowTick(){
+  // elapsed / duration of the playing element -- read from the module's own debug() (read-only), when it answers
+  var n=document.getElementById('sbNowInfo'); if(!n){ clearInterval(_xqSide.timer); _xqSide.timer=null; return; }
+  var t=_xqSide.track||{}; var el=null;
+  try{ var d=_ms('debug') ? MIZE.SoundStudio.debug() : null; el=d && d.elements ? d.elements.filter(function(e){ return e.current; })[0] : null; }catch(e){ el=null; }
+  var line=t.total ? 'Track '+t.trackIndex+' of '+t.total : '';
+  var bar=n.querySelector('.sbBar i'), elS=n.querySelector('.sbEl');
+  if(el && el.duration>0){ line=(line?line+' · ':'')+_xqMmss(el.currentTime)+' / '+_xqMmss(el.duration); if(bar) bar.style.width=Math.min(100, el.currentTime/el.duration*100).toFixed(1)+'%'; }
+  if(elS) elS.textContent=line;
+}
+window._xqSB={ home:_xqActHome, start:_xqActStart, console:_xqConsole, consoleUpdate:_xqConsoleUpdate,
+  sessionBuilt:function(s){ _xqSide.plan=s; _xqSide.track=null; _xqPlanRender(); },
+  track:function(t){ _xqSide.track=t; _xqPlanRender(); _xqNowRender(); },
+  playing:function(on){ document.body.classList.toggle('sbPlaying', !!on && XQStage.consumer()==='soundbox'); },
+  clearScreens:_xqSideClear };
 if(typeof XQStage!=='undefined') XQStage.on('layout', function(){ if(XQStage.consumer()==='soundbox' && document.body.classList.contains('sbConsole')!==_xqConsoleFits()) _xqConsole(); });
 // Home button (position:fixed; the layouts without a console)
 if(npHomeEl){
@@ -28824,9 +28918,10 @@ if(_startBtn){
   _startBtn.addEventListener('click',function(e){ e.stopPropagation(); _xqActStart(); });
 }
 function _xqActModes(){
+  _xqSideClear();
   try{if(MIZE&&MIZE.SoundStudio)MIZE.SoundStudio.exit();}catch(ex){}
   if(typeof XQStage!=='undefined' && XQStage.consumer()==='soundbox') XQStage.close();
-  document.body.classList.remove('sbConsole');
+  document.body.classList.remove('sbConsole','sbPlaying');
   ['xqNP','xqControls','xqNP_home','xqModeBtn'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.classList.remove('on','playing');
   });
