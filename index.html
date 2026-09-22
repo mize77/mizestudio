@@ -882,6 +882,14 @@
   /* The floor console is Presentation's in the Full Studio View only; a zoomed camera shows a screen's own controls. */
   body.xqStage[data-stage="presentation"] #stageConsole { transition:opacity .35s ease; }
   body.xqStage[data-stage="presentation"]:not(.panorama) #stageConsole { opacity:0; pointer-events:none; }
+  /* Modes · Home when the console is not on screen (MIZE, 2026-09-22); the round ◫ switch is not used on the stage */
+  #psMiniBar { display:none; }
+  body.xqStage[data-stage="presentation"] #psMiniBar { display:flex; position:fixed; left:50%; transform:translateX(-50%); bottom:calc(8px + env(safe-area-inset-bottom)); z-index:1500;
+    gap:6px; padding:5px; border-radius:10px; background:rgba(8,14,16,.82); border:1px solid rgba(255,255,255,.10); box-shadow:0 6px 20px rgba(0,0,0,.5); }
+  body.xqStage[data-stage="presentation"].panorama.stageConsoleOn #psMiniBar { display:none; }
+  #psMiniBar .stageConsoleBtn { min-width:68px; height:32px; padding:0 12px; font-size:12.5px; }
+  body.tutorialModeActive #psMiniBar { z-index:1500; }
+  body.xqStage[data-stage="presentation"] #exitPresentationBtn { display:none !important; }
   body.xqStage .studioFrameContent { width:100% !important; height:100% !important; }
   /* Screen focus state (PS-001 §23): the two screens the camera is not on recede. */
   body.xqStage:not(.panorama) #studioTrack > .camOff { filter:brightness(.38) saturate(.8); z-index:1; }
@@ -2710,7 +2718,7 @@
       <div class="subGroup">
         <button type="button" class="subGroupHeader">Presentation Sound <span class="chev">&#9656;</span></button>
         <div class="subGroupFlyout">
-          <button id="audioMuteToggle" data-tip="Mute or unmute all presentation audio. The intro jingle, when enabled, plays automatically each time you enter Presentation mode.">&#128266; Sound: On</button>
+          <button id="audioMuteToggle" data-tip="Mute or unmute all presentation audio. Nothing plays on its own: sound starts only when you press a section below.">&#128266; Sound: On</button>
           <div style="font-size:11px;color:#7a8a8a;margin:6px 0 3px;font-weight:600;">Play a section manually:</div>
           <button class="audioPresentationBtn" data-section="dramatic1" data-tip="First dramatic section of the XquiX Studio Theme (~33s). Tap again to stop.">Dramatic I</button>
           <button class="audioPresentationBtn" data-section="dramatic2" data-tip="Second dramatic section, more instruments added (~35s). Tap again to stop.">Dramatic II</button>
@@ -12849,6 +12857,7 @@ function togglePresentation(mode){
     document.getElementById('timelinePanel')?.classList.remove('shown');
     document.getElementById('toolPanelBackdrop')?.classList.remove('open');
     closeStatsExternalWindow();
+    try{ if(window.MIZE?.Audio) MIZE.Audio.stopAll(); }catch(e){}   // leaving Presentation silences its sound
     modeHandle?.classList.remove('active');
     if(typeof updatePresentationPlaybackUI==='function') updatePresentationPlaybackUI();
   } else {
@@ -12871,9 +12880,9 @@ function togglePresentation(mode){
     if(window.psWakeControls) window.psWakeControls();
     fitBtn.textContent = 'Exit Presentation';
     modeHandle?.classList.add('active');
-    // Auto-intro jingle: first 5 s of the calm intro section, so everyone
-    // in the room knows the presentation has started. Respects the mute flag.
-    if (window.MIZE?.Audio) MIZE.Audio.playIntro();
+    // No intro jingle (MIZE, 2026-09-22): entering Presentation plays no sound. On the iPhone it played the whole
+    // song with no way to stop it, and users should never be surprised by sound. The coach's own sections
+    // (Menu → Presentation Sound) still play when pressed.
     // Ensure arena atmosphere is at correct intensity immediately on entry
     if (typeof window._applyTiltAngle === 'function') window._applyTiltAngle();
   }
@@ -12887,15 +12896,30 @@ function togglePresentation(mode){
 // gates, the prompts and the file pickers are the ones the coach already knows. A zoomed camera hides the
 // console (CSS) and the focused screen shows its own buttons, as before.
 let _psConsoleShape=null;
+// SYSTEM, the same two controls on every stage console (MIZE, 2026-09-22): Modes = the XquiX mode choice;
+// Home = this mode's own home -- for Presentation the Full Studio View (as the Sound Box's Home is its welcome).
+function psPresModes(){ if(typeof xquixShowHome==='function') xquixShowHome(); else if(document.body.classList.contains('presentation')) togglePresentation(); }
+function psPresHome(){ if(typeof XQStage!=='undefined' && XQStage.consumer()==='presentation' && XQStage.camera()!=='pan') XQStage.setCamera('pan'); }
+// The mini bar: Modes · Home, small, bottom centre, whenever the floor console is not on screen -- the camera
+// on one screen, or a portrait phone. It replaces the round mode-switch button (◫) that sat bottom-left in
+// Presentation and covered the left chevron on an iPhone in landscape.
+(function(){
+  const bar=document.createElement('div'); bar.id='psMiniBar'; bar.setAttribute('role','toolbar'); bar.setAttribute('aria-label','Modes and Home');
+  bar.innerHTML='<button type="button" class="stageConsoleBtn" data-id="modes" title="Choose a mode"><span class="stageConsoleBtnLabel">Modes</span></button>'+
+                '<button type="button" class="stageConsoleBtn" data-id="home" title="The Full Studio View"><span class="stageConsoleBtnLabel">Home</span></button>';
+  bar.querySelector('[data-id="modes"]').addEventListener('click', e=>{ e.stopPropagation(); psPresModes(); });
+  bar.querySelector('[data-id="home"]').addEventListener('click', e=>{ e.stopPropagation(); psPresHome(); });
+  document.body.appendChild(bar);
+})();
 if(typeof XQStage!=='undefined') XQStage.on('layout', ()=>{ if(XQStage.consumer()==='presentation') psPresConsoleRefresh(); });
 function psPresConsoleRefresh(force){
   if(typeof XQStage==='undefined' || XQStage.consumer()!=='presentation') { _psConsoleShape=null; return; }
   const hasPres=!!(activePresentation && activePresentation.slides && activePresentation.slides.length);
   const loaded=k=>!!document.getElementById(k+'Content')?.classList.contains('loaded');
   const press=id=>()=>{ window._psConsolePress=true; try{ document.getElementById(id)?.click(); } finally { window._psConsolePress=false; } };   // the camera stays put
-  // Landscape >= 900 px, like every console consumer: on a phone the room's floor is a few dozen pixels tall
-  // and the screens' own buttons (zoomed in) stay the way to load them. Rotation is followed on 'layout'.
-  const fits=window.innerWidth>=900 && window.innerWidth>window.innerHeight;
+  // Any landscape screen, the iPhone included (MIZE, 2026-09-22); portrait has the mini bar (Modes · Home)
+  // instead. Rotation is followed on 'layout'.
+  const fits=window.innerWidth>window.innerHeight;
   const shape=!fits ? 'none' : hasPres ? 'pres' : 'plain';
   if(shape==='none'){ if(_psConsoleShape!=='none'){ _psConsoleShape='none'; XQStage.setControls(null); } return; }
   if(force || shape!==_psConsoleShape){
@@ -12918,8 +12942,8 @@ function psPresConsoleRefresh(force){
       { id:'infoClear', label:'Clear', title:'Clear the right screen', disabled:!loaded('stats'), onTap:()=>clearStudioFrameContent('stats') },
     ]});
     groups.push({ label:'System', items:[
-      { id:'exit', label:'Exit', title:'Leave Presentation Mode', onTap:()=>{ if(document.body.classList.contains('presentation')) togglePresentation(); } },
-      { id:'modes', label:'Modes', title:'Choose a mode', onTap:()=>{ if(typeof xquixShowHome==='function') xquixShowHome(); else togglePresentation(); } },
+      { id:'modes', label:'Modes', title:'Choose a mode', onTap:psPresModes },
+      { id:'home', label:'Home', title:'The Full Studio View', active:true, onTap:psPresHome },
     ]});
     XQStage.setControls({ groups });
   }
