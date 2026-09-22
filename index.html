@@ -1604,6 +1604,10 @@
   .stageConsoleBtn:hover { background:linear-gradient(180deg, rgba(48,62,64,.95), rgba(28,38,39,.95)); border-color:rgba(46,202,184,.45); }
   .stageConsoleBtn:active { transform:translateY(1px); box-shadow:0 1px 0 rgba(0,0,0,.6); }
   .stageConsoleBtn:disabled { opacity:.38; cursor:default; }
+  .stageConsoleBtnLabel, .stageConsoleBtnSub { display:block; }
+  .stageConsoleBtnSub { font-size:11px; font-weight:500; letter-spacing:.08em; color:#9fd8d3; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
+  .stageConsoleBtn.big .stageConsoleBtnSub { font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; }
+  .stageConsoleBtn.big:has(.stageConsoleBtnSub) { padding:6px 18px 7px; }
   .stageConsoleBtn.big { min-width:168px; font-size:22px; font-variant-numeric:tabular-nums; letter-spacing:.06em; padding:9px 18px; }
   .stageConsoleBtn.active { background:linear-gradient(180deg, rgba(46,202,184,.28), rgba(46,202,184,.14)); border-color:#2ecab8; color:#dffaf6; box-shadow:0 2px 0 rgba(0,0,0,.6), 0 0 18px 2px rgba(46,202,184,.35), inset 0 1px 0 rgba(255,255,255,.12); }
   body.xqStage.psIdle:not(.tutorialModeActive) #stageConsole { opacity:1; }   /* the console never fades: it is furniture, not chrome */
@@ -1638,6 +1642,8 @@
      the pointer through to the Sound Box's screen, and only its own screens and console catch it. */
   body[data-stage="soundbox"] #studioTrack { pointer-events:none; }
   body[data-stage="soundbox"] #studioTrack > .studioFrame { pointer-events:auto; }
+  /* Step 2: with the floor console in use (landscape >= 900 px) the Sound Box's fixed buttons are not shown */
+  body.sbConsole #xqNP_home, body.sbConsole #xqModeBtn, body.sbConsole #xqControls { display:none !important; }
   /* ---- The Sound Box as a stage consumer (briefs/SOUNDBOX-STAGE-CONSUMER.md, Step 1) ---- */
   body[data-stage="soundbox"] #psRoomLB .room { filter:brightness(.82) saturate(.92); animation:none; }   /* the Sound Box's Dormant room */
   body[data-stage="soundbox"] #stageWrap { visibility:hidden; }                                          /* the board is not a Sound Box screen */
@@ -5338,6 +5344,7 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         XQStage.open('soundbox', { camera:'pan', lockCamera:true, instant:true, intro:false });
         XQStage.setRoomLayer(document.getElementById('xqStageLB'));   // screen, NP overlay, lighting, StageFX fog (blends with the room)
         XQStage.setRoomOverlay(document.getElementById('xqFX'));      // the lasers: over the screens (SS-001 §34-35)
+        if(window._xqSB) _xqSB.console('idle');                       // the floor console: SYSTEM (Modes · Home); SESSION from Session Ready
       }
       // Attach StageFX (WebGL fog + laser halo) behind the screen.
       // Falls back to null if WebGL unavailable; canvas fog stays active in that case.
@@ -23315,6 +23322,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     var _ctbar=document.getElementById('xqControls'); if(_ctbar) _ctbar.classList.add('on');
     var _ci=document.getElementById('xqControlInfo');
     if(_ci) _ci.textContent=(t['function']||'')+(t.title?' · '+t.title:'');
+    if(window._xqSB) _xqSB.consoleUpdate({ playing:true, sub:(t['function']||'')+(t.title?' · '+t.title:'') });
     var _np=document.getElementById('xqNP'),_npFn=document.getElementById('xqNP_fn');
     if(_np){ _np.classList.add('on'); _np.classList.add('playing'); }
     if(_npFn) _npFn.textContent='';
@@ -23374,6 +23382,8 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(si) si.innerHTML = s.total+' tracks &nbsp;·&nbsp; '+Math.round(s.durationS/60)+' min<br><span style="color:#0a4030;font-size:.8em">'+s.feeling+'</span>';
     if(np) np.classList.add('on');
     if(st) st.classList.add('on');
+    // Session Ready: the SESSION controls appear on the stage console (MIZE, 2026-09-21)
+    if(window._xqSB) _xqSB.console('session', { playing:false, sub: s.total+' tracks · '+Math.round(s.durationS/60)+' min' });
   };
 
   // onPlayState: fires on every play/pause/track change.
@@ -23382,6 +23392,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     _xqSt.playState = st;
     var pp = document.getElementById('xqPlayPause');
     if(pp) pp.innerHTML = st.playing ? '&#9208;' : '&#9654;';
+    if(window._xqSB) _xqSB.consoleUpdate({ playing: !!st.playing });
     if(!st.playing){
       // Pause: hide StageFX canvas so no beams/fog show while paused
       (function(){
@@ -23402,6 +23413,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(st.ended) {
       var np = document.getElementById('xqNP');
       if(np) np.classList.remove('on');
+      if(window._xqSB) _xqSB.console('idle');   // session over: SESSION leaves the console, SYSTEM stays
     }
   };
 
@@ -23439,6 +23451,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     if(_cdEl2) _cdEl2.classList.remove('on');
     if(_ci2) _ci2.textContent='';
     var _np2=document.getElementById('xqNP'); if(_np2) _np2.classList.add('on');
+    if(window._xqSB) _xqSB.console('idle');
   };
 </script>
 <script>
@@ -28719,21 +28732,75 @@ var npHomeEl=document.getElementById('xqNP_home');
 if(npEl){
   // NP click does nothing (animation kick removed with bouncing circle)
 }
-// Home button (position:fixed, always reachable)
-if(npHomeEl){
-  npHomeEl.addEventListener('click',function(e){
-    e.stopPropagation();
-    // Return to Sound Box welcome screen (not mode selection)
-    try{if(MIZE&&MIZE.SoundStudio)MIZE.SoundStudio.exit();}catch(ex){}
-    // Hide session content, show welcome
-    ['xqControls','xqNP_start','xqNP_cdWrap'].forEach(function(id){
-      var el=document.getElementById(id);if(el)el.classList.remove('on','playing');
-    });
-    var np=document.getElementById('xqNP');
-    if(np){np.classList.remove('playing');np.classList.add('on');}
-    var intro=document.getElementById('xqNP_intro');
-    if(intro)intro.classList.add('on');
+// The Sound Box's actions, in one place: the stage console (Step 2) and the fixed buttons
+// (kept for the layouts without a console, Step 4) call the same functions.
+function _xqActHome(){
+  // Return to Sound Box welcome screen (not mode selection)
+  try{if(MIZE&&MIZE.SoundStudio)MIZE.SoundStudio.exit();}catch(ex){}
+  // Hide session content, show welcome
+  ['xqControls','xqNP_start','xqNP_cdWrap'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.classList.remove('on','playing');
   });
+  var np=document.getElementById('xqNP');
+  if(np){np.classList.remove('playing');np.classList.add('on');}
+  var intro=document.getElementById('xqNP_intro');
+  if(intro)intro.classList.add('on');
+  _xqConsole('idle');
+}
+function _xqActStart(){
+  // Session Ready -> the countdown (music starts when it reaches zero, see frame())
+  if(window.MIZE&&MIZE.SoundStudio&&MIZE.SoundStudio.prime) MIZE.SoundStudio.prime(); // unlock AudioContext on user gesture
+  var st=document.getElementById('xqNP_start');
+  if(st) st.classList.remove('on');
+  _xqSt.countdown=5; _xqSt.countdownNext=0;
+  var cdW=document.getElementById('xqNP_cdWrap');
+  var art=document.getElementById('xqNP_art');
+  if(cdW) cdW.classList.add('on');
+  if(art) art.style.display='none';
+  _xqConsole('session');   // the countdown is on its way; Play/Pause follows onPlayState once the music starts
+}
+// ---- The Stage Control Surface for the Sound Box (briefs/SOUNDBOX-STAGE-CONSUMER.md Step 2).
+// SYSTEM (Modes · Home) from open; SESSION (Previous · Play/Pause · Next) from Session Ready
+// through countdown and playback, removed at session end (MIZE, 2026-09-21). The console is
+// used on landscape >= 900 px (the same rule as Game Tracker LIVE); elsewhere the Sound Box's
+// three fixed buttons stay (Step 4). The stage lays the console out; nothing here is drawn.
+var _xqCon={ phase:'idle', playing:false, sub:'' };
+function _xqConsoleFits(){ return window.innerWidth>=900 && window.innerWidth>window.innerHeight; }
+function _xqConsole(phase, patch){
+  if(phase) _xqCon.phase=phase;
+  if(patch){ if(patch.playing!==undefined) _xqCon.playing=!!patch.playing; if(patch.sub!==undefined) _xqCon.sub=patch.sub; }
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='soundbox') return;
+  var fits=_xqConsoleFits();
+  document.body.classList.toggle('sbConsole', fits);
+  if(!fits){ XQStage.setControls(null); return; }
+  var groups=[];
+  if(_xqCon.phase==='session'){
+    groups.push({ label:'Session', items:[
+      { id:'prev', label:'Previous', title:'Previous track', onTap:function(){ if(_ms('prev')) MIZE.SoundStudio.prev(); } },
+      { id:'play', label:_xqCon.playing?'Pause':'Play', sub:_xqCon.sub||'', big:true, active:_xqCon.playing, title:'Play / pause', onTap:function(){
+          var st=document.getElementById('xqNP_start');
+          if(st && st.classList.contains('on')){ _xqActStart(); return; }   // Session Ready: start the countdown
+          if(_xqSt.countdown>0) return;                                     // counting down: the music is on its way
+          _xqDoPlay(); } },
+      { id:'next', label:'Next', title:'Next track', onTap:function(){ if(_ms('next')) MIZE.SoundStudio.next(); } },
+    ]});
+  }
+  groups.push({ label:'System', items:[
+    { id:'modes', label:'Modes', title:'Choose a mode', onTap:_xqActModes },
+    { id:'home', label:'Home', title:'Sound Box welcome screen', onTap:_xqActHome },
+  ]});
+  XQStage.setControls({ groups:groups });
+}
+function _xqConsoleUpdate(patch){
+  if(patch){ if(patch.playing!==undefined) _xqCon.playing=!!patch.playing; if(patch.sub!==undefined) _xqCon.sub=patch.sub; }
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='soundbox' || _xqCon.phase!=='session' || !document.body.classList.contains('sbConsole')) return;
+  XQStage.updateControl('play', { label:_xqCon.playing?'Pause':'Play', sub:_xqCon.sub||'', active:_xqCon.playing });
+}
+window._xqSB={ home:_xqActHome, start:_xqActStart, console:_xqConsole, consoleUpdate:_xqConsoleUpdate };
+if(typeof XQStage!=='undefined') XQStage.on('layout', function(){ if(XQStage.consumer()==='soundbox' && document.body.classList.contains('sbConsole')!==_xqConsoleFits()) _xqConsole(); });
+// Home button (position:fixed; the layouts without a console)
+if(npHomeEl){
+  npHomeEl.addEventListener('click',function(e){ e.stopPropagation(); _xqActHome(); });
 }
 // Stage transport — round 4 API (MIZE.SoundStudio.play/togglePlay/next/prev)
 // Start button: hides the "Ready" screen and begins the 5→1 countdown.
@@ -28754,28 +28821,19 @@ if(_introBtn){
 }
 var _startBtn=document.getElementById('xqNP_startBtn');
 if(_startBtn){
-  _startBtn.addEventListener('click',function(e){
-    e.stopPropagation();
-    if(window.MIZE&&MIZE.SoundStudio) MIZE.SoundStudio.prime(); // unlock AudioContext on user gesture
-    var st=document.getElementById('xqNP_start');
-    if(st) st.classList.remove('on');
-    _xqSt.countdown=5; _xqSt.countdownNext=0;
-    var cdW=document.getElementById('xqNP_cdWrap');
-    var art=document.getElementById('xqNP_art');
-    if(cdW) cdW.classList.add('on');
-    if(art) art.style.display='none';
-  });
+  _startBtn.addEventListener('click',function(e){ e.stopPropagation(); _xqActStart(); });
 }
-// Playback controls now use the real module API
-var _modeBtnEl=document.getElementById('xqModeBtn');if(_modeBtnEl){_modeBtnEl.addEventListener('click',function(e){
-  e.stopPropagation();
+function _xqActModes(){
   try{if(MIZE&&MIZE.SoundStudio)MIZE.SoundStudio.exit();}catch(ex){}
   if(typeof XQStage!=='undefined' && XQStage.consumer()==='soundbox') XQStage.close();
+  document.body.classList.remove('sbConsole');
   ['xqNP','xqControls','xqNP_home','xqModeBtn'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.classList.remove('on','playing');
   });
   if(typeof xquixShowHome==='function')xquixShowHome();
-});}
+}
+// Playback controls now use the real module API
+var _modeBtnEl=document.getElementById('xqModeBtn');if(_modeBtnEl){_modeBtnEl.addEventListener('click',function(e){ e.stopPropagation(); _xqActModes(); });}
 var _pp=document.getElementById('xqPlayPause');
 var _pr=document.getElementById('xqPrev');
 var _nx=document.getElementById('xqNext');
