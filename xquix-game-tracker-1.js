@@ -265,7 +265,6 @@ var MISS_TARGETS = [
 /* -------------------------------------------------------------------- state */
 var S = {
   active: false,
-  tutorialMode: false,         // set only through API.setTutorialMode(): no persistence while a tutorial runs
   trackingMode: 'parent',      // parent | coach
   playerRole: 'field',         // field | goalkeeper | team
   game: { date: '', loc: '', home: '', away: '' },
@@ -748,7 +747,6 @@ function openEditEvent(eventId) {
 
 /* ------------------------------------------------------------- persistence */
 function save() {
-  if (S.tutorialMode) return;   // a tutorial session lives in memory only -- never over the coach's saved game
   try {
     localStorage.setItem(KEY, JSON.stringify({
       v: 1, savedAt: new Date().toISOString(),
@@ -895,7 +893,7 @@ function resetGameState() {
   // the last moment, not the primary save mechanism. Only bothers if
   // there's actually something to save; a session with no events yet
   // has nothing worth writing.
-  if (S.events.length && !S.tutorialMode) syncSessionToCloud();
+  if (S.events.length) syncSessionToCloud();
   S.game = { date: '', loc: '', home: '', away: '' };
   S.me = { number: null, name: '' };
   S.squad = []; S.water = []; S.keepers = [];
@@ -913,7 +911,7 @@ function resetGameState() {
   S.regulationEnded = false;
   S.officiallyEnded = false;
   S.finishPromptShown = false;
-  if (!S.tutorialMode) clearSaved();
+  clearSaved();
 }
 function restore(d) {
   S.game = d.game; S.trackingMode = d.trackingMode; S.playerRole = d.playerRole;
@@ -1029,15 +1027,15 @@ var CSS = [
 // feedback, the field itself is the priority -- these chips are
 // tapped often but only need to be legible, not prominent, and the
 // smaller footprint leaves more room for the field above them.
-'#xgtRoot .xgtChip,.xgtBarHost .xgtChip{min-width:28px;height:28px;padding:0 6px;font-size:13px}',   /* .xgtBarHost: a Studio Stage screen that hosts #xgtBar (chrome:\'stage\') */
+'#xgtRoot .xgtChip{min-width:28px;height:28px;padding:0 6px;font-size:13px}',
 '#xgtSheet .xgtChip[aria-pressed="true"]{background:#1b7373;color:#fff;border-color:transparent}',
-'#xgtRoot .xgtChip.water, #xgtSheet .xgtChip.water, .xgtBarHost .xgtChip.water{background:#2e7d32;color:#fff;border-color:transparent}', /* #xgtSheet alone isn\'t enough: renderBar() renders these chips into #xgtBar, which is inside #xgtRoot (NOT #xgtSheet -- confirmed these are separate containers), and #xgtRoot button{background:none} outranks a plain two-class rule by specificity. Both ID scopes are needed to cover both locations these chips actually render in. */
+'#xgtRoot .xgtChip.water, #xgtSheet .xgtChip.water{background:#2e7d32;color:#fff;border-color:transparent}', /* #xgtSheet alone isn\'t enough: renderBar() renders these chips into #xgtBar, which is inside #xgtRoot (NOT #xgtSheet -- confirmed these are separate containers), and #xgtRoot button{background:none} outranks a plain two-class rule by specificity. Both ID scopes are needed to cover both locations these chips actually render in. */
 // Phase F: goalie designation -- solid fill in the setup sheet (nothing
 // else competes for that chip's background there), an inset ring in the
 // live bar instead (has to coexist with the green water fill, which
 // already owns the chip's actual background there).
 '#xgtSheet .xgtChip.goalie{background:#c0392b;color:#fff;border-color:transparent}',
-'#xgtRoot .xgtChip.goalie,.xgtBarHost .xgtChip.goalie{box-shadow:inset 0 0 0 2px #c0392b}',
+'#xgtRoot .xgtChip.goalie{box-shadow:inset 0 0 0 2px #c0392b}',
 // Phase E: live scoreboard badges + opponent quick-tap goal/foul buttons
 // Both rosters always visible now, side by side, rather than a toggle
 // that only ever showed one at a time -- own team left, opponent
@@ -4510,10 +4508,6 @@ var API = {
   openMenu: function () { if (S.active) openOptions(); },
   openStats: function () { if (S.active) openStats(); },
   exit: function () { API.close(); },
-  // Restored 2026-09-21: the contract (gametracker/GAMETRACKER-CONTRACT.md) records this as
-  // landed on 2026-08-29 and the shipping tutorial refuses to start without it, but the
-  // module in the repo had no such member. Verified by gametracker/gametracker-smoke.js.
-  setTutorialMode: function (on) { S.tutorialMode = !!on; },
   onChange: function (cb) { if (typeof cb === 'function') _xgtHooks.change.push(cb); },
   onClose: function (cb) { if (typeof cb === 'function') _xgtHooks.close.push(cb); },
   // Read-only stats rendering for a SAVED session record (Phase B --

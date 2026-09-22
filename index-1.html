@@ -1602,22 +1602,16 @@
   body.xqStage.psIdle:not(.tutorialModeActive) #stageConsole { opacity:1; }   /* the console never fades: it is furniture, not chrome */
   @media (prefers-reduced-motion:reduce) { .stageConsoleBtn { transition:none; } }
   /* Game Tracker LIVE on the stage: the team on the left screen, the game-over banner on the field */
-  #gtTeamInfo { position:absolute; inset:0; padding:8% 6%; color:#dff3f1; font-family:'Archivo',system-ui,-apple-system,sans-serif; font-size:12.5px; line-height:1.35; overflow:hidden; background:linear-gradient(180deg, rgba(3,10,10,.55), rgba(3,10,10,.75)); }
-  #gtTeamInfo .gtTiHead { font-size:12px; font-weight:600; color:#9fc9c6; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:8px; }
-  /* the tracker's roster bar on the TEAM screen, in the studio's dark palette; substitutions stay the module's */
-  body.xqStage[data-stage="gametracker"] #studioTrack > .camOff #gtTeamInfo, body.xqStage[data-stage="gametracker"] #studioTrack > .camOff #gtTeamInfo * { pointer-events:auto !important; }
-  .xgtBarHost .xgtBarSplit { flex-direction:column; gap:12px; }
-  .xgtBarHost .xgtBarUtil, .xgtBarHost #xgtOptionsBtn, .xgtBarHost #xgtStatsBtn { display:none !important; }
-  .xgtBarHost .xgtLbl { color:#4bb8bd; font-size:9px; letter-spacing:.14em; }
-  .xgtBarHost .xgtChip { background:rgba(255,255,255,.10); color:#f2fbfa; border:1px solid rgba(255,255,255,.18); }
-  .xgtBarHost .xgtChip.water { background:#2ecab8; color:#052a27; border-color:transparent; }
-  .xgtBarHost .xgtChip.goalie { box-shadow:inset 0 0 0 2px #e05a4e; }
-  .xgtBarHost .xgtWho { background:rgba(255,255,255,.08); color:#f2fbfa; }
-  .xgtBarHost .xgtWho .meta { color:#9fc9c6; }
-  .xgtBarHost .xgtRow { flex-wrap:wrap; }
-  .xgtBarHost .xgtPill { width:100%; }
-  .xgtBarHost .xgtPill.in { background:#2ecab8; color:#052a27; }
-  .xgtBarHost .xgtPill.out { color:#9fc9c6; border-color:rgba(255,255,255,.25); background:transparent; }
+  #gtTeamInfo { position:absolute; inset:0; padding:8% 7%; color:#dff3f1; font-family:'Archivo',system-ui,-apple-system,sans-serif; font-size:12.5px; line-height:1.35; overflow:hidden; background:linear-gradient(180deg, rgba(3,10,10,.55), rgba(3,10,10,.75)); }
+  #gtTeamInfo .gtTiHead { font-size:12px; font-weight:600; color:#9fc9c6; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:6px; }
+  #gtTeamInfo .gtTiHead.away { margin-top:14px; padding-top:8px; border-top:1px solid rgba(46,202,184,.18); }
+  #gtTeamInfo .gtTiSection { font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:#4bb8bd; margin:8px 0 3px; }
+  #gtTeamInfo .gtTiRow { display:flex; flex-wrap:wrap; gap:4px; }
+  #gtTeamInfo .gtTiRow i { color:#7c9a98; font-style:normal; }
+  #gtTeamInfo .gtTiCap { display:inline-block; min-width:24px; padding:2px 5px; border-radius:6px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); color:#f2fbfa; font-weight:600; text-align:center; font-variant-numeric:tabular-nums; }
+  #gtTeamInfo .gtTiCap.gk { border-color:rgba(46,202,184,.55); color:#7ff0ec; }
+  #gtTeamInfo .gtTiMe { font-size:26px; font-weight:700; color:#f2fbfa; }
+  #gtTeamInfo .gtTiRole { color:#9fc9c6; }
   #gtStageBanner { position:absolute; left:50%; top:6%; transform:translateX(-50%); z-index:8; max-width:80%; padding:10px 18px; border-radius:10px; background:rgba(3,10,10,.85); border:1px solid rgba(46,202,184,.5); color:#f2fbfa; font:600 14px/1.35 'Archivo',system-ui,sans-serif; text-align:center; pointer-events:none; box-shadow:0 0 24px 4px rgba(46,202,184,.25); }
   body[data-stage="home"] #psRoom { z-index:8998; }
   body[data-stage="home"] #studioTrack { z-index:8999; }
@@ -11862,15 +11856,27 @@ function gtTeamInfoMount(){
 }
 function gtTeamInfoRender(r){
   if(!_gtTeamNode || !r) return;
-  // The TEAM screen hosts the tracker's own roster bar (#xgtBar: substitutions, presence, live
-  // tallies, disqualification markers -- all module logic, untouched). The Studio only moves the
-  // element here (class xgtBarHost keeps the module's chip styles) and adds the team header.
   const single = !(r.trackingMode==='coach' && r.playerRole==='team');
-  let head=_gtTeamNode.querySelector('.gtTiHead'), slot=_gtTeamNode.querySelector('.gtTiBarSlot');
-  if(!head){ _gtTeamNode.classList.add('xgtBarHost'); _gtTeamNode.innerHTML='<div class="gtTiHead"></div><div class="gtTiBarSlot"></div>'; head=_gtTeamNode.querySelector('.gtTiHead'); slot=_gtTeamNode.querySelector('.gtTiBarSlot'); }
-  head.textContent = single ? ((r.playerRole==='goalkeeper' ? 'Goalkeeper' : 'Field player')+(r.trackedPlayer && r.trackedPlayer.number!=null ? ' #'+r.trackedPlayer.number : '')) : (r.game && r.game.home || 'My team')+(r.opponentTracked ? ' · '+(r.game && r.game.away || 'Opponent') : '');
-  const bar=document.getElementById('xgtBar');
-  if(bar && bar.parentElement!==slot) slot.appendChild(bar);
+  const nums=a=>(a||[]).map(n=>'<span class="gtTiCap">'+gtEsc(n)+'</span>').join('');
+  const bench=(sq,water,keepers)=>(sq||[]).filter(n=>!(water||[]).includes(n) && !(keepers||[]).includes(n));
+  const keeperList=(ks,labels)=>(ks||[]).map(n=>'<span class="gtTiCap gk">'+gtEsc(n)+(labels&&labels[n]?' '+gtEsc(labels[n]):'')+'</span>').join('');
+  let html='<div class="gtTiHead">'+gtEsc(r.game&&r.game.home||'My team')+'</div>';
+  if(single){
+    const me=r.trackedPlayer||{};
+    html+='<div class="gtTiSection">Tracked player</div><div class="gtTiMe">'+(me.number!=null?'#'+gtEsc(me.number):'')+(me.name?' '+gtEsc(me.name):'')+'</div>'+
+      '<div class="gtTiRole">'+(r.playerRole==='goalkeeper'?'Goalkeeper':'Field player')+'</div>';
+  } else {
+    html+='<div class="gtTiSection">In the water</div><div class="gtTiRow">'+(nums(r.water)||'<i>—</i>')+'</div>'+
+      '<div class="gtTiSection">Bench</div><div class="gtTiRow">'+(nums(bench(r.squad,r.water,r.keepers))||'<i>—</i>')+'</div>'+
+      '<div class="gtTiSection">Keepers</div><div class="gtTiRow">'+(keeperList(r.keepers,r.keeperLabels)||'<i>—</i>')+'</div>';
+    if(r.opponentTracked){
+      html+='<div class="gtTiHead away">'+gtEsc(r.game&&r.game.away||'Opponent')+'</div>'+
+        '<div class="gtTiSection">In the water</div><div class="gtTiRow">'+(nums(r.oppWater)||'<i>—</i>')+'</div>'+
+        '<div class="gtTiSection">Bench</div><div class="gtTiRow">'+(nums(bench(r.oppSquad,r.oppWater,r.oppKeepers))||'<i>—</i>')+'</div>'+
+        '<div class="gtTiSection">Keepers</div><div class="gtTiRow">'+(nums(r.oppKeepers)||'<i>—</i>')+'</div>';
+    }
+  }
+  _gtTeamNode.innerHTML=html;
 }
 function gtConsoleMount(){
   const T=window.XquiXGameTracker;
@@ -11909,8 +11915,6 @@ function gtLiveInfoMount(){
     window.XquiXGameTracker.onClose(()=>{
       if(XQStage.consumer()!=='gametracker') return;
       document.getElementById('gtStageBanner')?.remove();
-      document.getElementById('xgtBar')?.remove();   // the module's bar, hosted on the TEAM screen; its chrome is gone
-      if(_gtTeamNode){ _gtTeamNode.innerHTML=''; _gtTeamNode.classList.remove('xgtBarHost'); }
       XQStage.setScreen('media', null); XQStage.setScreen('info', null);
       XQStage.close();
       fitBoardToScreen();   // back to the plain Coaching layout the tracker restored

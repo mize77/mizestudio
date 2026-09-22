@@ -128,7 +128,23 @@ var CSS = [
 
 /* --------------------------------------------------------------- helpers */
 function el(id) { return document.getElementById(id); }
-function q(sel) { try { return document.querySelector(sel); } catch (err) { return null; } }
+/* On the Studio Stage (landscape, chrome:'stage') the tracker's own bars are not shown: the
+   clock, quarter, menu, stats, undo and exit live on the stage's floor console, the roster
+   bar on the left screen. A step written against the bars is mapped to the console here,
+   so one tutorial serves both (briefs/GAMETRACKER-STUDIO-REVIEW.md §5.5, 2026-09-21). */
+var STAGE_SEL = {
+  '#xgtT': '#stageConsole [data-id="clock"]',
+  '#xgtQ': '#stageConsole [data-id="quarter"]',
+  '#xgtOptionsBtn': '#stageConsole [data-id="menu"]',
+  '#xgtStatsBtn': '#stageConsole [data-id="stats"]',
+  '#xgtUn': '#stageConsole [data-id="undo"]',
+  '#xgtExitBtn': '#stageConsole [data-id="exit"]',
+  '#xgtLog': '#gtLiveInfo',
+  '#xgtTop': '#gtLiveInfo'
+};
+function onStage() { return document.body.getAttribute('data-stage') === 'gametracker'; }
+function stageSel(sel) { return (onStage() && typeof sel === 'string' && STAGE_SEL[sel]) ? STAGE_SEL[sel] : sel; }
+function q(sel) { try { return document.querySelector(stageSel(sel)); } catch (err) { return null; } }
 function make(tag, id) { var e = document.createElement(tag); if (id) e.id = id; return e; }
 function step() { return idx >= 0 ? steps[idx] : null; }
 function evts() { return T ? T.events() : []; }
@@ -144,7 +160,7 @@ function stageWrap() { return document.getElementById('stageWrap'); }
    two or three screens -- action, outcome, placement -- and a ring fixed to the
    first of them goes blank for the rest of the step, which reads as "there is
    nothing to tap here" at exactly the moment there is. */
-function selOf(s) { return typeof s === 'function' ? s() : s; }
+function selOf(s) { return stageSel(typeof s === 'function' ? s() : s); }
 
 function firstVisible(sels) {
   return function () {
