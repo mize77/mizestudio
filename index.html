@@ -877,6 +877,8 @@
   /* centerFill (Presentation, MIZE 2026-09-22): the pool fills the centre screen; the venue is cut off at the
      screen's edge, no outlined box. The pool's light still spills into the room (Stage 4), from the screen. */
   body.xqStage.psFill #stageWrap { overflow:hidden; }
+  .prPlansWhere { font-size:11px; color:#7c8a8a; margin:0 0 6px; }
+  .prPlanPending { font-size:11px; color:#c9a44a; margin-top:2px; }
   body.xqStage.psFill #board, body.xqStage.psFill.panorama #board, body.xqStage.psFill #stageWrap.camOff #board, body.xqStage.psFill #stageWrap.onWall #board { box-shadow:none !important; max-width:none; }
   body.xqStage.psFill #stageWrap.onWall { box-shadow:0 0 110px 18px rgba(46,202,184,.14); }
   /* The floor console is Presentation's in the Full Studio View only; a zoomed camera shows a screen's own controls. */
@@ -6911,6 +6913,7 @@ XQUIX.LocalStorageProvider = (function(){
     // what the previous two-way-only ternary here actually did.
     if(kind==='formation') return 'wpStrategyFormationsV5';
     if(kind==='sequence') return 'tpgTacticalPackagesV8';
+    if(kind==='practice') return 'tpgPracticeSessionsV1';   // practice plans kept their original device key (2026-09-22)
     return 'xquixLibraryAssetsV1_'+kind;
   }
   function load(kind){ try { return JSON.parse(localStorage.getItem(key(kind))||'{}'); } catch(err){ return {}; } }
@@ -7043,6 +7046,11 @@ XQUIX.CloudProvider = (function(){
     return kind;
   }
   function looksLikeCloudId(id){ return typeof id==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id); }
+  // The silent localStorage backup of every cloud item. Practice plans are left out (MIZE, 2026-09-22): each
+  // carries a full formation per drill, the ~5 MB area was already full on his Mac, and their offline copy is
+  // the IndexedDB mirror (OfflineDB), which has room. Their device key is the signed-out store, not a backup.
+  function localBackup(kind, name, record){ if(kind==='practice') return; XQUIX.LocalStorageProvider.saveItem(kind, name, record); }
+  function localBackupDelete(kind, name){ if(kind==='practice') return; XQUIX.LocalStorageProvider.deleteItem(kind, name); }
 
   // Cloud rows are normalized (name/owner/etc. as real columns, tactical
   // content in one jsonb payload column); local records are one flat
@@ -7168,9 +7176,9 @@ XQUIX.CloudProvider = (function(){
           // never anything broader, since a wider cleanup here could
           // destroy legitimate local-only saves from before this coach
           // ever signed in.
-          XQUIX.LocalStorageProvider.saveItem(kind, row.name, cache[kind][row.name]);
+          localBackup(kind, row.name, cache[kind][row.name]);
           const corruptedName = 'XquiX '+row.name;
-          if(XQUIX.LocalStorageProvider.getItemSync(kind, corruptedName)) XQUIX.LocalStorageProvider.deleteItem(kind, corruptedName);
+          if(kind!=='practice' && XQUIX.LocalStorageProvider.getItemSync(kind, corruptedName)) XQUIX.LocalStorageProvider.deleteItem(kind, corruptedName);
         }
         loadedAllOnce = true;
         setSyncStatus('idle');
@@ -7242,7 +7250,7 @@ XQUIX.CloudProvider = (function(){
       const knownId = priorCloudRecord && looksLikeCloudId(priorCloudRecord.id) ? priorCloudRecord.id : null;
       const knownRevision = priorCloudRecord ? priorCloudRecord.revision : null;
       kindCache[name] = record; // optimistic, synchronous -- before any await
-      XQUIX.LocalStorageProvider.saveItem(kind, name, record); // silent local backup -- see comment above the module
+      localBackup(kind, name, record); // silent local backup -- see comment above the module
       await XQUIX.OfflineDB.putItem(kind, name, record); // durable -- survives reload even before any network attempt
       if(!client || !XQUIX.Auth.getCurrentUser()) return record;
       if(!isOnline()){
@@ -7260,14 +7268,14 @@ XQUIX.CloudProvider = (function(){
           // changes that were about to be overwritten are preserved as
           // their own new, clearly-named item instead.
           kindCache[name] = result.serverRecord;
-          XQUIX.LocalStorageProvider.saveItem(kind, name, result.serverRecord);
+          localBackup(kind, name, result.serverRecord);
           await XQUIX.OfflineDB.putItem(kind, name, result.serverRecord);
           const conflictName = name+' (conflict copy '+new Date().toLocaleString()+')';
           const conflictRecord = { ...record, name: conflictName, id: undefined, revision: undefined };
           const conflictResult = await pushSaveToServer(kind, conflictName, conflictRecord, null, null);
           if(!conflictResult.conflict){
             kindCache[conflictName] = conflictResult.record;
-            XQUIX.LocalStorageProvider.saveItem(kind, conflictName, conflictResult.record);
+            localBackup(kind, conflictName, conflictResult.record);
             await XQUIX.OfflineDB.putItem(kind, conflictName, conflictResult.record);
           }
           if(typeof MizeDialog!=='undefined') (function(msg){if(window._shouldDeferConflictAlert&&window._shouldDeferConflictAlert()){(window._deferredConflicts=window._deferredConflicts||[]).push(msg);}else if(typeof MizeDialog!=='undefined'){MizeDialog.alert(msg,'Changes saved elsewhere');}})('"'+name+'" was changed elsewhere since you last opened it. Nothing was lost \u2014 "'+name+'" now shows that other version, and your changes were saved separately as "'+conflictName+'".');
@@ -7288,8 +7296,8 @@ XQUIX.CloudProvider = (function(){
         // a brand-new item that was never actually accepted -- and
         // re-throw so the caller's own error handling shows it directly.
         if(err.code === 'P0100'){
-          if(priorCloudRecord){ kindCache[name] = priorCloudRecord; XQUIX.LocalStorageProvider.saveItem(kind, name, priorCloudRecord); }
-          else { delete kindCache[name]; XQUIX.LocalStorageProvider.deleteItem(kind, name); }
+          if(priorCloudRecord){ kindCache[name] = priorCloudRecord; localBackup(kind, name, priorCloudRecord); }
+          else { delete kindCache[name]; localBackupDelete(kind, name); }
           setSyncStatus('idle');
           throw err;
         }
@@ -7348,7 +7356,7 @@ XQUIX.CloudProvider = (function(){
         if(error) throw error;
         const record = rowToRecord(data);
         ensureKindCache(kind)[name] = record;
-        XQUIX.LocalStorageProvider.saveItem(kind, name, record);
+        localBackup(kind, name, record);
         await XQUIX.OfflineDB.putItem(kind, name, record);
         return { record };
       } catch(err) { return { error: { message: err.message } }; }
@@ -7398,12 +7406,16 @@ async function xquixSwitchToCloudProvider(){
     // reading the code.
     await xquixMigrateLibraryToCloud();
   }
+  // Practice plans saved only on this device move into the library (MIZE, 2026-09-22); not awaited -- boot never waits on it.
+  if(typeof prMigrateDevicePlans==='function') prMigrateDevicePlans().catch(e=>console.error('Practice plans: move to library failed', e));
+  if(typeof renderSavedSessions==='function') renderSavedSessions();
   if(typeof renderCustomSystems==='function') renderCustomSystems();
   if(typeof renderPackages==='function') renderPackages();
 }
 function xquixSwitchToLocalProvider(){
   XQUIX.StorageProvider = XQUIX.LocalStorageProvider;
   xquixMigrationOfferedThisSession = false; // a different account signing in later should still be offered
+  if(typeof renderSavedSessions==='function') renderSavedSessions();
   if(typeof renderCustomSystems==='function') renderCustomSystems();
   if(typeof renderPackages==='function') renderPackages();
 }
@@ -9372,7 +9384,7 @@ function libGetStorageBreakdown(){
     { label:'Coaching Library', keys:['mizeCoachingLibraryV1'] },
     { label:'Saved Formations', keys:['wpStrategyFormationsV5'] },
     { label:'Tactical Sequences', keys:['tpgTacticalPackagesV8'] },
-    { label:'Practice Sessions (legacy)', keys:['tpgPracticeSessionsV1'] },
+    { label:'Practice Sessions (on this device)', keys:['tpgPracticeSessionsV1'] },
     { label:'Saved Presentations', keys:['tpgPresentationsV1'] },
     { label:'Org-scoped Formation/Sequence Libraries', keys:['mizeOrgFormationLibraryV1','mizeOrgSequenceLibraryV1'] },
     { label:'Session & Version History', keys:['tpgSessionHistoryV1','tpgVersionHistoryV1'] },
@@ -9409,7 +9421,7 @@ async function renderAboutDiagnostics(){
     <hr style="margin:10px 0;border:none;border-top:1px solid #dbe4e4;">
     <div>Saved Formations: ${formationCount}</div>
     <div>Tactical Sequences: ${packageCount}</div>
-    <div>Practice Sessions: ${countKeys(PRACTICE_SESSIONS_KEY)}</div>
+    <div>Practice Sessions: ${Object.keys(prPlans()).length}</div>
     <div>Version History Checkpoints: ${countArray('tpgVersionHistoryV1')}</div>
     <div>Custom Sport Templates: ${countKeys(SPORT_TEMPLATES_KEY)}</div>
     <hr style="margin:10px 0;border:none;border-top:1px solid #dbe4e4;">
@@ -19128,7 +19140,7 @@ function exportLibrary(){
     ...MIZE.Storage.stampRecord({ exportedAt: new Date().toISOString() }),
     formations: XQUIX.StorageProvider.listStoreSync('formation'),
     packages: XQUIX.StorageProvider.listStoreSync('sequence'),
-    sessions: JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}')
+    sessions: prPlans()
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
@@ -19158,7 +19170,7 @@ function importLibraryFromFile(file){
       const data=JSON.parse(reader.result);
       const existingFormations=XQUIX.StorageProvider.listStoreSync('formation');
       const existingPackages=XQUIX.StorageProvider.listStoreSync('sequence');
-      const existingSessions=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}');
+      const existingSessions={ ...prPlans() };
       // Two accepted shapes: the bulk "Export Library (All)" shape
       // ({formations,packages,sessions}), or a single record from one of
       // the per-item Export buttons -- recognized by the `type`/`name`
@@ -19201,7 +19213,7 @@ function importLibraryFromFile(file){
       }
       XQUIX.StorageProvider.replaceStore('formation', existingFormations);
       XQUIX.StorageProvider.replaceStore('sequence', existingPackages);
-      try{localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(existingSessions));}catch(_lsE){}
+      { const before=prPlans(); Object.entries(existingSessions).forEach(([n,rec])=>{ if(before[n]!==rec) XQUIX.Storage.save({ kind:PRACTICE_KIND, name:n, record:rec, scope:'personal' }).then(()=>{ if(typeof renderSavedSessions==='function') renderSavedSessions(); }); }); }   // practice plans: through the library (2026-09-22)
       renderCustomSystems(); renderPackages(); if(typeof renderSavedSessions==='function') renderSavedSessions();
       if(imported){
         MizeDialog.alert(importedLabel);
@@ -19232,7 +19244,7 @@ function renderExportSelectList(){
   const groups = [
     { label:'Formations', kind:'formation', names: soUserItemNames('formation') },
     { label:'Sequences', kind:'sequence', names: soUserItemNames('sequence') },
-    { label:'Practice Sessions', kind:'session', names: Object.keys(JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}')) },
+    { label:'Practice Sessions', kind:'session', names: Object.keys(prPlans()) },
   ];
   let anyItems = false;
   groups.forEach(g=>{
@@ -19269,7 +19281,7 @@ function exportSelectedItems(){
   if(!checked.length) return;
   const formationStore = XQUIX.StorageProvider.listStoreSync('formation');
   const packageStore = XQUIX.StorageProvider.listStoreSync('sequence');
-  const sessionStore = JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}');
+  const sessionStore = prPlans();
   const kindToStore = { formation: formationStore, sequence: packageStore, session: sessionStore };
   const data = { ...MIZE.Storage.stampRecord({ exportedAt: new Date().toISOString() }), formations:{}, packages:{}, sessions:{} };
   const kindToDataKey = { formation:'formations', sequence:'packages', session:'sessions' };
@@ -19782,7 +19794,57 @@ renderVersionHistory();
 // (Practice Studio Data Model doc, section 2.1 "Drill references a Template"),
 // Coaching DNA tags carry over unchanged, and sessions persist through the
 // same envelope pattern already used for Saved Formations/Packages.
-const PRACTICE_SESSIONS_KEY = 'tpgPracticeSessionsV1';
+const PRACTICE_SESSIONS_KEY = 'tpgPracticeSessionsV1';   // the device store (signed out) -- and, before 2026-09-22, the only one
+// ===== Practice plans live in the Coaching Library (MIZE, 2026-09-22) =====
+// Kind 'practice' through XQUIX.Storage / StorageProvider, like formations and sequences: signed in, the
+// library (coaching_assets, object_type 'practice') is the home copy and every plan is also kept in this
+// device's offline store (IndexedDB, XQUIX.OfflineDB) automatically, so it opens without a connection and a save
+// made offline uploads when the connection returns. Signed out, plans stay on the device (PRACTICE_SESSIONS_KEY).
+// Plans saved only on this device before are moved into the library the first time the planner opens signed in.
+const PRACTICE_KIND='practice';
+function prCloudOn(){ return typeof XQUIX!=='undefined' && XQUIX.StorageProvider && XQUIX.StorageProvider===XQUIX.CloudProvider && !!(XQUIX.Auth && XQUIX.Auth.getCurrentUser()); }
+function prInLibrary(rec){ return !!(rec && typeof rec.id==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rec.id)); }
+function prPlans(){
+  try{ if(typeof XQUIX!=='undefined' && XQUIX.StorageProvider) return XQUIX.StorageProvider.listStoreSync(PRACTICE_KIND)||{}; }catch(e){}
+  try{ return JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}'); }catch(e){ return {}; }
+}
+function prLegacyPlans(){ try{ return JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}'); }catch(e){ return {}; } }
+let _prLoading=null, _prMigrating=false;
+// Load the library's plans (once per sign-in), then move any plan saved only on this device into the library.
+async function prEnsurePlansLoaded(){
+  if(!prCloudOn()) return;
+  if(!_prLoading) _prLoading=(async()=>{ try{ await XQUIX.StorageProvider.listStore(PRACTICE_KIND); }catch(e){ console.error('Practice plans: library load failed', e); } })();
+  await _prLoading;
+  await prMigrateDevicePlans();
+}
+if(typeof XQUIX!=='undefined' && XQUIX.Auth && typeof XQUIX.Auth.onChange==='function'){ try{ XQUIX.Auth.onChange(()=>{ _prLoading=null; }); }catch(e){} }
+// One plan at a time, under its own name; the device copy is removed only once the library has confirmed it
+// (a cloud id). A plan whose name is already in the library with different content is uploaded as
+// "<name> (from this device)" -- nothing is overwritten, nothing is dropped. Offline or failing: left as it is.
+async function prMigrateDevicePlans(){
+  if(_prMigrating || !prCloudOn() || (typeof navigator!=='undefined' && navigator.onLine===false)) return;
+  const legacy=prLegacyPlans(); const names=Object.keys(legacy); if(!names.length) return;
+  _prMigrating=true; let moved=0, failed=0;
+  try{
+    for(const name of names){
+      const rec=legacy[name]; if(!rec || typeof rec!=='object'){ continue; }
+      const inLib=XQUIX.StorageProvider.getItemSync(PRACTICE_KIND, name);
+      const same=inLib && prInLibrary(inLib) && JSON.stringify(inLib.blocks||[])===JSON.stringify(rec.blocks||[]);
+      let target=name;
+      if(inLib && !same) target=name+' (from this device)';
+      if(!same){
+        const res=await XQUIX.Storage.save({ kind:PRACTICE_KIND, name:target, record:{ ...rec, name:target }, scope:'personal' });
+        const back=XQUIX.StorageProvider.getItemSync(PRACTICE_KIND, target);
+        if(res.error || !prInLibrary(back)){ failed++; if(res.error && res.error.code==='P0100'){ MizeDialog.alert(res.error.message, 'Practice plans not moved'); break; } continue; }
+      }
+      const cur=prLegacyPlans(); delete cur[name];
+      try{ if(Object.keys(cur).length) localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(cur)); else localStorage.removeItem(PRACTICE_SESSIONS_KEY); }catch(e){}
+      moved++;
+    }
+  } finally { _prMigrating=false; }
+  if(moved && typeof xquixHomeShowToast==='function') xquixHomeShowToast(moved+(moved===1?' practice plan':' practice plans')+' moved from this device to your library.');
+  if(moved || failed) renderSavedSessions();
+}
 const BLOCK_TYPE_LABELS = { warmup:'Warm-up', skill:'Skill Block', tactical:'Tactical Block', conditioning:'Conditioning', cooldown:'Cool-down', custom:'Custom' };
 // currentSessionBlocks: ordered [{ id, name, blockType, coachingDNA, drills:[{formationName, durationMinutes, coachingDNA, state, engineObjects}] }]
 let currentSessionBlocks=[];
@@ -19795,6 +19857,8 @@ function openPracticeStudio(){
   // protecting this single entry point naturally covers everything
   // inside it, the same pattern used for Branding Manager.
   if(!xquixRequireFunction('Open / close Practice Studio')) return;
+  // The library's plans (and any still only on this device, moved in) -- the list re-renders when they are in.
+  if(typeof prEnsurePlansLoaded==='function') prEnsurePlansLoaded().then(()=>renderSavedSessions()).catch(()=>{});
   // Build on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md §3a) where the stage fits; phones and
   // portrait keep the panel until Step 5 gives Build its tabbed centre screen.
   if(typeof prStageFits==='function' && prStageFits() && typeof XQStage!=='undefined'){ prOpenBuild(); return; }
@@ -19997,29 +20061,41 @@ document.getElementById('saveSessionBtn').addEventListener('click', async ()=>{
   const tagsInput=await MizeDialog.prompt('Coaching DNA tags for this session (comma-separated, optional) — e.g. U16, Transition:','');
   const coachingDNA=(tagsInput||'').split(',').map(t=>t.trim()).filter(Boolean);
   const rec=buildSessionRecord(name, coachingDNA);
-  const all=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}');
-  all[name]=rec;
-  // Never fail silently (2026-09-22: a coach's save "did nothing"). The browser can refuse the write --
-  // most often because this site's storage is full (Safari allows about 5 MB, and every session keeps a
-  // full copy of each drill's formation). Say so, and say what is using the space.
-  let saveErr=null;
-  try{ localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(all)); }catch(_lsE){ saveErr=_lsE; }
-  let back=null; try{ back=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}')[name]; }catch(e){}
-  if(saveErr || !back){
-    console.error('Practice session save failed:', saveErr);
-    let detail='';
-    try{
-      const bd=libGetStorageBreakdown(); const sessBytes=JSON.stringify(rec).length;
-      detail='\n\nThis session needs about '+formatBytes(sessBytes)+'. Storage in use on this device: '+formatBytes(bd.totalBytes)+' \u2014 '+
-        bd.rows.slice(0,3).map(r=>r.label+' '+formatBytes(r.bytes)).join(', ')+'.';
-    }catch(e){}
-    const full = saveErr && /quota|exceeded|full/i.test(String(saveErr.name||'')+' '+String(saveErr.message||''));
-    MizeDialog.alert((full ? 'The session could not be saved: this browser\u2019s storage for XquiX Studio is full.' : 'The session could not be saved on this device'+(saveErr ? ' ('+(saveErr.name||'error')+': '+(saveErr.message||'')+').' : '.'))+detail+
-      (full ? '\n\nDeleting old checkpoints (Version History) or unused formations frees space. Nothing was lost: the session is still in the builder.' : '\n\nThe session is still in the builder.'), 'Session not saved');
+  const cloud=prCloudOn();
+  if(cloud) await prEnsurePlansLoaded();
+  const existing=XQUIX.StorageProvider ? XQUIX.StorageProvider.getItemSync(PRACTICE_KIND, name) : null;
+  if(existing && existing.createdAt) rec.createdAt=existing.createdAt;
+  // Through the library (signed in) or the device store (signed out) -- XQUIX.Storage never throws.
+  const res=await XQUIX.Storage.save({ kind:PRACTICE_KIND, name, record:rec, scope:'personal' });
+  if(res.error){
+    MizeDialog.alert(res.error.code==='P0100' ? res.error.message : ('The session could not be saved: '+res.error.message+'. It is still in the builder.'), 'Session not saved');
     return;
   }
   renderSavedSessions();
-  if(typeof xquixHomeShowToast==='function') xquixHomeShowToast('Session \u201c'+name+'\u201d saved.');
+  const saved=XQUIX.StorageProvider.getItemSync(PRACTICE_KIND, name);
+  if(cloud){
+    if(prInLibrary(saved)){ if(typeof xquixHomeShowToast==='function') xquixHomeShowToast('“'+name+'” saved to your library — also available offline on this device.'); return; }
+    // Queued, not landed: say which (the Game Tracker's rule, gametracker/CLOUD-SAVE-HONESTY.md).
+    const offline=typeof navigator!=='undefined' && navigator.onLine===false;
+    let expired=false; try{ const c=XQUIX.Auth.getClient && XQUIX.Auth.getClient(); if(c && !offline){ const { data }=await c.auth.getSession(); expired=!(data && data.session); } }catch(e){}
+    MizeDialog.alert(offline ? ('“'+name+'” is saved on this device. You’re offline, so it hasn’t reached your library yet — it uploads by itself once you’re back online.')
+      : expired ? ('“'+name+'” is saved on this device. Your sign-in has expired — sign back in to put it in your library.')
+      : ('“'+name+'” is saved on this device, but the library could not be reached just now. It keeps retrying automatically.'), 'Saved on this device');
+    return;
+  }
+  // Signed out: the device store. The browser can refuse the write (Safari allows about 5 MB) -- never silently.
+  let back=null; try{ back=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}')[name]; }catch(e){}
+  if(!back){
+    let detail='';
+    try{
+      const bd=libGetStorageBreakdown(); const sessBytes=JSON.stringify(rec).length;
+      detail='\n\nThis session needs about '+formatBytes(sessBytes)+'. Storage in use on this device: '+formatBytes(bd.totalBytes)+' — '+
+        bd.rows.slice(0,3).map(r=>r.label+' '+formatBytes(r.bytes)).join(', ')+'.';
+    }catch(e){}
+    MizeDialog.alert('The session could not be saved: this browser’s storage for XquiX Studio is full.'+detail+'\n\nSign in to save it to your library instead. Nothing was lost: the session is still in the builder.', 'Session not saved');
+    return;
+  }
+  if(typeof xquixHomeShowToast==='function') xquixHomeShowToast('“'+name+'” saved on this device. Sign in to keep your plans in your library.');
 });
 
 // ===== Practice on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md) =====
@@ -20235,10 +20311,15 @@ function effectiveSessionTags(rec){
 function renderSavedSessions(){
   const box=document.getElementById('savedSessionsList'); if(!box) return;
   const filter=(document.getElementById('sessionTagFilter')?.value||'').trim().toLowerCase();
-  const all=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}');
+  const all=prPlans();
+  const cloud=prCloudOn();
   box.innerHTML='';
   const names=Object.keys(all);
-  if(!names.length){ box.innerHTML='<div style="font-size:12px;color:#7c8a8a;">No saved sessions yet.</div>'; return; }
+  // Where the plans are: one quiet line above the list (the library, or this device only).
+  const where=document.createElement('div'); where.className='prPlansWhere';
+  where.textContent = cloud ? 'Your library · every plan also kept on this device for offline use' : 'This device only — sign in to keep your plans in your library';
+  box.appendChild(where);
+  if(!names.length){ const e=document.createElement('div'); e.style.cssText='font-size:12px;color:#7c8a8a;'; e.textContent='No saved sessions yet.'; box.appendChild(e); return; }
   names.forEach(name=>{
     const rec=all[name];
     const tags=effectiveSessionTags(rec);
@@ -20248,6 +20329,7 @@ function renderSavedSessions(){
     const label=document.createElement('div'); label.className='versionLabel'; label.textContent=name+' — '+(rec.totalDurationMinutes||0)+' min';
     const time=document.createElement('div'); time.className='versionTime'; time.textContent=new Date(rec.savedAt).toLocaleString();
     meta.appendChild(label); meta.appendChild(time);
+    if(cloud && !prInLibrary(rec)){ const st=document.createElement('div'); st.className='prPlanPending'; st.textContent='On this device · waiting to upload'; meta.appendChild(st); }
     if(tags.length){
       const tagRow=document.createElement('div'); tagRow.className='formationTags';
       tags.forEach(t=>{ const chip=document.createElement('span'); chip.className='dnaChip'; chip.textContent=t; tagRow.appendChild(chip); });
@@ -20257,7 +20339,7 @@ function renderSavedSessions(){
     const load=document.createElement('button'); load.textContent='Load'; load.onclick=()=>loadSessionIntoBuilder(rec);
     const run=document.createElement('button'); run.textContent='\u25B6 Run'; run.title='Run this session on the Studio Stage'; run.onclick=()=>openPracticeRun(rec);
     btnWrap.appendChild(run);
-    const del=MIZE.UI.ConfirmDeleteButton('Delete session "'+name+'"?', ()=>{ const a2=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}'); delete a2[name]; try{localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(a2));}catch(_lsE){} renderSavedSessions(); }, { title:'Delete session' });
+    const del=MIZE.UI.ConfirmDeleteButton('Delete session "'+name+'"?', async ()=>{ await XQUIX.Storage.delete({ kind:PRACTICE_KIND, name, scope:'personal' }); renderSavedSessions(); }, { title:'Delete session' });
     btnWrap.appendChild(load); btnWrap.appendChild(del);
     row.appendChild(meta); row.appendChild(btnWrap);
     box.appendChild(row);
