@@ -1675,6 +1675,22 @@
   /* Step 4: under the fitted CENTER camera (phones, portrait) the side screens are off the edges or cut -- not shown */
   body[data-stage="soundbox"][data-cam="center"] #videoFrame, body[data-stage="soundbox"][data-cam="center"] #statsFrame { visibility:hidden; }
   body[data-stage="soundbox"][data-cam="center"] #stageLights { display:none; }   /* the fixture strip is laid on the unzoomed room; the zoomed photograph has its own fixtures */
+  /* ---- Practice Run on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md) ---- */
+  body[data-stage="practice"] #studioNavLeft, body[data-stage="practice"] #studioNavRight, body[data-stage="practice"] #studioFrameDots,
+  body[data-stage="practice"] header, body[data-stage="practice"] #edgeTabStack, body[data-stage="practice"] #quickCommandBar,
+  body[data-stage="practice"] #showQuickCommandBarTab, body[data-stage="practice"] #controlsPanel, body[data-stage="practice"] #timelinePanel,
+  body[data-stage="practice"] #toolPanelBackdrop, body[data-stage="practice"] #coachingNotesSidebar, body[data-stage="practice"] #closeHeaderBtn,
+  body[data-stage="practice"] .studioFramePlaceholder, body[data-stage="practice"] .studioFrameClearBtn { display:none !important; }
+  body[data-stage="practice"] #emptyFieldAddBtn, body[data-stage="practice"] #saveOpenBtn, body[data-stage="practice"] #exitPresentationBtn, body[data-stage="practice"] #copyrightText { display:none !important; }
+  body[data-stage="practice"] #studioTrack > .camOff { filter:none; }   /* the side screens are part of the Run (plan, clock), not receding screens */
+  body[data-stage="practice"][data-cam="center"] #stageLights { display:none; }
+  #prDrillNote { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:7; pointer-events:none; text-align:center;
+    padding:14px 22px; border-radius:10px; background:rgba(3,10,10,.82); border:1px solid rgba(46,202,184,.35); color:#eaf7f5;
+    font:600 16px/1.35 'Archivo',system-ui,sans-serif; max-width:80%; }
+  #prDrillNote small { display:block; margin-top:4px; font-weight:500; font-size:12.5px; color:#9fc9c6; }
+  #prExitFallback { display:none; position:fixed; left:3%; bottom:3%; z-index:9999999; pointer-events:auto; touch-action:manipulation;
+    background:rgba(0,0,0,.6); border:.5px solid rgba(46,202,184,.45); color:#2ecab8; font:600 12px/1 system-ui,sans-serif; border-radius:20px; padding:9px 16px; cursor:pointer; }
+  body[data-stage="practice"]:not(.prConsole) #prExitFallback { display:block; }
   /* Step 2: with the floor console in use (landscape >= 900 px) the Sound Box's fixed buttons are not shown */
   body.sbConsole #xqNP_home, body.sbConsole #xqModeBtn, body.sbConsole #xqControls { display:none !important; }
   /* ---- The Sound Box as a stage consumer (briefs/SOUNDBOX-STAGE-CONSUMER.md, Step 1) ---- */
@@ -2309,6 +2325,7 @@
       <div id="sessionTotalDuration" style="font-size:12.5px;font-weight:700;margin:8px 0;">Total duration: 0 min</div>
       <div style="display:flex;gap:6px;margin-bottom:12px;">
         <button id="saveSessionBtn" style="flex:1;">Save Session</button>
+        <button id="runSessionBtn" style="flex:1;" title="Run this session on the Studio Stage, drill by drill">&#9654; Run</button>
         <button id="exportSessionBtn" style="flex:1;">Export JSON</button>
       </div>
       <div class="psPanelTitle">Saved Sessions</div>
@@ -19512,11 +19529,14 @@ document.getElementById('exportSceneObjectsBtn').addEventListener('click', ()=>{
 });
 
 // ===== Autosave =====
+// The coach's own board. While a Practice Run is on the stage the board shows a drill (temporary);
+// autosave and session history keep the board the coach left, never a drill.
+function xqCoachBoardState(){ return (typeof _prRun!=='undefined' && _prRun && _prRun.saved) ? _prRun.saved.state : getState(); }
 const AUTOSAVE_KEY = 'tpgAutosaveV1';
 function runAutosave(){
   if(suppressAutosaveUntilRecoveryDecided) return;
   try {
-    try{localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(MIZE.Storage.stampRecord({ state:getState(), savedAt:new Date().toISOString() })));}catch(_lsE){}
+    try{localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(MIZE.Storage.stampRecord({ state:xqCoachBoardState(), savedAt:new Date().toISOString() })));}catch(_lsE){}
     const el=document.getElementById('autosaveStatus');
     if(el) el.textContent = 'Autosave: '+new Date().toLocaleTimeString();
   } catch(err) { /* storage full or unavailable -- fail silently, autosave is best-effort */ }
@@ -19546,7 +19566,7 @@ function captureSessionHistorySnapshot(){
   lastSessionHistoryPushAt = now;
   try {
     const list = getSessionHistory();
-    list.unshift(MIZE.Storage.stampRecord({ savedAt:new Date().toISOString(), state:getState() }));
+    list.unshift(MIZE.Storage.stampRecord({ savedAt:new Date().toISOString(), state:xqCoachBoardState() }));
     while(list.length>MAX_SESSION_HISTORY) list.pop();
     try{localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(list));}catch(_lsE){}
     renderSessionHistory();
@@ -19826,6 +19846,106 @@ document.getElementById('saveSessionBtn').addEventListener('click', async ()=>{
   renderSavedSessions();
 });
 
+// ===== Practice Run on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md, Step 1) =====
+// A saved session -- or the one in the builder -- walked drill by drill on the stage: the drill's
+// formation live on the centre screen (edits are temporary: leaving a drill and coming back reloads
+// its saved formation), Previous / Next on the floor console. The coach's own board, undo history
+// and Front Court state are saved on entry and restored by ONE routine, prRunCleanup(), which every
+// route out goes through: it is bound to the stage's 'close' event, so Exit, Modes, Home, or any
+// other consumer opening the stage all end the Run the same way. A Run writes nothing.
+var _prRun=null;   // var, not let: autosave (earlier in this script) reads it before this line runs
+function prRunDrills(rec){
+  const out=[]; (rec && Array.isArray(rec.blocks) ? rec.blocks : []).forEach((b,bi)=>{
+    (b.drills||[]).forEach(d=>out.push({ block:b.name||'', blockIndex:bi, name:d.formationName||'Drill', minutes:d.durationMinutes||0, tags:d.coachingDNA||[], state:d.state||null }));
+  });
+  return out;
+}
+function prRunCameraOpts(){
+  const wide=window.innerWidth>=900 && window.innerWidth>window.innerHeight;
+  return wide ? { camera:'center', roomCamera:'pan', readingBox:'screen' } : { camera:'center', readingBox:'screen', fitScreen:true };
+}
+function openPracticeRun(rec){
+  const drills=prRunDrills(rec);
+  if(!drills.length){ if(typeof MizeDialog!=='undefined') MizeDialog.alert('This session has no drills to run yet.'); return false; }
+  if(typeof XQStage==='undefined') return false;
+  if(window.XquiXGameTracker && typeof XquiXGameTracker.isOpen==='function' && XquiXGameTracker.isOpen()){ if(typeof xquixHomeShowToast==='function') xquixHomeShowToast('Close the Game Tracker first.'); return false; }
+  if(_prRun) prRunCleanup();
+  if(document.body.classList.contains('presentation') && typeof togglePresentation==='function') togglePresentation();
+  if(typeof closeToolPanels==='function') closeToolPanels();
+  const wasFC=!!frontCourtActive; if(wasFC) toggleFrontCourt(false);
+  let saved=null; try{ saved={ state:getState(), undo:undoStack.slice(), redo:redoStack.slice(), frontCourt:wasFC }; }catch(e){}
+  _prRun={ rec, name:rec.name||'Practice session', drills, i:-1, saved };
+  closePracticeStudio();
+  XQStage.open('practice', Object.assign({ lockCamera:true, instant:true }, prRunCameraOpts()));
+  prRunGo(0);
+  return true;
+}
+function prRunGo(i){
+  const r=_prRun; if(!r) return;
+  i=Math.max(0, Math.min(r.drills.length-1, i));
+  r.i=i; const d=r.drills[i];
+  // the drill's saved formation, fresh every time the drill is shown; no undo across drills
+  const wasReady=historyReady; historyReady=false;
+  try{ if(d.state) loadState(JSON.parse(JSON.stringify(d.state))); else prRunEmptyBoard(); }catch(e){ prRunEmptyBoard(); }
+  historyReady=wasReady; undoStack=[]; redoStack=[]; if(typeof updateHistoryUI==='function') updateHistoryUI();
+  let note=document.getElementById('prDrillNote');
+  if(!d.state){
+    if(!note){ note=document.createElement('div'); note.id='prDrillNote'; document.getElementById('stageWrap')?.appendChild(note); }
+    note.innerHTML=''; note.appendChild(document.createTextNode(d.name)); const sm=document.createElement('small'); sm.textContent='No formation saved for this drill'+(d.minutes?' \u00b7 '+d.minutes+' min':''); note.appendChild(sm);
+  } else if(note) note.remove();
+  prRunConsole();
+  if(typeof fitBoardToScreen==='function') fitBoardToScreen();
+}
+function prRunEmptyBoard(){
+  clearSelection(); document.querySelectorAll('.player').forEach(e=>e.remove()); document.querySelectorAll('.extraBall').forEach(e=>e.remove());
+  ballCarrier=null; ball.dataset.x=14.5; ball.dataset.y=12; placeBall(); clearArrows(true); if(typeof renderTeamManager==='function') renderTeamManager();
+}
+function prRunConsole(){
+  const r=_prRun; if(!r) return;
+  const d=r.drills[r.i];
+  XQStage.setControls({ groups:[
+    { label:'Drill', items:[
+      { id:'prev', label:'Previous', title:'Previous drill', disabled:r.i===0, onTap:()=>prRunGo(r.i-1) },
+      { id:'drill', label:'Drill '+(r.i+1)+' of '+r.drills.length, sub:d.name, big:true, title:d.block ? d.block+' \u00b7 '+d.name : d.name },
+      { id:'next', label:'Next', title:'Next drill', disabled:r.i===r.drills.length-1, onTap:()=>prRunGo(r.i+1) },
+    ]},
+    { label:'System', items:[
+      { id:'exit', label:'Exit', title:'Back to Practice Studio', onTap:prRunExit },
+      { id:'modes', label:'Modes', title:'Choose a mode', onTap:prRunModes },
+    ]},
+  ]});
+  setTimeout(prRunConsoleShown, 0);
+}
+function prRunConsoleShown(){ document.body.classList.toggle('prConsole', !!(_prRun && XQStage.consumer()==='practice' && XQStage.consoleVisible())); }
+function prRunExit(){ if(XQStage.consumer()==='practice') XQStage.close(); else prRunCleanup(); openPracticeStudio(); }
+function prRunModes(){ if(typeof xquixShowHome==='function') xquixShowHome(); else prRunExit(); }   // opening Home closes the stage -> prRunCleanup
+// THE way out. Idempotent; safe to call when no Run is active.
+function prRunCleanup(){
+  const r=_prRun; if(!r) return;
+  _prRun=null;
+  document.getElementById('prDrillNote')?.remove();
+  document.body.classList.remove('prConsole');
+  if(typeof XQStage!=='undefined' && XQStage.consumer()==='practice') XQStage.close();   // (re-entrant: _prRun is already null)
+  if(r.saved){
+    const wasReady=historyReady; historyReady=false;
+    try{ loadState(r.saved.state); }catch(e){}
+    historyReady=wasReady; undoStack=r.saved.undo||[]; redoStack=r.saved.redo||[]; if(typeof updateHistoryUI==='function') updateHistoryUI();
+    if(r.saved.frontCourt && !frontCourtActive) toggleFrontCourt(true);
+  }
+  if(typeof fitBoardToScreen==='function') fitBoardToScreen();
+}
+if(typeof XQStage!=='undefined'){
+  XQStage.on('close', c=>{ if(c==='practice' && _prRun) prRunCleanup(); });
+  XQStage.on('layout', ()=>{ if(XQStage.consumer()==='practice') setTimeout(prRunConsoleShown, 0); });
+}
+// (the button's markup comes after this script -- listen at the document)
+document.addEventListener('click', e=>{ if(e.target && e.target.closest && e.target.closest('#prExitFallback')){ e.stopPropagation(); prRunExit(); } }, true);
+document.getElementById('runSessionBtn')?.addEventListener('click', ()=>{
+  if(!currentSessionBlocks.length || !currentSessionBlocks.some(b=>b.drills.length)){ MizeDialog.alert('Add at least one block with a drill before running the session.'); return; }
+  const name=(document.getElementById('sessionNameInput').value||'').trim() || 'Current session';
+  openPracticeRun(buildSessionRecord(name, []));
+});
+
 document.getElementById('exportSessionBtn').addEventListener('click', ()=>{
   if(!currentSessionBlocks.length || !currentSessionBlocks.some(b=>b.drills.length)){ MizeDialog.alert('Add at least one block with a drill before exporting.'); return; }
   const name=(document.getElementById('sessionNameInput').value||'').trim() || 'Untitled Session';
@@ -19891,6 +20011,8 @@ function renderSavedSessions(){
     }
     const btnWrap=document.createElement('div'); btnWrap.style.display='flex'; btnWrap.style.gap='4px';
     const load=document.createElement('button'); load.textContent='Load'; load.onclick=()=>loadSessionIntoBuilder(rec);
+    const run=document.createElement('button'); run.textContent='\u25B6 Run'; run.title='Run this session on the Studio Stage'; run.onclick=()=>openPracticeRun(rec);
+    btnWrap.appendChild(run);
     const del=MIZE.UI.ConfirmDeleteButton('Delete session "'+name+'"?', ()=>{ const a2=JSON.parse(localStorage.getItem(PRACTICE_SESSIONS_KEY)||'{}'); delete a2[name]; try{localStorage.setItem(PRACTICE_SESSIONS_KEY, JSON.stringify(a2));}catch(_lsE){} renderSavedSessions(); }, { title:'Delete session' });
     btnWrap.appendChild(load); btnWrap.appendChild(del);
     row.appendChild(meta); row.appendChild(btnWrap);
@@ -28371,6 +28493,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 <!-- Home button, mode button and playback controls: position:fixed, and REAL siblings of
      #xqStage. They must not be nested inside it: #xqStage has pointer-events:none, which is
      inherited, so any descendant without an explicit pointer-events:auto is untappable. -->
+<button id="prExitFallback" type="button">&#8249; Exit Run</button>
 <button id="xqNP_home">&#8249; Home</button>
 <button id="xqModeBtn">&#8942; Modes</button>
 <div id="xqControls">
