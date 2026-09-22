@@ -12451,9 +12451,11 @@ function psCenterFillOn(){
   if(typeof XQStage==='undefined' || !XQStage.isOpen()) return false;
   const f=(XQStage.opts()||{}).centerFill; return typeof f==='function' ? !!f() : !!f;
 }
-// The metres of pool that fill the centre screen: the 20 m field with 1 m of water above and below; across,
-// the field and its goals with 1 m to spare. The rest of the venue is cut off at the screen's edge.
-const PS_FILL_H=22, PS_FILL_W=27;
+// The metres of the venue that fill the centre screen: at most 22 m tall (the 20 m field with 1 m of water above
+// and below), and always the full width of the deck words (RESPECT / FAIR PLAY / HAVE FUN / PLAY SMART, x 0.35-34.65
+// of the 35 m venue) -- MIZE, 2026-09-22: the words are shown in full, never cut. On the 16:9-ish centre screen the
+// width decides (~23.3 m tall); the rest of the venue's top and bottom deck is cut off at the screen's edge.
+const PS_FILL_H=22, PS_FILL_W=34.7;
 function psCam(state, LB){
   const c=PS_CAMERA[state]; if(!c) return c;
   const opts=(typeof XQStage!=='undefined' && XQStage.isOpen()) ? (XQStage.opts()||{}) : {};
@@ -23472,7 +23474,7 @@ function fitBoardToScreen(){
     document.body.classList.toggle('psFill', fill);
     if(fill){
       // The pool fills the screen (the frame clips the venue at its edge; #stageWrap centres the board):
-      // metres per px from PS_FILL_H x PS_FILL_W, the board keeps the venue's 35:28, so nothing is stretched.
+      // px per metre from PS_FILL_H x PS_FILL_W (the deck words always whole), the board keeps the venue's 35:28, so nothing is stretched.
       const b=(st.focusedKey==='board') ? st.reading : st.boxes.board;
       const ppm=Math.min(b.height/PS_FILL_H, b.width/PS_FILL_W);
       boardW=ppm*ratioW; boardH=ppm*ratioH;
