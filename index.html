@@ -1592,9 +1592,10 @@
   /* ===== Stage Control Surface: the console in the studio floor (any consumer) ===== */
   #stageConsole { display:none; position:absolute; z-index:6; perspective:1100px; perspective-origin:50% -60%; pointer-events:none; }
   .stageConsolePanel { position:absolute; inset:0; transform-origin:50% 100%; transform:rotateX(34deg); pointer-events:auto;
-    display:flex; align-items:stretch; justify-content:center; gap:2.2%; padding:1.2% 2.4%; box-sizing:border-box; border-radius:6px;
+    display:flex; align-items:flex-end; justify-content:center; padding:1.2% 2.4%; box-sizing:border-box; border-radius:6px;
     background:linear-gradient(180deg, rgba(6,14,15,.86), rgba(3,8,9,.94));
     box-shadow:inset 0 2px 0 rgba(150,215,210,.10), inset 0 0 0 1px rgba(46,202,184,.14), inset 0 -10px 24px rgba(0,0,0,.6), 0 18px 40px rgba(0,0,0,.55); }
+  .stageConsoleInner { display:flex; align-items:stretch; justify-content:center; gap:17px; flex:none; transform-origin:50% 100%; }
   .stageConsoleGroup { display:flex; flex-direction:column; justify-content:flex-end; gap:5px; min-width:0; }
   .stageConsoleLabel { font:600 10px/1 'Archivo',system-ui,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:#5fc9cc; opacity:.95; padding-left:2px; }
   .stageConsoleRow { display:flex; gap:6px; align-items:stretch; }
@@ -1637,6 +1638,7 @@
      context, no z-index/transform of its own so a blending canvas inside it blends with the room -- below the
      screens; inert. The overlay (setRoomOverlay): the same rect in #studioTrack, above the screens and the console. */
   body.xqStage #psRoom > .stageRoomLayer { position:absolute; overflow:hidden; pointer-events:none; }
+  body.xqStage #psRoom > .stageRoomLayer, body.xqStage #studioTrack > .stageRoomOverlay, body.xqStage #stageConsole { transition: left var(--cam-d) var(--cam-ease), top var(--cam-d) var(--cam-ease), width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease); }
   body.xqStage #studioTrack > .stageRoomOverlay { position:absolute; z-index:10; pointer-events:none; inset:auto; }
   /* #psRoom is inert and #studioTrack sits over it: while the Sound Box is the consumer the track lets
      the pointer through to the Sound Box's screen, and only its own screens and console catch it. */
@@ -1645,33 +1647,34 @@
   /* Step 3: the side screens -- LEFT the session plan, RIGHT now playing (stage grammar, STUDIO-STAGE.md §1a).
      Same panel treatment as the Game Tracker's screens; while the music plays they recede (body.sbPlaying):
      readable, but the centre screen, the lasers, the fog and the lighting are the focus (MIZE, 2026-09-21). */
-  .sbPanel { position:absolute; inset:0; padding:8% 7%; color:#eaf7f5; font-family:'Archivo',system-ui,-apple-system,sans-serif; font-size:13.5px; line-height:1.38; overflow:hidden; background:linear-gradient(180deg, rgba(2,8,8,.70), rgba(2,8,8,.86)); transition:opacity .6s ease; }
+  .sbPanel { position:absolute; inset:0; padding:8% 7%; color:#eaf7f5; font-family:'Archivo',system-ui,-apple-system,sans-serif; font-size:calc(13.5px * var(--sbK, 1)); line-height:1.38; overflow:hidden; background:linear-gradient(180deg, rgba(2,8,8,.70), rgba(2,8,8,.86)); transition:opacity .6s ease; }
   body.sbPlaying .sbPanel { opacity:.62; }
-  .sbPanel .sbSection { font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:#5fc9cc; margin:0 0 6px; }
-  .sbPanel .sbSection + .sbSection { margin-top:10px; border-top:1px solid rgba(46,202,184,.18); padding-top:6px; }
-  .sbPanel .sbSub { font-size:12px; color:#9fc9c6; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sbPanel .sbSection { font-size:0.704em; letter-spacing:.14em; text-transform:uppercase; color:#5fc9cc; margin:0 0 0.444em; }
+  .sbPanel .sbSection + .sbSection { margin-top:0.741em; border-top:1px solid rgba(46,202,184,.18); padding-top:0.444em; }
+  .sbPanel .sbSub { font-size:0.889em; color:#9fc9c6; margin-bottom:0.593em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #sbPlanInfo ol { list-style:none; margin:0; padding:0; }
-  #sbPlanInfo li { display:grid; grid-template-columns:1.4em 1fr auto; column-gap:6px; align-items:baseline; padding:4px 0 4px 6px; border-left:2px solid transparent; margin-left:-8px; white-space:nowrap; overflow:hidden; }
+  #sbPlanInfo li { display:grid; grid-template-columns:1.4em 1fr auto; column-gap:0.444em; align-items:baseline; padding:0.296em 0 0.296em 0.444em; border-left:2px solid transparent; margin-left:-8px; white-space:nowrap; overflow:hidden; }
   #sbPlanInfo li .n { color:#7c9a98; font-variant-numeric:tabular-nums; }
   #sbPlanInfo li .f { color:#f2fbfa; font-weight:600; overflow:hidden; text-overflow:ellipsis; }
-  #sbPlanInfo li .r { grid-column:2; color:#9ab8b6; font-size:10px; letter-spacing:.1em; text-transform:uppercase; line-height:1.1; }
-  #sbPlanInfo li .t { color:#9ab8b6; font-variant-numeric:tabular-nums; font-size:12px; }
+  #sbPlanInfo li .r { grid-column:2; color:#9ab8b6; font-size:0.741em; letter-spacing:.1em; text-transform:uppercase; line-height:1.1; }
+  #sbPlanInfo li .t { color:#9ab8b6; font-variant-numeric:tabular-nums; font-size:0.889em; }
   #sbPlanInfo li.now { border-left-color:#2ecab8; }
   #sbPlanInfo li.now .f { color:#7ff0ec; }
   #sbPlanInfo li.done { opacity:.45; }
-  #sbNowInfo .sbSection:not(:first-child) { margin-top:12px; border-top:1px solid rgba(46,202,184,.18); padding-top:6px; }
-  #sbNowInfo .sbWords { margin:6px 0 14px; text-align:center; }
-  #sbNowInfo .sbWords span { display:block; font-size:13.5px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#7ff0ec; line-height:1.9; }
+  #sbNowInfo .sbSection:not(:first-child) { margin-top:0.889em; border-top:1px solid rgba(46,202,184,.18); padding-top:0.444em; }
+  #sbNowInfo .sbWords { margin:0.444em 0 1.04em; text-align:center; }
+  #sbNowInfo .sbWords span { display:block; font-size:1em; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#7ff0ec; line-height:1.9; }
   #sbNowInfo .sbWords span:nth-child(2) { color:#c9f3f0; }
   #sbNowInfo .sbWords span:nth-child(3) { color:#2ecab8; }
-  #sbNowInfo .sbTitle { font-size:17px; font-weight:700; color:#f2fbfa; line-height:1.2; text-align:center; }
-  #sbNowInfo .sbFn { font-size:12px; color:#7ff0ec; letter-spacing:.12em; text-transform:uppercase; text-align:center; margin-top:3px; }
-  #sbNowInfo .sbAct { margin-top:10px; color:#d9efec; text-align:center; font-style:italic; }
-  #sbNowInfo .sbTime { margin-top:10px; text-align:center; color:#9ab8b6; font-variant-numeric:tabular-nums; }
-  #sbNowInfo .sbBar { height:3px; background:rgba(255,255,255,.10); border-radius:2px; margin:6px 10% 0; overflow:hidden; }
+  #sbNowInfo .sbTitle { font-size:1.26em; font-weight:700; color:#f2fbfa; line-height:1.2; text-align:center; }
+  #sbNowInfo .sbFn { font-size:0.889em; color:#7ff0ec; letter-spacing:.12em; text-transform:uppercase; text-align:center; margin-top:0.222em; }
+  #sbNowInfo .sbAct { margin-top:0.741em; color:#d9efec; text-align:center; font-style:italic; }
+  #sbNowInfo .sbTime { margin-top:0.741em; text-align:center; color:#9ab8b6; font-variant-numeric:tabular-nums; }
+  #sbNowInfo .sbBar { height:0.222em; background:rgba(255,255,255,.10); border-radius:2px; margin:0.444em 10% 0; overflow:hidden; }
   #sbNowInfo .sbBar i { display:block; height:100%; width:0; background:#2ecab8; transition:width .5s linear; }
   /* Step 4: under the fitted CENTER camera (phones, portrait) the side screens are off the edges or cut -- not shown */
   body[data-stage="soundbox"][data-cam="center"] #videoFrame, body[data-stage="soundbox"][data-cam="center"] #statsFrame { visibility:hidden; }
+  body[data-stage="soundbox"][data-cam="center"] #stageLights { display:none; }   /* the fixture strip is laid on the unzoomed room; the zoomed photograph has its own fixtures */
   /* Step 2: with the floor console in use (landscape >= 900 px) the Sound Box's fixed buttons are not shown */
   body.sbConsole #xqNP_home, body.sbConsole #xqModeBtn, body.sbConsole #xqControls { display:none !important; }
   /* ---- The Sound Box as a stage consumer (briefs/SOUNDBOX-STAGE-CONSUMER.md, Step 1) ---- */
@@ -5411,6 +5414,7 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         // the CENTER camera fitted so the Sound Box's screen is as wide as the viewport; the Sound Box's
         // own fixed buttons stay there (Step 4). Rotation is followed on the stage's layout event.
         XQStage.open('soundbox', { camera:(window._xqSB && !_xqSB.consoleFits()) ? 'center' : 'pan', lockCamera:true, instant:true, intro:false, fitScreen:true });
+        document.body.style.removeProperty('--sbK');
         XQStage.setRoomLayer(document.getElementById('xqStageLB'));   // screen, NP overlay, lighting, StageFX fog (blends with the room)
         XQStage.setRoomOverlay(document.getElementById('xqFX'));      // the lasers: over the screens (SS-001 §34-35)
         if(window._xqSB) _xqSB.console('idle');                       // the floor console: SYSTEM (Modes · Home); SESSION from Session Ready
@@ -12268,6 +12272,7 @@ const XQStage=(function(){
       con.innerHTML='';
       if(!spec || !spec.groups || !spec.groups.length){ con.style.display='none'; document.body.classList.remove('stageConsoleOn'); return; }
       const panel=document.createElement('div'); panel.className='stageConsolePanel';
+      const inner=document.createElement('div'); inner.className='stageConsoleInner'; panel.appendChild(inner);
       spec.groups.forEach(g=>{
         const grp=document.createElement('div'); grp.className='stageConsoleGroup';
         if(g.label) grp.dataset.group=String(g.label).toLowerCase();
@@ -12281,12 +12286,29 @@ const XQStage=(function(){
           if(typeof it.onTap==='function') b.addEventListener('click', e=>{ e.stopPropagation(); it.onTap(e); });
           row.appendChild(b);
         });
-        grp.appendChild(row); panel.appendChild(grp);
+        grp.appendChild(row); inner.appendChild(grp);
       });
       con.appendChild(panel); con.style.display='block';
       document.body.classList.add('stageConsoleOn');
       this.layout();
-      this._evenControls();
+      this._evenControls(); this._fitControls();
+    },
+    // The controls keep their designed size and are scaled down as one piece when the console is
+    // smaller than they are (a phone's room is a third of a desktop's); never scaled up.
+    _fitControls(){
+      const panel=document.querySelector('#stageConsole .stageConsolePanel'), inner=panel && panel.querySelector('.stageConsoleInner'); if(!inner) return;
+      inner.style.transform='';
+      const cs=getComputedStyle(panel);
+      const aw=panel.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight), ah=panel.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
+      const k=Math.min(1, aw/Math.max(1,inner.scrollWidth), ah/Math.max(1,inner.scrollHeight));
+      if(k<0.999) inner.style.transform='scale('+k.toFixed(3)+')';
+    },
+    // Is the console on screen (not cut off by a zoomed camera)? A consumer uses this to decide
+    // whether to fall back to its own controls.
+    consoleVisible(){
+      const c=el('stageConsole'); if(!c || getComputedStyle(c).display==='none') return false;
+      const r=c.getBoundingClientRect();
+      return r.width>40 && r.top>=-1 && r.bottom<=window.innerHeight+1 && r.left>=-1 && r.right<=window.innerWidth+1;
     },
     // Every control on the console stands as tall as the tallest one (MIZE, 2026-09-21: Modes and
     // Home the same height as the transport). Measured, not guessed: a big control with a sub-line
@@ -12304,7 +12326,7 @@ const XQStage=(function(){
       if(patch.sub!==undefined){ const l=b.querySelector('.stageConsoleBtnSub'); if(l) l.textContent=patch.sub; }
       if(patch.active!==undefined) b.classList.toggle('active', !!patch.active);
       if(patch.disabled!==undefined) b.disabled=!!patch.disabled;
-      if(patch.label!==undefined || patch.sub!==undefined) this._evenControls();
+      if(patch.label!==undefined || patch.sub!==undefined){ this._evenControls(); this._fitControls(); }
     },
     _emit: emit,
   };
@@ -22987,7 +23009,9 @@ function psStageLayout(){
   // screen (room x 25.5-74.5 %, y 84-97.5 %), foreshortened like the floor. Any consumer may
   // populate it (XQStage.setControls); it is laid out here whenever it holds controls.
   { const con=document.getElementById('stageConsole');
-    if(con && con.childElementCount){ con.style.left=(LB.left+0.235*LB.width)+'px'; con.style.top=(LB.top+0.835*LB.height)+'px'; con.style.width=(0.53*LB.width)+'px'; con.style.height=(0.15*LB.height)+'px'; } }
+    // Mapped through the room camera (like the walls), so it stays on the floor under a zoomed camera
+    // (the Sound Box's fitted CENTER on phones); under the Panorama this is the plain room box.
+    if(con && con.childElementCount){ const cb=psMapWallBox({x:0.235,y:0.835,w:0.53,h:0.15}, roomCam, LB); con.style.left=cb.left+'px'; con.style.top=cb.top+'px'; con.style.width=cb.width+'px'; con.style.height=cb.height+'px'; XQStage._fitControls(); } }
   const focusedKey = panorama ? null : ['video','board','stats'][studioFrameIndex];
   const boxes={};
   Object.keys(wall).forEach(k=>{
@@ -28895,13 +28919,27 @@ function _xqActStart(){
 // three fixed buttons stay (Step 4). The stage lays the console out; nothing here is drawn.
 var _xqCon={ phase:'idle', playing:false, sub:'' };
 function _xqConsoleFits(){ return window.innerWidth>=900 && window.innerWidth>window.innerHeight; }
+// The camera the Sound Box wants (MIZE, 2026-09-22): the whole room on landscape >= 900 px; on a phone
+// the fitted centre screen for the questions, and -- in landscape -- the whole room once the music
+// plays, so the console and both side screens come into view. Portrait stays on the centre screen,
+// where the console is already on the floor below it.
+function _xqWantCam(){
+  var landscape=window.innerWidth>window.innerHeight;
+  if(_xqConsoleFits()) return 'pan';
+  if(landscape && _xqSide.track) return 'pan';
+  return 'center';
+}
+function _xqFollowCam(animate){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='soundbox') return false;
+  var want=_xqWantCam();
+  if(XQStage.camera()===want) return false;
+  XQStage.setCamera(want, { instant:!animate, force:true });
+  return true;
+}
 function _xqConsole(phase, patch){
   if(phase) _xqCon.phase=phase;
   if(patch){ if(patch.playing!==undefined) _xqCon.playing=!!patch.playing; if(patch.sub!==undefined) _xqCon.sub=patch.sub; }
   if(typeof XQStage==='undefined' || XQStage.consumer()!=='soundbox') return;
-  var fits=_xqConsoleFits();
-  document.body.classList.toggle('sbConsole', fits);
-  if(!fits){ XQStage.setControls(null); return; }
   var groups=[];
   if(_xqCon.phase==='session'){
     groups.push({ label:'Session', items:[
@@ -28919,10 +28957,14 @@ function _xqConsole(phase, patch){
     { id:'home', label:'Home', title:'Sound Box welcome screen', onTap:_xqActHome },
   ]});
   XQStage.setControls({ groups:groups });
+  _xqConsoleShown();
 }
+// The console is always populated; the Sound Box's own fixed buttons show only when the camera
+// leaves it off screen (a landscape phone during the questions).
+function _xqConsoleShown(){ document.body.classList.toggle('sbConsole', XQStage.consoleVisible()); }
 function _xqConsoleUpdate(patch){
   if(patch){ if(patch.playing!==undefined) _xqCon.playing=!!patch.playing; if(patch.sub!==undefined) _xqCon.sub=patch.sub; }
-  if(typeof XQStage==='undefined' || XQStage.consumer()!=='soundbox' || _xqCon.phase!=='session' || !document.body.classList.contains('sbConsole')) return;
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='soundbox' || _xqCon.phase!=='session') return;
   XQStage.updateControl('play', { label:_xqCon.playing?'Pause':'Play', sub:_xqCon.sub||'', active:_xqCon.playing });
 }
 // ---- The side screens (Step 3). LEFT (media): the session plan from onSessionBuilt / session().
@@ -28944,6 +28986,7 @@ function _xqSideClear(){
   ['sbPlanInfo','sbNowInfo'].forEach(function(id){ var n=document.getElementById(id); if(n){ XQStage.setScreen(n.id==='sbPlanInfo'?'media':'info', null); n.remove(); } });
   _xqSide.plan=null; _xqSide.track=null; clearInterval(_xqSide.timer); _xqSide.timer=null;
   document.body.classList.remove('sbPlaying');
+  _xqFollowCam(true);
 }
 function _xqPlanRender(){
   var s=_xqSide.plan; if(!s || !s.plan || !s.plan.length){ return; }
@@ -28984,15 +29027,17 @@ function _xqNowTick(){
 }
 window._xqSB={ home:_xqActHome, start:_xqActStart, console:_xqConsole, consoleUpdate:_xqConsoleUpdate, consoleFits:_xqConsoleFits,
   sessionBuilt:function(s){ _xqSide.plan=s; _xqSide.track=null; _xqPlanRender(); },
-  track:function(t){ _xqSide.track=t; _xqPlanRender(); _xqNowRender(); },
+  track:function(t){ var first=!_xqSide.track; _xqSide.track=t; _xqPlanRender(); _xqNowRender(); if(first) _xqFollowCam(true); },
   playing:function(on){ document.body.classList.toggle('sbPlaying', !!on && XQStage.consumer()==='soundbox'); },
   clearScreens:_xqSideClear };
 if(typeof XQStage!=='undefined') XQStage.on('layout', function(){
   if(XQStage.consumer()!=='soundbox') return;
   // a rotation or resize across the 900 px / landscape line: camera and console follow
-  var want=_xqConsoleFits() ? 'pan' : 'center';
-  if(XQStage.camera()!==want){ XQStage.setCamera(want, { instant:true, force:true }); return; }   // setCamera lays out again -> back here
-  if(document.body.classList.contains('sbConsole')!==_xqConsoleFits()) _xqConsole();
+  if(_xqFollowCam(false)) return;   // setCamera lays out again -> back here
+  // side-screen type scales with the room (a phone's room is a third of a desktop's)
+  var lb=document.getElementById('psRoomLB'); var rw=lb ? lb.getBoundingClientRect().width : 1440;
+  document.body.style.setProperty('--sbK', Math.max(0.55, Math.min(1, rw/1100)).toFixed(3));
+  setTimeout(_xqConsoleShown, 0); setTimeout(_xqConsoleShown, 1100); setTimeout(_xqConsoleShown, 2200);   // after a camera move settles
 });
 // Home button (position:fixed; the layouts without a console)
 if(npHomeEl){
