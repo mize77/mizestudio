@@ -7052,6 +7052,15 @@ XQUIX.CloudProvider = (function(){
   // carries a full formation per drill, the ~5 MB area was already full on his Mac, and their offline copy is
   // the IndexedDB mirror (OfflineDB), which has room. Their device key is the signed-out store, not a backup.
   function localBackup(kind, name, record){ if(kind==='practice') return; XQUIX.LocalStorageProvider.saveItem(kind, name, record); }
+  let flushing = null;
+  const superseded = new Set();
+  function opKey(kind, name){ return kind+'\u0000'+name; }
+  // Postgres/PostgREST refusing the row itself: a check or not-null violation, bad input syntax, an unknown
+  // column. Not a conflict (23505), not the quota (P0100, handled by its caller), not auth or network.
+  function isPermanentRefusal(err){
+    const c = String((err && err.code) || '');
+    return c==='23514' || c==='23502' || c==='22P02' || c==='42703' || c==='PGRST204';
+  }
   function localBackupDelete(kind, name){ if(kind==='practice') return; XQUIX.LocalStorageProvider.deleteItem(kind, name); }
 
   // Cloud rows are normalized (name/owner/etc. as real columns, tactical
@@ -7153,7 +7162,7 @@ XQUIX.CloudProvider = (function(){
       for(const item of offlineItems){ ensureKindCache(item.kind)[item.name] = item.record; }
 
       if(!client || !XQUIX.Auth.getCurrentUser()) return;
-      if(!isOnline()){ setSyncStatus('offline'); await this.flushPendingOps(); return; }
+      if(!isOnline()){ setSyncStatus('offline'); return; }
       const uid = XQUIX.Auth.getCurrentUser().id;
       try {
         const { data, error } = await withTimeout(
@@ -7188,7 +7197,10 @@ XQUIX.CloudProvider = (function(){
         console.error('XQUIX.CloudProvider: loadAll network refresh failed, showing offline/cached state:', err);
         setSyncStatus('offline');
       }
-      await this.flushPendingOps(); // in case ops were queued during a previous offline session
+      // In case ops were queued during a previous offline session -- in the BACKGROUND (2026-09-22): the sign-in
+      // switch (xquixSwitchToCloudProvider) awaits loadAll, and a long queue held the whole Studio on the device
+      // store for tens of seconds after launch (MIZE's practice saves went nowhere visible in that window).
+      this.flushPendingOps().catch(e=>console.error('XQUIX.CloudProvider: background flush failed:', e));
     },
     setClient(c){ client = c; },
     isLoaded(kind){ return loaded[kind] || loadedAllOnce; },
@@ -7199,11 +7211,19 @@ XQUIX.CloudProvider = (function(){
     // trigger a retry.
     async flushPendingOps(){
       if(!client || !XQUIX.Auth.getCurrentUser() || !isOnline()) return;
+      if(flushing) return flushing;   // one flush at a time (loadAll, 'online', a caller)
+      flushing = (async()=>{ try { await this._flush(); } finally { flushing = null; } })();
+      return flushing;
+    },
+    async _flush(){
       const ops = await XQUIX.OfflineDB.getPendingOps();
       if(!ops.length) return;
       setSyncStatus('saving');
-      let anyFailed = false;
+      let anyFailed = false, dropped = 0;
       for(const op of ops){
+        // A live save of the same item since this op was queued supersedes it: replaying it too inserted the
+        // same name twice at once (the second came back as a "conflict copy" -- MIZE's "MIZE Test XY", 2026-09-22).
+        if(op.type==='save' && superseded.has(opKey(op.kind, op.name))){ await XQUIX.OfflineDB.clearPendingOp(op.opId); continue; }
         try {
           if(op.type==='save'){
             const opKindCache = ensureKindCache(op.kind);
@@ -7227,8 +7247,15 @@ XQUIX.CloudProvider = (function(){
             await pushDeleteToServer(op.assetId);
           }
           await XQUIX.OfflineDB.clearPendingOp(op.opId);
-        } catch(err) { anyFailed = true; } // leave it queued, try again next time
+        } catch(err) {
+          // The server refusing the ROW (not the network) is permanent: retrying can never succeed, and every
+          // launch replayed them all -- hundreds of 400s, tens of seconds (2026-09-22). The item itself stays on
+          // this device (OfflineDB mirror + local backup); only the retry is dropped.
+          if(isPermanentRefusal(err)){ dropped++; console.warn('XQUIX.CloudProvider: the library refused "'+op.name+'" ('+op.kind+'): '+(err.message||err.code)+' -- kept on this device, no longer retried.'); await XQUIX.OfflineDB.clearPendingOp(op.opId); }
+          else anyFailed = true; // leave it queued, try again next time
+        }
       }
+      if(dropped) console.warn('XQUIX.CloudProvider: '+dropped+' queued save(s) dropped from the retry queue (refused by the library).');
       setSyncStatus(anyFailed ? 'pending' : 'synced');
       if(typeof renderCustomSystems==='function') renderCustomSystems();
       if(typeof renderPackages==='function') renderPackages();
@@ -7255,7 +7282,10 @@ XQUIX.CloudProvider = (function(){
       localBackup(kind, name, record); // silent local backup -- see comment above the module
       await XQUIX.OfflineDB.putItem(kind, name, record); // durable -- survives reload even before any network attempt
       if(!client || !XQUIX.Auth.getCurrentUser()) return record;
+      superseded.add(opKey(kind, name));   // this save replaces anything queued for the same item
+      try { for(const op of await XQUIX.OfflineDB.getPendingOps()){ if(op.type==='save' && op.kind===kind && op.name===name) await XQUIX.OfflineDB.clearPendingOp(op.opId); } } catch(e){}
       if(!isOnline()){
+        superseded.delete(opKey(kind, name));   // this one IS the queued op now
         await XQUIX.OfflineDB.queueOp({ type:'save', kind, name, record, knownCloudId: knownId, knownCloudRevision: knownRevision });
         setSyncStatus('pending');
         return record;
@@ -7303,7 +7333,13 @@ XQUIX.CloudProvider = (function(){
           setSyncStatus('idle');
           throw err;
         }
+        if(isPermanentRefusal(err)){   // never queue what the library will always refuse; the caller is told
+          console.error('XQUIX.CloudProvider: the library refused this save:', err);
+          setSyncStatus('idle');
+          throw err;
+        }
         console.error('XQUIX.CloudProvider: cloud save failed, queued for retry:', err);
+        superseded.delete(opKey(kind, name));
         await XQUIX.OfflineDB.queueOp({ type:'save', kind, name, record, knownCloudId: knownId, knownCloudRevision: knownRevision });
         setSyncStatus('pending');
       }
@@ -19838,7 +19874,7 @@ let _prLoading=null, _prMigrating=false;
 // Load the library's plans (once per sign-in), then move any plan saved only on this device into the library.
 async function prEnsurePlansLoaded(){
   if(!prCloudOn()) return;
-  if(!_prLoading) _prLoading=(async()=>{ try{ await XQUIX.StorageProvider.listStore(PRACTICE_KIND); }catch(e){ console.error('Practice plans: library load failed', e); } })();
+  if(!_prLoading) _prLoading=(async()=>{ try{ if(!XQUIX.CloudProvider.isLoaded(PRACTICE_KIND)) await XQUIX.StorageProvider.listStore(PRACTICE_KIND); }catch(e){ console.error('Practice plans: library load failed', e); } })();
   await _prLoading;
   await prMigrateDevicePlans();
 }
@@ -20083,11 +20119,30 @@ document.getElementById('saveSessionBtn').addEventListener('click', async ()=>{
   const name=(document.getElementById('sessionNameInput').value||'').trim();
   if(!name){ MizeDialog.alert('Give this session a name first.'); return; }
   if(!currentSessionBlocks.length || !currentSessionBlocks.some(b=>b.drills.length)){ MizeDialog.alert('Add at least one block with a drill before saving.'); return; }
-  const tagsInput=await MizeDialog.prompt('Coaching DNA tags for this session (comma-separated, optional) — e.g. U16, Transition:','');
+  if(_prSaving) return;   // one save at a time: a second tap while the first was still waiting saved the plan twice
+  _prSaving=true;
+  let tagsInput='';
+  try{ tagsInput=await MizeDialog.prompt('Coaching DNA tags for this session (comma-separated, optional) — e.g. U16, Transition:',''); }
+  catch(e){ _prSaving=false; throw e; }
   const coachingDNA=(tagsInput||'').split(',').map(t=>t.trim()).filter(Boolean);
   const rec=buildSessionRecord(name, coachingDNA);
+  prSaveBusy(true);
+  try{ await prSaveRecord(name, rec); }
+  catch(err){ console.error('Practice save failed:', err); MizeDialog.alert('The session could not be saved: '+(err && err.message || err)+'. It is still in the builder.', 'Session not saved'); }
+  finally { _prSaving=false; prSaveBusy(false); }
+});
+let _prSaving=false;
+function prSaveBusy(on){
+  const b=document.getElementById('saveSessionBtn'); if(b){ b.disabled=on; b.textContent=on?'Saving\u2026':'Save Session'; }
+  if(typeof XQStage!=='undefined' && XQStage.consumer()==='practice') XQStage.updateControl('save', { label:on?'Saving\u2026':'Save', disabled:on });
+}
+async function prSaveRecord(name, rec){
+  // Signed in but the Studio is still switching to the library (the first seconds after launch): wait for it,
+  // briefly -- never put a signed-in coach's plan into the device store by accident.
+  if(typeof XQUIX!=='undefined' && XQUIX.Auth && XQUIX.Auth.getCurrentUser() && XQUIX.StorageProvider!==XQUIX.CloudProvider){
+    for(let i=0;i<40 && XQUIX.StorageProvider!==XQUIX.CloudProvider;i++) await new Promise(r=>setTimeout(r,250));
+  }
   const cloud=prCloudOn();
-  if(cloud) await prEnsurePlansLoaded();
   const existing=XQUIX.StorageProvider ? XQUIX.StorageProvider.getItemSync(PRACTICE_KIND, name) : null;
   if(existing && existing.createdAt) rec.createdAt=existing.createdAt;
   // Through the library (signed in) or the device store (signed out) -- XQUIX.Storage never throws.
@@ -20121,7 +20176,7 @@ document.getElementById('saveSessionBtn').addEventListener('click', async ()=>{
     return;
   }
   if(typeof xquixHomeShowToast==='function') xquixHomeShowToast('“'+name+'” saved on this device. Sign in to keep your plans in your library.');
-});
+}
 
 // ===== Practice on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md) =====
 // One consumer, 'practice', two phases. BUILD (§3a): the Drill Library on the left screen, the session

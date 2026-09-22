@@ -2681,7 +2681,12 @@ async function xgtOfferToFinishGame(force) {
   }
 
   var message;
-  if (syncResult.status === 'error') {
+  if (syncResult.status === 'error' && /check constraint|violates|object_type/i.test(syncResult.message || '')) {
+    // The library refused the row itself (2026-09-22: it does not accept Game Tracker sessions yet) -- not the sign-in.
+    message = 'Saved as ' + name + ' on this device. The Coaching Library does not accept Game Tracker sessions yet, so it was not uploaded \u2014 this is a setup issue on our side, not your sign-in. '
+            + 'A CSV export was downloaded automatically. '
+            + 'Open the Library on this device to export a PDF.';
+  } else if (syncResult.status === 'error') {
     message = 'Saved as ' + name + ' on this device, but uploading to the Coaching Library failed \u2014 your sign-in session may have expired. '
             + 'A CSV export was downloaded automatically. '
             + 'Open the Library on this device to export a PDF, or sign in again and the session will sync.';
