@@ -834,7 +834,7 @@ function syncSessionToCloud() {
     try {
       var authClient = XQUIX.Auth.getClient && XQUIX.Auth.getClient();
       preRefresh = (authClient && authClient.auth)
-        ? authClient.auth.refreshSession().catch(function () {})
+        ? authClient.auth.getSession().catch(function () {})   // refreshes only when due, under the client's lock (a forced refresh raced the client's own)
         : Promise.resolve();
     } catch (e) { preRefresh = Promise.resolve(); }
     return preRefresh.then(function () {

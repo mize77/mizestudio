@@ -3834,7 +3834,15 @@ let GUEST_EXPERIENCE_MODE = false;
 // resolves. Scoped to the main Studio only; the separate Guest
 // Experience deployment already has its own, different gate further
 // down and must never show this one too.
-if(!GUEST_EXPERIENCE_MODE) showFreeAccessOverlay('freeAccessEmailScreen');
+// Unless this device already holds a stored session (2026-09-22): then the Studio waits for auth to
+// confirm it instead of flashing the email screen for the seconds a cold start on a phone takes --
+// which read as "signed out" and invited a needless re-verification. If auth then resolves with no
+// user, xquixResolveFreeAccessGate shows the screen.
+function xquixHasStoredSession(){
+  try { for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(/^sb-[a-z0-9]+-auth-token$/.test(k||'') && localStorage.getItem(k)) return true; } } catch(e){}
+  return false;
+}
+if(!GUEST_EXPERIENCE_MODE && !xquixHasStoredSession()) showFreeAccessOverlay('freeAccessEmailScreen');
 // Viewer Mode ("USA WP Experience"): a restricted, tutorial-guided build
 // for sharing specific drill(s) with someone who shouldn't have full
 // studio access and has no access to the coach's own library (which is
@@ -4683,8 +4691,22 @@ XQUIX.Auth = (function(){
 
   try {
     if(typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function'){
+      // STAYING SIGNED IN (2026-09-22). supabase-js drops the stored session whenever a token refresh
+      // fails with anything it does not class as a network error -- and it classes a 500 from the auth
+      // server as final. On 2026-09-22 the auth server answered a refresh with a 500 ("error finding
+      // refresh token: context canceled", a database timeout on Supabase's side) and the coach's iPhone
+      // was signed out and had to verify by email again. This fetch turns a 5xx on the token endpoint
+      // into a network failure, which supabase-js retries and never treats as a sign-out. A real
+      // rejection (400: revoked or invalid refresh token) is untouched and still signs out.
+      const xqAuthFetch = async (input, init) => {
+        const res = await fetch(input, init);
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        if(res.status >= 500 && /\/auth\/v1\/token/.test(url)) throw new TypeError('XquiX: auth server busy ('+res.status+'), keeping the session and retrying');
+        return res;
+      };
       client = window.supabase.createClient(XQUIX_SUPABASE_CONFIG.url, XQUIX_SUPABASE_CONFIG.publishableKey, {
-        auth: { persistSession: true, autoRefreshToken: true }
+        auth: { persistSession: true, autoRefreshToken: true },
+        global: { fetch: xqAuthFetch }
       });
     }
   } catch(err) { console.error('XQUIX.Auth: client init failed, continuing in local-only mode:', err); client = null; }
@@ -5022,6 +5044,7 @@ async function submitFreeAccessEmail(){
   // email used to verify it can never silently diverge in casing.
   const email = (input?.value || '').trim().toLowerCase();
   freeAccessShowError('');
+  try { if(email) localStorage.setItem('xquixLastEmail', email); } catch(e){}
   // Format check only, same reasoning as every other email-gate this
   // project has built -- real validation is the email actually arriving
   // and the link being clickable.
@@ -5049,6 +5072,8 @@ async function submitFreeAccessEmail(){
   }
 }
 document.getElementById('freeAccessSubmitBtn')?.addEventListener('click', submitFreeAccessEmail);
+// The email this device last signed in with, pre-filled (it is only ever the coach's own address).
+try { const _le=localStorage.getItem('xquixLastEmail'); const _in=document.getElementById('freeAccessEmailInput'); if(_le && _in && !_in.value) _in.value=_le; } catch(e){}
 document.getElementById('freeAccessEmailInput')?.addEventListener('keydown', (e)=>{
   if(e.key === 'Enter') submitFreeAccessEmail();
 });
@@ -5328,7 +5353,14 @@ function xquixResolveFreeAccessGate(){
     }
   }
 }
-XQUIX.Auth.init().then(()=>{ renderAccountUI(); xquixResolveFreeAccessGate(); });
+XQUIX.Auth.init().then(()=>{
+  renderAccountUI(); xquixResolveFreeAccessGate();
+  // A stored session that auth could not confirm (really gone, or the refresh is still retrying):
+  // give the retries a moment, then show the sign-in screen if there is still no user.
+  if(!GUEST_EXPERIENCE_MODE && XQUIX.Auth.isAvailable() && !XQUIX.Auth.getCurrentUser()){
+    setTimeout(()=>{ if(!XQUIX.Auth.getCurrentUser() && !document.querySelector('.freeAccessOverlay.open')) { showFreeAccessOverlay('freeAccessEmailScreen'); } }, xquixHasStoredSession() ? 8000 : 0);
+  }
+});
 XQUIX.Auth.onChange(xquixResolveFreeAccessGate);
 
 // Brief, auto-dismissing message -- used for the honest "not built yet"
@@ -19951,7 +19983,10 @@ document.addEventListener('visibilitychange', function () {
   if (document.visibilityState !== 'visible') return;
   if (typeof XQUIX === 'undefined' || !XQUIX.Auth || !XQUIX.Auth.getCurrentUser()) return;
   var client = XQUIX.Auth.getClient && XQUIX.Auth.getClient();
-  if (client && client.auth) client.auth.refreshSession().catch(function () {});
+  // getSession(), not refreshSession(): it refreshes only when the token is due, under the client's
+  // own lock. refreshSession() here raced the client's own foreground refresh -- two rotations of
+  // the same refresh token at the same second (seen in the auth log 2026-09-22 17:03:17).
+  if (client && client.auth) client.auth.getSession().catch(function () {});
 });
 
 // Conflict-resolution alerts are deferred when any full-screen flow owns
