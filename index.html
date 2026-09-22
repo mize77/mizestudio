@@ -1626,9 +1626,21 @@
   .xgtBarHost .xgtPill.in { background:#2ecab8; color:#052a27; }
   .xgtBarHost .xgtPill.out { color:#9fc9c6; border-color:rgba(255,255,255,.25); background:transparent; }
   #gtStageBanner { position:absolute; left:50%; top:6%; transform:translateX(-50%); z-index:8; max-width:80%; padding:10px 18px; border-radius:10px; background:rgba(3,10,10,.85); border:1px solid rgba(46,202,184,.5); color:#f2fbfa; font:600 14px/1.35 'Archivo',system-ui,sans-serif; text-align:center; pointer-events:none; box-shadow:0 0 24px 4px rgba(46,202,184,.25); }
-  body[data-stage="home"] #psRoom { z-index:8998; }
-  body[data-stage="home"] #studioTrack { z-index:8999; }
-  body[data-stage="home"] #stageLights { z-index:9000; }
+  body[data-stage="home"] #psRoom, body[data-stage="soundbox"] #psRoom { z-index:8998; }
+  body[data-stage="home"] #studioTrack, body[data-stage="soundbox"] #studioTrack { z-index:8999; }
+  body[data-stage="home"] #stageLights, body[data-stage="soundbox"] #stageLights { z-index:9000; }
+  /* The room layer (XQStage.setRoomLayer): on the room rect, over the screens and the console, inert. */
+  body.xqStage #studioTrack > .stageRoomLayer { position:absolute; z-index:10; overflow:hidden; pointer-events:none; transition: transform var(--cam-d) var(--cam-ease); will-change:transform; }
+  /* ---- The Sound Box as a stage consumer (briefs/SOUNDBOX-STAGE-CONSUMER.md, Step 1) ---- */
+  body[data-stage="soundbox"] #psRoomLB .room { filter:brightness(.82) saturate(.92); animation:none; }   /* the Sound Box's Dormant room */
+  body[data-stage="soundbox"] #stageWrap { visibility:hidden; }                                          /* the board is not a Sound Box screen */
+  #xqStageLB.stageRoomLayer { aspect-ratio:auto; width:auto; }                                           /* sized by the stage, not by the viewport */
+  #xqStageLB.stageRoomLayer > .room { display:none; }                                                    /* one photograph: the stage's */
+  body[data-stage="soundbox"] .studioFramePlaceholder, body[data-stage="soundbox"] .studioFrameClearBtn { display:none !important; }
+  body[data-stage="soundbox"] #studioNavLeft, body[data-stage="soundbox"] #studioNavRight, body[data-stage="soundbox"] #studioFrameDots,
+  body[data-stage="soundbox"] header, body[data-stage="soundbox"] #edgeTabStack, body[data-stage="soundbox"] #quickCommandBar,
+  body[data-stage="soundbox"] #showQuickCommandBarTab, body[data-stage="soundbox"] #controlsPanel, body[data-stage="soundbox"] #timelinePanel,
+  body[data-stage="soundbox"] #toolPanelBackdrop, body[data-stage="soundbox"] #coachingNotesSidebar, body[data-stage="soundbox"] #closeHeaderBtn { display:none !important; }
   .xquixHomeEyebrow { font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:700; letter-spacing:.16em; color:#2dd4c8; text-transform:uppercase; margin:0 0 10px; }
   #brandLogoHome { display:none; }
   .xquixHomeHeading { position:absolute; left:0; right:0; top:calc(var(--gap) * .55); margin:0; text-align:center; font-family:'Archivo',system-ui,-apple-system,sans-serif;
@@ -4795,9 +4807,7 @@ const XQUIX_HOME_MODES = ['tutorials','coaching','gametracker','presenting','pra
 const XQUIX_HOME_LOCKED_MESSAGE = 'Available on a higher plan.';
 
 function xquixShowHome(){
-  // Hide Sound Box stage if open
-  var stg=document.getElementById('xqStage');
-  if(stg) stg.classList.remove('on');
+  // The Sound Box, if open, is the stage's consumer: XQStage.open('home') below closes it.
   ['xqNP','xqControls','xqNP_home','xqModeBtn'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.classList.remove('on','playing');
   });
@@ -5311,14 +5321,21 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
       const gateOk = (typeof XQUIX==='undefined' || !XQUIX.Entitlements || !XQUIX.Entitlements.canFunction) || XQUIX.Entitlements.canFunction('M01');
       if(!gateOk){ xquixShowHome(); return; }
       closeToolPanels();
-      // Raise the stage backdrop before the Sound Studio overlay opens.
-      var _stg = document.getElementById('xqStage');
-      if(_stg) _stg.classList.add('on');
+      // The Sound Box is a consumer of the shared Studio Stage (briefs/SOUNDBOX-STAGE-CONSUMER.md):
+      // the stage owns the room; #xqStageLB -- the Sound Box's screen, its NP overlay and its three
+      // effect canvases, all in letterbox fractions -- is the stage's room layer. #xqStage (the
+      // Sound Box's own black backdrop with a second copy of the photograph) is no longer shown.
+      if(typeof XQStage!=='undefined'){
+        XQStage.open('soundbox', { camera:'pan', lockCamera:true, instant:true, intro:false });
+        XQStage.setRoomLayer(document.getElementById('xqStageLB'));
+      }
       // Attach StageFX (WebGL fog + laser halo) behind the screen.
       // Falls back to null if WebGL unavailable; canvas fog stays active in that case.
       // Build StageFX with beams computed from actual screen position
       window._buildStageFX=function(){
-        var stg=document.getElementById('xqStage');
+        // StageFX draws in the room layer (#xqStageLB) so its fog sources and beams are room
+        // fractions -- the same frame every other Sound Box effect and the Stage Editor use.
+        var stg=document.getElementById('xqStageLB');
         if(!stg||typeof MIZE==='undefined'||!MIZE.StageFX) return;
         if(_stFX){try{_stFX.destroy();}catch(e){}  _stFX=null;}
         var old=document.getElementById('xqStageFX');
@@ -5328,15 +5345,6 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
         if(!lb){setTimeout(window._buildStageFX,200);return;}
         var r=lb.getBoundingClientRect();
         if(r.width<10){setTimeout(window._buildStageFX,200);return;}
-        var vw=window.innerWidth,vh=window.innerHeight;
-        // Screen CSS: left=24% top=16% width=52% height=62% of letterbox
-        var sl=r.left+r.width*0.24, sr=r.left+r.width*0.76;
-        var st=r.top+r.height*0.16,  sb=r.top+r.height*0.78;
-        var xl=sl/vw-0.073, xr=sr/vw-0.073; // 0.207-0.28=-0.073
-        var yb=1-sb/vh, yt=1-st/vh;
-        var xc=(xl+xr)/2, dy=Math.max(0.01,yt-yb);
-        var x1=xl+(xc-xl)/dy*(1-yb), x2=xr+(xc-xr)/dy*(1-yb);
-        console.log('[StageFX] beams xl='+xl.toFixed(3)+' xr='+xr.toFixed(3)+' vw='+vw+' vh='+vh);
         var mob=navigator.maxTouchPoints>0;
         // Fog machine layout comes from window._fogCfg (defaults XQ_FOG_DEFAULTS in the stage script,
         // overridden live by the Stage Editor when ?editor=1).
@@ -12103,6 +12111,7 @@ const XQStage=(function(){
         ['left','top','width','height','transform','transformOrigin'].forEach(k=>{ f.style[k]=''; });
         f.classList.remove('camOff','onWall','camFocus'); });
       this.setScreen('tactical', null);
+      this.setRoomLayer(null);
       this.setControls(null);
       _open=false; _consumer=null; _opts={};
       emit('close', was);
@@ -12138,6 +12147,20 @@ const XQStage=(function(){
       emit('screen', {key, empty:!node});
     },
     on(ev, cb){ (_subs[ev]=_subs[ev]||[]).push(cb); return ()=>{ _subs[ev]=(_subs[ev]||[]).filter(f=>f!==cb); }; },
+    // ---- Room layer (2026-09-21, Sound Box brief §3.1) ----
+    // A consumer's node laid out on the room rect and moved with the room camera, above the
+    // three screens and the console, inert to the pointer (its own descendants opt back in).
+    // The Sound Box's effects live here: lasers that cross the screens, fog on the floor,
+    // its own centre-screen content. One layer at a time; close() clears it.
+    setRoomLayer(node){
+      const track=el('studioTrack'); if(!track) return;
+      const old=track.querySelector(':scope > .stageRoomLayer');
+      if(old && old!==node){ old.classList.remove('stageRoomLayer'); ['position','left','top','width','height','transform','transformOrigin'].forEach(k=>{ old.style[k]=''; }); (old._stageHome||document.body).appendChild(old); }
+      if(node){ if(!node._stageHome) node._stageHome=node.parentElement; node.classList.add('stageRoomLayer'); if(node.parentElement!==track) track.appendChild(node); }
+      document.body.classList.toggle('stageRoomLayerOn', !!node);
+      if(node && _open) this.layout();
+    },
+    roomLayer(){ const track=el('studioTrack'); return track ? track.querySelector(':scope > .stageRoomLayer') : null; },
     // ---- Stage Control Surface (2026-09-21, Step 5) ----
     // The physical console in the studio floor. A consumer describes its controls once:
     //   setControls({ groups:[ { label:'GAME', items:[ { id:'clock', label:'Q1 · 8:00', big:true, active:false, onTap:fn }, … ] }, … ] })
@@ -12222,10 +12245,16 @@ let _camState='pan', _camMoveTimer=null;
 function psCameraState(){ return studioPanorama ? 'pan' : ['left','center','right'][studioFrameIndex]; }
 function psApplyRoomCamera(state, LB){
   const lb=document.getElementById('psRoomLB'); if(!lb) return;
+  psApplyRoomTransform(lb, state, LB);
+  // A consumer's room layer (XQStage.setRoomLayer) is the same rect under the same camera.
+  const layer=(typeof XQStage!=='undefined') ? XQStage.roomLayer() : null;
+  if(layer){ layer.style.position='absolute'; layer.style.left=LB.left+'px'; layer.style.top=LB.top+'px'; layer.style.width=LB.width+'px'; layer.style.height=LB.height+'px'; psApplyRoomTransform(layer, state, LB); }
+}
+function psApplyRoomTransform(node, state, LB){
   const c=PS_CAMERA[state];
-  if(!c){ lb.style.transformOrigin=''; lb.style.transform=''; return; }
-  lb.style.transformOrigin=(c.ox*LB.width)+'px '+(c.oy*LB.height)+'px';
-  lb.style.transform='translate('+(c.tx*LB.width)+'px,0) scale('+c.S+')';
+  if(!c){ node.style.transformOrigin=''; node.style.transform=''; return; }
+  node.style.transformOrigin=(c.ox*LB.width)+'px '+(c.oy*LB.height)+'px';
+  node.style.transform='translate('+(c.tx*LB.width)+'px,0) scale('+c.S+')';
 }
 // A wall box (fractions of the letterbox) as it appears on screen under the camera.
 function psMapWallBox(b, state, LB){
@@ -23242,7 +23271,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
     setTimeout(function(){
       var _c=window._xqSFXCanvas;
       if(!_c){
-        var stg=document.getElementById('xqStage');
+        var stg=document.getElementById('xqStageLB');
         if(stg) Array.from(stg.querySelectorAll('canvas')).forEach(function(cnv){
           if(cnv.id!=='xqCanvas'&&cnv.id!=='xqFX'&&cnv.id!=='xqNPCanvas') _c=cnv;
         });
@@ -28487,14 +28516,17 @@ function resize(){
   if(_nc&&cnv.width>100){_nc.width=Math.round(cnv.width*0.52);_nc.height=Math.round(cnv.height*0.62);}
   buildBg(cnv.width,cnv.height);
 }
-var _rsT;window.addEventListener('resize',function(){clearTimeout(_rsT);_rsT=setTimeout(function(){resize();if(document.getElementById('xqStage')&&document.getElementById('xqStage').classList.contains('on')&&window._buildStageFX)_buildStageFX();},200);});
+// "The Sound Box is on": it is the stage's consumer (body[data-stage="soundbox"]).
+window._xqStageOn=function(){ return document.body.getAttribute('data-stage')==='soundbox'; };
+// The stage lays the room layer out (open, resize, camera): size the canvases to it then.
+if(typeof XQStage!=='undefined') XQStage.on('layout', function(){ if(!window._xqStageOn()) return; var lb=document.getElementById('xqStageLB'); if(lb && (cnv.width!==lb.offsetWidth || cnv.height!==lb.offsetHeight)) resize(); });
+var _rsT;window.addEventListener('resize',function(){clearTimeout(_rsT);_rsT=setTimeout(function(){resize();if(window._xqStageOn()&&window._buildStageFX)_buildStageFX();},200);});
 
 // ── Frame loop ──────────────────────────────────────────────────────────────
 var lastTs=0;
 function frame(ts){
   requestAnimationFrame(frame);
-  var st=document.getElementById('xqStage');
-  if(!st||!st.classList.contains('on')){lastTs=ts;return;}
+  if(!window._xqStageOn()){lastTs=ts;return;}
   var dt=Math.min(ts-lastTs,50);lastTs=ts;
   var W=cnv.width,H=cnv.height;
   if(!W||!H)return;
@@ -28510,7 +28542,7 @@ function frame(ts){
   ctx.clearRect(0,0,W,H);
   (function(){var t=isPlaying?0.20:1.0;if(_xqSt.countdown>0)t=Math.max(0.20,1.0-(5-_xqSt.countdown)/5*0.80);_xqSt.spotDim=(_xqSt.spotDim||1.0)+(t-(_xqSt.spotDim||1.0))*Math.min(1,dt*0.003);})();
   if(isPlaying||_xqSt.countdown>0)drawSpots(W,H,bass,rms,bd,ts,_xqSt.spotDim);
-  if(!_stFX){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}
+  if(!_stFX&&typeof tickFog==='function'&&typeof drawFog==='function'){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}   // the canvas-fog fallback is not in this build; without WebGL there is no fog rather than an error every frame
   if(fxCtx){fxCtx.clearRect(0,0,W,H); if(isPlaying) drawLasers(W,H,ts,bass,hit,bd);}
   drawNPScreen(ts,bass,mid,high,rms,hit);
   // HTML countdown inside #xqNP
@@ -28569,9 +28601,10 @@ window._syncStageBeams=function(){
   if(!_stFX) return;
   var lb=document.getElementById('xqStageLB'); if(!lb) return;
   var r=lb.getBoundingClientRect(); if(r.width<10) return;
-  var vw=window.innerWidth||1, vh=window.innerHeight||1;
+  // StageFX is hosted in #xqStageLB itself (the stage's room layer), so its fractions are
+  // room fractions, y up -- not viewport fractions as when it was hosted in #xqStage.
   var b=window._laserBeams(r.width,r.height,0,0);
-  function cv(p){ return [(r.left+p[0])/vw,1-(r.top+p[1])/vh,(r.left+p[2])/vw,1-(r.top+p[3])/vh]; }
+  function cv(p){ return [p[0]/r.width,1-p[1]/r.height,p[2]/r.width,1-p[3]/r.height]; }
   _stFX.set({beams:[cv(b[0]),cv(b[1])]});
 };
 
@@ -28711,7 +28744,7 @@ if(_startBtn){
 var _modeBtnEl=document.getElementById('xqModeBtn');if(_modeBtnEl){_modeBtnEl.addEventListener('click',function(e){
   e.stopPropagation();
   try{if(MIZE&&MIZE.SoundStudio)MIZE.SoundStudio.exit();}catch(ex){}
-  document.getElementById('xqStage')?.classList.remove('on');
+  if(typeof XQStage!=='undefined' && XQStage.consumer()==='soundbox') XQStage.close();
   ['xqNP','xqControls','xqNP_home','xqModeBtn'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.classList.remove('on','playing');
   });
