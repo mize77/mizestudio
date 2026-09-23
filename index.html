@@ -7271,7 +7271,13 @@ XQUIX.CloudProvider = (function(){
       if(!ops.length) return;
       setSyncStatus('saving');
       let anyFailed = false, dropped = 0;
+      // Only the newest queued save of an item matters: the Game Tracker queues one after every recorded action,
+      // and replaying them all in order meant hundreds of saves of one game -- each after the first a clash
+      // (2026-09-23, when the library started accepting Game Tracker sessions).
+      const newest = {};
+      ops.forEach(op=>{ if(op.type==='save'){ const k=opKey(op.kind, op.name); if(!newest[k] || op.opId>newest[k]) newest[k]=op.opId; } });
       for(const op of ops){
+        if(op.type==='save' && newest[opKey(op.kind, op.name)]!==op.opId){ await XQUIX.OfflineDB.clearPendingOp(op.opId); continue; }
         // A live save of the same item since this op was queued supersedes it: replaying it too inserted the
         // same name twice at once (the second came back as a "conflict copy" -- MIZE's "MIZE Test XY", 2026-09-22).
         if(op.type==='save' && superseded.has(opKey(op.kind, op.name))){ await XQUIX.OfflineDB.clearPendingOp(op.opId); continue; }
