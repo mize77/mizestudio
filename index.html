@@ -4185,7 +4185,8 @@ function xquixHasStoredSession(){
   try { for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(/^sb-[a-z0-9]+-auth-token$/.test(k||'') && localStorage.getItem(k)) return true; } } catch(e){}
   return false;
 }
-if(!GUEST_EXPERIENCE_MODE && !xquixHasStoredSession()) showFreeAccessOverlay('freeAccessEmailScreen');
+// 2026-09-23: the session may now be in IndexedDB only (localStorage full), which cannot be read synchronously
+// here; the gate is shown once auth has answered (a moment, see XQUIX.Auth.init() below), never before.
 // Viewer Mode ("USA WP Experience"): a restricted, tutorial-guided build
 // for sharing specific drill(s) with someone who shouldn't have full
 // studio access and has no access to the coach's own library (which is
@@ -5031,6 +5032,54 @@ XQUIX.Auth = (function(){
     ]);
   }
   const UNAVAILABLE = { error: { message: 'Sign-in is unavailable right now. Your work is still saved normally on this device.' } };
+  // STAYING SIGNED IN, part 2 (2026-09-23). When the Studio's localStorage is FULL (libraries,
+  // presentations, history -- MIZE's iPhone and iPad), supabase-js's own write test fails and it
+  // silently keeps the session in MEMORY only: the next launch finds no session (the old key is still
+  // there, unreadable to it), never even tries a refresh, and asks for the email code again. Reproduced
+  // headless (auth/staying-signed-in-test.mjs, "full"). The session now lives in IndexedDB (its own
+  // store, far more room), mirrored to localStorage when there is space; a session found only in
+  // localStorage (every device signed in before this change) is carried over on first read.
+  const XQ_AUTH_IDB = (function(){
+    let dbp=null;
+    function db(){
+      if(dbp) return dbp;
+      dbp=new Promise((res,rej)=>{ try{ const rq=indexedDB.open('xquix-auth',1);
+        rq.onupgradeneeded=()=>{ try{ rq.result.createObjectStore('kv'); }catch(e){} };
+        rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); rq.onblocked=()=>rej(new Error('blocked')); }catch(e){ rej(e); } });
+      dbp.catch(()=>{ dbp=null; });
+      return dbp;
+    }
+    function tx(mode,fn){ return db().then(d=>new Promise((res,rej)=>{ const t=d.transaction('kv',mode), rq=fn(t.objectStore('kv'));
+      t.oncomplete=()=>res(rq?rq.result:undefined); t.onerror=()=>rej(t.error); t.onabort=()=>rej(t.error); })); }
+    return { get:k=>tx('readonly',st=>st.get(k)), set:(k,v)=>tx('readwrite',st=>st.put(v,k)), del:k=>tx('readwrite',st=>st.delete(k)) };
+  })();
+  const xqT=(pr,ms)=>Promise.race([pr,new Promise((_,rej)=>setTimeout(()=>rej(new Error('storage timeout')),ms))]);
+  const xqAuthStorage = {
+    async getItem(k){
+      let v=null;
+      try{ v=await xqT(XQ_AUTH_IDB.get(k),2000); }catch(e){ v=null; }
+      if(v==null){ try{ v=localStorage.getItem(k); }catch(e){ v=null; } if(v!=null){ XQ_AUTH_IDB.set(k,v).catch(()=>{}); } }
+      if(v!=null && /-auth-token$/.test(k)) window.__xqAuthHadStored=true;
+      return v==null ? null : v;
+    },
+    async setItem(k,v){
+      let inIdb=false;
+      try{ await xqT(XQ_AUTH_IDB.set(k,v),2000); inIdb=true; }catch(e){}
+      try{ localStorage.setItem(k,v); }
+      catch(e){
+        // full: drop the stale copy so nothing ever reads an old session from here
+        try{ localStorage.removeItem(k); }catch(_){}
+        if(/-auth-token$/.test(k)) window.__xqStorageFull=true;
+        if(!inIdb) throw e;
+      }
+    },
+    async removeItem(k){
+      try{ await xqT(XQ_AUTH_IDB.del(k),2000); }catch(e){}
+      try{ localStorage.removeItem(k); }catch(e){}
+    }
+  };
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
+  try{ localStorage.setItem('xquixWriteTest','x'.repeat(2048)); localStorage.removeItem('xquixWriteTest'); }catch(e){ window.__xqStorageFull=true; }
 
   try {
     if(typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function'){
@@ -5048,7 +5097,7 @@ XQUIX.Auth = (function(){
         return res;
       };
       client = window.supabase.createClient(XQUIX_SUPABASE_CONFIG.url, XQUIX_SUPABASE_CONFIG.publishableKey, {
-        auth: { persistSession: true, autoRefreshToken: true },
+        auth: { persistSession: true, autoRefreshToken: true, storage: (typeof indexedDB!=='undefined') ? xqAuthStorage : undefined },
         global: { fetch: xqAuthFetch }
       });
     }
@@ -5677,7 +5726,11 @@ XQUIX.Auth.onChange(renderAccountUI);
 // harmless) -- only the Home-showing part needs the one-time guard.
 let xquixHomeHasBeenResolvedOnce = false;
 function xquixResolveFreeAccessGate(){
-  if(GUEST_EXPERIENCE_MODE) return; // never applies here; that deployment owns its own, separate gate entirely
+  if(GUEST_EXPERIENCE_MODE) return;
+  if(window.__xqStorageFull && !window.__xqStorageFullToldOnce && XQUIX.Auth.getCurrentUser()){
+    window.__xqStorageFullToldOnce=true;
+    setTimeout(()=>{ try{ xquixHomeShowToast('This device\u2019s storage for XquiX is full. You stay signed in, but saving may fail \u2014 Menu \u2192 About & Diagnostics shows what\u2019s using the space.', 8000); }catch(e){} }, 1500);
+  } // never applies here; that deployment owns its own, separate gate entirely
   if(!XQUIX.Auth.isAvailable()){
     // Auth itself unavailable -- fail open straight to the Studio, same
     // as the original pre-Home behavior. Showing Home here would add a
@@ -5701,7 +5754,7 @@ XQUIX.Auth.init().then(()=>{
   // A stored session that auth could not confirm (really gone, or the refresh is still retrying):
   // give the retries a moment, then show the sign-in screen if there is still no user.
   if(!GUEST_EXPERIENCE_MODE && XQUIX.Auth.isAvailable() && !XQUIX.Auth.getCurrentUser()){
-    setTimeout(()=>{ if(!XQUIX.Auth.getCurrentUser() && !document.querySelector('.freeAccessOverlay.open')) { showFreeAccessOverlay('freeAccessEmailScreen'); } }, xquixHasStoredSession() ? 8000 : 0);
+    setTimeout(()=>{ if(!XQUIX.Auth.getCurrentUser() && !document.querySelector('.freeAccessOverlay.open')) { showFreeAccessOverlay('freeAccessEmailScreen'); } }, (xquixHasStoredSession() || window.__xqAuthHadStored) ? 8000 : 0);
   }
 });
 XQUIX.Auth.onChange(xquixResolveFreeAccessGate);
@@ -5710,13 +5763,13 @@ XQUIX.Auth.onChange(xquixResolveFreeAccessGate);
 // cases below rather than either silently doing nothing (feels broken)
 // or launching the wrong content (actively misleading).
 let xquixHomeToastTimer = null;
-function xquixHomeShowToast(msg){
+function xquixHomeShowToast(msg, ms){
   const el = document.getElementById('xquixHomeToast');
   if(!el) return;
   el.textContent = msg;
   el.classList.add('shown');
   clearTimeout(xquixHomeToastTimer);
-  xquixHomeToastTimer = setTimeout(()=> el.classList.remove('shown'), 3200);
+  xquixHomeToastTimer = setTimeout(()=> el.classList.remove('shown'), ms || 3200);
 }
 // Mode routing. All four now map to real, already-built destinations --
 // "studio" and "practice" were initially thought to need new,
