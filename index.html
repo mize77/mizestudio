@@ -878,6 +878,7 @@
      screen's edge, no outlined box. The pool's light still spills into the room (Stage 4), from the screen. */
   body.xqStage.psFill #stageWrap { overflow:hidden; }
   .prPlansWhere { font-size:11px; color:#7c8a8a; margin:0 0 6px; }
+  .drillCardKind { font-size:11px; color:#2ecab8; margin:2px 0 4px; letter-spacing:.02em; }
   .prPlanPending { font-size:11px; color:#c9a44a; margin-top:2px; }
   body.xqStage.psFill #board, body.xqStage.psFill.panorama #board, body.xqStage.psFill #stageWrap.camOff #board, body.xqStage.psFill #stageWrap.onWall #board { box-shadow:none !important; max-width:none; }
   body.xqStage.psFill #stageWrap.onWall { box-shadow:0 0 110px 18px rgba(46,202,184,.14); }
@@ -1702,6 +1703,8 @@
   body[data-stage="practice"] #toolPanelBackdrop, body[data-stage="practice"] #coachingNotesSidebar, body[data-stage="practice"] #closeHeaderBtn,
   body[data-stage="practice"] .studioFramePlaceholder, body[data-stage="practice"] .studioFrameClearBtn { display:none !important; }
   body[data-stage="practice"] #emptyFieldAddBtn, body[data-stage="practice"] #saveOpenBtn, body[data-stage="practice"] #exitPresentationBtn, body[data-stage="practice"] #copyrightText { display:none !important; }
+  /* a sequence drill fills the timeline: its Remote stays hidden -- Play / Restart are on the console (2026-09-22) */
+  body[data-stage="practice"] #timelineCommandsBar, body[data-stage="practice"] #coachingModeRemote { display:none !important; }
   body[data-stage="practice"] #studioTrack > .camOff { filter:none; }   /* the side screens are part of the Run (plan, clock), not receding screens */
   body[data-stage="practice"][data-cam="center"] #stageLights { display:none; }
   #prDrillNote { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:7; pointer-events:none; text-align:center;
@@ -2346,7 +2349,7 @@
   </div>
   <div id="practiceStudioBody">
     <div id="drillLibraryPanel" class="psPanel">
-      <div class="psPanelTitle">Drill Library <span style="font-weight:400;font-size:11.5px;color:#7c8a8a;">(from Saved Formations)</span></div>
+      <div class="psPanelTitle">Drill Library <span style="font-weight:400;font-size:11.5px;color:#7c8a8a;">(Formations &amp; Sequences)</span></div>
       <input type="text" id="drillLibraryFilter" placeholder="Filter by tag" style="width:100%;margin-bottom:8px;padding:6px 8px;font-size:12px;box-sizing:border-box;">
       <div id="drillLibraryList"></div>
     </div>
@@ -7054,6 +7057,18 @@ XQUIX.CloudProvider = (function(){
   function localBackup(kind, name, record){ if(kind==='practice') return; XQUIX.LocalStorageProvider.saveItem(kind, name, record); }
   let flushing = null;
   const superseded = new Set();
+  // Same content? The payload and tags as the library stores them, ignoring what every save restamps (times,
+  // ids, revision, the name echoed in the payload). 597 of the 598 conflict copies removed on 2026-09-23 were
+  // identical to their original in everything but the timestamp -- a clash with nothing to keep twice.
+  function stableJson(v){ if(Array.isArray(v)) return '['+v.map(stableJson).join(',')+']'; if(v && typeof v==='object'){ return '{'+Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>JSON.stringify(k)+':'+stableJson(v[k])).join(',')+'}'; } return JSON.stringify(v===undefined?null:v); }
+  const RESTAMPED = ['savedAt','updatedAt','createdAt','name','id','revision','ownerId','organizationId','deletedAt','schemaVersion','applicationVersion','type','collectionId'];
+  function contentOf(kind, name, record){
+    const row = recordToRow(kind, name, record||{}); const payload = { ...(row.payload||{}) };
+    RESTAMPED.forEach(k=>{ delete payload[k]; });
+    return stableJson({ payload, dna: (row.coaching_dna||[]).slice().sort() });
+  }
+  function sameContent(kind, name, a, b){ try { return contentOf(kind, name, a)===contentOf(kind, name, b); } catch(e){ return false; } }
+  let lastLoadOk = false;
   function opKey(kind, name){ return kind+'\u0000'+name; }
   // Postgres/PostgREST refusing the row itself: a check or not-null violation, bad input syntax, an unknown
   // column. Not a conflict (23505), not the quota (P0100, handled by its caller), not auth or network.
@@ -7204,13 +7219,14 @@ XQUIX.CloudProvider = (function(){
           const corruptedName = 'XquiX '+row.name;
           if(kind!=='practice' && XQUIX.LocalStorageProvider.getItemSync(kind, corruptedName)) XQUIX.LocalStorageProvider.deleteItem(kind, corruptedName);
         }
-        loadedAllOnce = true;
+        loadedAllOnce = true; lastLoadOk = true;
         // Conflict copies are always made by the library itself, so the library is their truth: one that is no
         // longer there (MIZE removed 623 of them, 2026-09-23) is dropped from this device's copies too --
         // otherwise the sign-in upload of "local items missing from the account" put them all straight back.
         try { await pruneLocalConflictCopies(); } catch(e){ console.error('XQUIX.CloudProvider: conflict-copy prune failed:', e); }
         setSyncStatus('idle');
       } catch(err) {
+        lastLoadOk = false;
         console.error('XQUIX.CloudProvider: loadAll network refresh failed, showing offline/cached state:', err);
         setSyncStatus('offline');
       }
@@ -7220,6 +7236,9 @@ XQUIX.CloudProvider = (function(){
       this.flushPendingOps().catch(e=>console.error('XQUIX.CloudProvider: background flush failed:', e));
     },
     setClient(c){ client = c; },
+    // Did the last library load actually come back? Anything that compares this device with the account
+    // ("upload what the account is missing") must not run on a failed or partial load.
+    lastLoadSucceeded(){ return lastLoadOk; },
     isLoaded(kind){ return loaded[kind] || loadedAllOnce; },
 
     // Replays anything queued while offline or after a failed attempt.
@@ -7245,7 +7264,10 @@ XQUIX.CloudProvider = (function(){
           if(op.type==='save'){
             const opKindCache = ensureKindCache(op.kind);
             const result = await pushSaveToServer(op.kind, op.name, op.record, op.knownCloudId || null, op.knownCloudRevision);
-            if(result.conflict){
+            if(result.conflict && sameContent(op.kind, op.name, op.record, result.serverRecord)){
+              opKindCache[op.name] = result.serverRecord;   // already there, identical: no copy
+              await XQUIX.OfflineDB.putItem(op.kind, op.name, result.serverRecord);
+            } else if(result.conflict){
               opKindCache[op.name] = result.serverRecord;
               await XQUIX.OfflineDB.putItem(op.kind, op.name, result.serverRecord);
               const conflictName = op.name+' (conflict copy '+new Date().toLocaleString()+')';
@@ -7310,6 +7332,13 @@ XQUIX.CloudProvider = (function(){
       setSyncStatus('saving');
       try {
         const result = await pushSaveToServer(kind, name, record, knownId, knownRevision);
+        if(result.conflict && sameContent(kind, name, record, result.serverRecord)){
+          // The library already holds exactly this: keep its version (id, revision), make no copy, say nothing.
+          kindCache[name] = result.serverRecord; localBackup(kind, name, result.serverRecord);
+          await XQUIX.OfflineDB.putItem(kind, name, result.serverRecord);
+          setSyncStatus('synced');
+          return kindCache[name];
+        }
         if(result.conflict){
           setSyncStatus('conflict');
           // Never pick a silent winner: the server's version stays under
@@ -7480,6 +7509,10 @@ function xquixSwitchToLocalProvider(){
 // "<name> (conflict copy <date>)" -- the name CloudProvider gives the losing side of a save conflict.
 function xquixIsConflictCopyName(name){ return typeof name==='string' && / \(conflict copy [^)]*\)$/.test(name); }
 async function xquixOfferLocalMigrationIfNeeded(){
+  // Only against a library that actually loaded: with a failed load (a timeout on a slow connection, a fresh
+  // device) every item on this device looked "missing from the account", was uploaded as new, clashed with the
+  // existing one and came back as a conflict copy -- the bursts of 30-240 copies a minute found on 2026-09-23.
+  if(!XQUIX.CloudProvider.lastLoadSucceeded()){ xquixMigrationOfferedThisSession = false; console.info('XQUIX: library did not load -- device-to-account upload skipped this time.'); return; }
   const kinds = ['formation', 'sequence'];
   const toUpload = { formation: [], sequence: [] };
   let totalCount = 0;
@@ -13816,7 +13849,9 @@ function restoreLastDeletedFrame(){
 }
 document.getElementById('frameDeleteUndoBtn')?.addEventListener('click', restoreLastDeletedFrame);
 let frameSuppressNextClick=false;
-function renderFrames() { const strip=document.getElementById('frameStrip'); strip.innerHTML=''; frames.forEach((f,i)=>{ const b=document.createElement('button'); b.className='frameBtn'+(i===currentFrame?' active':''); b.textContent='Frame '+(i+1); b.dataset.frameIdx=i; b.onclick=()=>{ if(frameSuppressNextClick){ frameSuppressNextClick=false; return; } if(frames.length) frames[currentFrame]=makeFrameState(); loadFrame(i); }; strip.appendChild(b); }); updateTimelineRemoteVisibility(); const moveLeftBtn=document.getElementById('moveFrameLeftBtn'), moveRightBtn=document.getElementById('moveFrameRightBtn'); if(moveLeftBtn) moveLeftBtn.disabled=(currentFrame<=0); if(moveRightBtn) moveRightBtn.disabled=(currentFrame>=frames.length-1); const tcCounter=document.getElementById('tcFrameCounter'); if(tcCounter) tcCounter.textContent=frames.length ? ((currentFrame+1)+' / '+frames.length) : '0 / 0'; const tcDel=document.getElementById('tcDeleteFrameBtn'); if(tcDel) tcDel.disabled=(frames.length<=1); const tcDur=document.getElementById('tcDurationInput'); if(tcDur) tcDur.value=document.getElementById('frameDuration')?.value||0.9; wireFrameStripDrag(); if(typeof xquixSyncCoachingFrameNoteUI==='function') xquixSyncCoachingFrameNoteUI(); }
+function renderFrames() {
+  if(typeof prRunSeqSync==='function'){ try{ prRunSeqSync(); }catch(e){} }   /* Practice Run: the console's frame counter */
+ const strip=document.getElementById('frameStrip'); strip.innerHTML=''; frames.forEach((f,i)=>{ const b=document.createElement('button'); b.className='frameBtn'+(i===currentFrame?' active':''); b.textContent='Frame '+(i+1); b.dataset.frameIdx=i; b.onclick=()=>{ if(frameSuppressNextClick){ frameSuppressNextClick=false; return; } if(frames.length) frames[currentFrame]=makeFrameState(); loadFrame(i); }; strip.appendChild(b); }); updateTimelineRemoteVisibility(); const moveLeftBtn=document.getElementById('moveFrameLeftBtn'), moveRightBtn=document.getElementById('moveFrameRightBtn'); if(moveLeftBtn) moveLeftBtn.disabled=(currentFrame<=0); if(moveRightBtn) moveRightBtn.disabled=(currentFrame>=frames.length-1); const tcCounter=document.getElementById('tcFrameCounter'); if(tcCounter) tcCounter.textContent=frames.length ? ((currentFrame+1)+' / '+frames.length) : '0 / 0'; const tcDel=document.getElementById('tcDeleteFrameBtn'); if(tcDel) tcDel.disabled=(frames.length<=1); const tcDur=document.getElementById('tcDurationInput'); if(tcDur) tcDur.value=document.getElementById('frameDuration')?.value||0.9; wireFrameStripDrag(); if(typeof xquixSyncCoachingFrameNoteUI==='function') xquixSyncCoachingFrameNoteUI(); }
 // Drag-to-reorder for the frame strip, adapted from the same pattern used
 // for the Event Builder's Timeline items -- but this list can be laid out
 // either horizontally (docked normally) or vertically (#timelinePanel has
@@ -14049,6 +14084,7 @@ function animateToFrame(targetIndex, durationSec, onDone, endProgress=1){
 
 function syncPlayPauseUI(){
   const isPlaying=playing;
+  if(typeof prRunSeqSync==='function') { try{ prRunSeqSync(); }catch(e){} }   // Practice Run's Sequence controls
   const modalBtn=document.getElementById('playFramesBtn');
   if(modalBtn) modalBtn.textContent=isPlaying?'Stop':'Play';
   const miniBtn=document.getElementById('tcPlayPauseBtn');
@@ -19957,17 +19993,19 @@ document.getElementById('closePracticeStudioBtn').addEventListener('click', clos
 function renderDrillLibrary(){
   const box=document.getElementById('drillLibraryList'); if(!box) return;
   const filter=(document.getElementById('drillLibraryFilter')?.value||'').trim().toLowerCase();
+  // Every Saved Formation and every Sequence is a drill (sequences since 2026-09-22, MIZE).
   const saved=XQUIX.StorageProvider.listStoreSync('formation');
+  const seqs=XQUIX.StorageProvider.listStoreSync('sequence')||{};
   box.innerHTML='';
-  const names=Object.keys(saved);
-  if(!names.length){ box.innerHTML='<div style="font-size:12px;color:#7c8a8a;">No Saved Formations yet. Save a formation in Tactical Studio first -- every Saved Formation becomes a Drill here automatically.</div>'; return; }
-  names.forEach(name=>{
-    const rec=saved[name];
+  const items=[...Object.keys(saved).map(n=>({ kind:'formation', name:n, rec:saved[n] })), ...Object.keys(seqs).map(n=>({ kind:'sequence', name:n, rec:seqs[n] }))];
+  if(!items.length){ box.innerHTML='<div style="font-size:12px;color:#7c8a8a;">No Saved Formations or Sequences yet. Save one in Tactical Studio first -- every Saved Formation and Sequence becomes a Drill here automatically.</div>'; return; }
+  items.forEach(({ kind, name, rec })=>{
     const tags=formationRecordTags(rec);
-    if(filter && !tags.some(t=>t.toLowerCase().includes(filter))) return;
-    const card=document.createElement('div'); card.className='drillCard';
+    if(filter && !tags.some(t=>t.toLowerCase().includes(filter)) && !name.toLowerCase().includes(filter)) return;
+    const card=document.createElement('div'); card.className='drillCard'+(kind==='sequence'?' drillCardSeq':''); card.dataset.kind=kind;
     const title=document.createElement('div'); title.className='drillCardTitle'; title.textContent=name;
     card.appendChild(title);
+    if(kind==='sequence'){ const n=prSeqFrames(rec).length; const k=document.createElement('div'); k.className='drillCardKind'; k.textContent='Sequence \u00b7 '+n+(n===1?' frame':' frames'); card.appendChild(k); }
     if(tags.length){
       const tagRow=document.createElement('div'); tagRow.className='formationTags';
       tags.forEach(t=>{ const chip=document.createElement('span'); chip.className='dnaChip'; chip.textContent=t; tagRow.appendChild(chip); });
@@ -19977,7 +20015,7 @@ function renderDrillLibrary(){
     const durLabel=document.createElement('span'); durLabel.textContent='Duration (min):'; durLabel.style.fontSize='11.5px';
     const durInput=document.createElement('input'); durInput.type='number'; durInput.min='1'; durInput.value='5';
     const addBtn=document.createElement('button'); addBtn.textContent='Add to Block';
-    addBtn.onclick=()=>{ addDrillToSession(name, rec, Math.max(1, +durInput.value||5)); };
+    addBtn.onclick=()=>{ addDrillToSession(name, rec, Math.max(1, +durInput.value||5), kind); };
     row.appendChild(durLabel); row.appendChild(durInput); row.appendChild(addBtn);
     card.appendChild(row);
     box.appendChild(card);
@@ -20018,9 +20056,19 @@ async function editBlockTags(blockIndex){
   renderSessionBuilder();
 }
 
-function addDrillToSession(formationName, rec, durationMinutes){
+// A sequence's frames, whatever shape the record has (frames[], or a single current frame).
+function prSeqFrames(rec){ const pkg=(typeof MIZE!=='undefined' && MIZE.Storage && MIZE.Storage.readRecord) ? MIZE.Storage.readRecord(rec) : rec; if(!pkg) return []; return Array.isArray(pkg.frames) && pkg.frames.length ? pkg.frames : (pkg.current ? [pkg.current] : []); }
+function addDrillToSession(formationName, rec, durationMinutes, kind){
   if(!currentSessionBlocks.length){ MizeDialog.alert('Add a Practice Block first (e.g. Warm-up, Tactical Block), then add drills into it.'); return; }
   const block = findBlock(targetBlockId) || currentSessionBlocks[0];
+  if(kind==='sequence'){
+    // A sequence drill carries a copy of its frames (like a formation drill carries its state): the plan
+    // plays what was planned, even if the sequence is edited later. state = frame 1, for anything that
+    // only knows formations.
+    const fr=JSON.parse(JSON.stringify(prSeqFrames(rec)));
+    block.drills.push({ kind:'sequence', formationName, durationMinutes, coachingDNA: formationRecordTags(rec), frames: fr, state: fr[0]||null, engineObjects: null });
+    renderSessionBuilder(); return;
+  }
   block.drills.push({
     formationName,
     durationMinutes,
@@ -20099,11 +20147,12 @@ function renderSessionBuilder(){
     }
     block.drills.forEach((d,i)=>{
       const row=document.createElement('div'); row.className='sessionDrillRow';
-      const label=document.createElement('span'); label.textContent=(i+1)+'. '+d.formationName+' — '+d.durationMinutes+' min';
+      const label=document.createElement('span'); label.textContent=(i+1)+'. '+(d.kind==='sequence'?'\u25B6 ':'')+d.formationName+' — '+d.durationMinutes+' min'+(d.kind==='sequence'?' \u00b7 sequence':'');
       const dcontrols=document.createElement('div'); dcontrols.className='sdrControls';
       const onStage=(typeof _prStage!=='undefined' && _prStage && _prStage.phase==='build');
       const load=document.createElement('button'); load.textContent=onStage?'Preview':'Load'; load.title=onStage ? 'Show this drill on the board (a Run from this drill; changes are temporary)' : (d.state ? 'Load this drill\'s formation onto the board' : 'This drill has no saved tactical content (from an older session)'); load.disabled=!onStage && !d.state;
-      load.onclick=()=>{ if(onStage){ prPreviewDrill(bi,i); return; } recordHistory('Load Drill: '+d.formationName); loadState(d.state); };
+      load.onclick=()=>{ if(onStage){ prPreviewDrill(bi,i); return; } recordHistory('Load Drill: '+d.formationName);
+        if(d.kind==='sequence' && Array.isArray(d.frames) && d.frames.length){ if(frames.length) frames[currentFrame]=makeFrameState(); frames=JSON.parse(JSON.stringify(d.frames)); currentFrame=0; loadFrame(0); } else loadState(d.state); };
       const dup=document.createElement('button'); dup.textContent='↑'; dup.title='Move up'; dup.onclick=()=>moveSessionDrill(bi,i,-1);
       const ddown=document.createElement('button'); ddown.textContent='↓'; ddown.title='Move down'; ddown.onclick=()=>moveSessionDrill(bi,i,1);
       const drm=document.createElement('button'); drm.textContent='×'; drm.title='Remove'; drm.onclick=()=>removeSessionDrill(bi,i);
@@ -20124,13 +20173,13 @@ function buildSessionRecord(name, coachingDNA){
       name: b.name,
       blockType: b.blockType,
       coachingDNA: b.coachingDNA||[],
-      drills: b.drills.map(d=>({
+      drills: b.drills.map(d=>Object.assign({
         formationName: d.formationName,
         durationMinutes: d.durationMinutes,
         coachingDNA: d.coachingDNA,
         state: d.state || null,
         engineObjects: d.engineObjects
-      }))
+      }, d.kind==='sequence' ? { kind:'sequence', frames: d.frames||[] } : {}))
     }))
   };
 }
@@ -20212,7 +20261,8 @@ var _prRun=null;     // { rec, name, drills, i, fromBuild } during a Run
 function prStageFits(){ return window.innerWidth>=900 && window.innerWidth>window.innerHeight; }
 function prRunDrills(rec){
   const out=[]; (rec && Array.isArray(rec.blocks) ? rec.blocks : []).forEach((b,bi)=>{
-    (b.drills||[]).forEach(d=>out.push({ block:b.name||'', blockIndex:bi, name:d.formationName||'Drill', minutes:d.durationMinutes||0, tags:d.coachingDNA||[], state:d.state||null }));
+    (b.drills||[]).forEach(d=>out.push({ block:b.name||'', blockIndex:bi, name:d.formationName||'Drill', minutes:d.durationMinutes||0, tags:d.coachingDNA||[], state:d.state||null,
+      kind: (d.kind==='sequence' && Array.isArray(d.frames) && d.frames.length) ? 'sequence' : 'formation', frames: d.kind==='sequence' ? (d.frames||[]) : null }));
   });
   return out;
 }
@@ -20225,7 +20275,7 @@ function prEnsureStage(){
   if(document.body.classList.contains('presentation') && typeof togglePresentation==='function') togglePresentation();
   if(typeof closeToolPanels==='function') closeToolPanels();
   const wasFC=!!frontCourtActive; if(wasFC) toggleFrontCourt(false);
-  let saved=null; try{ saved={ state:getState(), undo:undoStack.slice(), redo:redoStack.slice(), frontCourt:wasFC }; }catch(e){}
+  let saved=null; try{ if(playing) playFrames(); saved={ state:getState(), undo:undoStack.slice(), redo:redoStack.slice(), frontCourt:wasFC, frames:JSON.parse(JSON.stringify(frames)), currentFrame }; }catch(e){}
   closePracticeStudio();
   XQStage.open('practice', Object.assign({ lockCamera:true, instant:true }, prCameraOpts()));   // (closes any previous consumer first)
   _prStage={ saved, phase:null };
@@ -20298,7 +20348,11 @@ function prRunGo(i){
   r.i=i; const d=r.drills[i];
   // the drill's saved formation, fresh every time the drill is shown; no undo across drills
   const wasReady=historyReady; historyReady=false;
-  try{ if(d.state) loadState(JSON.parse(JSON.stringify(d.state))); else prRunEmptyBoard(); }catch(e){ prRunEmptyBoard(); }
+  try{ if(playing) playFrames(); }catch(e){}   // a sequence from the previous drill stops
+  try{
+    if(d.kind==='sequence'){ frames=JSON.parse(JSON.stringify(d.frames)); currentFrame=0; loadFrame(0); }
+    else { frames=d.state ? [JSON.parse(JSON.stringify(d.state))] : []; currentFrame=0; if(d.state) loadState(JSON.parse(JSON.stringify(d.state))); else prRunEmptyBoard(); }
+  }catch(e){ prRunEmptyBoard(); }
   historyReady=wasReady; undoStack=[]; redoStack=[]; if(typeof updateHistoryUI==='function') updateHistoryUI();
   let note=document.getElementById('prDrillNote');
   if(!d.state){
@@ -20321,6 +20375,10 @@ function prRunConsole(){
       { id:'drill', label:'Drill '+(r.i+1)+' of '+r.drills.length, sub:d.name, big:true, title:d.block ? d.block+' · '+d.name : d.name },
       { id:'next', label:'Next', title:'Next drill', disabled:r.i===r.drills.length-1, onTap:()=>prRunGo(r.i+1) },
     ]},
+    ...(d.kind==='sequence' ? [{ label:'Sequence', items:[
+      { id:'seqPlay', label:playing?'Pause':'Play', sub:'Frame '+(currentFrame+1)+' of '+frames.length, title:'Play or pause the sequence', onTap:prRunSeqPlay },
+      { id:'seqRestart', label:'Restart', title:'Back to frame 1', onTap:prRunSeqRestart },
+    ]}] : []),
     { label:'System', items:[
       { id:'exit', label:'Exit', title:r.fromBuild ? 'Back to the session builder' : 'Back to Practice Studio', onTap:prRunExit },
       { id:'modes', label:'Modes', title:'Choose a mode', onTap:prRunModes },
@@ -20328,8 +20386,12 @@ function prRunConsole(){
   ]});
   setTimeout(prRunConsoleShown, 0);
 }
+// A sequence drill: Play/Pause and Restart on the console, driven by the timeline's own playback (playFrames).
+function prRunSeqPlay(){ const r=_prRun; if(!r || r.drills[r.i].kind!=='sequence') return; if(!playing && currentFrame>=frames.length-1) loadFrame(0); playFrames(1); prRunSeqSync(); }
+function prRunSeqRestart(){ const r=_prRun; if(!r || r.drills[r.i].kind!=='sequence') return; loadFrame(0); prRunSeqSync(); }
+function prRunSeqSync(){ const r=_prRun; if(!r || XQStage.consumer()!=='practice' || r.drills[r.i].kind!=='sequence') return; XQStage.updateControl('seqPlay', { label:playing?'Pause':'Play', sub:'Frame '+(currentFrame+1)+' of '+frames.length }); }
 // end the Run's own state (not Practice): the stage stays with Practice
-function prRunStop(){ _prRun=null; document.getElementById('prDrillNote')?.remove(); }
+function prRunStop(){ try{ if(_prRun && playing) playFrames(); }catch(e){} _prRun=null; document.getElementById('prDrillNote')?.remove(); }
 function prRunConsoleShown(){ document.body.classList.toggle('prConsole', !!(_prStage && XQStage.consumer()==='practice' && XQStage.consoleVisible())); }
 function prRunExit(){
   if(_prRun && _prRun.fromBuild && XQStage.consumer()==='practice'){ prOpenBuild(); return; }   // Run -> Build, same stage
@@ -20347,6 +20409,8 @@ function prCleanup(){
   if(typeof XQStage!=='undefined' && XQStage.consumer()==='practice') XQStage.close();   // re-entrant: _prStage is already null
   if(st && st.saved){
     const wasReady=historyReady; historyReady=false;
+    try{ if(playing) playFrames(); }catch(e){}   // a sequence drill may still be playing
+    if(Array.isArray(st.saved.frames)){ frames=st.saved.frames; currentFrame=Math.min(st.saved.currentFrame||0, Math.max(0, frames.length-1)); try{ if(typeof renderFrames==='function') renderFrames(); }catch(e){} }
     try{ loadState(st.saved.state); }catch(e){}
     historyReady=wasReady; undoStack=st.saved.undo||[]; redoStack=st.saved.redo||[]; if(typeof updateHistoryUI==='function') updateHistoryUI();
     if(st.saved.frontCourt && !frontCourtActive) toggleFrontCourt(true);
@@ -20388,12 +20452,12 @@ function loadSessionIntoBuilder(rec){
       name: b.name || (BLOCK_TYPE_LABELS[b.blockType]||'Block'),
       blockType: b.blockType || 'custom',
       coachingDNA: b.coachingDNA||[],
-      drills: (b.drills||[]).map(d=>({ formationName:d.formationName, durationMinutes:d.durationMinutes, coachingDNA:d.coachingDNA||[], state:d.state||null, engineObjects:d.engineObjects||null }))
+      drills: (b.drills||[]).map(d=>Object.assign({ formationName:d.formationName, durationMinutes:d.durationMinutes, coachingDNA:d.coachingDNA||[], state:d.state||null, engineObjects:d.engineObjects||null }, d.kind==='sequence' ? { kind:'sequence', frames:d.frames||[] } : {}))
     }));
   } else {
     currentSessionBlocks = [{
       id: genBlockId(), name:'Tactical Block', blockType:'tactical', coachingDNA:[],
-      drills: (rec.drills||[]).map(d=>({ formationName:d.formationName, durationMinutes:d.durationMinutes, coachingDNA:d.coachingDNA||[], state:d.state||null, engineObjects:d.engineObjects||null }))
+      drills: (rec.drills||[]).map(d=>Object.assign({ formationName:d.formationName, durationMinutes:d.durationMinutes, coachingDNA:d.coachingDNA||[], state:d.state||null, engineObjects:d.engineObjects||null }, d.kind==='sequence' ? { kind:'sequence', frames:d.frames||[] } : {}))
     }];
   }
   renderSessionBuilder();
