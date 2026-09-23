@@ -867,8 +867,8 @@
   #cwSurface .cwRow { display:flex; gap:5px; }
   #cwSurface .stageConsoleBtn { min-width:52px; height:34px; font-size:12.5px; padding:0 11px; white-space:nowrap; }
   /* docks */
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop { flex-direction:column; left:50%; top:calc(10px + env(safe-area-inset-top)); transform:translateX(-50%); }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow { flex-direction:column; left:50%; transform:translateX(-50%); max-width:calc(100vw - 16px); }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop { flex-direction:column; left:50%; top:calc(10px + env(safe-area-inset-top)); transform:translateX(-50%); width:max-content; max-width:calc(100vw - 16px); box-sizing:border-box; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow { flex-direction:column; left:50%; transform:translateX(-50%); width:max-content; max-width:calc(100vw - 16px); box-sizing:border-box; }
   body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow { flex-wrap:wrap; justify-content:center; }
   body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft { flex-direction:row; left:calc(8px + env(safe-area-inset-left)); }
   body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTabs, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwRow { flex-direction:column; }
@@ -879,8 +879,27 @@
   /* the + and Save/Open menus open beside the surface button that opened them */
   body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldMenuBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldAddBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldSequenceBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveOpenMenuBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #openItemBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveItemBox {
     top:var(--cwPopTop, calc(62px + env(safe-area-inset-top))) !important; left:var(--cwPopLeft, auto) !important; right:var(--cwPopRight, auto) !important; max-height:calc(100dvh - var(--cwPopTop, 62px) - 12px); overflow-y:auto; }
-  /* the Quick Command Bar sits under a top-docked surface */
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwDockTop #quickCommandBar { top:calc(var(--cwBottom, 60px) + 8px) !important; }
+  /* Step 2b: the Quick Command Bar's tools live in CREATE and QUICKS, so the bar itself is retired in Coaching
+     (it stays on the Stage, e.g. Presentation's CENTER view, and in tutorials) */
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #quickCommandBar { display:none !important; }
+  #cwSurface .stageConsoleBtn { display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+  #cwSurface .cwIco { display:inline-flex; width:17px; height:17px; flex:none; }
+  #cwSurface .cwIco svg { width:17px; height:17px; }
+  #cwSurface .stageConsoleBtn.cwDrawBtn { box-shadow:inset 0 -3px 0 var(--cwInk, #1a1a1a); }
+  #cwSurface.cwBelow .cwTabs { justify-content:center; }
+  #cwSurface .cwSep { width:1px; align-self:stretch; background:rgba(255,255,255,.12); margin:2px 2px; }
+  #cwSurface .cwRecent { min-width:40px; padding:0 8px; font-size:11px; letter-spacing:.06em; color:#9fb7b4; }
+  /* dense: icons only (the label is the tooltip) -- phones, and QUICKS wherever it would not fit */
+  #cwSurface.cwDense .stageConsoleBtn .stageConsoleBtnLabel { display:none; }
+  #cwSurface.cwDense .stageConsoleBtn { min-width:0; width:42px; padding:0; }
+  #cwSurface.cwDense .stageConsoleBtn.cwTextOnly .stageConsoleBtnLabel { display:inline; font-size:10.5px; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwRow { display:grid; grid-template-columns:repeat(2, 42px); gap:5px; align-content:center; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense.cwCompact:not(.cwOpen) .cwRow { display:none; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .stageConsoleBtn { width:42px; height:36px; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwSep { display:none; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded.cwDense .cwRow { display:none; }
+  /* the drawing-tools popup opens next to Draw (positioned in JS) and above the surface */
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #qcbDrawingToolsPopup { z-index:1540; }
 
   /* Darken the water backdrop -- the white venue deck reads as paper not pool
      without this, and depth is mostly light falloff not shape. */
@@ -19725,27 +19744,82 @@ let cwGroup='create', cwFolded=false, cwOpen=false, cwWasOpen={};
 try{ const g=localStorage.getItem('xquixCwGroup'); if(CW_GROUPS.includes(g)) cwGroup=g; cwFolded=localStorage.getItem('xquixCwFolded')==='1'; }catch(e){}
 function cwPress(id){ const b=document.getElementById(id); if(b) b.click(); }
 function cwIsShown(id, cls){ const e=document.getElementById(id); if(!e) return false; return cls ? e.classList.contains(cls) : (e.style.display!=='none' && getComputedStyle(e).display!=='none'); }
-function cwItems(g){
-  if(g==='create') return [
-    { id:'add', label:'+ Add', title:'Add players, a formation, or a sequence/drill', pop:true, open:()=>anyEmptyFieldBoxOpen(), tap:()=>openEmptyFieldMenu(), close:()=>closeAllEmptyFieldBoxes() },
-    { id:'undo', label:'Undo', title:(undoStack.length?'Undo: '+undoStack[undoStack.length-1].label:'Nothing to undo'), disabled:!undoStack.length, tap:()=>undo() },
-    { id:'redo', label:'Redo', title:(redoStack.length?'Redo: '+redoStack[redoStack.length-1].label:'Nothing to redo'), disabled:!redoStack.length, tap:()=>redo() },
-    { id:'save', label:'Save / Open', title:'Save or open a formation or sequence', pop:true, open:()=>anySaveOpenBoxOpen(), tap:()=>openSaveOpenMenu(), close:()=>closeAllSaveOpenBoxes() },
-  ];
-  if(g==='quicks') return [
-    { id:'qcb', label:'Quick tools', title:'Show or hide the quick tools (drawing, zones, tactical aids)', active:cwIsShown('quickCommandBar'), tap:()=>cwPress('showQuickCommandBarTab') },
-  ];
-  if(g==='timeline') return [
-    { id:'creator', label:'Creator', title:'Frames, playback and the frame note', active:cwIsShown('timelinePanel','shown'), tap:()=>cwPress('timelineToggleTab') },
-  ];
-  return [
-    { id:'library', label:'Library', title:'Coaching Library', tap:()=>{ if(typeof openCoachingLibrary==='function') openCoachingLibrary(); else cwPress('libraryToggleTab'); } },
-    { id:'notes', label:'Notes', title:'Your presentation notes', active:cwIsShown('coachingModeToggleTab','active'), tap:()=>cwPress('coachingModeToggleTab') },
-    { id:'menu', label:'Menu', title:'All tools and settings (Light Deck, Feedback, Help)', active:cwIsShown('controlsPanel','open'), tap:()=>cwPress('sidebarToggleTab') },
-    { id:'modes', label:'Modes', title:'Switch mode', tap:()=>cwPress('exitPresentationBtn') },
-    { id:'home', label:'Home', title:'XquiX Home', tap:()=>{ if(typeof xquixShowHome==='function') xquixShowHome(); } },
-  ];
+const CW_ICO={
+  add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  undo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
+  redo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>',
+  save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"/><path d="M8 3v5h7V3"/><rect x="8" y="13" width="8" height="5" rx="1"/></svg>',
+  library:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4z"/><path d="m16 5 3.8-1 3 15.5-3.8 1z"/></svg>',
+  notes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+  menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  modes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>',
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M6 10v10h12V10"/></svg>',
+  creator:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="6" width="5" height="12" rx="1"/><rect x="10" y="6" width="5" height="12" rx="1"/><rect x="17" y="6" width="4" height="12" rx="1"/></svg>',
+};
+// A tool from the Quick Command Bar / command panel: the surface presses the same source button the bar pressed.
+function cwTool(srcId, label, extra){
+  const src=document.getElementById(srcId); if(!src) return null;
+  const active = srcId==='quickViewToggleBtn' ? (typeof frontCourtActive!=='undefined' && frontCourtActive) : src.classList.contains('active');
+  return Object.assign({ id:srcId, src:srcId, label, title:(src.textContent||label).trim(), icon:(typeof QUICKBAR_ICONS!=='undefined' && QUICKBAR_ICONS[srcId])||'', active,
+    tap:()=>{ qcbSuppressOutsideClose=true; src.click(); qcbSuppressOutsideClose=false; if(typeof renderQuickCommandBar==='function') renderQuickCommandBar(); } }, extra||{});
 }
+function cwDrawOpen(){ return !!document.getElementById('qcbDrawingToolsPopup')?.classList.contains('show'); }
+// the drawing tools open next to Draw, on whichever side of the surface has room
+function cwPlaceDrawPopup(btn){
+  const pop=document.getElementById('qcbDrawingToolsPopup'), el=document.getElementById('cwSurface'); if(!pop || !el) return;
+  const r=btn.getBoundingClientRect(), sr=el.getBoundingClientRect(), pw=pop.offsetWidth||190, ph=pop.offsetHeight||300;
+  let left, top;
+  if(el.classList.contains('cwLeft')){ left=sr.right+8; top=Math.max(8, Math.min(r.top, innerHeight-ph-8)); }
+  else if(el.classList.contains('cwBelow')){ left=Math.max(8, Math.min(r.left, innerWidth-pw-8)); top=Math.max(8, sr.top-ph-8); }
+  else { left=Math.max(8, Math.min(r.left, innerWidth-pw-8)); top=sr.bottom+8; }
+  pop.style.left=Math.round(left)+'px'; pop.style.top=Math.round(top)+'px';
+}
+function cwItems(g){
+  const L=[];
+  if(g==='create'){
+    L.push({ id:'add', label:'Add', icon:CW_ICO.add, title:'Add players, a formation, or a sequence/drill', pop:true, open:()=>anyEmptyFieldBoxOpen(), tap:()=>openEmptyFieldMenu(), close:()=>closeAllEmptyFieldBoxes() });
+    L.push(cwTool('selectBtn','Move'));
+    L.push(cwTool('freeDrawBtn','Draw', { title:'Drawing Tools', cls:'cwDrawBtn', pop:true, open:cwDrawOpen, close:()=>closeQcbDrawingToolsPopup(),
+      tap:function(btn){ const src=document.getElementById('freeDrawBtn'); qcbSuppressOutsideClose=true; src.click(); qcbSuppressOutsideClose=false;
+        openQcbDrawingToolsPopup(btn); cwPlaceDrawPopup(btn); if(typeof renderQuickCommandBar==='function') renderQuickCommandBar(); } }));
+    L.push(cwTool('fieldZonesToggleBtn','Zones'));
+    L.push(cwTool('textBoxBtn','Text'));
+    L.push('|');
+    L.push({ id:'undo', label:'Undo', icon:CW_ICO.undo, title:(undoStack.length?'Undo: '+undoStack[undoStack.length-1].label:'Nothing to undo'), disabled:!undoStack.length, tap:()=>undo() });
+    L.push({ id:'redo', label:'Redo', icon:CW_ICO.redo, title:(redoStack.length?'Redo: '+redoStack[redoStack.length-1].label:'Nothing to redo'), disabled:!redoStack.length, tap:()=>redo() });
+    L.push({ id:'save', label:'Save / Open', icon:CW_ICO.save, title:'Save or open a formation or sequence', pop:true, open:()=>anySaveOpenBoxOpen(), tap:()=>openSaveOpenMenu(), close:()=>closeAllSaveOpenBoxes() });
+  } else if(g==='quicks'){
+    L.push(cwTool('shotClockToggleBtn','Shot Clock'));
+    L.push(cwTool('quickViewToggleBtn','Front Court', { title:'Switch between Full Court and Front Court' }));
+    L.push(cwTool('shootingAngleToggleBtn','Angle'));
+    L.push(cwTool('shotBlockToggleBtn','Blocks'));
+    L.push(cwTool('goalieVisionToggleBtn','Vision'));
+    L.push(cwTool('smartPositioningToggleBtn','Smart Pos.'));
+    L.push(cwTool('smartGoaliePositioningToggleBtn','Smart Goalie'));
+    L.push(cwTool('clearBtn','Clear'));
+    // the bar's "recently used" slots: commands used from the Menu that are not presets
+    const recent=(typeof recentCmdOrder!=='undefined' ? recentCmdOrder : []).filter(id=>!(typeof QUICKBAR_PRESETS!=='undefined' && QUICKBAR_PRESETS.includes(id)) && document.getElementById(id)).slice(0,3);
+    if(recent.length){ L.push('|'); recent.forEach(id=>{ const src=document.getElementById(id); const ab=(src.textContent||'').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,3).toUpperCase();
+      L.push(cwTool(id, ab, { id:'recent-'+id, icon:'', cls:'cwRecent cwTextOnly' })); }); }
+  } else if(g==='timeline'){
+    L.push({ id:'creator', label:'Creator', icon:CW_ICO.creator, title:'Frames, playback and the frame note', active:cwIsShown('timelinePanel','shown'), tap:()=>cwPress('timelineToggleTab') });
+  } else {
+    L.push({ id:'library', label:'Library', icon:CW_ICO.library, title:'Coaching Library', tap:()=>{ if(typeof openCoachingLibrary==='function') openCoachingLibrary(); else cwPress('libraryToggleTab'); } });
+    L.push({ id:'notes', label:'Notes', icon:CW_ICO.notes, title:'Your presentation notes', active:cwIsShown('coachingModeToggleTab','active'), tap:()=>cwPress('coachingModeToggleTab') });
+    L.push({ id:'menu', label:'Menu', icon:CW_ICO.menu, title:'All tools and settings (Light Deck, Feedback, Help)', active:cwIsShown('controlsPanel','open'), tap:()=>cwPress('sidebarToggleTab') });
+    L.push({ id:'modes', label:'Modes', icon:CW_ICO.modes, title:'Switch mode', tap:()=>cwPress('exitPresentationBtn') });
+    L.push({ id:'home', label:'Home', icon:CW_ICO.home, title:'XquiX Home', tap:()=>{ if(typeof xquixShowHome==='function') xquixShowHome(); } });
+  }
+  return L.filter(Boolean);
+}
+// Icons only where labels cannot fit: the phone's left rail (CREATE and QUICKS), and a top dock too narrow for the
+// row. Below the field there is room, so the labelled buttons wrap to a second row instead (§5.3: rows, not shrinking).
+function cwDenseFor(g, dock){
+  if(dock==='left') return g==='create' || g==='quicks';
+  if(dock==='below') return false;
+  return (g==='quicks' && innerWidth<1000) || (g==='create' && innerWidth<820);
+}
+let _cwDock='top';
 function cwRender(){
   let el=document.getElementById('cwSurface');
   if(!el){ el=document.createElement('div'); el.id='cwSurface'; el.setAttribute('role','toolbar'); el.setAttribute('aria-label','Coaching controls'); document.body.appendChild(el); document.body.classList.add('cwSurfaceOn'); }
@@ -19755,6 +19829,7 @@ function cwRender(){
     t.addEventListener('click', e=>{ e.stopPropagation();
       if(cwFolded){ cwFolded=false; try{ localStorage.setItem('xquixCwFolded','0'); }catch(_){} }
       else if(el.classList.contains('cwCompact')){ cwOpen = !(cwOpen && g===cwGroup); }
+      if(g!==cwGroup) closeQcbDrawingToolsPopup();
       cwGroup=g; try{ localStorage.setItem('xquixCwGroup', g); }catch(_){}
       cwRender(); });
     tabs.appendChild(t); });
@@ -19763,19 +19838,30 @@ function cwRender(){
   tabs.appendChild(fold);
   const row=document.createElement('div'); row.className='cwRow'; row.dataset.group=cwGroup;
   cwItems(cwGroup).forEach(it=>{
-    const b=document.createElement('button'); b.type='button'; b.className='stageConsoleBtn'+(it.active?' active':''); b.dataset.id=it.id; b.title=it.title||it.label; b.disabled=!!it.disabled;
-    b.innerHTML='<span class="stageConsoleBtnLabel"></span>'; b.firstChild.textContent=it.label;
+    if(it==='|'){ const s=document.createElement('span'); s.className='cwSep'; row.appendChild(s); return; }
+    const b=document.createElement('button'); b.type='button'; b.className='stageConsoleBtn'+(it.active?' active':'')+(it.cls?' '+it.cls:''); b.dataset.id=it.id; if(it.src) b.dataset.src=it.src;
+    b.title=it.title||it.label; b.setAttribute('aria-label', it.title||it.label); b.disabled=!!it.disabled;
+    if(it.icon){ const i=document.createElement('span'); i.className='cwIco'; i.innerHTML=it.icon; b.appendChild(i); }
+    const lab=document.createElement('span'); lab.className='stageConsoleBtnLabel'; lab.textContent=it.label; b.appendChild(lab);
+    if(it.src==='freeDrawBtn' && typeof freehandColor!=='undefined') b.style.setProperty('--cwInk', freehandColor);
     // a menu's own "tap outside closes me" runs on pointerdown, before this button's click: remember whether it was open
     b.addEventListener('pointerdown', ()=>{ if(it.pop) cwWasOpen[it.id]=it.open(); });
     b.addEventListener('click', e=>{ e.stopPropagation();
-      if(it.pop){ if(cwWasOpen[it.id]) { it.close(); } else { cwAnchorPopup(b); it.tap(); } cwWasOpen[it.id]=false; }
-      else it.tap();
-      if(el.classList.contains('cwCompact')) cwOpen=false;
+      if(it.pop){ if(cwWasOpen[it.id]) { it.close(); } else { cwAnchorPopup(b); it.tap(b); } cwWasOpen[it.id]=false; }
+      else it.tap(b);
+      if(el.classList.contains('cwCompact') && !(it.src==='freeDrawBtn')) cwOpen=false;
       setTimeout(cwRender, 0); });
     row.appendChild(b); });
   el.appendChild(tabs); el.appendChild(row);
   el.classList.toggle('cwFolded', cwFolded); el.classList.toggle('cwOpen', cwOpen);
   cwPlace();
+}
+// Keep the toggles' lit state honest when they change elsewhere (keyboard shortcuts, the Menu, Front Court): no rebuild, just classes.
+function cwSync(){
+  const el=document.getElementById('cwSurface'); if(!el) return;
+  el.querySelectorAll('.cwRow [data-src]').forEach(b=>{ const id=b.dataset.src, s=document.getElementById(id); if(!s) return;
+    b.classList.toggle('active', id==='quickViewToggleBtn' ? !!frontCourtActive : s.classList.contains('active')); });
+  const d=el.querySelector('[data-src="freeDrawBtn"]'); if(d && typeof freehandColor!=='undefined') d.style.setProperty('--cwInk', freehandColor);
 }
 // Where the panel goes: the field decides (§5.3).
 function cwPlace(){
@@ -19785,6 +19871,7 @@ function cwPlace(){
   const dock = phoneL ? 'left' : (!land ? 'below' : 'top');
   el.classList.toggle('cwTop', dock==='top'); el.classList.toggle('cwLeft', dock==='left'); el.classList.toggle('cwBelow', dock==='below');
   el.classList.toggle('cwCompact', dock==='left' && fc);
+  el.classList.toggle('cwDense', cwDenseFor(cwGroup, dock)); _cwDock=dock;
   document.body.classList.toggle('cwDockTop', dock==='top');
   el.style.top=''; el.style.bottom='';
   if(dock==='left'){
@@ -19809,9 +19896,11 @@ function cwAnchorPopup(btn){
 // Keep it current: history, selection, Front Court, the panels it opens, rotation.
 { const _uh=updateHistoryUI; updateHistoryUI=function(){ _uh.apply(this, arguments); if(document.getElementById('cwSurface') && cwGroup==='create') cwRender(); }; }
 { const _fc=toggleFrontCourt; toggleFrontCourt=function(){ const r=_fc.apply(this, arguments); cwOpen=false; setTimeout(cwRender, 0); setTimeout(cwPlace, 450); return r; }; }
-window.addEventListener('resize', ()=>cwPlace());
+{ const _rq=renderQuickCommandBar; renderQuickCommandBar=function(){ const r=_rq.apply(this, arguments); cwSync(); return r; }; }
+document.addEventListener('keyup', ()=>setTimeout(cwSync, 0));
+window.addEventListener('resize', ()=>{ const d=document.getElementById('cwSurface'); if(d && d.classList.contains('cwDense')!==cwDenseFor(cwGroup, _cwDock)) cwRender(); else cwPlace(); });
 if(typeof XQStage!=='undefined') XQStage.on('close', ()=>setTimeout(cwRender, 0));
-document.addEventListener('click', e=>{ const el=document.getElementById('cwSurface'); if(el && cwOpen && !el.contains(e.target)){ cwOpen=false; cwRender(); } else if(el && e.target.closest && e.target.closest('#edgeTabStack, #quickCommandBar, #timelinePanel, #controlsPanel, #closeSidebarBtn, #closeTimelineBtn, #hideQuickCommandBarBtn')) setTimeout(cwRender, 0); });
+document.addEventListener('click', e=>{ const el=document.getElementById('cwSurface'); if(el && cwOpen && !el.contains(e.target)){ cwOpen=false; cwRender(); } else if(el && e.target.closest && e.target.closest('#edgeTabStack, #quickCommandBar, #timelinePanel, #controlsPanel, #closeSidebarBtn, #closeTimelineBtn, #hideQuickCommandBarBtn')) setTimeout(cwRender, 0); else if(el) setTimeout(cwSync, 0); });
 cwRender();
 
 // ===== Object Engine (canonical schema translation layer) =====
