@@ -74,15 +74,23 @@ function promptZoneNumberEdit(zoneId) {
   // window.prompt matches this module's own existing precedent
   // (window.alert already appears in API.open) rather than introducing
   // MizeDialog, which this self-contained module never otherwise uses.
-  var input = window.prompt('New number for this zone (currently ' + current + '):', String(current));
-  if (input === null) return; // cancelled
-  var n = parseInt(input, 10);
-  if (isNaN(n) || String(n) !== input.trim()) { window.alert('Enter a whole number.'); return; }
-  var conflict = ZONES.some(function (other) { return other.id !== zoneId && zoneNum(other) === n; });
-  if (conflict) { window.alert('Zone ' + n + ' is already in use by another zone. Pick a different number.'); return; }
-  S.zoneNumberOverrides[zoneId] = n;
-  saveZoneNumberOverrides();
-  drawOverlay(null);
+  // 2026-09-23: the Studio's own dialog when it is there (on the Studio Stage everything the tracker shows is in the studio's
+  // materials -- briefs/GAMETRACKER-STAGE-SCREENS.md); the browser's prompt otherwise, exactly as before.
+  var ask = (typeof MizeDialog !== 'undefined' && MizeDialog.prompt)
+    ? function (m, d, cb) { MizeDialog.prompt(m, d).then(cb); }
+    : function (m, d, cb) { cb(window.prompt(m, d)); };
+  var say = (typeof MizeDialog !== 'undefined' && MizeDialog.alert)
+    ? function (m) { MizeDialog.alert(m); } : function (m) { window.alert(m); };
+  ask('New number for this zone (currently ' + current + '):', String(current), function (input) {
+    if (input === null || input === undefined) return; // cancelled
+    var n = parseInt(input, 10);
+    if (isNaN(n) || String(n) !== String(input).trim()) { say('Enter a whole number.'); return; }
+    var conflict = ZONES.some(function (other) { return other.id !== zoneId && zoneNum(other) === n; });
+    if (conflict) { say('Zone ' + n + ' is already in use by another zone. Pick a different number.'); return; }
+    S.zoneNumberOverrides[zoneId] = n;
+    saveZoneNumberOverrides();
+    drawOverlay(null);
+  });
 }
 
 /* ------------------------------------------------------------ action trees */
