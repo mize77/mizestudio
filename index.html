@@ -525,6 +525,47 @@
   .closeToolPanelBtn, #toolPanelBackdrop { pointer-events: auto !important; }
   body.tutorialModeActive #tutorialExitBtn, body.guestFreePlayActive #tutorialExitBtn { display:block; }
   body.tutorialModeActive #tutorialSkipStepBtn { display:block; }
+  /* ===== Tutorial voice + leave screen (Coaching tutorial, 2026-09-23; coaching/COACHING-TUTORIAL.md) =====
+     Opt-in per tutorial (steps.tutorialOptions.voice / .exitScreen). The nav row (Exit · Skip · voice) is laid
+     out by tutorialLayoutNav(): one row bottom-left, lifted above the Workbench console or mirrored to the right
+     when the console would be under it. Everything here must stay tappable through the interaction lock. */
+  #tutorialVoiceNav { position:fixed; bottom:calc(10px + env(safe-area-inset-bottom)); left:10px; z-index:1570; display:none; gap:6px; }
+  body.tutorialModeActive.tutVoice #tutorialVoiceNav { display:flex; }
+  #tutorialVoiceNav button, #tutorialVoiceOpts button { pointer-events:auto !important; appearance:none; cursor:pointer; display:inline-flex; align-items:center; gap:7px;
+    background:rgba(12,22,24,.9); color:#cfe7e4; border:1px solid rgba(255,255,255,.14); border-radius:20px; font:600 12.5px/1 'Archivo',system-ui,sans-serif; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  #tutorialVoiceNav button { width:34px; height:32px; padding:0; justify-content:center; }
+  #tutorialVoiceNav svg, #tutorialVoiceOpts svg { width:16px; height:16px; flex:none; }
+  #tutorialVoiceNav button.on, #tutorialVoiceOpts button.on { color:#2ecab8; border-color:rgba(46,202,184,.6); box-shadow:0 0 0 1px rgba(46,202,184,.25), 0 0 14px rgba(46,202,184,.28); }
+  #tutorialVoiceNav button .tvDot { position:absolute; margin:-18px 0 0 20px; width:7px; height:7px; border-radius:50%; background:#2ecab8; box-shadow:0 0 6px #2ecab8; display:none; }
+  #tutorialVoiceNav button { position:relative; }
+  #tutorialVoiceNav button.on.listening .tvDot { display:block; }
+  #tutorialVoiceNav button.on.paused .tvDot { display:block; background:#6f8a87; box-shadow:none; }
+  #tutorialVoiceOpts { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; pointer-events:auto !important; }
+  body.tutVoice #tutorialInstruction { white-space:pre-line; }
+  body.tutVoice.tutVoiceWelcome #tutorialBanner { width:min(360px, 64vw); }
+  #tutorialVoiceOpts button { padding:7px 10px; gap:6px; font-size:12px; background:rgba(0,0,0,.28); }
+  #tutorialVoiceOpts button .tvState { color:#8aa3a0; font-weight:700; }
+  #tutorialVoiceOpts button.on .tvState { color:#2ecab8; }
+  #tutorialHeard { position:fixed; left:50%; top:calc(14px + env(safe-area-inset-top)); transform:translate(-50%,-6px); z-index:5100; pointer-events:none; opacity:0; transition:opacity .18s ease, transform .18s ease;
+    background:rgba(12,22,24,.94); color:#e6f2f0; border:1px solid rgba(46,202,184,.45); border-radius:10px; padding:8px 14px; font:600 13px/1.35 'Archivo',system-ui,sans-serif; max-width:min(440px,90vw); text-align:center; box-shadow:0 8px 24px rgba(0,0,0,.35); }
+  #tutorialHeard.show { opacity:1; transform:translate(-50%,0); }
+  #tutorialHeard b { color:#2ecab8; font-weight:700; }
+  body.cwTutorial.tutConsoleStep #directionPad, body.cwTutorial.tutConsoleStep #playerActionBar { display:none !important; }
+  #tutorialLeaveScreen { display:none; position:fixed; inset:0; z-index:5000; align-items:center; justify-content:center; padding:24px; box-sizing:border-box;
+    background:radial-gradient(ellipse at 50% 42%, rgba(12,40,42,.94) 0%, rgba(5,9,10,.97) 70%); pointer-events:auto !important; }
+  #tutorialLeaveScreen.open { display:flex; }
+  #tutorialLeaveScreen * { pointer-events:auto !important; }
+  #tutorialLeaveScreen .tlBox { width:min(460px,92vw); background:linear-gradient(180deg, rgba(20,34,36,.96), rgba(10,18,20,.98)); border:1px solid rgba(46,202,184,.28); border-radius:14px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 0 40px rgba(46,202,184,.10), 0 30px 80px rgba(0,0,0,.55); padding:30px 26px 24px; text-align:center; color:#e6f2f0; }
+  #tutorialLeaveScreen .tlKicker { font:600 10.5px/1 'Archivo',system-ui,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:#5fc9cc; margin-bottom:12px; }
+  #tutorialLeaveScreen h2 { font:700 24px/1.2 'Space Grotesk','Archivo',system-ui,sans-serif; margin:0 0 10px; color:#fff; }
+  #tutorialLeaveScreen p { font:500 14.5px/1.5 'Archivo',system-ui,sans-serif; color:#b9cfcc; margin:0 0 8px; }
+  #tutorialLeaveScreen .tlHint { font-size:12.5px; color:#7f9a97; margin-top:6px; }
+  #tutorialLeaveScreen .tlButtons { display:flex; flex-direction:column; gap:10px; margin-top:22px; }
+  #tutorialLeaveScreen .tlButtons button { appearance:none; cursor:pointer; padding:12px 18px; border-radius:10px; font:600 14.5px/1 'Archivo',system-ui,sans-serif;
+    background:rgba(255,255,255,.04); color:#e6f2f0; border:1px solid rgba(255,255,255,.16); }
+  #tutorialLeaveScreen .tlButtons button:hover { border-color:rgba(46,202,184,.5); }
+  #tutorialLeaveScreen .tlButtons button.tlPrimary { background:rgba(46,202,184,.14); color:#2ecab8; border-color:rgba(46,202,184,.65); box-shadow:0 0 18px rgba(46,202,184,.22); }
   .ghost img { display:block; }
   #measureText { font-size:.45px; font-weight:800; fill:#263238; paint-order:stroke; stroke:white; stroke-width:.12; pointer-events:none; }
   .rotateHandle { position:absolute; left:50%; top:-8px; width:16px; height:16px; border-radius:50%; background:rgba(255,255,255,.85); border:1.5px solid #263238; box-shadow:0 1px 3px rgba(0,0,0,.35); transform:translate(-50%,-50%); cursor:grab; z-index:9; touch-action:none; opacity:0; transition:opacity .12s; }
@@ -854,10 +895,10 @@
      Tracker, the parents' experience, the guest experience or the audience view. It replaces the edge tabs, "+",
      Save/Open and the round mode switch; every control presses the code path those used. */
   #cwSurface { display:none; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface { display:flex; position:fixed; z-index:1535; gap:6px; padding:6px; border-radius:12px; font-family:'Space Grotesk',Arial,sans-serif;
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface { display:flex; position:fixed; z-index:1535; gap:6px; padding:6px; border-radius:12px; font-family:'Space Grotesk',Arial,sans-serif;
     background:linear-gradient(180deg, rgba(16,24,26,.94), rgba(6,11,12,.96)); border:1px solid rgba(255,255,255,.09);
     box-shadow:0 10px 30px rgba(0,0,0,.55), inset 0 1px 0 rgba(46,202,184,.14); user-select:none; -webkit-user-select:none; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #edgeTabStack, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldAddBtn, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveOpenBtn, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #exitPresentationBtn { display:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #edgeTabStack, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #emptyFieldAddBtn, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #saveOpenBtn, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #exitPresentationBtn { display:none !important; }
   #cwSurface .cwTabs { display:flex; gap:3px; align-items:center; }
   #cwSurface .cwTab { appearance:none; font:600 10px/1 'Space Grotesk',Arial,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:#8aa3a0;
     padding:6px 9px; border-radius:7px; border:1px solid transparent; background:transparent; cursor:pointer; white-space:nowrap; touch-action:manipulation; }
@@ -867,22 +908,22 @@
   #cwSurface .cwRow { display:flex; gap:5px; }
   #cwSurface .stageConsoleBtn { min-width:52px; height:34px; font-size:12.5px; padding:0 11px; white-space:nowrap; }
   /* docks */
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop { flex-direction:column; left:50%; top:calc(10px + env(safe-area-inset-top)); transform:translateX(-50%); width:max-content; max-width:calc(100vw - 16px); box-sizing:border-box; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow { flex-direction:column; left:50%; transform:translateX(-50%); width:max-content; max-width:calc(100vw - 16px); box-sizing:border-box; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow { flex-wrap:wrap; justify-content:center; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft { flex-direction:row; left:calc(8px + env(safe-area-inset-left)); }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTabs, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwRow { flex-direction:column; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { writing-mode:vertical-rl; transform:rotate(180deg); padding:9px 5px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .stageConsoleBtn { width:96px; min-width:0; height:32px; font-size:11.5px; padding:0 6px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwCompact:not(.cwOpen) .cwRow { display:none; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded .cwRow, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded .cwTab:not(.on) { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwTop { flex-direction:column; left:50%; top:calc(10px + env(safe-area-inset-top)); transform:translateX(-50%); width:max-content; max-width:calc(100vw - 16px); box-sizing:border-box; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow { flex-direction:column; left:50%; transform:translateX(-50%); width:max-content; max-width:calc(100vw - 16px); box-sizing:border-box; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow { flex-wrap:wrap; justify-content:center; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft { flex-direction:row; left:calc(8px + env(safe-area-inset-left)); }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTabs, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwRow { flex-direction:column; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { writing-mode:vertical-rl; transform:rotate(180deg); padding:9px 5px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .stageConsoleBtn { width:96px; min-width:0; height:32px; font-size:11.5px; padding:0 6px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft.cwCompact:not(.cwOpen) .cwRow { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwFolded .cwRow, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwFolded .cwTab:not(.on) { display:none; }
   /* the + and Save/Open menus open beside the surface button that opened them */
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldAddBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldSequenceBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveOpenMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #openItemBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveItemBox {
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #emptyFieldMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #emptyFieldAddBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #emptyFieldSequenceBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #saveOpenMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #openItemBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #saveItemBox {
     top:var(--cwPopTop, calc(62px + env(safe-area-inset-top))) !important; left:var(--cwPopLeft, auto) !important; right:var(--cwPopRight, auto) !important; max-height:calc(100dvh - var(--cwPopTop, 62px) - 12px); overflow-y:auto; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #emptyFieldMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #emptyFieldAddBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #emptyFieldSequenceBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #saveOpenMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #openItemBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #saveItemBox { top:auto !important; bottom:var(--cwPopBottom, 90px) !important; max-height:calc(100dvh - var(--cwPopBottom, 90px) - 12px); }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode).cwPopUp #emptyFieldMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode).cwPopUp #emptyFieldAddBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode).cwPopUp #emptyFieldSequenceBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode).cwPopUp #saveOpenMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode).cwPopUp #openItemBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode).cwPopUp #saveItemBox { top:auto !important; bottom:var(--cwPopBottom, 90px) !important; max-height:calc(100dvh - var(--cwPopBottom, 90px) - 12px); }
   /* Step 2b: the Quick Command Bar's tools live in CREATE and QUICKS, so the bar itself is retired in Coaching
      (it stays on the Stage, e.g. Presentation's CENTER view, and in tutorials) */
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #quickCommandBar { display:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #quickCommandBar { display:none !important; }
   #cwSurface .stageConsoleBtn { display:inline-flex; align-items:center; justify-content:center; gap:6px; }
   #cwSurface .cwIco { display:inline-flex; width:17px; height:17px; flex:none; }
   #cwSurface .cwIco svg { width:17px; height:17px; }
@@ -894,33 +935,33 @@
   #cwSurface.cwDense .stageConsoleBtn .stageConsoleBtnLabel { display:none; }
   #cwSurface.cwDense .stageConsoleBtn { min-width:0; width:42px; padding:0; }
   #cwSurface.cwDense .stageConsoleBtn.cwTextOnly .stageConsoleBtnLabel { display:inline; font-size:10.5px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwRow { display:grid; grid-template-columns:repeat(2, 42px); gap:5px; align-content:center; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense.cwCompact:not(.cwOpen) .cwRow { display:none; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .stageConsoleBtn { width:42px; height:36px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwSep { display:none; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded.cwDense .cwRow { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwRow { display:grid; grid-template-columns:repeat(2, 42px); gap:5px; align-content:center; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense.cwCompact:not(.cwOpen) .cwRow { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .stageConsoleBtn { width:42px; height:36px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwSep { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwFolded.cwDense .cwRow { display:none; }
   /* 2c + MIZE's structure review (2026-09-23): QUICKS icons in two rows of six + recents; CREATOR is the timeline itself */
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #timelinePanel, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #timelineCommandsBar { display:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #timelinePanel, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #timelineCommandsBar { display:none !important; }
   #cwSurface .cwCounter { display:inline-flex; align-items:center; justify-content:center; min-width:92px; padding:0 8px; font:600 12px/1 'Space Grotesk',Arial,sans-serif; color:#cfe7e4; letter-spacing:.04em; white-space:nowrap; }
   #cwSurface .stageConsoleBtn.cwIconOnly { min-width:0; width:38px; padding:0; }
   #cwSurface .stageConsoleBtn.cwIconOnly .stageConsoleBtnLabel { display:none; }
   #cwSurface .cwRow.cwQuicks { gap:8px; align-items:center; }
   #cwSurface .cwGrid { display:grid; grid-template-columns:repeat(6, 38px); grid-auto-rows:34px; gap:4px; }
   #cwSurface .cwGrid.cwGridRecent { grid-template-columns:repeat(2, 38px); padding-left:8px; border-left:1px solid rgba(255,255,255,.12); }
-  #cwSurface .cwGrid .stageConsoleBtn, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid .stageConsoleBtn { width:38px; min-width:0; height:34px; padding:0; }
-  @media (max-width:900px){ body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .cwSep:not(.cwSep2) { flex-basis:100%; width:auto; height:0; margin:0; background:none; } }
-  @media (max-width:560px){ body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .cwSep2 { flex-basis:100%; width:auto; height:0; margin:0; background:none; } body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .stageConsoleBtn:not(.cwIconOnly) { padding:0 9px; } }
+  #cwSurface .cwGrid .stageConsoleBtn, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid .stageConsoleBtn { width:38px; min-width:0; height:34px; padding:0; }
+  @media (max-width:900px){ body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .cwSep:not(.cwSep2) { flex-basis:100%; width:auto; height:0; margin:0; background:none; } }
+  @media (max-width:560px){ body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .cwSep2 { flex-basis:100%; width:auto; height:0; margin:0; background:none; } body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .stageConsoleBtn:not(.cwIconOnly) { padding:0 9px; } }
   #cwSurface .cwAbbrev { font:700 10.5px/1 'Space Grotesk',Arial,sans-serif; letter-spacing:.04em; color:#9fb7b4; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid.cwGridMain { grid-template-columns:repeat(2, 38px); }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid.cwGridRecent { padding-left:0; border-left:none; padding-top:6px; border-top:1px solid rgba(255,255,255,.12); }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwCounter { grid-column:span 2; min-width:0; height:26px; font-size:11px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop.cwDense .cwCounter { min-width:72px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid.cwGridMain { grid-template-columns:repeat(2, 38px); }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid.cwGridRecent { padding-left:0; border-left:none; padding-top:6px; border-top:1px solid rgba(255,255,255,.12); }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwCounter { grid-column:span 2; min-width:0; height:26px; font-size:11px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwTop.cwDense .cwCounter { min-width:72px; }
   #cwSurface .cwDrawer { display:flex; flex-direction:column; gap:6px; padding:7px 2px 2px; border-top:1px solid rgba(255,255,255,.08); }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop .cwDrawer, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwDrawer { width:100%; min-width:min(460px, calc(100vw - 40px)); box-sizing:border-box; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwDrawer { width:240px; border-top:none; border-left:1px solid rgba(255,255,255,.08); padding:2px 2px 2px 8px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded .cwDrawer, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwCompact:not(.cwOpen) .cwDrawer { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwTop .cwDrawer, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow .cwDrawer { width:100%; min-width:min(460px, calc(100vw - 40px)); box-sizing:border-box; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwDrawer { width:240px; border-top:none; border-left:1px solid rgba(255,255,255,.08); padding:2px 2px 2px 8px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwFolded .cwDrawer, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwCompact:not(.cwOpen) .cwDrawer { display:none; }
   #cwSurface .cwChips { display:flex; gap:4px; overflow-x:auto; flex-wrap:nowrap; max-width:100%; padding-bottom:2px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwChips { flex-wrap:wrap; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwChips { flex-wrap:wrap; }
   #cwSurface .cwChip { appearance:none; flex:none; min-width:30px; height:26px; border-radius:7px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#cfe7e4; font:600 12px/1 'Space Grotesk',Arial,sans-serif; cursor:pointer; }
   #cwSurface .cwChip.on { border-color:rgba(46,202,184,.55); background:rgba(46,202,184,.16); color:#2ecab8; }
   #cwSurface .cwNote { width:100%; box-sizing:border-box; min-height:46px; resize:vertical; background:rgba(255,255,255,.05); color:#e6f2f0; border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:7px 9px; font:13px/1.35 Arial,sans-serif; user-select:text; -webkit-user-select:text; }
@@ -932,7 +973,7 @@
   #cwSurface .cwOpt input[type=checkbox] { accent-color:#2ecab8; }
   /* MIZE 2026-09-23: bottom centre like the Stage's floor console, the Stage's look, and movable */
   #cwSurface .cwDesk { display:contents; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface { background:linear-gradient(180deg, rgba(6,14,15,.90), rgba(3,8,9,.96)); border:1px solid rgba(46,202,184,.16);
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface { background:linear-gradient(180deg, rgba(6,14,15,.90), rgba(3,8,9,.96)); border:1px solid rgba(46,202,184,.16);
     box-shadow:inset 0 2px 0 rgba(150,215,210,.10), inset 0 -10px 24px rgba(0,0,0,.55), 0 14px 34px rgba(0,0,0,.55); font-family:'Archivo',system-ui,sans-serif; }
   #cwSurface .cwTab { font:600 10px/1 'Archivo',system-ui,sans-serif; letter-spacing:.18em; color:#5fc9cc; opacity:.62; border-color:transparent !important; background:transparent !important; padding:6px 8px; }
   #cwSurface .cwTab:hover { color:#9fe9e4; opacity:1; }
@@ -942,34 +983,34 @@
   #cwSurface .cwGrip:hover { color:#9fe9e4; }
   #cwSurface.cwDragging .cwGrip { cursor:grabbing; }
   #cwSurface.cwDragging { transition:none !important; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwMoved { transform:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved { transform:none !important; }
   /* the bottom dock: a floor console -- tilted away like the Stage's, the Frames drawer floating above it */
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom { flex-direction:column-reverse; align-items:center; gap:10px; left:50%; top:auto; bottom:calc(12px + env(safe-area-inset-bottom)); transform:translateX(-50%);
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom { flex-direction:column-reverse; align-items:center; gap:10px; left:50%; top:auto; bottom:calc(12px + env(safe-area-inset-bottom)); transform:translateX(-50%);
     width:max-content; max-width:calc(100vw - 16px); padding:0; border:none; border-radius:0; background:none; box-shadow:none; perspective:1100px; perspective-origin:50% -60%; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom.cwMoved { bottom:auto; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwDesk { display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:12px 30px 14px; border-radius:6px; transform-origin:50% 100%; transform:rotateX(24deg);
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom.cwMoved { bottom:auto; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwDesk { display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:12px 30px 14px; border-radius:6px; transform-origin:50% 100%; transform:rotateX(24deg);
     background:linear-gradient(180deg, rgba(6,14,15,.90), rgba(3,8,9,.96));
     box-shadow:inset 0 2px 0 rgba(150,215,210,.10), inset 0 0 0 1px rgba(46,202,184,.14), inset 0 -10px 24px rgba(0,0,0,.6), 0 18px 40px rgba(0,0,0,.55); }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .stageConsoleBtn { height:40px; font-size:13.5px; padding:0 14px; min-width:64px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .stageConsoleBtn.cwIconOnly { width:44px; min-width:0; padding:0; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid { grid-template-columns:repeat(6, 44px); grid-auto-rows:38px; gap:6px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid.cwGridRecent { grid-template-columns:repeat(2, 44px); }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid .stageConsoleBtn { width:44px; height:38px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwRow { gap:6px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwIco, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwIco svg { width:19px; height:19px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwDrawer { width:100%; min-width:min(520px, calc(100vw - 40px)); box-sizing:border-box; padding:10px 12px; border:1px solid rgba(46,202,184,.16); border-radius:12px;
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .stageConsoleBtn { height:40px; font-size:13.5px; padding:0 14px; min-width:64px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .stageConsoleBtn.cwIconOnly { width:44px; min-width:0; padding:0; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid { grid-template-columns:repeat(6, 44px); grid-auto-rows:38px; gap:6px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid.cwGridRecent { grid-template-columns:repeat(2, 44px); }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid .stageConsoleBtn { width:44px; height:38px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwRow { gap:6px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwIco, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwIco svg { width:19px; height:19px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwDrawer { width:100%; min-width:min(520px, calc(100vw - 40px)); box-sizing:border-box; padding:10px 12px; border:1px solid rgba(46,202,184,.16); border-radius:12px;
     background:linear-gradient(180deg, rgba(6,14,15,.92), rgba(3,8,9,.97)); box-shadow:0 14px 34px rgba(0,0,0,.55); }
   /* narrow screens: the Stage-style labels tighten so the tab row always fits inside the panel */
-  @media (max-width:560px){ body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTab { letter-spacing:.1em; padding:6px 5px; } body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTabs { gap:1px; } }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { padding:7px 5px; letter-spacing:.12em; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrip { padding:2px 4px 4px; }
+  @media (max-width:560px){ body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTab { letter-spacing:.1em; padding:6px 5px; } body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTabs { gap:1px; } }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { padding:7px 5px; letter-spacing:.12em; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrip { padding:2px 4px 4px; }
   /* Presentation (MIZE 2026-09-23): the same control surface as Coaching, with Presentation's functions; it replaces the floor
      console, the mini bar, the Front Court Home button and the round + / Save buttons there (tutorials keep the old controls) */
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode)[data-stage="presentation"] #psMiniBar, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode)[data-stage="presentation"] #stageConsole { display:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode)[data-stage="presentation"] #psMiniBar, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode)[data-stage="presentation"] #stageConsole { display:none !important; }
   /* an empty side screen shows the XquiX Studio logo whenever it is in view, focused too (MIZE 2026-09-23): its load buttons live
      in the surface's SCREENS group now, so the in-screen placeholder goes (tutorials keep it) */
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode)[data-stage="presentation"] .studioFrame .studioFramePlaceholder { display:none !important; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode)[data-stage="presentation"] .studioFrame.camFocus:not(.hasContent) .studioFrameBrand { align-items:center; padding-top:0; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode)[data-stage="presentation"] .studioFrame .studioFramePlaceholder { display:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode)[data-stage="presentation"] .studioFrame.camFocus:not(.hasContent) .studioFrameBrand { align-items:center; padding-top:0; }
   /* Game Tracker before tracking starts: its side screens have nothing to show yet -- the logo, not a blank panel */
   body[data-stage="gametracker"].gtPreTrack .studioFrame .studioFrameBrand { display:flex !important; z-index:3; }
   body[data-stage="gametracker"].gtPreTrack .studioFrame .studioFrameBrand img { opacity:.85 !important; }
@@ -977,15 +1018,15 @@
   body[data-stage="gametracker"].gtPreTrack #gtTeamInfo, body[data-stage="gametracker"].gtPreTrack #gtLiveInfo { visibility:hidden; }
   body[data-stage="gametracker"].gtPreTrack #gtTeamInfo, body[data-stage="gametracker"].gtPreTrack #gtLiveInfo { background:transparent !important; }
   #cwSurface .cwCap { display:inline-flex; align-items:center; padding:0 2px 0 6px; font:600 9.5px/1 'Archivo',system-ui,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#5fc9cc; opacity:.8; white-space:nowrap; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwCap { grid-column:span 2; justify-content:center; padding:4px 0 0; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { padding:6px 4px; font-size:9px; letter-spacing:.1em; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwCap { grid-column:span 2; justify-content:center; padding:4px 0 0; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { padding:6px 4px; font-size:9px; letter-spacing:.1em; }
   /* six tabs (Presentation): the tab row wraps rather than running off a narrow screen -- a second row below the field,
      a second column on the phone's rail */
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTabs { flex-wrap:wrap; justify-content:center; row-gap:2px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTabs { flex-wrap:wrap; max-height:calc(100dvh - 24px); align-content:flex-start; column-gap:2px; }
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface .cwRow > .cwSep:last-child { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTabs { flex-wrap:wrap; justify-content:center; row-gap:2px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTabs { flex-wrap:wrap; max-height:calc(100dvh - 24px); align-content:flex-start; column-gap:2px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface .cwRow > .cwSep:last-child { display:none; }
   /* the drawing-tools popup opens next to Draw (positioned in JS) and above the surface */
-  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #qcbDrawingToolsPopup { z-index:1540; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #qcbDrawingToolsPopup { z-index:1540; }
 
   /* Darken the water backdrop -- the white venue deck reads as paper not pool
      without this, and depth is mostly light falloff not shape. */
@@ -2537,6 +2578,24 @@
 </svg>
 <button id="tutorialExitBtn" title="Leave the guided tutorial at any time">Exit Tutorial</button>
 <button id="tutorialSkipStepBtn" title="Have the system complete this step automatically and move on">Skip to Next Step</button>
+<div id="tutorialVoiceNav" role="group" aria-label="Tutorial voice">
+  <button type="button" id="tutorialReadAloudBtn" title="Read aloud: off" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+  <button type="button" id="tutorialVoiceCmdBtn" title="Voice commands: off" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="tvDot"></span></button>
+</div>
+<div id="tutorialHeard" role="status" aria-live="polite"></div>
+<div id="tutorialLeaveScreen" role="dialog" aria-modal="true" aria-labelledby="tutorialLeaveTitle">
+  <div class="tlBox">
+    <div class="tlKicker">Coaching Tutorial</div>
+    <h2 id="tutorialLeaveTitle">Leave the tutorial?</h2>
+    <p id="tutorialLeaveWhere"></p>
+    <div class="tlButtons">
+      <button type="button" id="tutorialLeaveKeepBtn" class="tlPrimary">Keep going</button>
+      <button type="button" id="tutorialLeaveRestartBtn">Start over</button>
+      <button type="button" id="tutorialLeaveExitBtn">Leave tutorial</button>
+    </div>
+    <p class="tlHint" id="tutorialLeaveHint"></p>
+  </div>
+</div>
 <div id="tutorialOrientationWarning" class="guestOverlay">
   <div class="guestOverlayBox">
     <svg viewBox="0 0 24 24" width="48" height="48" fill="#d92b2b" style="margin-bottom:6px;"><path d="M12 2 L23 21 L1 21 Z"/><rect x="10.8" y="8" width="2.4" height="7" fill="#fff"/><rect x="10.8" y="16.5" width="2.4" height="2.4" fill="#fff"/></svg>
@@ -14991,8 +15050,16 @@ function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenc
   }
   tutorialSteps = steps;
   tutorialOnComplete = onComplete || null;
+  // Per-tutorial options travel with the step list (steps.tutorialOptions), so every call site that starts a
+  // tutorial gets them without being edited: surface (run on the Workbench console), voice (read aloud + spoken
+  // commands), exitScreen (Exit asks first), rebuild (for Start over). Absent = the engine as it always was.
+  tutorialOpts = steps.tutorialOptions || {};
+  tutorialStartArgs = { onComplete, completionMessage, needsIntroSequenceSeeded };
   tutorialModeActive = true;
   document.body.classList.add('tutorialModeActive');
+  document.body.classList.toggle('cwTutorial', !!tutorialOpts.surface);
+  document.body.classList.toggle('tutVoice', !!tutorialOpts.voice);
+  if(tutorialOpts.surface && typeof cwTutorialBegin==='function') cwTutorialBegin();
   if(typeof psPresConsoleRefresh==='function') setTimeout(()=>psPresConsoleRefresh(true), 0);
   clearSelection();
   // Ensure the board is freshly sized before the tutorial places its formation.
@@ -15001,9 +15068,17 @@ function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenc
   if (typeof fitBoardToScreen === 'function') fitBoardToScreen();
   goToTutorialStep(0);
 }
+let tutorialOpts = {}, tutorialStartArgs = null;
 function exitTutorial(){
   if(!tutorialModeActive) return;
   tutorialModeActive = false;
+  if(typeof XQTutVoice!=='undefined') XQTutVoice.onExit();
+  document.getElementById('tutorialLeaveScreen')?.classList.remove('open');
+  document.body.classList.remove('tutVoice');
+  if(document.body.classList.contains('cwTutorial')){ document.body.classList.remove('cwTutorial'); if(typeof cwTutorialEnd==='function') cwTutorialEnd(); }
+  tutorialOpts = {};
+  if(typeof tutorialLayoutNav==='function') tutorialLayoutNav();
+  document.body.classList.remove('tutConsoleStep');
   // If this tutorial was a first-use mode introduction, the deliberate exit
   // qualifies the user for that mode.  onComplete handles the completion path;
   // this covers the Exit Tutorial button path.
@@ -15037,7 +15112,265 @@ function exitTutorial(){
   clearTutorialInteractionLock();
   tutorialSteps = []; tutorialStepIndex = -1; tutorialOnComplete = null;
 }
-document.getElementById('tutorialExitBtn')?.addEventListener('click', exitTutorial);
+// Exit Tutorial: straight out, unless this tutorial asks first (tutorialOptions.exitScreen). The Guest
+// Experience's own capture-phase listener (prepareGuestInterface) still runs before this and shows its dialog.
+document.getElementById('tutorialExitBtn')?.addEventListener('click', ()=>{
+  if(tutorialModeActive && tutorialOpts.exitScreen) showTutorialLeaveScreen(); else exitTutorial();
+});
+function showTutorialLeaveScreen(){
+  if(!tutorialModeActive) return;
+  const pre = tutorialSteps.filter(s=>s.isPreStep).length, step = tutorialSteps[tutorialStepIndex];
+  const where = document.getElementById('tutorialLeaveWhere');
+  if(where) where.textContent = (!step || step.isPreStep) ? 'You have not started the first step yet.'
+    : 'You are on step '+(tutorialStepIndex-pre+1)+' of '+(tutorialSteps.length-pre)+'. Keep going to carry on right here.';
+  const restart = document.getElementById('tutorialLeaveRestartBtn');
+  if(restart) restart.style.display = typeof tutorialOpts.rebuild==='function' ? '' : 'none';
+  const hint = document.getElementById('tutorialLeaveHint');
+  if(hint) hint.textContent = (typeof XQTutVoice!=='undefined' && XQTutVoice.commandsOn()) ? 'Or say \u201cKeep going\u201d, \u201cStart over\u201d or \u201cLeave\u201d.' : '';
+  document.getElementById('tutorialLeaveScreen')?.classList.add('open');
+  if(typeof XQTutVoice!=='undefined') XQTutVoice.onLeaveScreen(true);
+}
+function hideTutorialLeaveScreen(){
+  document.getElementById('tutorialLeaveScreen')?.classList.remove('open');
+  if(typeof XQTutVoice!=='undefined') XQTutVoice.onLeaveScreen(false);
+}
+function tutorialLeaveScreenOpen(){ return !!document.getElementById('tutorialLeaveScreen')?.classList.contains('open'); }
+// Start over: the same tutorial again from its welcome box, with the same completion handling. A first-use run
+// stays a first-use run (exitTutorial would otherwise count this as the deliberate exit that qualifies the mode).
+function restartCurrentTutorial(){
+  const rebuild = tutorialOpts.rebuild, args = tutorialStartArgs || {};
+  if(typeof rebuild!=='function'){ exitTutorial(); return; }
+  const pending = window._modeIntroductionPending;
+  window._modeIntroductionPending = null;
+  exitTutorial();
+  window._modeIntroductionPending = pending || null;
+  startTutorial(rebuild(), { onComplete:args.onComplete, completionMessage:args.completionMessage, needsIntroSequenceSeeded:args.needsIntroSequenceSeeded });
+}
+document.getElementById('tutorialLeaveKeepBtn')?.addEventListener('click', hideTutorialLeaveScreen);
+document.getElementById('tutorialLeaveExitBtn')?.addEventListener('click', ()=>{ hideTutorialLeaveScreen(); exitTutorial(); });
+document.getElementById('tutorialLeaveRestartBtn')?.addEventListener('click', ()=>{ hideTutorialLeaveScreen(); restartCurrentTutorial(); });
+// ===== Tutorial nav row + voice (read aloud, spoken commands) =====
+// Opt-in per tutorial: steps.tutorialOptions.voice (the Coaching tutorial sets it). Nothing here runs for a
+// tutorial without it. Design record: coaching/COACHING-TUTORIAL.md in the project.
+// Exit · Skip · voice in one row, bottom-left. If the Workbench console sits under that row it is lifted above
+// the console, or mirrored to the right when the console is the phone's left rail.
+let _tutNavLast = '';
+function tutorialLayoutNav(){
+  const exit=document.getElementById('tutorialExitBtn'), skip=document.getElementById('tutorialSkipStepBtn'), vn=document.getElementById('tutorialVoiceNav');
+  if(!exit || !skip) return;
+  const managed = tutorialModeActive && (tutorialOpts.voice || tutorialOpts.surface);
+  const els=[exit, skip, vn].filter(Boolean);
+  if(!managed){ if(_tutNavLast){ els.forEach(e=>{ e.style.left=''; e.style.right=''; e.style.bottom=''; }); _tutNavLast=''; } return; }
+  const items=[exit, skip].concat(vn && getComputedStyle(vn).display!=='none' ? [vn] : []);
+  const ws=items.map(e=>e.offsetWidth||0), hs=items.map(e=>e.offsetHeight||0), gap=8, pad=10;
+  const total=ws.reduce((a,b)=>a+b,0)+gap*(items.length-1), rowH=Math.max(...hs, 32);
+  let side='left', bottom=pad;
+  const sf=document.getElementById('cwSurface');
+  const sr=(sf && getComputedStyle(sf).display!=='none') ? sf.getBoundingClientRect() : null;
+  const hits=(b, s)=>{ if(!sr || !sr.width) return false; const top=innerHeight-b-rowH, bot=innerHeight-b;
+    const l = s==='left' ? pad : innerWidth-pad-total, r = l+total;
+    return l < sr.right && r > sr.left && top < sr.bottom && bot > sr.top; };
+  if(hits(bottom, side)){
+    if(sf.classList.contains('cwLeft') && !hits(bottom, 'right')) side='right';
+    else bottom = Math.round(innerHeight - sr.top + 8);
+  }
+  tutorialAvoidConsole(sr);
+  // the instruction box never sits on the row (a short phone screen in landscape): it moves up above it
+  const bn=document.getElementById('tutorialBanner');
+  if(bn && bn.offsetHeight){ const br=bn.getBoundingClientRect(), rowTop=innerHeight-bottom-rowH-8;
+    const rl = side==='left' ? pad : innerWidth-pad-total, rr=rl+total;
+    if(br.bottom>rowTop && br.left<rr && br.right>rl){ const h=br.height; bn.style.top=Math.max(8+h/2, rowTop-h/2)+'px'; } }
+  const key=side+bottom+'|'+ws.join(',');
+  if(key===_tutNavLast) return; _tutNavLast=key;
+  let x=pad;
+  if(side==='left') items.forEach((e,i)=>{ e.style.right='auto'; e.style.left=x+'px'; e.style.bottom=(bottom+(rowH-hs[i])/2)+'px'; x+=ws[i]+gap; });
+  else { for(let i=items.length-1;i>=0;i--){ const e=items[i]; e.style.left='auto'; e.style.right=x+'px'; e.style.bottom=(bottom+(rowH-hs[i])/2)+'px'; x+=ws[i]+gap; } }
+}
+window.addEventListener('resize', ()=>{ _tutNavLast=''; setTimeout(()=>{ if(tutorialModeActive) tutorialLayoutNav(); }, 250); });
+// On the console: the instruction box never covers it (on the phone's left rail it goes to the other side of the
+// field), and while a step points at a console control the Direction Pad and the Player Action Bar step aside: on
+// a phone they can sit over the console (portrait: the pad; a small phone in landscape: the action bar over the
+// rail). Both come back with the next player step.
+function tutorialAvoidConsole(sr){
+  const step=tutorialSteps[tutorialStepIndex];
+  let onConsole=false;
+  try{ onConsole = !!sr && resolveTutorialHighlightTargets(step && step.highlight).some(e=>e.closest && e.closest('#cwSurface')); }catch(e){}
+  document.body.classList.toggle('tutConsoleStep', onConsole);
+  const bn=document.getElementById('tutorialBanner'); if(!bn || !sr || !step) return;
+  const r=bn.getBoundingClientRect(); if(!r.width) return;
+  const over=r.left<sr.right && r.right>sr.left && r.top<sr.bottom && r.bottom>sr.top;
+  if(!over) return;
+  const side=(step.bannerSide||'right')==='left' ? 'right' : 'left';
+  positionTutorialBanner(side);
+  const r2=bn.getBoundingClientRect();
+  if(r2.left<sr.right && r2.right>sr.left && r2.top<sr.bottom && r2.bottom>sr.top){
+    // both sides clash (a narrow screen): above or below the console, whichever has room
+    const h=r2.height, above=sr.top-8-h, below=sr.bottom+8;
+    const top = above>=8 ? above : (below+h<=innerHeight-8 ? below : 8);
+    bn.style.top=(top+h/2)+'px';
+  }
+}
+
+const XQTutVoice = (function(){
+  const ttsOk = ('speechSynthesis' in window) && (typeof SpeechSynthesisUtterance!=='undefined');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  const load=k=>{ try{ return localStorage.getItem(k)==='1'; }catch(e){ return false; } };
+  const save=(k,v)=>{ try{ localStorage.setItem(k, v?'1':'0'); }catch(e){} };
+  let readOn = ttsOk && load('xquixTutReadAloud');       // both off by default, remembered per device (MIZE 2026-09-23)
+  let cmdsOn = !!SR && load('xquixTutVoiceCmds');
+  let voice=null, spokenIdx=-2, ttsBusy=false, ttsQueueLeft=0, ttsGen=0, loop=null, idleTicks=0;
+  let rec=null, recRunning=false, recErrors=0, lastCmd='', lastCmdAt=0, heardT=null;
+  const active=()=> typeof tutorialModeActive!=='undefined' && tutorialModeActive && tutorialOpts && tutorialOpts.voice;
+
+  // ---- read aloud (the browser's own speech synthesis: no audio files, no network) ----
+  function pickVoice(){ try{ const vs=speechSynthesis.getVoices()||[]; if(!vs.length) return;
+    const score=v=>{ let s=0; const n=(v.name||'')+' '+(v.lang||''); if(/^en[-_]/i.test(v.lang||'')) s+=5; else if(/en/i.test(v.lang||'')) s+=3;
+      if(/en[-_]us/i.test(v.lang||'')) s+=1; if(/google|natural|neural|premium|enhanced|samantha|aria|jenny|libby/i.test(n)) s+=3; return s; };
+    voice=vs.slice().sort((a,b)=>score(b)-score(a))[0]||vs[0]; }catch(e){} }
+  if(ttsOk){ try{ speechSynthesis.addEventListener ? speechSynthesis.addEventListener('voiceschanged', pickVoice) : (speechSynthesis.onvoiceschanged=pickVoice); pickVoice(); }catch(e){} }
+  // Each chunk is its own utterance, so every hard pause (line break, dash, arrow) is a real pause on every engine.
+  function chunks(t){ return String(t||'').replace(/[→←▶•★]/g,' . ').replace(/["“”]/g,'')
+    .split(/\s*\n\s*|\s*[–—]\s*|\s+-{1,2}\s+|\s*\.\s+\.\s*/).map(s=>s.replace(/\s{2,}/g,' ').trim()).filter(s=>s && s!=='.'); }
+  function stopSpeaking(){ ttsGen++; ttsQueueLeft=0; if(!ttsOk) return; try{ if(speechSynthesis.speaking||speechSynthesis.pending) speechSynthesis.cancel(); }catch(e){} setBusy(false); }
+  function speak(text){
+    if(!ttsOk) return; const cs=chunks(text); if(!cs.length) return;
+    if(!voice) pickVoice();
+    const gen=++ttsGen;
+    const go=()=>{ if(gen!==ttsGen) return; setBusy(true); ttsQueueLeft=cs.length;
+      cs.forEach(c=>{ let s=c; if(!/[.!?…:]$/.test(s)) s+='.';
+        try{ const u=new SpeechSynthesisUtterance(s); if(voice) u.voice=voice; u.lang=(voice&&voice.lang)||'en-US'; u.rate=1; u.pitch=1; u.volume=1;
+          const done=()=>{ if(gen!==ttsGen) return; if(--ttsQueueLeft<=0) setTimeout(()=>{ if(gen===ttsGen) setBusy(false); }, 350); };
+          u.onend=done; u.onerror=done; speechSynthesis.speak(u); }catch(e){} });
+      try{ if(speechSynthesis.paused) speechSynthesis.resume(); }catch(e){} };
+    // cancel() on an idle engine swallows the next utterance (Web Speech bug): only cancel real speech, then re-queue a beat later
+    try{ if(speechSynthesis.speaking||speechSynthesis.pending){ speechSynthesis.cancel(); setTimeout(go, 80); } else go(); }catch(e){ go(); }
+  }
+  function unlock(){ if(!ttsOk) return; try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); }catch(e){} }   // inside a tap: unlocks iOS
+  function setBusy(b){ ttsBusy=b; recEnsure(); render(); }
+  function bannerShown(){ const bn=document.getElementById('tutorialBanner'); if(!bn) return false; const cs=getComputedStyle(bn);
+    return cs.display!=='none' && cs.visibility!=='hidden' && bn.style.opacity!=='0'; }
+  function currentText(){ return (document.getElementById('tutorialInstruction')?.textContent||'').trim(); }
+  function tick(){
+    if(!active()){ clearInterval(loop); loop=null; return; }
+    // watchdog: an engine that dropped utterances without an end event (cancel() on some engines) must not keep
+    // the microphone paused -- idle for half a second means done
+    if(ttsBusy && ttsOk && !speechSynthesis.speaking && !speechSynthesis.pending){ if(++idleTicks>=2){ idleTicks=0; ttsQueueLeft=0; setBusy(false); } } else idleTicks=0;
+    if(readOn && spokenIdx!==tutorialStepIndex && !tutorialAdvancing && bannerShown() && !tutorialLeaveScreenOpen()){
+      spokenIdx=tutorialStepIndex; speak(currentText()); }
+    if(cmdsOn && !recRunning) recEnsure();
+  }
+
+  // ---- spoken commands (the browser's speech recognition; Chrome sends the audio to Google, Safari uses Apple's) ----
+  function norm(t){ return ' '+String(t||'').toLowerCase().replace(/[^a-z' ]+/g,' ').replace(/\s+/g,' ').trim()+' '; }
+  const STEP_CMDS=[['exit',/ (exit|quit|leave|stop the tutorial|end the tutorial) /], ['next',/ (next|next step|skip|skip it|skip step) /],
+    ['repeat',/ (repeat|repeat that|again|say that again|say it again|pardon) /], ['gotit',/ (got it|gotcha|got that|gotta|got|understood) /]];
+  const LEAVE_CMDS=[['restart',/ (start over|restart|from the beginning|start again) /], ['leave',/ (leave|exit|quit|leave tutorial) /],
+    ['keep',/ (keep going|continue|go on|go back|back|resume|got it|stay) /]];
+  function match(list, alts){ for(const t of alts){ const n=norm(t); for(const [id,re] of list) if(re.test(n)) return { id, said:t.trim() }; } return null; }
+  function heard(html, ms){ const el=document.getElementById('tutorialHeard'); if(!el) return; el.innerHTML=html; el.classList.add('show'); clearTimeout(heardT); heardT=setTimeout(()=>el.classList.remove('show'), ms||1800); }
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+  function press(id){ const b=document.getElementById(id); if(b) b.click(); }
+  function onResult(e){
+    if(ttsBusy) return;   // never act on the tutorial's own voice
+    for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(!r.isFinal) continue;
+      const alts=[...r].map(a=>a.transcript);
+      const leave=tutorialLeaveScreenOpen();
+      const m=match(leave ? LEAVE_CMDS : STEP_CMDS, alts);
+      if(!m) continue;
+      const now=Date.now(); if(m.id===lastCmd && now-lastCmdAt<1500) continue; lastCmd=m.id; lastCmdAt=now;
+      run(m.id, leave); }
+  }
+  function run(id, leave){
+    const LBL={ gotit:'Got it', next:'Next step', repeat:'Repeat', exit:'Exit', keep:'Keep going', leave:'Leave tutorial', restart:'Start over' };
+    heard('Heard: <b>“'+esc(LBL[id])+'”</b>');
+    if(leave){ if(id==='keep') press('tutorialLeaveKeepBtn'); else if(id==='leave') press('tutorialLeaveExitBtn'); else press('tutorialLeaveRestartBtn'); return; }
+    const step=tutorialSteps[tutorialStepIndex];
+    if(id==='exit') press('tutorialExitBtn');
+    else if(id==='next') press('tutorialSkipStepBtn');
+    else if(id==='repeat'){ spokenIdx=tutorialStepIndex; speak(currentText()); }
+    else if(id==='gotit'){
+      if(step && step.requiresAcknowledge) press('tutorialAcknowledgeBtn');
+      else { const msg='This step needs an action. Do it on the screen, or say “Next step” to have it done for you.';
+        heard('Heard: <b>“Got it”</b><br>'+esc(msg), 4200); if(readOn) speak(msg); } }
+  }
+  function recEnsure(){
+    if(!SR) return;
+    const want = cmdsOn && active() && !ttsBusy && document.visibilityState!=='hidden';
+    if(want && !recRunning){
+      try{
+        if(!rec){ rec=new SR(); rec.lang='en-US'; rec.continuous=true; rec.interimResults=false; rec.maxAlternatives=3;
+          rec.onstart=()=>{ recRunning=true; render(); };
+          rec.onend=()=>{ recRunning=false; render(); if(cmdsOn && active()) setTimeout(recEnsure, recErrors ? 900 : 250); };
+          rec.onerror=ev=>{ const er=ev && ev.error;
+            if(er==='no-speech' || er==='aborted'){ return; }
+            if(er==='not-allowed' || er==='service-not-allowed'){ setCmds(false, true); heard('Voice commands are off: this browser was not allowed to use the microphone. You can allow it in the browser’s site settings.', 6000); return; }
+            recErrors++;
+            if(recErrors>=3){ setCmds(false, true); heard(er==='network' ? 'Voice commands are off: this browser needs an internet connection to recognize speech.' : 'Voice commands stopped working in this browser, so they are off. The buttons still work.', 6000); } };
+          rec.onresult=e=>{ recErrors=0; onResult(e); };
+        }
+        recRunning=true; rec.start();
+      }catch(e){ recRunning=false; }
+    } else if(!want && recRunning && rec){ try{ rec.abort(); }catch(e){} }
+  }
+  document.addEventListener('visibilitychange', ()=>recEnsure());
+
+  // ---- switches: in the welcome box, and next to Exit Tutorial for the whole run ----
+  function setRead(on){ readOn=!!on && ttsOk; save('xquixTutReadAloud', readOn);
+    if(readOn){ unlock(); spokenIdx=tutorialStepIndex; speak(currentText()); } else stopSpeaking(); render(); }
+  function setCmds(on, quiet){ cmdsOn=!!on && !!SR; save('xquixTutVoiceCmds', cmdsOn); recErrors=0;
+    if(cmdsOn && !quiet) heard('Listening for <b>“Got it”</b>, <b>“Next step”</b>, <b>“Repeat”</b> and <b>“Exit”</b>.', 3200);
+    recEnsure(); rewriteAckText(); render(); }
+  const ICO_SPK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+  const ICO_MIC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+  function render(){
+    const rb=document.getElementById('tutorialReadAloudBtn'), cb=document.getElementById('tutorialVoiceCmdBtn');
+    if(rb){ rb.style.display=ttsOk?'':'none'; rb.classList.toggle('on', readOn); rb.setAttribute('aria-pressed', readOn); rb.title='Read aloud: '+(readOn?'on':'off'); }
+    if(cb){ cb.style.display=SR?'':'none'; cb.classList.toggle('on', cmdsOn); cb.classList.toggle('listening', cmdsOn && recRunning && !ttsBusy); cb.classList.toggle('paused', cmdsOn && (!recRunning || ttsBusy));
+      cb.setAttribute('aria-pressed', cmdsOn); cb.title='Voice commands: '+(cmdsOn ? (recRunning && !ttsBusy ? 'on, listening' : 'on (paused while the instruction is read)') : 'off'); }
+    const o=document.getElementById('tutorialVoiceOpts');
+    if(o){ o.querySelectorAll('button').forEach(b=>{ const on=b.dataset.v==='read'?readOn:cmdsOn; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.querySelector('.tvState').textContent=on?'On':'Off'; }); }
+    const vn=document.getElementById('tutorialVoiceNav'); if(vn && !ttsOk && !SR) vn.style.display='none';
+  }
+  document.getElementById('tutorialReadAloudBtn')?.addEventListener('click', e=>{ e.stopPropagation(); setRead(!readOn); });
+  document.getElementById('tutorialVoiceCmdBtn')?.addEventListener('click', e=>{ e.stopPropagation(); setCmds(!cmdsOn); });
+  function renderOpts(step){
+    const bn=document.getElementById('tutorialBanner'); let o=document.getElementById('tutorialVoiceOpts');
+    const show=!!(step && step.voiceOptions) && (ttsOk || !!SR);
+    document.body.classList.toggle('tutVoiceWelcome', show);   // a wider box: the two switches side by side
+    if(!show){ o?.remove(); return; }
+    if(!o){ o=document.createElement('div'); o.id='tutorialVoiceOpts';
+      const mk=(v,ico,label)=>{ const b=document.createElement('button'); b.type='button'; b.dataset.v=v; b.innerHTML=ico+'<span>'+label+'</span><span class="tvState"></span>';
+        b.addEventListener('click', e=>{ e.stopPropagation(); if(v==='read') setRead(!readOn); else setCmds(!cmdsOn); }); return b; };
+      if(ttsOk) o.appendChild(mk('read', ICO_SPK, 'Read aloud'));
+      if(SR) o.appendChild(mk('cmds', ICO_MIC, 'Voice commands'));
+      const ack=document.getElementById('tutorialAcknowledgeBtn'); bn.insertBefore(o, ack); }
+  }
+  // With voice commands on, "Tap "Got it"" becomes "Tap or say "Got it"" in the box (and so in what is read aloud).
+  function rewriteAckText(){
+    const step=tutorialSteps && tutorialSteps[tutorialStepIndex], el=document.getElementById('tutorialInstruction');
+    if(!step || !el || !step.requiresAcknowledge) return;
+    const base=step.instruction||'';
+    el.textContent = cmdsOn ? base.replace(/\bTap "Got it"/g, 'Tap or say "Got it"').replace(/\btap "Got it"/g, 'tap or say "Got it"') : base;
+  }
+
+  return {
+    ttsSupported:ttsOk, commandsSupported:!!SR,
+    commandsOn:()=>cmdsOn && active(), readOn:()=>readOn,
+    onStep(step){
+      if(!active()) return;
+      stopSpeaking(); spokenIdx=-2;
+      renderOpts(step); rewriteAckText(); render();
+      if(typeof positionTutorialBanner==='function') positionTutorialBanner(step.bannerSide || 'right');   // the box may have changed size
+      if(!loop) loop=setInterval(tick, 250);
+      recEnsure();
+    },
+    onLeaveScreen(open){ if(!active()) return; if(open){ stopSpeaking(); if(readOn) speak(document.getElementById('tutorialLeaveTitle')?.textContent+' '+(document.getElementById('tutorialLeaveWhere')?.textContent||'')); } else { spokenIdx=-2; } },
+    onExit(){ stopSpeaking(); document.getElementById('tutorialVoiceOpts')?.remove(); document.body.classList.remove('tutVoiceWelcome'); clearInterval(loop); loop=null;
+      if(rec && recRunning){ try{ rec.abort(); }catch(e){} } recRunning=false; spokenIdx=-2; render(); },
+    // for tests
+    _run:run, _match:(t,leave)=>match(leave?LEAVE_CMDS:STEP_CMDS,[t]), _chunks:chunks, _state:()=>({ readOn, cmdsOn, recRunning, ttsBusy, spokenIdx }),
+  };
+})();
 document.getElementById('tutorialSkipStepBtn')?.addEventListener('click', ()=>{
   if(!tutorialModeActive) return;
   const step = tutorialSteps[tutorialStepIndex];
@@ -15122,6 +15455,8 @@ function goToTutorialStep(index){
   if(!step.skipDimPhase && !step.useScrollHint){
     tutorialPhaseTimer = setTimeout(()=>{ tutorialSpotlightPhase = 'ring'; document.getElementById('tutorialDimOverlay')?.classList.remove('show'); }, 3000);
   }
+  if(typeof XQTutVoice!=='undefined') XQTutVoice.onStep(step);
+  if(typeof tutorialLayoutNav==='function') tutorialLayoutNav();
   tutorialTrackLoop();
 }
 document.getElementById('tutorialAcknowledgeBtn')?.addEventListener('click', ()=>{ tutorialManualAck = true; });
@@ -15246,6 +15581,7 @@ function tutorialTrackLoop(){
       positionTutorialArrows(step.highlight);
     }
     updateTutorialBannerPlayingVisibility();
+    if(tutorialOpts.voice || tutorialOpts.surface) tutorialLayoutNav();
     if(!tutorialAdvancing && step.validate && evaluateTutorialValidator(step.validate)){
       tutorialAdvancing = true;
       tutorialHideAllHighlights();
@@ -15947,11 +16283,9 @@ function buildFirstCoachingSessionSteps(){
   const w1_T04 = tutorialFormationPlayer('T04 - Attacker Rotated Clockwise', 'W1');
   const w1_T06 = tutorialFormationPlayer('T06 - Quick Command Bar Open', 'W1'); // W1's position is stable from here through T13 -- used as the "hasn't drifted" reference for later steps
   const b6_T08 = tutorialFormationPlayer('T08 - Defender Moved into Shooting Angle', 'B6');
-  const playThenBoard = () => playing ? null : '#tcPlayPauseBtn'; // no highlight at all once playing -- a ring around the whole board looked oversized, and there's nothing to point at while the coach is just watching it play
-  const QCB_SHOOTING_ANGLE = '#quickCommandBarInner button[title^="Shooting Angle"]';
-  const QCB_DRAWING_TOOLS_ANCHOR = '#quickCommandBarInner button[title^="Drawing Tools"]';
-  const QCB_CLEAR = '#quickCommandBarInner button[title^="Clear Arrows"], #qcbDrawingToolsGrid button[title^="Clear Arrows"]';
-  const QCB_SMART_POSITIONING = '#quickCommandBarInner button[title^="Smart Positioning"]';
+  // No highlight once playing: there is nothing to point at while the coach watches. Otherwise CREATOR's Play
+  // (or the CREATOR tab when another group is showing). The tutorial runs on the Workbench console (2026-09-23).
+  const playThenBoard = () => playing ? null : cwTutTarget('creator', '[data-id="play"]');
 
   // Computed fresh each time Step 10 begins (not a fixed saved value) --
   // 0.5m from wherever the attacker actually is right now, in the
@@ -15981,7 +16315,8 @@ function buildFirstCoachingSessionSteps(){
     if(typeof closeAllSaveOpenBoxes==='function') closeAllSaveOpenBoxes(); // leaving e.g. #openItemBox open would make the Save/Open button's own toggle logic think something's already open, closing instead of opening on the coach's next tap
     setTimeout(()=>{
       if(!tutorialModeActive) return;
-      const step1Index = tutorialSteps.findIndex(s=>!s.isPreStep);
+      let step1Index = tutorialSteps.findIndex(s=>s.id==='saveOpen');
+      if(step1Index<0) step1Index = tutorialSteps.findIndex(s=>!s.isPreStep);
       if(step1Index>=0) goToTutorialStep(step1Index);
     }, 0);
   }
@@ -16083,28 +16418,59 @@ function buildFirstCoachingSessionSteps(){
 
   const isTouchDevice = typeof window!=='undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
-  return [
-    { // Pre-step -- a one-time acknowledgment, not a real app-interaction
-      // task, so it's excluded from the main numbering (see isPreStep
-      // handling in goToTutorialStep) and validated by a dedicated confirm
-      // button rather than anything happening in the app itself.
+  // ---- Skip to Next Step (and the spoken "Next step") does the step for the coach, so the steps after it
+  // still find the board they expect. Each helper below is the same action the step asks for.
+  const skipTo = ()=> setTimeout(()=>{ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 0);
+  const pl = label => document.querySelector('.player[data-label="'+label+'"]');
+  const selectOnly = label => { const el=pl(label); if(!el) return; if(typeof clearSelection==='function') clearSelection(); if(typeof setSelected==='function') setSelected(el, true); };
+  const putAtGhost = (label, step) => { const el=pl(label), t=step && step.ghost && step.ghost.targetPlayer; if(!el || !t) return;
+    el.dataset.x=String(t.x); el.dataset.y=String(t.y); if(typeof t.rot==='number') el.dataset.rot=String(t.rot); if(typeof place==='function') place(el); };
+  const pressIfOff = (srcId, isOn) => { if(!isOn()) cwTutPress('quicks', '[data-src="'+srcId+'"]'); };
+  const jumpToLastFrame = () => { if(frames.length){ loadFrame(frames.length-1); if(typeof renderFrames==='function') renderFrames(); } };
+  const tab = g => ({ highlight: ()=> cwTutTarget(g, null), validate: { type:'custom', fn: ()=> cwTutGroupShown(g) }, autoComplete(){ cwTutShowGroup(g); } });
+  // The outro: from the restored board, an animated hand-off into the Continuation sequence's first frame (the
+  // same interpolation playback uses; `playing` is only this step's own setup, not the coach pressing Play).
+  let outroLoaded = false;
+  function loadOutroAnimated(){
+    if(outroLoaded) return; outroLoaded = true;
+    const outro = tutorialSequenceFrames(OUTRO_NAME);
+    if(!outro) return;
+    frames = outro; currentFrame = 0;
+    playing = true;
+    tutorialSuppressRemoteAutoHide = true;
+    animateToFrame(0, 1.1, ()=>{
+      playing = false;
+      tutorialSuppressRemoteAutoHide = false;
+      if(typeof syncPlayPauseUI==='function') syncPlayPauseUI();
+      if(typeof renderFrames==='function') renderFrames();
+    });
+  }
+  const V = typeof XQTutVoice!=='undefined' ? XQTutVoice : null;
+  let welcome = 'Welcome! Look for the pulsing red frame. It marks exactly what to tap next.';
+  if(V && V.ttsSupported && V.commandsSupported) welcome += '\nWant the instructions read aloud? You can also answer by voice: "Got it", "Next step", "Repeat" or "Exit".';
+  else if(V && V.ttsSupported) welcome += '\nWant the instructions read aloud? Switch it on below.';
+  welcome += '\nTap "Got it" to begin.';
+
+  const steps = [
+    { // Pre-step -- a one-time acknowledgment, kept out of the numbering (isPreStep). Also where the voice is
+      // switched on (voiceOptions: the Read aloud and Voice commands buttons in the box).
+      id: 'welcome',
       isPreStep: true,
       requiresAcknowledge: true,
-      skipSuccessMessage: true, // nothing was actually accomplished besides reading and tapping "Got it"
-      instruction: 'Welcome! Throughout this tutorial, always look for the pulsing red frame -- it marks exactly what to tap or work with next.\n\nTap "Got it" below to begin.',
+      voiceOptions: true,
+      skipSuccessMessage: true,
+      instruction: welcome,
       bannerSide: 'left',
       highlight: '#tutorialAcknowledgeBtn',
       validate: { type:'custom', fn: ()=> tutorialManualAck }
     },
-    // Second pre-step, only on touch devices (phone/tablet) -- the field
-    // is wider than it is tall, so landscape gives noticeably more room
-    // than portrait; not worth mentioning on a desktop/mouse setup where
-    // the window shape isn't something the person can rotate anyway.
+    // Touch devices only: the field is wider than it is tall, so landscape gives it more room.
     ...(isTouchDevice ? [{
+      id: 'landscape',
       isPreStep: true,
       requiresAcknowledge: true,
       skipSuccessMessage: true,
-      instruction: 'For the best view, hold your device in landscape (sideways) -- this shows the field more clearly.\n\nTap "Got it" to continue.',
+      instruction: 'For the best view, hold your device in landscape (sideways). The field is larger that way.\n\nTap "Got it" to continue.',
       bannerSide: 'left',
       highlight: '#tutorialAcknowledgeBtn',
       validate: { type:'custom', fn: ()=>{
@@ -16115,90 +16481,89 @@ function buildFirstCoachingSessionSteps(){
         return false;
       }}
     }] : []),
-    { // Step 1 -- tap the button that opens the Save/Open menu
-      instruction: 'Tap the highlighted Save/Open button (top-right corner, the \u{1F4BE} icon).',
+    Object.assign({ // Step 1 -- the console and its groups; FUNCTIONS holds Save / Open
+      id: 'tabFunctions',
+      instruction: 'All your Coaching controls live in the console, in four groups: Functions, Quicks, Creator and System. Tap the highlighted FUNCTIONS tab.',
+      bannerSide: 'left'
+    }, tab('functions')),
+    { // Step 2
+      id: 'saveOpen',
+      instruction: 'Tap the highlighted Save / Open button.',
       bannerSide: 'left',
-      onEnter(){ menuRegressTriggered = false; }, // reset the guard whenever we land here, including after a regression from Step 2/3
-      highlight: '#saveOpenBtn',
-      validate: { type:'custom', fn: ()=> document.getElementById('saveOpenMenuBox')?.classList.contains('open') }
+      onEnter(){ menuRegressTriggered = false; }, // reset the guard whenever we land here, including after a regression from Steps 3/4
+      highlight: ()=> cwTutTarget('functions', '[data-id="save"]'),
+      validate: { type:'custom', fn: ()=> document.getElementById('saveOpenMenuBox')?.classList.contains('open') },
+      autoComplete(){ cwTutPress('functions', '[data-id="save"]'); }
     },
-    { // Step 2 -- tap "Open Sequence" in that menu
-      instruction: 'In the menu that just opened, tap the highlighted "Open Sequence".',
+    { // Step 3 -- "Open Sequence" in that menu
+      id: 'openSequence',
+      instruction: 'In the menu that opened, tap the highlighted "Open Sequence".',
       bannerSide: 'left',
       highlight: '#soMenuOpenSequence',
-      allowedSelectors: '#saveOpenMenuBox', // the whole box, not just the one button -- needs to be scrollable in landscape on a phone, where it can be taller than the visible area; a wrong tap elsewhere in it is already handled gracefully below
+      allowedSelectors: '#saveOpenMenuBox', // the whole box: it can be taller than a phone's landscape screen and needs to scroll
       useShadeHighlight: true,
       validate: { type:'custom', fn: ()=>{
         const ok = document.getElementById('openItemBox')?.classList.contains('open') && soActiveKind==='sequence';
         if(!ok){
-          // Tapping a DIFFERENT menu option (e.g. "Open Formation") also
-          // closes the top-level Save/Open menu this step's target lives
-          // in -- send the tutorial back to Step 1 so the ring and
-          // instruction clearly show where to restart, rather than
-          // leaving the coach on a step whose target has vanished.
+          // Another option in this menu closes it too -- back to the Save / Open step, whose ring shows where to restart.
           const menuBox = document.getElementById('saveOpenMenuBox');
           if(menuBox && !menuBox.classList.contains('open')) regressToStep1();
         }
         return ok;
-      }}
+      }},
+      autoComplete(){ if(typeof openOpenItemBox==='function') openOpenItemBox('sequence'); }
     },
-    { // Step 3 -- tap the specific sequence in the resulting list
-      // Built dynamically from getActiveUserName() -- must match exactly
-      // what startTutorial() actually seeded into this user's real Open
-      // Sequence list (see needsIntroSequenceSeeded above), not a fixed
-      // "XquiX " prefix that only ever matched the anonymous fallback.
+    { // Step 4 -- the sequence itself. Built from getActiveUserName(): must match what startTutorial() seeded.
+      id: 'pickSequence',
       instruction: 'In the list, tap the highlighted "'+getActiveUserName()+' Tutorial - First Coaching Session" to load it.',
       bannerSide: 'left',
       highlight: ()=> [...document.querySelectorAll('#openItemList button')].find(b=>b.textContent===getActiveUserName()+' Tutorial - First Coaching Session'),
-      allowedSelectors: '#openItemBox', // same reasoning as Step 2 -- the list itself needs to be scrollable to reach an item that's off-screen in landscape
+      allowedSelectors: '#openItemBox',
       useShadeHighlight: true,
       validate: { type:'custom', fn: ()=>{
         const want = introFrames ? introFrames.length : null;
         const ok = want!=null && frames.length===want && currentFrame===0;
         if(!ok){
-          // Tapping ANY item in this list closes the whole menu, not just
-          // the wrong one -- if the coach picked something else, the menu
-          // is already gone with nothing left to highlight. Send the
-          // tutorial back to Step 1 rather than trying to silently
-          // re-open the list out from under them.
+          // Any item in this list closes the whole menu -- if it was the wrong one, back to the Save / Open step.
           const box = document.getElementById('openItemBox');
           if(box && !box.classList.contains('open')) regressToStep1();
         }
         return ok;
-      }}
+      }},
+      autoComplete(){
+        if(!document.getElementById('openItemBox')?.classList.contains('open') && typeof openOpenItemBox==='function') openOpenItemBox('sequence');
+        setTimeout(()=>{ const b=[...document.querySelectorAll('#openItemList button')].find(x=>x.textContent===getActiveUserName()+' Tutorial - First Coaching Session'); if(b) b.click(); }, 60);
+      }
     },
-    { // Step 4 (ref: T01 -- the intro's own last frame, no separate save needed)
-      instruction: 'A Play/Pause remote appears near the bottom. Tap the highlighted \u25B6 Play to start the intro -- it plays on its own for about 10 seconds.',
+    Object.assign({ // Step 5 -- CREATOR plays and builds sequences (it replaced the Remote and the Creator panel)
+      id: 'tabCreator',
+      instruction: 'The drill is loaded. Sequences are played and built in the CREATOR group. Tap the highlighted CREATOR tab.',
+      bannerSide: 'left'
+    }, tab('creator')),
+    { // Step 6 (ref: T01 -- the intro's own last frame)
+      id: 'playIntro',
+      instruction: 'Tap the highlighted Play button to start the intro. It plays on its own for about 10 seconds.',
       bannerSide: 'left',
-      skipSuccessMessage: true, // just watched the whole scene play -- that's plenty of its own feedback, a "Nice work!" after is redundant
-      onEnter(){ tutorialShowTimelineRemote(); },
+      skipSuccessMessage: true, // the scene playing out is its own feedback
       highlight: playThenBoard,
-      allowedSelectors: '#tcPlayPauseBtn', // unconditional (unlike the highlight, which drops to nothing while playing) -- the coach should still be able to pause if they want, not just watch with no control at all
-      validate: { type:'custom', fn: ()=> introFrames && currentFrame===introFrames.length-1 && !playing }
+      allowedSelectors: ()=> cwTutTarget('creator', '[data-id="play"]'), // unconditional (the ring drops while playing): the coach can still pause
+      validate: { type:'custom', fn: ()=> introFrames && currentFrame===introFrames.length-1 && !playing },
+      autoComplete(){ jumpToLastFrame(); }
     },
-    { // Step 5 -- Front Court view: one-click switch via the Quick
-      // Command Bar. Gives the rest of the tutorial's close-quarters work
-      // (attacker and defender positioning) a closer, easier-to-see view
-      // from here on. The QCB is shown just for this one tap and hidden
-      // again right after via onValidated -- its formal introduction (how
-      // to open/close it via the "Quicks" edge tab) still happens
-      // properly at Step 9; this earlier appearance doesn't preempt that
-      // lesson, it's simply visible long enough for one tap.
-      instruction: 'The scene has paused. Before marking any players, let\u2019s switch to a closer view. In the Quick Command Bar, tap the highlighted "Switch to Front Court" icon -- one tap gets you there.',
-      onEnter(){ tutorialShowQuickCommandBar(); tutorialHideTimelineRemote(); }, // remote not needed again until the outro plays at the very end -- keeps the view clear until then
-      highlight: '#quickCommandBarInner button[title^="Switch to Front Court"]',
-      useShadeHighlight: true,
+    Object.assign({ // Step 7 -- QUICKS: the one-tap tools (it replaced the Quick Command Bar)
+      id: 'tabQuicks',
+      instruction: 'The scene has paused. Before marking any players, let’s switch to a closer view. Your one-tap tools are in the QUICKS group. Tap the highlighted QUICKS tab.'
+    }, tab('quicks')),
+    { // Step 8 -- Front Court. The console moves to the top (the phone: a compact rail), clear of the goal.
+      id: 'frontCourt',
+      instruction: 'Tap the highlighted Front Court icon. The console moves out of the way so the goal stays clear.',
+      highlight: ()=> cwTutTarget('quicks', '[data-src="quickViewToggleBtn"]'),
       validate: { type:'custom', fn: ()=> typeof frontCourtActive!=='undefined' && frontCourtActive && typeof frontCourtZoomed!=='undefined' && frontCourtZoomed },
-      onValidated(){ tutorialHideQuickCommandBar(); } // hidden again so Step 9's "tap Quicks to open it" framing still makes sense
+      autoComplete(){ if(!frontCourtActive) cwTutPress('quicks', '[data-src="quickViewToggleBtn"]'); }
     },
-    { // Step 6b -- try the Front Court scroll gesture before marking any
-      // players. #fcScrollZoneLeft/Right are two narrow strips at the
-      // screen edges (see wireFrontCourtScrollZoneDrag) driven by pointer
-      // events, not a separate wheel/trackpad handler -- so the exact same
-      // gesture works for a mouse (click and drag) and touch (swipe),
-      // which is also why the instruction can describe both at once
-      // rather than needing separate mouse/touch guidance.
-      instruction: 'Try it: click-drag (or swipe) near the left/right edge of the screen to scroll up/down and see more of the field.'+(isTouchDevice ? ' Make sure your device is in landscape mode.' : ''),
+    { // Step 9 -- the Front Court scroll gesture (#fcScrollZoneLeft/Right: pointer events, so mouse and touch alike)
+      id: 'scroll',
+      instruction: 'Try it: click-drag (or swipe) near the left or right edge of the screen to scroll up and down and see more of the field.'+(isTouchDevice ? ' Make sure your device is in landscape.' : ''),
       onEnter(){
         scrollStartTop = document.getElementById('stageWrap')?.scrollTop ?? 0;
         if(tutorialContinueInPortrait){
@@ -16206,79 +16571,80 @@ function buildFirstCoachingSessionSteps(){
         }
       },
       highlight: ['#fcScrollZoneLeft', '#fcScrollZoneRight'],
-      useScrollHint: true, // red-shaded strip + animated two-finger icon in place of the usual ring, which looked oversized and mismatched against this tall, narrow target
-      successMessage: 'That\u2019s the scroll gesture -- available any time Front Court view is active.',
+      useScrollHint: true, // red strip + animated two-finger icon instead of a ring on this tall, narrow target
       validate: { type:'custom', fn: ()=>{
         const wrap = document.getElementById('stageWrap');
         return !!wrap && Math.abs(wrap.scrollTop - scrollStartTop) > 15;
-      }}
+      }},
+      autoComplete(){ skipTo(); }
     },
-    { // Step 7 (ref: T02)
-      instruction: 'Tap the highlighted player to select -- this is the attacker who will run the drill.',
+    { // Step 10 (ref: T02)
+      id: 'selectAttacker',
+      instruction: 'Tap the highlighted player to select them. This is the attacker who will run the drill.',
       onEnter(){
-        if(!hasPlaybackCheckpoint()) capturePlaybackCheckpoint(); // "Automatically pause at 10 seconds... Create Playback Checkpoint" -- captured the instant this step (right after Play finishes) begins
-        // The app's own default Front Court Zoom depth (8m from the goal
-        // line) cuts off part of this drill's own action area -- widen it
-        // just enough to keep every relevant player in view for the rest
-        // of the tutorial, without losing the "zoomed in" feel entirely.
+        if(!hasPlaybackCheckpoint()) capturePlaybackCheckpoint(); // the Playback Checkpoint, captured the instant the intro has finished
+        // The default Front Court depth (8 m) cuts off part of this drill -- 10 m keeps every player in view.
         if(typeof frontCourtZoomed!=='undefined' && frontCourtZoomed && typeof setFrontCourtDepth==='function') setFrontCourtDepth(10);
       },
       highlight: '.player[data-label="W1"]',
-      validate: { type:'singleSelection', label:'W1' }
+      validate: { type:'singleSelection', label:'W1' },
+      autoComplete(){ selectOnly('W1'); }
     },
-    { // Step 6 (ref: T03)
-      instruction: isTouchDevice ? 'Yellow oval = selected. Grey shade = target spot. Use the highlighted Direction Pad to move the attacker there. Dragging also works.' : 'Yellow oval = selected. Grey shade = target spot. Drag the attacker there with your mouse.',
+    { // Step 11 (ref: T03)
+      id: 'moveAttacker',
+      instruction: isTouchDevice ? 'Yellow oval = selected. Gray shade = target spot. Use the highlighted Direction Pad to move the attacker there. Dragging also works.' : 'Yellow oval = selected. Gray shade = target spot. Drag the attacker there with your mouse.',
       highlight: isTouchDevice ? ['.player[data-label="W1"]', '#directionPad'] : '.player[data-label="W1"]',
       ghost: w1_T03 ? { type:'playerPosition', targetPlayer:{ team:w1_T03.team, pose:w1_T03.pose, rot:w1_T03.rot, x:w1_T03.x, y:w1_T03.y, label:'W1' } } : null,
-      validate: w1_T03 ? { type:'playerPosition', label:'W1', x:w1_T03.x, y:w1_T03.y, tolerance:0.5 } : { type:'custom', fn:()=>false }
+      validate: w1_T03 ? { type:'playerPosition', label:'W1', x:w1_T03.x, y:w1_T03.y, tolerance:0.5 } : { type:'custom', fn:()=>false },
+      autoComplete(){ putAtGhost('W1', this); if(!w1_T03) skipTo(); }
     },
-    { // Step 7 (ref: T04) -- only the clockwise button highlighted; two
-      // rings on adjacent small buttons read as cluttered/confusing here.
-      instruction: 'Tap the highlighted clockwise button in the Player Action Bar to spin the attacker to match the grey shade\u2019s direction.',
+    { // Step 12 (ref: T04) -- only the clockwise button ringed (two rings on adjacent small buttons read as clutter)
+      id: 'rotateAttacker',
+      instruction: 'Tap the highlighted clockwise button in the Player Action Bar to turn the attacker to match the gray shade’s direction.',
       highlight: ['.player[data-label="W1"]', '#paSpinCwBtn'],
       ghost: w1_T04 ? { type:'playerRotation', targetPlayer:{ team:w1_T04.team, pose:w1_T04.pose, rot:w1_T04.rot, x:w1_T04.x, y:w1_T04.y, label:'W1' } } : null,
-      validate: w1_T04 ? { type:'playerRotation', label:'W1', rot:w1_T04.rot, tolerance:20 } : { type:'custom', fn:()=>false }
+      validate: w1_T04 ? { type:'playerRotation', label:'W1', rot:w1_T04.rot, tolerance:20 } : { type:'custom', fn:()=>false },
+      autoComplete(){ const el=pl('W1'); if(el && w1_T04){ el.dataset.rot=String(w1_T04.rot); place(el); } else skipTo(); }
     },
-    { // Step 8 (ref: T05)
+    { // Step 13 (ref: T05)
+      id: 'giveBall',
       instruction: 'With the attacker selected, tap the highlighted ball icon in the Player Action Bar to give the attacker the ball.',
       highlight: ['.player[data-label="W1"]', '#paClaimBallBtn'],
-      validate: { type:'ballOwner', label:'W1' }
+      validate: { type:'ballOwner', label:'W1' },
+      autoComplete(){ const el=pl('W1'); if(el && typeof moveBallTo==='function') moveBallTo(el, 'right'); }
     },
-    { // Step 9 (ref: T06)
-      instruction: 'Tap the highlighted "Quicks" tab (usually on the screen edge) to open the Quick Command Bar.',
-      onEnter(){ tutorialHideQuickCommandBar(); },
-      highlight: '#showQuickCommandBarTab',
-      validate: { type:'boolState', key:'quickCommandBarOpen', value:true }
+    { // Step 14 -- Smart Positioning on (the ring goes to the QUICKS tab first if another group is showing)
+      id: 'smartPositioning',
+      instruction: 'In QUICKS, tap the highlighted Smart Positioning icon to turn it on.',
+      highlight: ()=> cwTutTarget('quicks', '[data-src="smartPositioningToggleBtn"]'),
+      validate: { type:'boolState', key:'smartPositioningActive', value:true },
+      autoComplete(){ pressIfOff('smartPositioningToggleBtn', ()=>smartPositioningActive); }
     },
-    { // Step 10 -- Smart Positioning: turn it on
-      instruction: 'In the Quick Command Bar, tap the highlighted "Smart Positioning" icon to turn it on.',
-      highlight: QCB_SMART_POSITIONING,
-      useShadeHighlight: true,
-      validate: { type:'boolState', key:'smartPositioningActive', value:true }
-    },
-    { // Step 11 -- Smart Positioning: move the attacker a little and see the
-      // effect. Ghost is computed fresh right as this step begins (see
-      // computeSmartPosGhostTarget), not a fixed saved value.
-      instruction: isTouchDevice ? 'Use the highlighted Direction Pad to nudge the attacker toward the grey shade -- watch it auto-face the goal.' : 'Drag the attacker toward the grey shade -- watch it auto-face the goal.',
-      onEnter(){ smartPosGhostTarget = computeSmartPosGhostTarget(); this.ghost = smartPosGhostTarget ? { type:'playerPosition', targetPlayer:smartPosGhostTarget } : null; tutorialHideQuickCommandBar(); },
+    { // Step 15 -- move the attacker a little and see Smart Positioning turn them (ghost computed as the step begins)
+      id: 'nudgeAttacker',
+      instruction: isTouchDevice ? 'Use the highlighted Direction Pad to nudge the attacker toward the gray shade. Watch the attacker turn to face the goal.' : 'Drag the attacker toward the gray shade. Watch the attacker turn to face the goal.',
+      onEnter(){ smartPosGhostTarget = computeSmartPosGhostTarget(); this.ghost = smartPosGhostTarget ? { type:'playerPosition', targetPlayer:smartPosGhostTarget } : null; },
       highlight: isTouchDevice ? ['.player[data-label="W1"]', '#directionPad'] : '.player[data-label="W1"]',
-      validate: { type:'custom', fn: ()=> smartPosGhostTarget ? evaluateTutorialValidator({ type:'playerPosition', label:'W1', x:smartPosGhostTarget.x, y:smartPosGhostTarget.y, tolerance:0.3 }) : false }
+      validate: { type:'custom', fn: ()=> smartPosGhostTarget ? evaluateTutorialValidator({ type:'playerPosition', label:'W1', x:smartPosGhostTarget.x, y:smartPosGhostTarget.y, tolerance:0.3 }) : false },
+      autoComplete(){ if(smartPosGhostTarget) putAtGhost('W1', this); else skipTo(); }
     },
-    { // Step 12 (ref: T07)
-      instruction: 'The Quick Command Bar is back -- tap the highlighted "Shooting Angle" icon to turn it on.',
-      onEnter(){ tutorialShowQuickCommandBar(); },
-      highlight: QCB_SHOOTING_ANGLE,
-      useShadeHighlight: true,
-      validate: withPositionGuards({ type:'boolState', key:'shootingAngleActive', value:true }, w1GuardAfterStable)
+    { // Step 16 (ref: T07)
+      id: 'shootingAngle',
+      instruction: 'In QUICKS, tap the highlighted Shooting Angle icon to turn it on.',
+      highlight: ()=> cwTutTarget('quicks', '[data-src="shootingAngleToggleBtn"]'),
+      validate: withPositionGuards({ type:'boolState', key:'shootingAngleActive', value:true }, w1GuardAfterStable),
+      autoComplete(){ pressIfOff('shootingAngleToggleBtn', ()=>shootingAngleActive); }
     },
-    { // Step 13 -- select (mark) the defender
+    { // Step 17 -- select (mark) the defender
+      id: 'selectDefender',
       instruction: 'Tap the highlighted defender to select (mark) the player.',
-      onEnter(){ tutorialHideQuickCommandBar(); }, // stays hidden through defender positioning below -- neither step needs it, and it can otherwise block the tap itself
       highlight: '.player[data-label="B6"]',
-      validate: withPositionGuards({ type:'singleSelection', label:'B6' }, w1GuardAfterStable)
+      validate: withPositionGuards({ type:'singleSelection', label:'B6' }, w1GuardAfterStable),
+      autoComplete(){ selectOnly('B6'); }
     },
-    { // Step 14 (ref: T08, Y adjusted -- see computeDefenderGhostTarget above) -- drag the already-selected defender into place
-      instruction: isTouchDevice ? 'Grey shade = target, inside the attacker\u2019s shooting angle. Use the highlighted Direction Pad to move the defender there. Keep it selected after.' : 'Grey shade = target, inside the attacker\u2019s shooting angle. Drag the defender there. Keep it selected after.',
+    { // Step 18 (ref: T08, Y adjusted -- see computeDefenderGhostTarget above)
+      id: 'moveDefender',
+      instruction: isTouchDevice ? 'Gray shade = target, inside the attacker’s shooting angle. Use the highlighted Direction Pad to move the defender there. Keep the defender selected afterward.' : 'Gray shade = target, inside the attacker’s shooting angle. Drag the defender there. Keep the defender selected afterward.',
       onEnter(){
         defenderGhostTarget = b6_T08 ? computeDefenderGhostTarget(b6_T08.x, b6_T08.rot, b6_T08.team, b6_T08.pose, 'left') : null;
         this.ghost = defenderGhostTarget ? { type:'playerPosition', targetPlayer:defenderGhostTarget } : null;
@@ -16289,21 +16655,12 @@ function buildFirstCoachingSessionSteps(){
       validate: { type:'custom', fn: ()=>{
         const b6 = document.querySelector('.player[data-label="B6"]');
         if(!b6 || !defenderGhostTarget) return false;
-        // Requires actual movement during this step -- the defender's
-        // inherited starting position (wherever the intro sequence's last
-        // frame left it) can already sit close enough to the target to
-        // pass the checks below on its own, which would let the checkmark
-        // fire without the coach doing anything. 0.15m is comfortably
-        // more than positional noise but well under a single D-pad nudge
-        // or drag, so it doesn't get in the way of a real move.
+        // Requires real movement: the defender's inherited position can already sit close enough to pass on its own.
         if(defenderStartPos){
           const moved = Math.hypot(+b6.dataset.x-defenderStartPos.x, +b6.dataset.y-defenderStartPos.y);
           if(moved < 0.15) return false;
         }
-        // Generous sanity check (right general area) -- the real gate is
-        // the direct corridor-containment check just below, which the
-        // proximity check alone can't reliably guarantee (see
-        // tutorialCorridorContained's comment).
+        // Right general area; the real gate is the corridor-containment check below.
         const near = Math.hypot(+b6.dataset.x-defenderGhostTarget.x, +b6.dataset.y-defenderGhostTarget.y) <= 0.9;
         if(!near) return false;
         if(!tutorialCorridorContained(+b6.dataset.x, +b6.dataset.y, +b6.dataset.rot||0, 'left')) return false;
@@ -16314,12 +16671,19 @@ function buildFirstCoachingSessionSteps(){
           const dx=+w1.dataset.x-g.x, dy=+w1.dataset.y-g.y;
           return Math.sqrt(dx*dx+dy*dy)<=g.tolerance;
         }});
-      }}
+      }},
+      autoComplete(){
+        const el=pl('B6'); if(!el || !defenderGhostTarget){ skipTo(); return; }
+        const sx=+el.dataset.x, sy=+el.dataset.y; putAtGhost('B6', this);
+        // landing exactly on the ghost can fall inside the 0.15 m "must have moved" threshold: nudge a little past it
+        const dx=+el.dataset.x-sx, dy=+el.dataset.y-sy, m=Math.hypot(dx,dy);
+        if(m<0.2){ const k=m>0.001 ? 0.28/m : 1; el.dataset.x=String(sx+dx*k); el.dataset.y=String(sy+dy*k); place(el); }
+        selectOnly('B6');
+      }
     },
-    { // Step 15 -- assign the blocking arm; setArmSide() auto-activates
-      // Shot Block Corridors the instant an arm is set, so there's no
-      // separate toggle to hunt for.
-      instruction: 'With the defender selected, tap Left Arm in the Player Action Bar to assign the blocking arm -- this also turns on the Shot Block Corridor.',
+    { // Step 19 -- the blocking arm; setArmSide() turns on the Shot Block Corridor by itself
+      id: 'leftArm',
+      instruction: 'With the defender selected, tap Left Arm in the Player Action Bar to assign the blocking arm. This also turns on the Shot Block Corridor.',
       highlight: ['.player[data-label="B6"]', '#paLeftArmBtn'],
       validate: { type:'custom', fn: ()=>{
         const b6 = document.querySelector('.player[data-label="B6"]');
@@ -16330,42 +16694,41 @@ function buildFirstCoachingSessionSteps(){
         if(!w1) return false;
         const dx=+w1.dataset.x-g.x, dy=+w1.dataset.y-g.y;
         return Math.sqrt(dx*dx+dy*dy)<=g.tolerance;
-      }}
+      }},
+      autoComplete(){ const el=pl('B6'); if(el && typeof setArmSide==='function') setArmSide(el, 'left'); }
     },
-    { // Step 16 (ref: T09)
-      instruction: 'Tap the highlighted defender once (not a drag) to switch to a horizontal (swimming) position.',
-      successMessage: 'The corridor is only available while the defender is vertical, so it drops away here -- that\u2019s expected.',
+    { // Step 20 (ref: T09)
+      id: 'defenderHorizontal',
+      instruction: 'Tap the highlighted defender once (not a drag) to switch to a horizontal (swimming) position. The corridor only shows while the defender is vertical, so it goes away for now.',
       highlight: '.player[data-label="B6"]',
       allowsPoseToggle: true,
-      validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'h' }, w1GuardAfterStable)
+      validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'h' }, w1GuardAfterStable),
+      autoComplete(){ const el=pl('B6'); if(el && el.dataset.pose!=='h') togglePose(el); }
     },
-    { // Step 17 (ref: T10)
+    { // Step 21 (ref: T10)
+      id: 'defenderVertical',
       instruction: 'Tap the highlighted defender once more (a single tap) to switch the defender back to a vertical position.',
       highlight: '.player[data-label="B6"]',
       allowsPoseToggle: true,
-      validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'v' }, w1GuardAfterStable)
+      validate: withPositionGuards({ type:'playerPose', label:'B6', pose:'v' }, w1GuardAfterStable),
+      autoComplete(){ const el=pl('B6'); if(el && el.dataset.pose!=='v') togglePose(el); }
     },
-    { // Step 18 -- turn on Free Draw
-      instruction: 'The Quick Command Bar is back -- tap the highlighted "Drawing Tools" icon to turn on Free Draw. (A tools popup will also appear -- you can ignore it for now.)',
-      onEnter(){ tutorialShowQuickCommandBar(); },
-      highlight: QCB_DRAWING_TOOLS_ANCHOR,
-      useShadeHighlight: true,
+    { // Step 22 -- Free Draw (Draw also opens the drawing tools; they close again once Free Draw is on)
+      id: 'drawOn',
+      instruction: 'In QUICKS, tap the highlighted Draw icon to turn on Free Draw. (The drawing tools open too. You can ignore them for now.)',
+      highlight: ()=> cwTutTarget('quicks', '[data-src="freeDrawBtn"]'),
       validate: withPositionGuards({ type:'custom', fn: ()=> mode==='freeDraw' }, w1GuardAfterStable),
-      onValidated(){ if(typeof closeQcbDrawingToolsPopup==='function') closeQcbDrawingToolsPopup(); }
+      onValidated(){ if(typeof closeQcbDrawingToolsPopup==='function') closeQcbDrawingToolsPopup(); },
+      autoComplete(){ if(mode!=='freeDraw') cwTutPress('quicks', '[data-src="freeDrawBtn"]'); }
     },
-    { // Step 19 (ref: T11) -- actually draw something
-      instruction: 'Draw directly on the field with your finger or mouse -- any mark counts.',
-      allowedSelectors: '#board', // no highlight on this step (see the highlight-less design above), but the coach still needs to be able to draw
+    { // Step 23 (ref: T11) -- draw something; advances after 2 s without a change, so it never fires mid-stroke
+      id: 'draw',
+      instruction: 'Draw directly on the field with your finger or mouse. Any mark counts.',
+      allowedSelectors: '#board', // no highlight, but the coach still needs to be able to draw
       onEnter(){ drawStepLastSignature = ''; drawStepLastChangeTime = Date.now(); },
       validate: { type:'custom', fn: ()=>{
         const els = [...document.querySelectorAll('#arrowsGroup .drawing')];
         if(els.length < 1) return false;
-        // A signature of every drawn path's own data -- changes not just
-        // when a new stroke is added, but also while an existing stroke is
-        // still being actively extended mid-drag (its `d` attribute keeps
-        // growing), which a simple count alone wouldn't catch. Resets the
-        // "quiet" timer on any change, so the tutorial won't advance while
-        // the coach is still mid-stroke.
         const signature = els.map(el => el.getAttribute('d')||'').join('|');
         if(signature !== drawStepLastSignature){
           drawStepLastSignature = signature;
@@ -16378,71 +16741,99 @@ function buildFirstCoachingSessionSteps(){
         if(!w1) return false;
         const dx=+w1.dataset.x-g.x, dy=+w1.dataset.y-g.y;
         return Math.sqrt(dx*dx+dy*dy) <= g.tolerance;
-      }}
+      }},
+      autoComplete(){
+        // a short stroke in the middle of the field, so the next step (Clear) has something to clear
+        const g=document.getElementById('arrowsGroup'), b=document.getElementById('board'); if(!g || !b){ skipTo(); return; }
+        const r=b.getBoundingClientRect(), path=document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', 'M '+(r.width*0.4)+','+(r.height*0.55)+' L '+(r.width*0.6)+','+(r.height*0.4));
+        path.classList.add('drawing'); path.dataset.kind='freehand'; path.dataset.id='tutorialSkip'+Date.now(); g.appendChild(path);
+        skipTo();
+      }
     },
-    { // Step 20 (ref: T12)
-      instruction: 'In the Quick Command Bar, tap the highlighted trash-can icon to remove your drawing(s).',
-      highlight: QCB_CLEAR,
-      useShadeHighlight: true,
-      validate: withPositionGuards({ type:'drawingCount', equals:0 }, w1GuardAfterStable)
+    { // Step 24 (ref: T12)
+      id: 'clear',
+      instruction: 'In QUICKS, tap the highlighted trash-can icon (Clear Arrows) to remove your drawing.',
+      highlight: ()=> cwTutTarget('quicks', '[data-src="clearBtn"]'),
+      validate: withPositionGuards({ type:'drawingCount', equals:0 }, w1GuardAfterStable),
+      autoComplete(){ if(typeof clearArrows==='function') clearArrows(true); }
     },
-    { // Step 21 (ref: T13 -- validated via the Playback Checkpoint itself,
-      // not a separate save) -- Reset can sit low enough in its category's
-      // list to need scrolling, which is also what was throwing the ring
-      // off (measuring a button that wasn't actually in view yet).
-      instruction: 'Open the Menu, then tap the highlighted "Reset" button under Editing \u2192 Board to restore the board.',
-      skipDimPhase: true, // the dim overlay was darkening the rest of the open sidebar's own content (other menu items, category labels), not just drawing attention to Reset -- the shade highlight alone is enough once the panel is already open and visually prominent
+    Object.assign({ // Step 25 -- SYSTEM holds the Menu
+      id: 'tabSystem',
+      instruction: 'Now let’s put the board back the way the drill started. The Menu is in the SYSTEM group. Tap the highlighted SYSTEM tab.',
+      onEnter(){ if(typeof setMode==='function') setMode('select'); } // Free Draw was on: back to Move so the board is usable again
+    }, tab('system')),
+    { // Step 26
+      id: 'menu',
+      instruction: 'Tap the highlighted Menu button.',
+      highlight: ()=> cwTutTarget('system', '[data-id="menu"]'),
+      validate: { type:'custom', fn: ()=> !!document.getElementById('controlsPanel')?.classList.contains('open') },
+      autoComplete(){ if(!document.getElementById('controlsPanel')?.classList.contains('open')) cwTutPress('system', '[data-id="menu"]'); }
+    },
+    { // Step 27 (ref: T13 -- validated against the Playback Checkpoint itself). Reset sits in a collapsed
+      // category and may need scrolling; tutorialRevealElement finds its category by walking up from the button.
+      id: 'reset',
+      instruction: 'In the Menu, tap the highlighted Reset button (under Editing, Board) to restore the board.',
+      skipDimPhase: true, // the dim would darken the rest of the open Menu; the shade highlight is enough here
       useShadeHighlight: true,
       onEnter(){
-        if(typeof setMode==='function') setMode('select'); // Free Draw was turned on two steps ago -- back to Move/Toggle so the board is immediately usable again
-        tutorialHideQuickCommandBar(); // not needed again for the rest of the tutorial
-        tutorialRevealElement('#resetBtn'); // was tutorialOpenCategory('formations') -- that category was renamed to 'editing' at some point and the hardcoded name went stale silently (no error, just a category that never opened). This finds Reset's actual current category and sub-group by walking up from the button itself, so a future rename can't break it silently the same way.
+        tutorialRevealElement('#resetBtn');
         const btn = document.getElementById('resetBtn');
         if(btn && typeof btn.scrollIntoView==='function') btn.scrollIntoView({block:'nearest'});
       },
       highlight: '#resetBtn',
-      allowedSelectors: '#controlsPanel', // the whole sidebar, not just the button -- may still need manual scrolling to reach it in a short landscape viewport even after the programmatic scrollIntoView above
+      allowedSelectors: '#controlsPanel', // the whole Menu: it may still need scrolling in a short landscape screen
       validate: { type:'stateMatchesCheckpoint' },
-      onValidated(){ document.getElementById('controlsPanel')?.classList.remove('open'); } // the Menu isn't needed for the outro playback that follows
+      onValidated(){ document.getElementById('controlsPanel')?.classList.remove('open'); },
+      autoComplete(){ if(typeof restorePlaybackCheckpoint==='function' && restorePlaybackCheckpoint()) return; document.getElementById('resetBtn')?.click(); }
     },
-    { // Step 22 (ref: T14 -- the Continuation sequence, loaded fresh as this step begins)
-      instruction: 'The board now smoothly continues to where your practiced drill leaves off. Tap the highlighted \u25B6 Play to watch the play continue to its finish.',
-      onEnter(){
-        tutorialShowTimelineRemote();
-        const outro = tutorialSequenceFrames(OUTRO_NAME);
-        if(outro){
-          frames = outro; currentFrame = 0;
-          // Animated hand-off (was an instant snap) from the just-restored
-          // checkpoint scene into the outro's starting frame, reusing the
-          // exact same frame-to-frame interpolation playback already uses
-          // elsewhere -- animateToFrame()'s own tick loop only keeps
-          // running while `playing` is true, so that's set here and
-          // cleared again once the transition completes. This is NOT the
-          // coach pressing Play -- it's this step's own internal setup --
-          // so the "hide the remote while playing" behavior (see
-          // updateTutorialBannerPlayingVisibility) is suppressed for this
-          // one transition, otherwise the remote would vanish again the
-          // instant after tutorialShowTimelineRemote() just showed it,
-          // before the coach ever got to see or tap Play.
-          playing = true;
-          tutorialSuppressRemoteAutoHide = true;
-          animateToFrame(0, 1.1, ()=>{
-            playing = false;
-            tutorialSuppressRemoteAutoHide = false;
-            if(typeof syncPlayPauseUI==='function') syncPlayPauseUI();
-            if(typeof renderFrames==='function') renderFrames();
-          });
-        }
-      },
+    Object.assign({ // Step 28 (ref: T14) -- the Continuation sequence is loaded (animated) as this step begins
+      id: 'tabCreatorOutro',
+      instruction: 'The board now continues to where your practiced drill leaves off. Tap the highlighted CREATOR tab.',
+      onEnter(){ document.getElementById('controlsPanel')?.classList.remove('open'); loadOutroAnimated(); }
+    }, tab('creator')),
+    { // Step 29
+      id: 'playOutro',
+      instruction: 'Tap the highlighted Play button to watch the play continue to its finish.',
+      onEnter(){ loadOutroAnimated(); },
       highlight: playThenBoard,
-      allowedSelectors: '#tcPlayPauseBtn', // unconditional, same reasoning as Step 4
-      skipSuccessMessage: true, // just watched the drill play out to its finish -- that's the natural ending, no "Nice work!" needed on top of it
+      allowedSelectors: ()=> cwTutTarget('creator', '[data-id="play"]'),
+      skipSuccessMessage: true, // the drill playing to its finish is the natural ending
       validate: { type:'custom', fn: ()=>{
         const outro = tutorialSequenceFrames(OUTRO_NAME);
         return !!outro && currentFrame===outro.length-1 && !playing;
-      }}
+      }},
+      autoComplete(){ jumpToLastFrame(); }
     }
   ];
+  // Player steps: in Front Court the console docks at the top (the phone: a rail at the left), which can sit on
+  // the very player a step asks for. As such a step begins, if the console covers that player or the gray shade,
+  // it folds to its tab (the old tutorial hid the Quick Command Bar for the same reason). The next step that needs
+  // a console control rings that tab, and one tap unfolds it.
+  const KEEP_CLEAR = { selectAttacker:['W1'], moveAttacker:['W1'], rotateAttacker:['W1'], giveBall:['W1'], nudgeAttacker:['W1'],
+    selectDefender:['B6'], moveDefender:['B6'], leftArm:['B6'], defenderHorizontal:['B6'], defenderVertical:['B6'] };
+  // ...and first, if the coach's own scrolling (Front Court) has moved that player to the screen's top edge or
+  // off it, the field scrolls back just enough to show the player clear of the edge.
+  function keepPlayersInView(labels){
+    const wrap=document.getElementById('stageWrap'); if(!tutorialModeActive || !wrap || wrap.scrollHeight<=wrap.clientHeight+2) return;
+    const wr=wrap.getBoundingClientRect(), topMin=Math.max(wr.top, 0)+72, botMax=Math.min(wr.bottom, innerHeight)-24;
+    labels.forEach(l=>{ const q=pl(l)?.getBoundingClientRect(); if(!q || !q.height) return;
+      if(q.top<topMin) wrap.scrollTop -= (topMin-q.top); else if(q.bottom>botMax) wrap.scrollTop += (q.bottom-botMax); });
+  }
+  function keepConsoleClear(labels){
+    keepPlayersInView(labels);
+    if(!tutorialModeActive || cwFolded) return;
+    const el=document.getElementById('cwSurface'); if(!el || getComputedStyle(el).display==='none') return;
+    const r=el.getBoundingClientRect(), m=10;
+    const over=q=> q && q.width && q.left<r.right+m && q.right>r.left-m && q.top<r.bottom+m && q.bottom>r.top-m;
+    const rects=labels.map(l=>pl(l)?.getBoundingClientRect()).concat([document.querySelector('#tutorialGhostLayer .tutorialGhostTarget')?.getBoundingClientRect()]);
+    if(rects.some(over)){ cwFolded=true; cwOpen=false; cwRender(); }
+  }
+  steps.forEach(st=>{ const labels=KEEP_CLEAR[st.id]; if(!labels) return; const enter=st.onEnter;
+    st.onEnter=function(){ if(enter) enter.apply(this, arguments); [60, 450, 1000].forEach(ms=>setTimeout(()=>keepConsoleClear(labels), ms)); }; });
+  // Run on the Workbench console, with voice, asking before Exit; Start over rebuilds this list.
+  steps.tutorialOptions = { surface:true, voice:true, exitScreen:true, rebuild: buildFirstCoachingSessionSteps };
+  return steps;
 }
 document.getElementById('devPreviewRealTutorialBtn')?.addEventListener('click', ()=>{
   const missing = [];
@@ -16553,6 +16944,9 @@ function verifyTutorialAssets(){
 let _guestInterfacePrepared = false;
 function prepareGuestInterface(){
   document.body.classList.add('guestExperienceActive');
+  // the Workbench console is the guest build's controls too (MIZE 2026-09-23); cwGuestFilter trims it
+  document.body.classList.add('cwGuest');
+  if(typeof cwRender==='function') setTimeout(cwRender, 0);
   const exitBtn = document.getElementById('tutorialExitBtn');
   if(exitBtn) exitBtn.textContent = 'Exit Experience';
   if(_guestInterfacePrepared) return;
@@ -17137,8 +17531,11 @@ async function autoplayPlayAndWait(){
   // handler and stopPropagation() -- the outer container's own listener
   // only does anything while playback is already running. The real tap
   // target is the forward half specifically.
+  // On the Workbench console (the Coaching tutorial since 2026-09-23): CREATOR's Play button.
+  const cwPlay = document.body.classList.contains('cwTutorial') && typeof cwTutTarget==='function' ? cwTutTarget('creator', '[data-id="play"]') : null;
+  if(cwPlay && cwPlay.dataset.group){ cwPlay.click(); await autoplayWait(300); }
   const forwardHalf = document.getElementById('tcPlayForwardHalf');
-  const target = forwardHalf || document.getElementById('tcPlayPauseBtn');
+  const target = (document.body.classList.contains('cwTutorial') && typeof cwTutTarget==='function' && cwTutTarget('creator', '[data-id="play"]')) || forwardHalf || document.getElementById('tcPlayPauseBtn');
   if(!target) return false;
   await autoplayMoveHandToTarget(target, 650);
   await autoplayTapPulse();
@@ -17173,34 +17570,30 @@ function autoplayWaitForCondition(fn, timeoutMs){
 // unrecognized, so a future step added without updating this list still
 // does *something* reasonable rather than stalling outright.
 async function autoplayPerformStep(step){
-  const instr = step.instruction || '';
+  // By step id (2026-09-23: the Coaching tutorial runs on the Workbench console, and its wording changed).
+  // Anything without an id falls through to a click on whatever the step is highlighting.
   if(step.isPreStep){ await autoplayClickTarget('#tutorialAcknowledgeBtn'); return; }
-  if(instr.includes('Save/Open button')) return autoplayClickTarget('#saveOpenBtn');
-  if(instr.includes('"Open Sequence"')) return autoplayClickTarget('#soMenuOpenSequence');
-  if(instr.includes('First Coaching Session') && instr.includes('load it')) return autoplayClickTarget(step.highlight, {moveMs:700});
-  if(instr.includes('start the intro')) return autoplayPlayAndWait();
-  if(instr.includes('"Switch to Front Court" icon')) return autoplayClickTarget(autoplayQCBButton('Switch to Front Court'));
-  if(instr.includes('click-drag')) return autoplayScrollGesture();
-  if(instr.includes('attacker who will run')) return autoplaySelectPlayer('W1');
-  if(instr.includes('Grey shade = target spot')) return autoplayDragPlayerToGhost('W1');
-  if(instr.includes('clockwise button')) return autoplayRotatePlayerToGhost('W1');
-  if(instr.includes('ball icon')) return autoplayGiveBall('W1');
-  if(instr.includes('"Quicks" tab')) return autoplayClickTarget('#showQuickCommandBarTab');
-  if(instr.includes('"Smart Positioning" icon')) return autoplayClickTarget(autoplayQCBButton('Smart Positioning'));
-  if(instr.includes('nudge the attacker') || instr.includes('Drag the attacker toward the grey shade')) return autoplayDragPlayerToGhost('W1', {dragMs:1000});
-  if(instr.includes('"Shooting Angle" icon')) return autoplayClickTarget(autoplayQCBButton('Shooting Angle'));
-  if(instr.includes('Tap the highlighted defender to select')) return autoplaySelectPlayer('B6');
-  if(instr.includes('Grey shade = target, inside')) return autoplayMoveDefenderToGhost();
-  if(instr.includes('Left Arm')) return autoplayAssignLeftArm();
-  if(instr.includes('horizontal (swimming)')) return autoplayTogglePose('B6');
-  if(instr.includes('back to a vertical position')) return autoplayTogglePose('B6');
-  if(instr.includes('"Drawing Tools" icon')) return autoplayClickTarget(autoplayQCBButton('Drawing Tools'));
-  if(instr.includes('Draw directly on the field')) return autoplayDrawSomething();
-  if(instr.includes('trash-can icon')) return autoplayClickTarget(autoplayQCBButton('Clear Arrows'));
-  if(instr.includes('"Reset" button')) return autoplayOpenReset();
-  if(instr.includes('watch the play continue')) return autoplayPlayAndWait();
-  // Fallback: just click whatever the step is already highlighting.
-  return autoplayClickTarget(step.highlight);
+  const hl = ()=> typeof step.highlight==='function' ? step.highlight() : step.highlight;
+  switch(step.id){
+    case 'playIntro': case 'playOutro': return autoplayPlayAndWait();
+    case 'scroll': return autoplayScrollGesture();
+    case 'selectAttacker': return autoplaySelectPlayer('W1');
+    case 'moveAttacker': return autoplayDragPlayerToGhost('W1');
+    case 'rotateAttacker': return autoplayRotatePlayerToGhost('W1');
+    case 'giveBall': return autoplayGiveBall('W1');
+    case 'nudgeAttacker': return autoplayDragPlayerToGhost('W1', {dragMs:1000});
+    case 'selectDefender': return autoplaySelectPlayer('B6');
+    case 'moveDefender': return autoplayMoveDefenderToGhost();
+    case 'leftArm': return autoplayAssignLeftArm();
+    case 'defenderHorizontal': case 'defenderVertical': return autoplayTogglePose('B6');
+    case 'draw': return autoplayDrawSomething();
+    case 'reset': return autoplayOpenReset();
+    case 'pickSequence': return autoplayClickTarget(hl(), {moveMs:700});
+  }
+  // tabs and console buttons: the ring's own target; for a console control whose group is not showing that is
+  // the group's tab, so click until the step moves on (at most twice)
+  await autoplayClickTarget(hl());
+  if(tutorialSteps[tutorialStepIndex]===step && step.id) await autoplayClickTarget(hl());
 }
 
 function autoplayWaitForStepChange(fromIdx, timeoutMs){
@@ -20283,7 +20676,17 @@ function cwItems(g){
     L.push({ id:'menu', label:'Menu', icon:CW_ICO.menu, title:'All tools and settings (Light Deck, Feedback, Help)', active:cwIsShown('controlsPanel','open'), tap:()=>cwPress('sidebarToggleTab') });
     L.push({ id:'mode', label:'Mode', icon:CW_ICO.mode, title:'Choose a mode (XquiX Home)', tap:()=>{ if(typeof xquixShowHome==='function') xquixShowHome(); } });
   }
-  return L.filter(Boolean);
+  return cwGuestFilter(g, L.filter(Boolean));
+}
+// Guest Experience (/experience, GUEST_EXPERIENCE_MODE): the console is shown there too (MIZE 2026-09-23), holding
+// only what the guest build already allowed (its Layer 1 rules at the top of the CSS): no New, Library or Mode, no
+// Quick tools the guest build hides, and CREATOR as playback only (the guest build never had the Creator panel).
+const CW_GUEST_HIDDEN_SRC=['shotClockToggleBtn','spotlightToggleBtn','fieldZonesToggleBtn','playerSetupsToggleBtn','studioWindowDarkenBtn'];
+function cwGuestFilter(g, L){
+  if(!(typeof GUEST_EXPERIENCE_MODE!=='undefined' && GUEST_EXPERIENCE_MODE)) return L;
+  const drop={ functions:['new'], system:['library','mode'], creator:['addFrame','updateFrame','deleteFrame','moveLeft','moveRight','frames','||'] }[g]||[];
+  return L.filter(it=> typeof it==='string' ? !drop.includes(it) : !(drop.includes(it.id) || (it.src && CW_GUEST_HIDDEN_SRC.includes(it.src))))
+          .filter((it,i,a)=> !(it==='|' && (i===a.length-1 || a[i+1]==='|')));
 }
 // Icons only where labels cannot fit: the phone's left rail (FUNCTIONS and CREATOR as a two-column grid). QUICKS is
 // always icons (a quick-access bar for coaches who know the tools; the name is the tooltip). Below the field, labelled
@@ -20488,6 +20891,42 @@ window.addEventListener('resize', ()=>{ const d=document.getElementById('cwSurfa
 if(typeof XQStage!=='undefined'){ XQStage.on('close', ()=>setTimeout(cwRender, 0)); XQStage.on('open', ()=>setTimeout(cwRender, 0)); XQStage.on('camera', ()=>setTimeout(cwSync, 0)); XQStage.on('screen', ()=>setTimeout(cwSync, 0)); }
 document.addEventListener('click', e=>{ const el=document.getElementById('cwSurface'); if(el && cwOpen && !el.contains(e.target)){ cwOpen=false; cwRender(); } else if(el && e.target.closest && e.target.closest('#edgeTabStack, #quickCommandBar, #timelinePanel, #controlsPanel, #closeSidebarBtn, #closeTimelineBtn, #hideQuickCommandBarBtn')) setTimeout(cwRender, 0); else if(el) setTimeout(cwSync, 0); });
 cwRender();
+
+// ---- The console during a tutorial that runs on it (the Coaching tutorial: steps.tutorialOptions.surface) ----
+// body.cwTutorial lets the console show while tutorialModeActive (see the CSS gate). The tutorial starts it on
+// QUICKS, unfolded, with the Frames drawer shut, and afterwards puts back the coach's own group, fold and drawer.
+let _cwTutSnap=null;
+const CW_TUT_KEYS=['xquixCwGroup','xquixCwFolded','xquixCwFrames'];
+function cwTutorialBegin(){
+  if(!_cwTutSnap){ _cwTutSnap={ group:cwGroup, folded:cwFolded, frames:cwFramesOpen, ls:{} };
+    CW_TUT_KEYS.forEach(k=>{ try{ _cwTutSnap.ls[k]=localStorage.getItem(k); }catch(e){} }); }
+  cwGroup='quicks'; cwFolded=false; cwFramesOpen=false; cwOpen=false;
+  if(typeof closeQcbDrawingToolsPopup==='function') closeQcbDrawingToolsPopup();
+  cwRender();
+}
+function cwTutorialEnd(){
+  const s=_cwTutSnap; _cwTutSnap=null;
+  if(s){ cwGroup=s.group; cwFolded=s.folded; cwFramesOpen=s.frames;
+    CW_TUT_KEYS.forEach(k=>{ try{ if(s.ls[k]==null) localStorage.removeItem(k); else localStorage.setItem(k, s.ls[k]); }catch(e){} }); }
+  cwOpen=false; cwRender();
+}
+// Step helpers. A group's controls count as on screen when it is the chosen group, unfolded and (in the phone's
+// compact Front Court rail) opened as a fly-out.
+function cwTutGroupShown(g){ const el=document.getElementById('cwSurface'); if(!el || getComputedStyle(el).display==='none') return false;
+  return cwGroup===g && !cwFolded && (!el.classList.contains('cwCompact') || cwOpen); }
+// What to ring for "tap <control> in <group>": the control when it is on screen, otherwise the way to it -- the
+// group's tab, or (folded) the tab that unfolds the console.
+function cwTutTarget(g, sel){
+  const vis=e=>!!e && e.getClientRects().length>0 && getComputedStyle(e).visibility!=='hidden';
+  if(sel && cwTutGroupShown(g)){ const b=document.querySelector('#cwSurface .cwRow '+sel); if(vis(b)) return b; }
+  const t=document.querySelector('#cwSurface .cwTab[data-group="'+g+'"]'); if(vis(t)) return t;
+  const on=document.querySelector('#cwSurface .cwTab.on'); if(vis(on)) return on;
+  return document.querySelector('#cwSurface .cwFold');
+}
+function cwTutShowGroup(g){ const el=document.getElementById('cwSurface'); cwGroup=g; cwFolded=false; cwOpen=!!(el && el.classList.contains('cwCompact'));
+  try{ localStorage.setItem('xquixCwGroup', g); }catch(e){} cwRender(); }
+function cwTutPress(g, sel){ cwTutShowGroup(g); const b=document.querySelector('#cwSurface .cwRow '+sel); if(!b || b.disabled) return false;
+  b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true})); b.click(); return true; }
 
 // ===== Object Engine (canonical schema translation layer) =====
 // This does not change how players/ball/drawings are rendered, dragged, or
