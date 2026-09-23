@@ -834,6 +834,20 @@
   body.xqStage #board { background:transparent; }
   body.xqStage #presentationFieldGroup .presDeck { fill:#0c1e2a; }
   body.xqStage #presentationFieldGroup text { fill:#8fd8d0; opacity:.85; }
+  /* ── Coaching Workbench, Step 1 (briefs/COACHING-STUDIO-WORKBENCH.md; MIZE 2026-09-23): the studio's materials
+     around the unchanged field -- dark deck, teal deck words, a near-black surround with the pool's light on it.
+     Only outside the Stage (the Stage has its own deck rules) and not in the parents' experience. Default on;
+     Menu -> Coaching & Display Tools -> Light Deck turns it off (body loses .cwDark). Colours only: no sizes,
+     no positions, no pointer behaviour change. */
+  body.cwDark:not(.xqStage):not(.pxParentMode) { background:#05090a radial-gradient(ellipse 70% 60% at 50% 50%, #0d1c1f 0%, #070d0e 60%, #05090a 100%) fixed; }
+  body.cwDark:not(.xqStage):not(.pxParentMode) #board { background:#0c1e2a; box-shadow:0 0 0 1px rgba(46,202,184,.16), 0 0 90px 8px rgba(46,202,184,.10), 0 18px 50px rgba(0,0,0,.55); }
+  body.cwDark:not(.xqStage):not(.pxParentMode) #fieldBgRect,
+  body.cwDark:not(.xqStage):not(.pxParentMode) #goalFrameL1, body.cwDark:not(.xqStage):not(.pxParentMode) #goalFrameL2,
+  body.cwDark:not(.xqStage):not(.pxParentMode) #goalFrameR1, body.cwDark:not(.xqStage):not(.pxParentMode) #goalFrameR2 { fill:#0c1e2a; }
+  body.cwDark:not(.xqStage):not(.pxParentMode) #brandRespect, body.cwDark:not(.xqStage):not(.pxParentMode) #brandFairPlay,
+  body.cwDark:not(.xqStage):not(.pxParentMode) #brandHaveFun, body.cwDark:not(.xqStage):not(.pxParentMode) #brandPlaySmart { fill:#8fd8d0; opacity:.85; }
+  body.cwDark:not(.xqStage):not(.pxParentMode) #fieldDimLabel { fill:#8fd8d0; }
+  #lightDeckBtn.active { background:#fff; color:#124d4d; }
   /* Darken the water backdrop -- the white venue deck reads as paper not pool
      without this, and depth is mostly light falloff not shape. */
   body.presentation.field3d #presentationWaterBackdrop { filter:brightness(.55); }
@@ -2709,6 +2723,7 @@
           <button id="spotlightToggleBtn" data-tip="Spotlight tool: click a screen to place a spotlight, dimming the rest of the board.">Spotlight</button>
           <button id="studioWindowDarkenBtn" data-tip="Studio Dim Mode: darkens the studio around the screens so the presentation content stands out. Click again to brighten.">Studio Dim Mode</button>
           <button id="field3dToggleBtn" data-tip="3D Presentation View: tilts the field on a perspective camera for an arena look. Only visible in Presentation mode.">3D View: Off</button>
+          <button id="lightDeckBtn" data-tip="Light Deck: the white deck around the field instead of the dark studio deck -- for printing or a very bright room. Coaching only; Presentation keeps its studio.">Light Deck: Off</button>
           <button id="cameraModeBtn" data-tip="Camera: Assisted moves the camera to the screen that has content when a presentation step loads; Manual leaves the camera where you put it.">Camera: Assisted</button>
           <div id="tiltSliderRow" style="display:flex;flex-direction:column;gap:3px;margin-top:2px;padding:4px 0;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -20666,6 +20681,15 @@ window._shouldDeferConflictAlert = function(){
 
 function toggleSmartPositioning(){ _smartPositioningUI.toggle(); }
 
+
+// Coaching Workbench deck (Step 1): dark by default; Light Deck is the coach's per-device choice.
+(function(){
+  const btn = document.getElementById('lightDeckBtn');
+  let light = false; try{ light = localStorage.getItem('xquixLightDeck')==='1'; }catch(e){}
+  function apply(){ document.body.classList.toggle('cwDark', !light); if(btn){ btn.textContent = light ? 'Light Deck: On' : 'Light Deck: Off'; btn.classList.toggle('active', light); } }
+  apply();
+  if(btn) btn.addEventListener('click', ()=>{ light=!light; try{ localStorage.setItem('xquixLightDeck', light?'1':'0'); }catch(e){} apply(); });
+})();
 
 (function(){
   const btn = document.getElementById('field3dToggleBtn');
