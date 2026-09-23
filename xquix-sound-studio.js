@@ -384,7 +384,9 @@ return self.XquiXSoundBuilder; })();
 
   // ---------------------------------------------------------------- state --
   let el = null, styleEl = null, catalog = null, session = null, view = "ask";
-  let answers = { feeling: null, situation: null, minutes: 20, collection: null };
+  // Nothing is preselected (MIZE, 2026-09-23): an answer counts only once the athlete tapped it.
+  // collection: undefined = not answered yet, null = "XquiX Sound", otherwise a collection id or "mix".
+  let answers = { feeling: null, situation: null, minutes: null, collection: undefined };
   let step = 0, reached = 0;   // question index in "one" mode, and the furthest one seen
   let player = null;
   const listeners = [];
@@ -759,27 +761,29 @@ return self.XquiXSoundBuilder; })();
     if (cols.length > 1) q.push({ id: "collection", title: "Sound", chips: [["", "XquiX Sound"], ...cols.filter(c => c.id !== "xquix-sound").map(c => [c.id, esc(c.display_name)]), ["mix", "Mix"]] });
     return q;
   }
-  const isOn = (id, v) => (id === "collection" ? (answers.collection || "") === v : answers[id] === v);
+  const answered = id => (id === "collection" ? answers.collection !== undefined : answers[id] != null);
+  const allAnswered = () => questionList().every(q => answered(q.id));
+  const isOn = (id, v) => (id === "collection" ? answered(id) && (answers.collection || "") === v : answers[id] === v);
   const chipsFor = q => `<div class="xqss-chips" data-q="${q.id}">${q.chips.map(([v, l]) => `<button class="xqss-chip${isOn(q.id, v) ? " on" : ""}" data-v="${v}">${l}</button>`).join("")}</div>`;
 
   function renderAsk() {
     const qs = questionList();
     if (config.questions !== "one") {
       return qs.map(q => `<h2>${q.title}</h2>${chipsFor(q)}`).join("") +
-        `<button class="xqss-primary" data-act="build" ${answers.feeling && answers.situation ? "" : "disabled"}>Build my session</button>
+        `<button class="xqss-primary" data-act="build" ${allAnswered() ? "" : "disabled"}>Build my session</button>
       ${catalog ? "" : `<p class="xqss-muted" style="margin-top:12px">Loading the Sound Box…</p>`}
       <div class="xqss-err" id="xqss-err" hidden></div>`;
     }
     // One question per screen. Answered questions collapse into a row of
     // chips above; tapping one reopens that question.
     step = Math.max(0, Math.min(step, qs.length)); reached = Math.max(reached, step);
-    const done = qs.slice(0, step).filter(q => q.id === "minutes" || q.id === "collection" || answers[q.id] != null);
+    const done = qs.slice(0, step).filter(q => answered(q.id));
     const trail = done.length ? `<div class="xqss-trail">${done.map(q => `<button class="xqss-chip on" data-step="${qs.indexOf(q)}">${LABEL[q.id](q.id === "collection" ? (answers.collection || "") : answers[q.id])}</button>`).join("")}</div>` : "";
     const q = qs[step];
     const body = q
       ? `<h2>${q.title}</h2>${chipsFor(q)}<p class="xqss-muted xqss-stepn">${step + 1} / ${qs.length}</p>`
       : `<h2>Ready</h2><p class="xqss-muted">Tap an answer above to change it.</p>
-         <button class="xqss-primary" data-act="build" ${answers.feeling && answers.situation ? "" : "disabled"}>Build my session</button>`;
+         <button class="xqss-primary" data-act="build" ${allAnswered() ? "" : "disabled"}>Build my session</button>`;
     return `${trail}${body}
       ${catalog ? "" : `<p class="xqss-muted" style="margin-top:12px">Loading the Sound Box…</p>`}
       <div class="xqss-err" id="xqss-err" hidden></div>`;
@@ -848,7 +852,7 @@ return self.XquiXSoundBuilder; })();
     el.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { step = Number(b.dataset.step); render(); });
     const build = el.querySelector('[data-act="build"]'); if (build) build.onclick = buildNow;
     const start = el.querySelector('[data-act="start"]'); if (start) start.onclick = () => { player.prime(); session.started_at = new Date().toISOString(); player.playIndex(0); render(); };
-    const nw = el.querySelector('[data-act="new"]'); if (nw) nw.onclick = () => { player.stop(); session = null; view = "ask"; step = reached = 0; render(); };
+    const nw = el.querySelector('[data-act="new"]'); if (nw) nw.onclick = () => { player.stop(); session = null; view = "ask"; answers = { feeling: null, situation: null, minutes: null, collection: undefined }; step = reached = 0; render(); };
     el.querySelectorAll(".xqss-plan li").forEach(li => li.onclick = () => { player.playIndex(Number(li.dataset.i)); render(); });
     el.querySelectorAll("[data-rate]").forEach(b => b.onclick = () => { session.rating = Number(b.dataset.rate); saveSession(session, session.rating); render(); });
     el.querySelectorAll("[data-box]").forEach(b => b.onclick = () => {
@@ -863,6 +867,7 @@ return self.XquiXSoundBuilder; })();
   function buildNow() {
     const err = el.querySelector("#xqss-err");
     if (!catalog) { err.hidden = false; err.textContent = "The Sound Box is still loading."; return; }
+    if (!allAnswered()) { err.hidden = false; err.textContent = "Answer every question first."; return; }
     try {
       session = MIZE.SoundStudio.buildSession({ feeling: answers.feeling, situation: answers.situation, minutes: answers.minutes, collection: answers.collection || undefined }, catalog, VOCAB);
       if (!session.plan.length) throw new Error("no tracks available for that combination");
@@ -967,7 +972,7 @@ return self.XquiXSoundBuilder; })();
     listeners.splice(0).forEach(([t, ev, fn]) => t.removeEventListener(ev, fn));
     el.remove(); el = null; styleEl.remove(); styleEl = null;
     player = null; session = null; catalog = null; view = "ask";
-    answers = { feeling: null, situation: null, minutes: 20, collection: null }; step = reached = 0;
+    answers = { feeling: null, situation: null, minutes: null, collection: undefined }; step = reached = 0;
     lastState = ""; announceState();
     if (typeof root.MIZE.SoundStudio.onExit === "function") root.MIZE.SoundStudio.onExit();
   }
