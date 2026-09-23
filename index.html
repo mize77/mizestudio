@@ -898,6 +898,37 @@
   body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .stageConsoleBtn { width:42px; height:36px; }
   body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwSep { display:none; }
   body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded.cwDense .cwRow { display:none; }
+  /* 2c + MIZE's structure review (2026-09-23): QUICKS icons in two rows of six + recents; CREATOR is the timeline itself */
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #timelinePanel, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #timelineCommandsBar { display:none !important; }
+  #cwSurface .cwCounter { display:inline-flex; align-items:center; justify-content:center; min-width:92px; padding:0 8px; font:600 12px/1 'Space Grotesk',Arial,sans-serif; color:#cfe7e4; letter-spacing:.04em; white-space:nowrap; }
+  #cwSurface .stageConsoleBtn.cwIconOnly { min-width:0; width:38px; padding:0; }
+  #cwSurface .stageConsoleBtn.cwIconOnly .stageConsoleBtnLabel { display:none; }
+  #cwSurface .cwRow.cwQuicks { gap:8px; align-items:center; }
+  #cwSurface .cwGrid { display:grid; grid-template-columns:repeat(6, 38px); grid-auto-rows:34px; gap:4px; }
+  #cwSurface .cwGrid.cwGridRecent { grid-template-columns:repeat(2, 38px); padding-left:8px; border-left:1px solid rgba(255,255,255,.12); }
+  #cwSurface .cwGrid .stageConsoleBtn, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid .stageConsoleBtn { width:38px; min-width:0; height:34px; padding:0; }
+  @media (max-width:900px){ body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .cwSep:not(.cwSep2) { flex-basis:100%; width:auto; height:0; margin:0; background:none; } }
+  @media (max-width:560px){ body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .cwSep2 { flex-basis:100%; width:auto; height:0; margin:0; background:none; } body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .stageConsoleBtn:not(.cwIconOnly) { padding:0 9px; } }
+  #cwSurface .cwAbbrev { font:700 10.5px/1 'Space Grotesk',Arial,sans-serif; letter-spacing:.04em; color:#9fb7b4; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid.cwGridMain { grid-template-columns:repeat(2, 38px); }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid.cwGridRecent { padding-left:0; border-left:none; padding-top:6px; border-top:1px solid rgba(255,255,255,.12); }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwCounter { grid-column:span 2; min-width:0; height:26px; font-size:11px; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop.cwDense .cwCounter { min-width:72px; }
+  #cwSurface .cwDrawer { display:flex; flex-direction:column; gap:6px; padding:7px 2px 2px; border-top:1px solid rgba(255,255,255,.08); }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop .cwDrawer, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwDrawer { width:100%; min-width:min(460px, calc(100vw - 40px)); box-sizing:border-box; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwDrawer { width:240px; border-top:none; border-left:1px solid rgba(255,255,255,.08); padding:2px 2px 2px 8px; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded .cwDrawer, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwCompact:not(.cwOpen) .cwDrawer { display:none; }
+  #cwSurface .cwChips { display:flex; gap:4px; overflow-x:auto; flex-wrap:nowrap; max-width:100%; padding-bottom:2px; }
+  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwChips { flex-wrap:wrap; }
+  #cwSurface .cwChip { appearance:none; flex:none; min-width:30px; height:26px; border-radius:7px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#cfe7e4; font:600 12px/1 'Space Grotesk',Arial,sans-serif; cursor:pointer; }
+  #cwSurface .cwChip.on { border-color:rgba(46,202,184,.55); background:rgba(46,202,184,.16); color:#2ecab8; }
+  #cwSurface .cwNote { width:100%; box-sizing:border-box; min-height:46px; resize:vertical; background:rgba(255,255,255,.05); color:#e6f2f0; border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:7px 9px; font:13px/1.35 Arial,sans-serif; user-select:text; -webkit-user-select:text; }
+  #cwSurface .cwNote::placeholder { color:#6f8a87; }
+  #cwSurface .cwOpts { display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; font:600 11.5px/1.2 'Space Grotesk',Arial,sans-serif; color:#9fb7b4; }
+  #cwSurface .cwOpt { display:inline-flex; align-items:center; gap:5px; }
+  #cwSurface .cwOpt input[type=number] { width:52px; }
+  #cwSurface .cwOpt input[type=number], #cwSurface .cwOpt select { background:#0f1a1c; color:#e6f2f0; border:1px solid rgba(255,255,255,.14); border-radius:6px; padding:3px 5px; font:12px Arial,sans-serif; }
+  #cwSurface .cwOpt input[type=checkbox] { accent-color:#2ecab8; }
   /* the drawing-tools popup opens next to Draw (positioned in JS) and above the surface */
   body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #qcbDrawingToolsPopup { z-index:1540; }
 
@@ -19731,36 +19762,53 @@ function updateSaveOpenButton(){
 }
 updateSaveOpenButton();
 
-// ===== Workbench Control Surface, Step 2a (briefs/COACHING-STUDIO-WORKBENCH.md §5; MIZE 2026-09-23) =====
-// One panel, one group at a time: CREATE (+ Add, Undo, Redo, Save/Open) · QUICKS · TIMELINE · SYSTEM (Library, Notes,
-// Menu, Modes, Home). QUICKS and TIMELINE open today's Quick Command Bar and Creator panel for now (2b and 2c move
-// their contents in). Every control runs the code the old control ran. Placement follows the field (§5.3): top on
-// Mac/iPad landscape (Front Court too), a left rail on a phone in landscape (compact in Front Court), below the field
-// in portrait. Shown only where the CSS allows it (Coaching; never the Stage or a tutorial).
+// ===== Workbench Control Surface (briefs/COACHING-STUDIO-WORKBENCH.md §5-§8; MIZE 2026-09-23) =====
+// One panel, one group at a time:
+//   FUNCTIONS  New · Add · Undo · Redo · Save / Open
+//   QUICKS     the Quick Command Bar, icons only: two rows of six defaults + up to four recently used commands
+//   CREATOR    the timeline: Start · Prev · Frame n / N · Next · Play | + Frame · Update · Delete · ← → | Frames (drawer)
+//   SYSTEM     Library · Notes · Menu · Mode (XquiX Home, where the modes are chosen)
+// Every control presses the button or calls the function the old control used, so behaviour, shortcuts and saving are
+// unchanged. Placement follows the field (§5.3): top on Mac/iPad landscape (Front Court too), a left rail on a phone in
+// landscape (compact in Front Court), below the field in portrait. Shown only where the CSS allows it (Coaching; never
+// on the Stage or during a tutorial -- there the Quick Command Bar, Creator panel and Remote are as before).
 document.getElementById('menuFeedbackBtn')?.addEventListener('click', ()=>{ document.getElementById('controlsPanel')?.classList.remove('open'); document.getElementById('feedbackToggleTab')?.click(); });
-const CW_GROUPS=['create','quicks','timeline','system'];
-const CW_LABEL={ create:'Create', quicks:'Quicks', timeline:'Timeline', system:'System' };
-let cwGroup='create', cwFolded=false, cwOpen=false, cwWasOpen={};
-try{ const g=localStorage.getItem('xquixCwGroup'); if(CW_GROUPS.includes(g)) cwGroup=g; cwFolded=localStorage.getItem('xquixCwFolded')==='1'; }catch(e){}
+const CW_GROUPS=['functions','quicks','creator','system'];
+const CW_LABEL={ functions:'Functions', quicks:'Quicks', creator:'Creator', system:'System' };
+let cwGroup='quicks', cwFolded=false, cwOpen=false, cwWasOpen={}, cwFramesOpen=false;
+try{ let g=localStorage.getItem('xquixCwGroup'); g=({ create:'functions', timeline:'creator' })[g]||g; if(CW_GROUPS.includes(g)) cwGroup=g;
+  cwFolded=localStorage.getItem('xquixCwFolded')==='1'; cwFramesOpen=localStorage.getItem('xquixCwFrames')==='1'; }catch(e){}
 function cwPress(id){ const b=document.getElementById(id); if(b) b.click(); }
 function cwIsShown(id, cls){ const e=document.getElementById(id); if(!e) return false; return cls ? e.classList.contains(cls) : (e.style.display!=='none' && getComputedStyle(e).display!=='none'); }
+const _cwS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
 const CW_ICO={
-  add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
-  undo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
-  redo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>',
-  save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"/><path d="M8 3v5h7V3"/><rect x="8" y="13" width="8" height="5" rx="1"/></svg>',
-  library:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4v16H4zM10 4h4v16h-4z"/><path d="m16 5 3.8-1 3 15.5-3.8 1z"/></svg>',
-  notes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
-  menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
-  modes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>',
-  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M6 10v10h12V10"/></svg>',
-  creator:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="6" width="5" height="12" rx="1"/><rect x="10" y="6" width="5" height="12" rx="1"/><rect x="17" y="6" width="4" height="12" rx="1"/></svg>',
+  add:_cwS+'<path d="M12 5v14M5 12h14"/></svg>',
+  newb:_cwS+'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9 14h6"/></svg>',
+  undo:_cwS+'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
+  redo:_cwS+'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>',
+  save:_cwS+'<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"/><path d="M8 3v5h7V3"/><rect x="8" y="13" width="8" height="5" rx="1"/></svg>',
+  library:_cwS+'<path d="M4 4h4v16H4zM10 4h4v16h-4z"/><path d="m16 5 3.8-1 3 15.5-3.8 1z"/></svg>',
+  notes:_cwS+'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+  menu:_cwS+'<path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  mode:_cwS+'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>',
+  start:_cwS+'<path d="M6 5v14"/><path d="m18 5-9 7 9 7z"/></svg>',
+  prev:_cwS+'<path d="m15 5-7 7 7 7"/></svg>',
+  next:_cwS+'<path d="m9 5 7 7-7 7"/></svg>',
+  play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4.2" height="15" rx="1"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1"/></svg>',
+  frameAdd:_cwS+'<rect x="3" y="5" width="13" height="14" rx="2"/><path d="M20 9v6M17 12h6"/></svg>',
+  frameUpd:_cwS+'<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>',
+  frameDel:_cwS+'<rect x="3" y="5" width="13" height="14" rx="2"/><path d="M18 12h5"/></svg>',
+  left:_cwS+'<path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
+  right:_cwS+'<path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  frames:_cwS+'<rect x="3" y="4" width="5" height="7" rx="1"/><rect x="10" y="4" width="5" height="7" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/><path d="M3 15h18M3 19h12"/></svg>',
 };
-// A tool from the Quick Command Bar / command panel: the surface presses the same source button the bar pressed.
-function cwTool(srcId, label, extra){
+// A tool from the Quick Command Bar: the surface presses the same source button the bar pressed.
+function cwTool(srcId, extra){
   const src=document.getElementById(srcId); if(!src) return null;
   const active = srcId==='quickViewToggleBtn' ? (typeof frontCourtActive!=='undefined' && frontCourtActive) : src.classList.contains('active');
-  return Object.assign({ id:srcId, src:srcId, label, title:(src.textContent||label).trim(), icon:(typeof QUICKBAR_ICONS!=='undefined' && QUICKBAR_ICONS[srcId])||'', active,
+  const t=(src.textContent||'').trim();
+  return Object.assign({ id:srcId, src:srcId, label:t, title:t, icon:(typeof QUICKBAR_ICONS!=='undefined' && QUICKBAR_ICONS[srcId])||'', active, iconOnly:true,
     tap:()=>{ qcbSuppressOutsideClose=true; src.click(); qcbSuppressOutsideClose=false; if(typeof renderQuickCommandBar==='function') renderQuickCommandBar(); } }, extra||{});
 }
 function cwDrawOpen(){ return !!document.getElementById('qcbDrawingToolsPopup')?.classList.contains('show'); }
@@ -19774,59 +19822,155 @@ function cwPlaceDrawPopup(btn){
   else { left=Math.max(8, Math.min(r.left, innerWidth-pw-8)); top=sr.bottom+8; }
   pop.style.left=Math.round(left)+'px'; pop.style.top=Math.round(top)+'px';
 }
+// ---- New: back to the board Coaching opens with (MIZE 2026-09-23) ----
+// The starting line-up and ball, no drawings, one empty frame, the tactical aids at their defaults (Smart Positioning
+// on, everything else off), Full Court, the Move tool. Display preferences (Light Deck, 3D View) are the coach's own
+// and stay. Asks first, because unsaved work on the board is gone afterwards (Undo history is cleared with it).
+async function cwNewBoard(){
+  if(typeof tutorialModeActive!=='undefined' && tutorialModeActive) return;
+  const ok = (typeof MizeDialog!=='undefined')
+    ? await MizeDialog.confirm('Start a new board? The field goes back to the starting line-up, the Creator to one empty frame, and the tactical aids to their defaults. Anything on this board that you have not saved will be lost.', 'New board')
+    : confirm('Start a new board? Anything on this board that you have not saved will be lost.');
+  if(!ok) return;
+  if(typeof playing!=='undefined' && playing) playFrames();
+  closeQcbDrawingToolsPopup(); closeAllEmptyFieldBoxes(); closeAllSaveOpenBoxes();
+  if(frontCourtActive) toggleFrontCourt(false);
+  const on=id=>!!document.getElementById(id)?.classList.contains('active');
+  if(MIZE.State.shotClock.active) cwPress('shotClockToggleBtn');
+  ['shootingAngleToggleBtn','shotBlockToggleBtn','goalieVisionToggleBtn'].forEach(id=>{ if(on(id)) cwPress(id); });
+  if(smartGoaliePositioningActive) cwPress('smartGoaliePositioningToggleBtn');
+  if(!on('smartPositioningToggleBtn')) cwPress('smartPositioningToggleBtn');
+  if(MIZE.State.fieldZones && MIZE.State.fieldZones.active && MIZE.State.fieldZones.active!=='none') selectFieldZoneSet('none');
+  if(typeof closeToolPanels==='function') closeToolPanels();
+  document.querySelectorAll('.extraBall').forEach(e=>e.remove());
+  reset();
+  document.getElementById('frameNote').value='';
+  const fd=document.getElementById('frameDuration'); if(fd) fd.value=0.9;
+  frames=[makeFrameState()]; currentFrame=0; renderFrames();
+  cwPress('selectBtn');
+  undoStack.length=0; redoStack.length=0; updateHistoryUI();
+  if(typeof renderTeamManager==='function'){ try{ renderTeamManager(); }catch(e){} }
+  if(typeof xquixHomeShowToast==='function') xquixHomeShowToast('New board');
+}
 function cwItems(g){
   const L=[];
-  if(g==='create'){
+  if(g==='functions'){
+    L.push({ id:'new', label:'New', icon:CW_ICO.newb, title:'New board: the starting line-up, one empty frame, default settings', tap:()=>cwNewBoard() });
     L.push({ id:'add', label:'Add', icon:CW_ICO.add, title:'Add players, a formation, or a sequence/drill', pop:true, open:()=>anyEmptyFieldBoxOpen(), tap:()=>openEmptyFieldMenu(), close:()=>closeAllEmptyFieldBoxes() });
-    L.push(cwTool('selectBtn','Move'));
-    L.push(cwTool('freeDrawBtn','Draw', { title:'Drawing Tools', cls:'cwDrawBtn', pop:true, open:cwDrawOpen, close:()=>closeQcbDrawingToolsPopup(),
-      tap:function(btn){ const src=document.getElementById('freeDrawBtn'); qcbSuppressOutsideClose=true; src.click(); qcbSuppressOutsideClose=false;
-        openQcbDrawingToolsPopup(btn); cwPlaceDrawPopup(btn); if(typeof renderQuickCommandBar==='function') renderQuickCommandBar(); } }));
-    L.push(cwTool('fieldZonesToggleBtn','Zones'));
-    L.push(cwTool('textBoxBtn','Text'));
-    L.push('|');
     L.push({ id:'undo', label:'Undo', icon:CW_ICO.undo, title:(undoStack.length?'Undo: '+undoStack[undoStack.length-1].label:'Nothing to undo'), disabled:!undoStack.length, tap:()=>undo() });
     L.push({ id:'redo', label:'Redo', icon:CW_ICO.redo, title:(redoStack.length?'Redo: '+redoStack[redoStack.length-1].label:'Nothing to redo'), disabled:!redoStack.length, tap:()=>redo() });
     L.push({ id:'save', label:'Save / Open', icon:CW_ICO.save, title:'Save or open a formation or sequence', pop:true, open:()=>anySaveOpenBoxOpen(), tap:()=>openSaveOpenMenu(), close:()=>closeAllSaveOpenBoxes() });
   } else if(g==='quicks'){
-    L.push(cwTool('shotClockToggleBtn','Shot Clock'));
-    L.push(cwTool('quickViewToggleBtn','Front Court', { title:'Switch between Full Court and Front Court' }));
-    L.push(cwTool('shootingAngleToggleBtn','Angle'));
-    L.push(cwTool('shotBlockToggleBtn','Blocks'));
-    L.push(cwTool('goalieVisionToggleBtn','Vision'));
-    L.push(cwTool('smartPositioningToggleBtn','Smart Pos.'));
-    L.push(cwTool('smartGoaliePositioningToggleBtn','Smart Goalie'));
-    L.push(cwTool('clearBtn','Clear'));
-    // the bar's "recently used" slots: commands used from the Menu that are not presets
-    const recent=(typeof recentCmdOrder!=='undefined' ? recentCmdOrder : []).filter(id=>!(typeof QUICKBAR_PRESETS!=='undefined' && QUICKBAR_PRESETS.includes(id)) && document.getElementById(id)).slice(0,3);
-    if(recent.length){ L.push('|'); recent.forEach(id=>{ const src=document.getElementById(id); const ab=(src.textContent||'').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,3).toUpperCase();
-      L.push(cwTool(id, ab, { id:'recent-'+id, icon:'', cls:'cwRecent cwTextOnly' })); }); }
-  } else if(g==='timeline'){
-    L.push({ id:'creator', label:'Creator', icon:CW_ICO.creator, title:'Frames, playback and the frame note', active:cwIsShown('timelinePanel','shown'), tap:()=>cwPress('timelineToggleTab') });
+    // the Quick Command Bar as it was: its twelve presets in two rows of six, then up to four recently used commands
+    const presets=(typeof QUICKBAR_PRESETS!=='undefined' ? QUICKBAR_PRESETS : []);
+    presets.forEach(id=>{
+      if(id==='freeDrawBtn') L.push(cwTool(id, { title:'Drawing Tools', cls:'cwDrawBtn', pop:true, open:cwDrawOpen, close:()=>closeQcbDrawingToolsPopup(),
+        tap:function(btn){ const src=document.getElementById('freeDrawBtn'); qcbSuppressOutsideClose=true; src.click(); qcbSuppressOutsideClose=false;
+          openQcbDrawingToolsPopup(btn); cwPlaceDrawPopup(btn); if(typeof renderQuickCommandBar==='function') renderQuickCommandBar(); } }));
+      else L.push(cwTool(id));
+    });
+    const recent=(typeof recentCmdOrder!=='undefined' ? recentCmdOrder : []).filter(id=>!presets.includes(id) && document.getElementById(id)).slice(0,4);
+    recent.forEach(id=>{ const src=document.getElementById(id); const ab=(src.textContent||'').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,3).toUpperCase();
+      const t=cwTool(id, { recent:true, cls:'cwRecent' }); if(!t.icon) t.abbrev=ab; L.push(t); });
+  } else if(g==='creator'){
+    const n=frames.length, i=currentFrame;
+    L.push({ id:'start', label:'Start', icon:CW_ICO.start, iconOnly:true, title:'Back to the first frame', disabled:n<2 || i<=0, tap:()=>cwPress('tcRewindToStartBtn') });
+    L.push({ id:'prev', label:'Previous', icon:CW_ICO.prev, iconOnly:true, title:'Previous frame (Shift+Tab)', disabled:n<2 || i<=0, tap:()=>cwPress('tcPrevFrameBtn') });
+    L.push({ id:'counter', kind:'label', label:n ? 'Frame '+(i+1)+' / '+n : 'No frames', title:'Current frame / total frames' });
+    L.push({ id:'next', label:'Next', icon:CW_ICO.next, iconOnly:true, title:'Next frame (Tab)', disabled:n<2 || i>=n-1, tap:()=>cwPress('tcNextFrameBtn') });
+    L.push({ id:'play', label:playing?'Pause':'Play', icon:playing?CW_ICO.pause:CW_ICO.play, title:playing?'Stop playback':'Play the sequence (Space)', active:!!playing, disabled:n<2 && !playing, tap:()=>playFrames() });
+    L.push('|');
+    L.push({ id:'addFrame', label:'Add Frame', icon:CW_ICO.frameAdd, title:'Add a new frame after the current one', tap:()=>cwPress('tcAddFrameBtn') });
+    L.push({ id:'updateFrame', label:'Update', icon:CW_ICO.frameUpd, title:'Save the board into the current frame', disabled:!n, tap:()=>cwPress('updateFrameBtn') });
+    L.push({ id:'deleteFrame', label:'Delete', icon:CW_ICO.frameDel, title:'Delete the current frame', disabled:n<=1, tap:()=>cwPress('tcDeleteFrameBtn') });
+    L.push('||');
+    L.push({ id:'moveLeft', label:'Earlier', icon:CW_ICO.left, iconOnly:true, title:'Move this frame earlier in the sequence', disabled:i<=0, tap:()=>cwPress('moveFrameLeftBtn') });
+    L.push({ id:'moveRight', label:'Later', icon:CW_ICO.right, iconOnly:true, title:'Move this frame later in the sequence', disabled:i>=n-1, tap:()=>cwPress('moveFrameRightBtn') });
+    L.push({ id:'frames', label:'Frames', icon:CW_ICO.frames, title:'All frames, the frame note, timing and Live Animation', active:cwFramesOpen,
+      tap:()=>{ cwFramesOpen=!cwFramesOpen; try{ localStorage.setItem('xquixCwFrames', cwFramesOpen?'1':'0'); }catch(_){} } });
   } else {
     L.push({ id:'library', label:'Library', icon:CW_ICO.library, title:'Coaching Library', tap:()=>{ if(typeof openCoachingLibrary==='function') openCoachingLibrary(); else cwPress('libraryToggleTab'); } });
     L.push({ id:'notes', label:'Notes', icon:CW_ICO.notes, title:'Your presentation notes', active:cwIsShown('coachingModeToggleTab','active'), tap:()=>cwPress('coachingModeToggleTab') });
     L.push({ id:'menu', label:'Menu', icon:CW_ICO.menu, title:'All tools and settings (Light Deck, Feedback, Help)', active:cwIsShown('controlsPanel','open'), tap:()=>cwPress('sidebarToggleTab') });
-    L.push({ id:'modes', label:'Modes', icon:CW_ICO.modes, title:'Switch mode', tap:()=>cwPress('exitPresentationBtn') });
-    L.push({ id:'home', label:'Home', icon:CW_ICO.home, title:'XquiX Home', tap:()=>{ if(typeof xquixShowHome==='function') xquixShowHome(); } });
+    L.push({ id:'mode', label:'Mode', icon:CW_ICO.mode, title:'Choose a mode (XquiX Home)', tap:()=>{ if(typeof xquixShowHome==='function') xquixShowHome(); } });
   }
   return L.filter(Boolean);
 }
-// Icons only where labels cannot fit: the phone's left rail (CREATE and QUICKS), and a top dock too narrow for the
-// row. Below the field there is room, so the labelled buttons wrap to a second row instead (§5.3: rows, not shrinking).
+// Icons only where labels cannot fit: the phone's left rail (FUNCTIONS and CREATOR as a two-column grid). QUICKS is
+// always icons (a quick-access bar for coaches who know the tools; the name is the tooltip). Below the field, labelled
+// buttons wrap to a second row instead (§5.3: rows, not shrinking).
 function cwDenseFor(g, dock){
-  if(dock==='left') return g==='create' || g==='quicks';
+  if(dock==='left') return g==='functions' || g==='creator';
   if(dock==='below') return false;
-  return (g==='quicks' && innerWidth<1000) || (g==='create' && innerWidth<820);
+  return g==='creator' && innerWidth<860;
 }
 let _cwDock='top';
+function cwBlur(el){ const a=document.activeElement; if(a && el.contains(a) && a.blur) a.blur(); }
+function cwButton(it, el){
+  if(it.kind==='label'){ const s=document.createElement('span'); s.className='cwCounter'; s.dataset.id=it.id; s.title=it.title||''; s.textContent=it.label; return s; }
+  const b=document.createElement('button'); b.type='button';
+  b.className='stageConsoleBtn'+(it.active?' active':'')+(it.cls?' '+it.cls:'')+(it.iconOnly?' cwIconOnly':'');
+  b.dataset.id=it.id; if(it.src) b.dataset.src=it.src;
+  b.title=it.title||it.label; b.setAttribute('aria-label', it.title||it.label); b.disabled=!!it.disabled;
+  if(it.icon){ const i=document.createElement('span'); i.className='cwIco'; i.innerHTML=it.icon; b.appendChild(i); }
+  else if(it.abbrev){ const a=document.createElement('span'); a.className='cwAbbrev'; a.textContent=it.abbrev; b.appendChild(a); }
+  const lab=document.createElement('span'); lab.className='stageConsoleBtnLabel'; lab.textContent=it.label; b.appendChild(lab);
+  if(it.src==='freeDrawBtn' && typeof freehandColor!=='undefined') b.style.setProperty('--cwInk', freehandColor);
+  // a menu's own "tap outside closes me" runs on pointerdown, before this button's click: remember whether it was open
+  b.addEventListener('pointerdown', ()=>{ if(it.pop) cwWasOpen[it.id]=it.open(); });
+  b.addEventListener('click', e=>{ e.stopPropagation(); cwBlur(el);
+    if(it.pop){ if(cwWasOpen[it.id]) { it.close(); } else { cwAnchorPopup(b); it.tap(b); } cwWasOpen[it.id]=false; }
+    else it.tap(b);
+    if(el.classList.contains('cwCompact') && it.src!=='freeDrawBtn' && it.id!=='frames') cwOpen=false;
+    setTimeout(cwRender, 0); });
+  return b;
+}
+// CREATOR's drawer: every frame (tap to go there), the frame note, and the timing the Creator panel and Remote held.
+// Each field writes to the original control and fires its own event, so the Creator's code does the work.
+function cwMirrorSelect(srcId, label){
+  const src=document.getElementById(srcId); if(!src) return null;
+  const wrap=document.createElement('label'); wrap.className='cwOpt'; wrap.textContent=label+' ';
+  const s=document.createElement('select'); s.dataset.mirror=srcId; s.innerHTML=src.innerHTML; s.value=src.value;
+  s.addEventListener('change', ()=>{ src.value=s.value; src.dispatchEvent(new Event('change', { bubbles:true })); setTimeout(cwSync, 0); });
+  wrap.appendChild(s); return wrap;
+}
+function cwBuildDrawer(){
+  const d=document.createElement('div'); d.className='cwDrawer';
+  const chips=document.createElement('div'); chips.className='cwChips'; d.appendChild(chips);
+  const note=document.createElement('textarea'); note.className='cwNote'; note.placeholder='Frame coaching note / teaching point...'; note.value=document.getElementById('frameNote')?.value||'';
+  note.addEventListener('input', ()=>{ const src=document.getElementById('frameNote'); if(src){ src.value=note.value; src.dispatchEvent(new Event('input', { bubbles:true })); } });
+  d.appendChild(note);
+  const opts=document.createElement('div'); opts.className='cwOpts';
+  const dl=document.createElement('label'); dl.className='cwOpt'; dl.textContent='Duration ';
+  const di=document.createElement('input'); di.type='number'; di.step='0.1'; di.min='0.1'; di.dataset.mirror='tcDurationInput'; di.value=document.getElementById('frameDuration')?.value||0.9;
+  di.addEventListener('change', ()=>{ const src=document.getElementById('tcDurationInput'); if(src){ src.value=di.value; src.dispatchEvent(new Event('change', { bubbles:true })); } });
+  dl.appendChild(di); dl.appendChild(document.createTextNode(' s')); opts.appendChild(dl);
+  [cwMirrorSelect('tcTransitionSelect','Transition'), cwMirrorSelect('tcSpeedSelect','Speed')].forEach(x=>x && opts.appendChild(x));
+  const la=document.getElementById('liveAnimationToggle');
+  if(la){ const ll=document.createElement('label'); ll.className='cwOpt'; const cb=document.createElement('input'); cb.type='checkbox'; cb.dataset.mirror='liveAnimationToggle'; cb.checked=la.checked;
+    cb.addEventListener('change', ()=>{ if(la.checked!==cb.checked) la.click(); setTimeout(cwSync, 0); });
+    ll.appendChild(cb); ll.appendChild(document.createTextNode(' Live Animation')); opts.appendChild(ll); }
+  d.appendChild(opts);
+  cwSyncDrawer(d);
+  return d;
+}
+function cwSyncDrawer(d){
+  const chips=d.querySelector('.cwChips');
+  if(chips){ chips.innerHTML=''; frames.forEach((f,i)=>{ const c=document.createElement('button'); c.type='button'; c.className='cwChip'+(i===currentFrame?' on':''); c.textContent=String(i+1); c.title='Frame '+(i+1)+(f && f.note ? ': '+f.note : '');
+    c.addEventListener('click', e=>{ e.stopPropagation(); cwBlur(d); document.querySelector('#frameStrip .frameBtn[data-frame-idx="'+i+'"]')?.click(); setTimeout(cwSync, 0); }); chips.appendChild(c); }); }
+  const note=d.querySelector('.cwNote'), src=document.getElementById('frameNote'); if(note && src && document.activeElement!==note) note.value=src.value;
+  d.querySelectorAll('[data-mirror]').forEach(m=>{ if(document.activeElement===m) return; const s=document.getElementById(m.dataset.mirror); if(!s) return;
+    if(m.type==='checkbox') m.checked=s.checked; else if(m.dataset.mirror==='tcDurationInput') m.value=document.getElementById('frameDuration')?.value||s.value; else m.value=s.value; });
+}
 function cwRender(){
   let el=document.getElementById('cwSurface');
   if(!el){ el=document.createElement('div'); el.id='cwSurface'; el.setAttribute('role','toolbar'); el.setAttribute('aria-label','Coaching controls'); document.body.appendChild(el); document.body.classList.add('cwSurfaceOn'); }
+  // keep a focused note or duration field while the group re-renders around it
+  const ae=document.activeElement; if(ae && el.contains(ae) && (ae.tagName==='TEXTAREA' || ae.tagName==='INPUT' || ae.tagName==='SELECT')){ cwSync(); return; }
   el.innerHTML='';
   const tabs=document.createElement('div'); tabs.className='cwTabs';
   CW_GROUPS.forEach(g=>{ const t=document.createElement('button'); t.type='button'; t.className='cwTab'+(g===cwGroup?' on':''); t.dataset.group=g; t.textContent=CW_LABEL[g];
-    t.addEventListener('click', e=>{ e.stopPropagation();
+    t.addEventListener('click', e=>{ e.stopPropagation(); cwBlur(el);
       if(cwFolded){ cwFolded=false; try{ localStorage.setItem('xquixCwFolded','0'); }catch(_){} }
       else if(el.classList.contains('cwCompact')){ cwOpen = !(cwOpen && g===cwGroup); }
       if(g!==cwGroup) closeQcbDrawingToolsPopup();
@@ -19837,31 +19981,37 @@ function cwRender(){
   fold.addEventListener('click', e=>{ e.stopPropagation(); cwFolded=!cwFolded; try{ localStorage.setItem('xquixCwFolded', cwFolded?'1':'0'); }catch(_){} cwRender(); });
   tabs.appendChild(fold);
   const row=document.createElement('div'); row.className='cwRow'; row.dataset.group=cwGroup;
-  cwItems(cwGroup).forEach(it=>{
-    if(it==='|'){ const s=document.createElement('span'); s.className='cwSep'; row.appendChild(s); return; }
-    const b=document.createElement('button'); b.type='button'; b.className='stageConsoleBtn'+(it.active?' active':'')+(it.cls?' '+it.cls:''); b.dataset.id=it.id; if(it.src) b.dataset.src=it.src;
-    b.title=it.title||it.label; b.setAttribute('aria-label', it.title||it.label); b.disabled=!!it.disabled;
-    if(it.icon){ const i=document.createElement('span'); i.className='cwIco'; i.innerHTML=it.icon; b.appendChild(i); }
-    const lab=document.createElement('span'); lab.className='stageConsoleBtnLabel'; lab.textContent=it.label; b.appendChild(lab);
-    if(it.src==='freeDrawBtn' && typeof freehandColor!=='undefined') b.style.setProperty('--cwInk', freehandColor);
-    // a menu's own "tap outside closes me" runs on pointerdown, before this button's click: remember whether it was open
-    b.addEventListener('pointerdown', ()=>{ if(it.pop) cwWasOpen[it.id]=it.open(); });
-    b.addEventListener('click', e=>{ e.stopPropagation();
-      if(it.pop){ if(cwWasOpen[it.id]) { it.close(); } else { cwAnchorPopup(b); it.tap(b); } cwWasOpen[it.id]=false; }
-      else it.tap(b);
-      if(el.classList.contains('cwCompact') && !(it.src==='freeDrawBtn')) cwOpen=false;
-      setTimeout(cwRender, 0); });
-    row.appendChild(b); });
+  const items=cwItems(cwGroup);
+  if(cwGroup==='quicks'){
+    row.classList.add('cwQuicks');
+    const main=document.createElement('div'); main.className='cwGrid cwGridMain';
+    items.filter(it=>!it.recent).forEach(it=>main.appendChild(cwButton(it, el)));
+    row.appendChild(main);
+    const rec=items.filter(it=>it.recent);
+    if(rec.length){ const g=document.createElement('div'); g.className='cwGrid cwGridRecent'; g.title='Recently used'; rec.forEach(it=>g.appendChild(cwButton(it, el))); row.appendChild(g); }
+  } else {
+    items.forEach(it=>{ if(it==='|' || it==='||'){ const s=document.createElement('span'); s.className='cwSep'+(it==='||'?' cwSep2':''); row.appendChild(s); return; } row.appendChild(cwButton(it, el)); });
+  }
   el.appendChild(tabs); el.appendChild(row);
+  if(cwGroup==='creator' && cwFramesOpen) el.appendChild(cwBuildDrawer());
   el.classList.toggle('cwFolded', cwFolded); el.classList.toggle('cwOpen', cwOpen);
   cwPlace();
 }
-// Keep the toggles' lit state honest when they change elsewhere (keyboard shortcuts, the Menu, Front Court): no rebuild, just classes.
+// Keep the lit state, the frame counter, Play/Pause and the drawer honest when they change elsewhere (keyboard, the
+// Menu, Front Court, playback reaching its end): classes and text only, no rebuild.
 function cwSync(){
   const el=document.getElementById('cwSurface'); if(!el) return;
   el.querySelectorAll('.cwRow [data-src]').forEach(b=>{ const id=b.dataset.src, s=document.getElementById(id); if(!s) return;
     b.classList.toggle('active', id==='quickViewToggleBtn' ? !!frontCourtActive : s.classList.contains('active')); });
   const d=el.querySelector('[data-src="freeDrawBtn"]'); if(d && typeof freehandColor!=='undefined') d.style.setProperty('--cwInk', freehandColor);
+  if(cwGroup==='creator'){
+    const want=cwItems('creator'); const row=el.querySelector('.cwRow');
+    want.forEach(it=>{ if(it==='|' || it==='||') return; const b=row && row.querySelector('[data-id="'+it.id+'"]'); if(!b) return;
+      if(it.kind==='label'){ b.textContent=it.label; return; }
+      b.disabled=!!it.disabled; b.classList.toggle('active', !!it.active); b.title=it.title;
+      if(it.id==='play'){ const i=b.querySelector('.cwIco'); if(i) i.innerHTML=it.icon; const l=b.querySelector('.stageConsoleBtnLabel'); if(l) l.textContent=it.label; } });
+    const dr=el.querySelector('.cwDrawer'); if(dr) cwSyncDrawer(dr);
+  }
 }
 // Where the panel goes: the field decides (§5.3).
 function cwPlace(){
@@ -19885,7 +20035,7 @@ function cwPlace(){
   }
   const r=el.getBoundingClientRect(); document.body.style.setProperty('--cwBottom', Math.round(r.bottom)+'px');
 }
-// + and Save/Open menus open next to the surface button that opened them
+// Add and Save/Open menus open next to the surface button that opened them
 function cwAnchorPopup(btn){
   const r=btn.getBoundingClientRect(), el=document.getElementById('cwSurface'); const sr=el ? el.getBoundingClientRect() : r;
   const st=document.body.style;
@@ -19893,10 +20043,12 @@ function cwAnchorPopup(btn){
   else if(el && el.classList.contains('cwBelow')){ st.setProperty('--cwPopTop', Math.round(Math.max(8, sr.top-8-320))+'px'); st.setProperty('--cwPopLeft', Math.round(Math.max(8, Math.min(r.left, innerWidth-300)))+'px'); st.setProperty('--cwPopRight', 'auto'); }
   else { st.setProperty('--cwPopTop', Math.round(sr.bottom+8)+'px'); st.setProperty('--cwPopLeft', Math.round(Math.max(8, Math.min(r.left, innerWidth-300)))+'px'); st.setProperty('--cwPopRight', 'auto'); }
 }
-// Keep it current: history, selection, Front Court, the panels it opens, rotation.
-{ const _uh=updateHistoryUI; updateHistoryUI=function(){ _uh.apply(this, arguments); if(document.getElementById('cwSurface') && cwGroup==='create') cwRender(); }; }
+// Keep it current: history, frames, playback, selection, Front Court, the panels it opens, rotation.
+{ const _uh=updateHistoryUI; updateHistoryUI=function(){ _uh.apply(this, arguments); if(document.getElementById('cwSurface') && cwGroup==='functions') cwRender(); }; }
 { const _fc=toggleFrontCourt; toggleFrontCourt=function(){ const r=_fc.apply(this, arguments); cwOpen=false; setTimeout(cwRender, 0); setTimeout(cwPlace, 450); return r; }; }
 { const _rq=renderQuickCommandBar; renderQuickCommandBar=function(){ const r=_rq.apply(this, arguments); cwSync(); return r; }; }
+{ const _rf=renderFrames; renderFrames=function(){ const r=_rf.apply(this, arguments); cwSync(); return r; }; }
+{ const _sp=syncPlayPauseUI; syncPlayPauseUI=function(){ const r=_sp.apply(this, arguments); cwSync(); return r; }; }
 document.addEventListener('keyup', ()=>setTimeout(cwSync, 0));
 window.addEventListener('resize', ()=>{ const d=document.getElementById('cwSurface'); if(d && d.classList.contains('cwDense')!==cwDenseFor(cwGroup, _cwDock)) cwRender(); else cwPlace(); });
 if(typeof XQStage!=='undefined') XQStage.on('close', ()=>setTimeout(cwRender, 0));
