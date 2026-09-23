@@ -12387,7 +12387,12 @@ const XQStage=(function(){
       this.setRoomOverlay(null);
       this.setControls(null);
       _open=false; _consumer=null; _opts={};
+      document.body.classList.remove('qcbHiddenForScreen');   // a camera flag: Coaching always has its Quick Command Bar
       emit('close', was);
+      // Whatever mode comes next without a stage (Coaching) gets the board sized for the plain view: leaving
+      // Home by choosing Coaching kept the board at Home's wall-screen size -- a small field on a big Mac
+      // screen (MIZE, 2026-09-23). A consumer that opens next re-lays it out anyway.
+      if(!_open && typeof fitBoardToScreen==='function'){ try{ fitBoardToScreen(); }catch(e){ console.error('XQStage close: refit failed', e); } }
     },
     isOpen(){ return _open; },
     consumer(){ return _consumer; },
