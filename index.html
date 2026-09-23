@@ -854,10 +854,10 @@
      Tracker, the parents' experience, the guest experience or the audience view. It replaces the edge tabs, "+",
      Save/Open and the round mode switch; every control presses the code path those used. */
   #cwSurface { display:none; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface { display:flex; position:fixed; z-index:1535; gap:6px; padding:6px; border-radius:12px; font-family:'Space Grotesk',Arial,sans-serif;
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface { display:flex; position:fixed; z-index:1535; gap:6px; padding:6px; border-radius:12px; font-family:'Space Grotesk',Arial,sans-serif;
     background:linear-gradient(180deg, rgba(16,24,26,.94), rgba(6,11,12,.96)); border:1px solid rgba(255,255,255,.09);
     box-shadow:0 10px 30px rgba(0,0,0,.55), inset 0 1px 0 rgba(46,202,184,.14); user-select:none; -webkit-user-select:none; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #edgeTabStack, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldAddBtn, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveOpenBtn, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #exitPresentationBtn { display:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #edgeTabStack, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldAddBtn, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveOpenBtn, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #exitPresentationBtn { display:none !important; }
   #cwSurface .cwTabs { display:flex; gap:3px; align-items:center; }
   #cwSurface .cwTab { appearance:none; font:600 10px/1 'Space Grotesk',Arial,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:#8aa3a0;
     padding:6px 9px; border-radius:7px; border:1px solid transparent; background:transparent; cursor:pointer; white-space:nowrap; touch-action:manipulation; }
@@ -867,22 +867,22 @@
   #cwSurface .cwRow { display:flex; gap:5px; }
   #cwSurface .stageConsoleBtn { min-width:52px; height:34px; font-size:12.5px; padding:0 11px; white-space:nowrap; }
   /* docks */
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop { flex-direction:column; left:50%; top:calc(10px + env(safe-area-inset-top)); transform:translateX(-50%); width:max-content; max-width:calc(100vw - 16px); box-sizing:border-box; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow { flex-direction:column; left:50%; transform:translateX(-50%); width:max-content; max-width:calc(100vw - 16px); box-sizing:border-box; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow { flex-wrap:wrap; justify-content:center; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft { flex-direction:row; left:calc(8px + env(safe-area-inset-left)); }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTabs, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwRow { flex-direction:column; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { writing-mode:vertical-rl; transform:rotate(180deg); padding:9px 5px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .stageConsoleBtn { width:96px; min-width:0; height:32px; font-size:11.5px; padding:0 6px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwCompact:not(.cwOpen) .cwRow { display:none; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded .cwRow, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded .cwTab:not(.on) { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop { flex-direction:column; left:50%; top:calc(10px + env(safe-area-inset-top)); transform:translateX(-50%); width:max-content; max-width:calc(100vw - 16px); box-sizing:border-box; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow { flex-direction:column; left:50%; transform:translateX(-50%); width:max-content; max-width:calc(100vw - 16px); box-sizing:border-box; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow { flex-wrap:wrap; justify-content:center; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft { flex-direction:row; left:calc(8px + env(safe-area-inset-left)); }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTabs, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwRow { flex-direction:column; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { writing-mode:vertical-rl; transform:rotate(180deg); padding:9px 5px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .stageConsoleBtn { width:96px; min-width:0; height:32px; font-size:11.5px; padding:0 6px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwCompact:not(.cwOpen) .cwRow { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded .cwRow, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded .cwTab:not(.on) { display:none; }
   /* the + and Save/Open menus open beside the surface button that opened them */
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldMenuBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldAddBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldSequenceBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveOpenMenuBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #openItemBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveItemBox {
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldAddBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #emptyFieldSequenceBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveOpenMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #openItemBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #saveItemBox {
     top:var(--cwPopTop, calc(62px + env(safe-area-inset-top))) !important; left:var(--cwPopLeft, auto) !important; right:var(--cwPopRight, auto) !important; max-height:calc(100dvh - var(--cwPopTop, 62px) - 12px); overflow-y:auto; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #emptyFieldMenuBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #emptyFieldAddBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #emptyFieldSequenceBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #saveOpenMenuBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #openItemBox, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #saveItemBox { top:auto !important; bottom:var(--cwPopBottom, 90px) !important; max-height:calc(100dvh - var(--cwPopBottom, 90px) - 12px); }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #emptyFieldMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #emptyFieldAddBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #emptyFieldSequenceBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #saveOpenMenuBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #openItemBox, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode).cwPopUp #saveItemBox { top:auto !important; bottom:var(--cwPopBottom, 90px) !important; max-height:calc(100dvh - var(--cwPopBottom, 90px) - 12px); }
   /* Step 2b: the Quick Command Bar's tools live in CREATE and QUICKS, so the bar itself is retired in Coaching
      (it stays on the Stage, e.g. Presentation's CENTER view, and in tutorials) */
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #quickCommandBar { display:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #quickCommandBar { display:none !important; }
   #cwSurface .stageConsoleBtn { display:inline-flex; align-items:center; justify-content:center; gap:6px; }
   #cwSurface .cwIco { display:inline-flex; width:17px; height:17px; flex:none; }
   #cwSurface .cwIco svg { width:17px; height:17px; }
@@ -894,33 +894,33 @@
   #cwSurface.cwDense .stageConsoleBtn .stageConsoleBtnLabel { display:none; }
   #cwSurface.cwDense .stageConsoleBtn { min-width:0; width:42px; padding:0; }
   #cwSurface.cwDense .stageConsoleBtn.cwTextOnly .stageConsoleBtnLabel { display:inline; font-size:10.5px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwRow { display:grid; grid-template-columns:repeat(2, 42px); gap:5px; align-content:center; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense.cwCompact:not(.cwOpen) .cwRow { display:none; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .stageConsoleBtn { width:42px; height:36px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwSep { display:none; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded.cwDense .cwRow { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwRow { display:grid; grid-template-columns:repeat(2, 42px); gap:5px; align-content:center; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense.cwCompact:not(.cwOpen) .cwRow { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .stageConsoleBtn { width:42px; height:36px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwSep { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded.cwDense .cwRow { display:none; }
   /* 2c + MIZE's structure review (2026-09-23): QUICKS icons in two rows of six + recents; CREATOR is the timeline itself */
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #timelinePanel, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #timelineCommandsBar { display:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #timelinePanel, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #timelineCommandsBar { display:none !important; }
   #cwSurface .cwCounter { display:inline-flex; align-items:center; justify-content:center; min-width:92px; padding:0 8px; font:600 12px/1 'Space Grotesk',Arial,sans-serif; color:#cfe7e4; letter-spacing:.04em; white-space:nowrap; }
   #cwSurface .stageConsoleBtn.cwIconOnly { min-width:0; width:38px; padding:0; }
   #cwSurface .stageConsoleBtn.cwIconOnly .stageConsoleBtnLabel { display:none; }
   #cwSurface .cwRow.cwQuicks { gap:8px; align-items:center; }
   #cwSurface .cwGrid { display:grid; grid-template-columns:repeat(6, 38px); grid-auto-rows:34px; gap:4px; }
   #cwSurface .cwGrid.cwGridRecent { grid-template-columns:repeat(2, 38px); padding-left:8px; border-left:1px solid rgba(255,255,255,.12); }
-  #cwSurface .cwGrid .stageConsoleBtn, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid .stageConsoleBtn { width:38px; min-width:0; height:34px; padding:0; }
-  @media (max-width:900px){ body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .cwSep:not(.cwSep2) { flex-basis:100%; width:auto; height:0; margin:0; background:none; } }
-  @media (max-width:560px){ body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .cwSep2 { flex-basis:100%; width:auto; height:0; margin:0; background:none; } body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .stageConsoleBtn:not(.cwIconOnly) { padding:0 9px; } }
+  #cwSurface .cwGrid .stageConsoleBtn, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid .stageConsoleBtn { width:38px; min-width:0; height:34px; padding:0; }
+  @media (max-width:900px){ body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .cwSep:not(.cwSep2) { flex-basis:100%; width:auto; height:0; margin:0; background:none; } }
+  @media (max-width:560px){ body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .cwSep2 { flex-basis:100%; width:auto; height:0; margin:0; background:none; } body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwRow[data-group="creator"] .stageConsoleBtn:not(.cwIconOnly) { padding:0 9px; } }
   #cwSurface .cwAbbrev { font:700 10.5px/1 'Space Grotesk',Arial,sans-serif; letter-spacing:.04em; color:#9fb7b4; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid.cwGridMain { grid-template-columns:repeat(2, 38px); }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid.cwGridRecent { padding-left:0; border-left:none; padding-top:6px; border-top:1px solid rgba(255,255,255,.12); }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwCounter { grid-column:span 2; min-width:0; height:26px; font-size:11px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop.cwDense .cwCounter { min-width:72px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid.cwGridMain { grid-template-columns:repeat(2, 38px); }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrid.cwGridRecent { padding-left:0; border-left:none; padding-top:6px; border-top:1px solid rgba(255,255,255,.12); }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft.cwDense .cwCounter { grid-column:span 2; min-width:0; height:26px; font-size:11px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop.cwDense .cwCounter { min-width:72px; }
   #cwSurface .cwDrawer { display:flex; flex-direction:column; gap:6px; padding:7px 2px 2px; border-top:1px solid rgba(255,255,255,.08); }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop .cwDrawer, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwDrawer { width:100%; min-width:min(460px, calc(100vw - 40px)); box-sizing:border-box; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwDrawer { width:240px; border-top:none; border-left:1px solid rgba(255,255,255,.08); padding:2px 2px 2px 8px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded .cwDrawer, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwCompact:not(.cwOpen) .cwDrawer { display:none; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwTop .cwDrawer, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwDrawer { width:100%; min-width:min(460px, calc(100vw - 40px)); box-sizing:border-box; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwDrawer { width:240px; border-top:none; border-left:1px solid rgba(255,255,255,.08); padding:2px 2px 2px 8px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwFolded .cwDrawer, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwCompact:not(.cwOpen) .cwDrawer { display:none; }
   #cwSurface .cwChips { display:flex; gap:4px; overflow-x:auto; flex-wrap:nowrap; max-width:100%; padding-bottom:2px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwChips { flex-wrap:wrap; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwChips { flex-wrap:wrap; }
   #cwSurface .cwChip { appearance:none; flex:none; min-width:30px; height:26px; border-radius:7px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#cfe7e4; font:600 12px/1 'Space Grotesk',Arial,sans-serif; cursor:pointer; }
   #cwSurface .cwChip.on { border-color:rgba(46,202,184,.55); background:rgba(46,202,184,.16); color:#2ecab8; }
   #cwSurface .cwNote { width:100%; box-sizing:border-box; min-height:46px; resize:vertical; background:rgba(255,255,255,.05); color:#e6f2f0; border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:7px 9px; font:13px/1.35 Arial,sans-serif; user-select:text; -webkit-user-select:text; }
@@ -932,7 +932,7 @@
   #cwSurface .cwOpt input[type=checkbox] { accent-color:#2ecab8; }
   /* MIZE 2026-09-23: bottom centre like the Stage's floor console, the Stage's look, and movable */
   #cwSurface .cwDesk { display:contents; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface { background:linear-gradient(180deg, rgba(6,14,15,.90), rgba(3,8,9,.96)); border:1px solid rgba(46,202,184,.16);
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface { background:linear-gradient(180deg, rgba(6,14,15,.90), rgba(3,8,9,.96)); border:1px solid rgba(46,202,184,.16);
     box-shadow:inset 0 2px 0 rgba(150,215,210,.10), inset 0 -10px 24px rgba(0,0,0,.55), 0 14px 34px rgba(0,0,0,.55); font-family:'Archivo',system-ui,sans-serif; }
   #cwSurface .cwTab { font:600 10px/1 'Archivo',system-ui,sans-serif; letter-spacing:.18em; color:#5fc9cc; opacity:.62; border-color:transparent !important; background:transparent !important; padding:6px 8px; }
   #cwSurface .cwTab:hover { color:#9fe9e4; opacity:1; }
@@ -942,29 +942,50 @@
   #cwSurface .cwGrip:hover { color:#9fe9e4; }
   #cwSurface.cwDragging .cwGrip { cursor:grabbing; }
   #cwSurface.cwDragging { transition:none !important; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwMoved { transform:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwMoved { transform:none !important; }
   /* the bottom dock: a floor console -- tilted away like the Stage's, the Frames drawer floating above it */
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom { flex-direction:column-reverse; align-items:center; gap:10px; left:50%; top:auto; bottom:calc(12px + env(safe-area-inset-bottom)); transform:translateX(-50%);
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom { flex-direction:column-reverse; align-items:center; gap:10px; left:50%; top:auto; bottom:calc(12px + env(safe-area-inset-bottom)); transform:translateX(-50%);
     width:max-content; max-width:calc(100vw - 16px); padding:0; border:none; border-radius:0; background:none; box-shadow:none; perspective:1100px; perspective-origin:50% -60%; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom.cwMoved { bottom:auto; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwDesk { display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:12px 30px 14px; border-radius:6px; transform-origin:50% 100%; transform:rotateX(24deg);
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom.cwMoved { bottom:auto; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwDesk { display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:12px 30px 14px; border-radius:6px; transform-origin:50% 100%; transform:rotateX(24deg);
     background:linear-gradient(180deg, rgba(6,14,15,.90), rgba(3,8,9,.96));
     box-shadow:inset 0 2px 0 rgba(150,215,210,.10), inset 0 0 0 1px rgba(46,202,184,.14), inset 0 -10px 24px rgba(0,0,0,.6), 0 18px 40px rgba(0,0,0,.55); }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .stageConsoleBtn { height:40px; font-size:13.5px; padding:0 14px; min-width:64px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .stageConsoleBtn.cwIconOnly { width:44px; min-width:0; padding:0; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid { grid-template-columns:repeat(6, 44px); grid-auto-rows:38px; gap:6px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid.cwGridRecent { grid-template-columns:repeat(2, 44px); }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid .stageConsoleBtn { width:44px; height:38px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwRow { gap:6px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwIco, body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwIco svg { width:19px; height:19px; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwDrawer { width:100%; min-width:min(520px, calc(100vw - 40px)); box-sizing:border-box; padding:10px 12px; border:1px solid rgba(46,202,184,.16); border-radius:12px;
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .stageConsoleBtn { height:40px; font-size:13.5px; padding:0 14px; min-width:64px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .stageConsoleBtn.cwIconOnly { width:44px; min-width:0; padding:0; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid { grid-template-columns:repeat(6, 44px); grid-auto-rows:38px; gap:6px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid.cwGridRecent { grid-template-columns:repeat(2, 44px); }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwGrid .stageConsoleBtn { width:44px; height:38px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwRow { gap:6px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwIco, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwIco svg { width:19px; height:19px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBottom .cwDrawer { width:100%; min-width:min(520px, calc(100vw - 40px)); box-sizing:border-box; padding:10px 12px; border:1px solid rgba(46,202,184,.16); border-radius:12px;
     background:linear-gradient(180deg, rgba(6,14,15,.92), rgba(3,8,9,.97)); box-shadow:0 14px 34px rgba(0,0,0,.55); }
   /* narrow screens: the Stage-style labels tighten so the tab row always fits inside the panel */
-  @media (max-width:560px){ body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTab { letter-spacing:.1em; padding:6px 5px; } body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTabs { gap:1px; } }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { padding:7px 5px; letter-spacing:.12em; }
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrip { padding:2px 4px 4px; }
+  @media (max-width:560px){ body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTab { letter-spacing:.1em; padding:6px 5px; } body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTabs { gap:1px; } }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { padding:7px 5px; letter-spacing:.12em; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwGrip { padding:2px 4px 4px; }
+  /* Presentation (MIZE 2026-09-23): the same control surface as Coaching, with Presentation's functions; it replaces the floor
+     console, the mini bar, the Front Court Home button and the round + / Save buttons there (tutorials keep the old controls) */
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode)[data-stage="presentation"] #psMiniBar, body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode)[data-stage="presentation"] #stageConsole { display:none !important; }
+  /* an empty side screen shows the XquiX Studio logo whenever it is in view, focused too (MIZE 2026-09-23): its load buttons live
+     in the surface's SCREENS group now, so the in-screen placeholder goes (tutorials keep it) */
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode)[data-stage="presentation"] .studioFrame .studioFramePlaceholder { display:none !important; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode)[data-stage="presentation"] .studioFrame.camFocus:not(.hasContent) .studioFrameBrand { align-items:center; padding-top:0; }
+  /* Game Tracker before tracking starts: its side screens have nothing to show yet -- the logo, not a blank panel */
+  body[data-stage="gametracker"].gtPreTrack .studioFrame .studioFrameBrand { display:flex !important; z-index:3; }
+  body[data-stage="gametracker"].gtPreTrack .studioFrame .studioFrameBrand img { opacity:.85 !important; }
+  body[data-stage="gametracker"].gtPreTrack #studioTrack > .studioFrame { filter:none !important; }
+  body[data-stage="gametracker"].gtPreTrack #gtTeamInfo, body[data-stage="gametracker"].gtPreTrack #gtLiveInfo { visibility:hidden; }
+  body[data-stage="gametracker"].gtPreTrack #gtTeamInfo, body[data-stage="gametracker"].gtPreTrack #gtLiveInfo { background:transparent !important; }
+  #cwSurface .cwCap { display:inline-flex; align-items:center; padding:0 2px 0 6px; font:600 9.5px/1 'Archivo',system-ui,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#5fc9cc; opacity:.8; white-space:nowrap; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwCap { grid-column:span 2; justify-content:center; padding:4px 0 0; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { padding:6px 4px; font-size:9px; letter-spacing:.1em; }
+  /* six tabs (Presentation): the tab row wraps rather than running off a narrow screen -- a second row below the field,
+     a second column on the phone's rail */
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTabs { flex-wrap:wrap; justify-content:center; row-gap:2px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTabs { flex-wrap:wrap; max-height:calc(100dvh - 24px); align-content:flex-start; column-gap:2px; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #cwSurface .cwRow > .cwSep:last-child { display:none; }
   /* the drawing-tools popup opens next to Draw (positioned in JS) and above the surface */
-  body.cwSurfaceOn:not(.xqStage):not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #qcbDrawingToolsPopup { z-index:1540; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive):not(.xquixAudienceMode) #qcbDrawingToolsPopup { z-index:1540; }
 
   /* Darken the water backdrop -- the white venue deck reads as paper not pool
      without this, and depth is mostly light falloff not shape. */
@@ -1004,7 +1025,7 @@
   /* Stage 4 -- screen spill (PS-001 §21, restrained approximation): the bright pool throws teal into the
      room, the side screens a faint neutral light. Only while a screen is on the wall. */
   body.xqStage #studioTrack > .studioFrame.onWall { box-shadow:0 0 42px 6px rgba(150,215,210,.10); }
-  body.xqStage.panorama #board, body.xqStage #stageWrap.camOff #board { box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(46,202,184,.22), 0 0 110px 18px rgba(46,202,184,.16); }
+  body.xqStage.panorama #board, body.xqStage #stageWrap.camOff #board { box-shadow:0 20px 60px rgba(0,0,0,.5); }   /* MIZE 2026-09-23: no teal frame or glow around the field */
   body.xqStage #board { transition: width var(--cam-d) var(--cam-ease), height var(--cam-d) var(--cam-ease); }
   /* centerFill (Presentation, MIZE 2026-09-22): the pool fills the centre screen; the venue is cut off at the
      screen's edge, no outlined box. The pool's light still spills into the room (Stage 4), from the screen. */
@@ -1013,7 +1034,7 @@
   .drillCardKind { font-size:11px; color:#2ecab8; margin:2px 0 4px; letter-spacing:.02em; }
   .prPlanPending { font-size:11px; color:#c9a44a; margin-top:2px; }
   body.xqStage.psFill #board, body.xqStage.psFill.panorama #board, body.xqStage.psFill #stageWrap.camOff #board, body.xqStage.psFill #stageWrap.onWall #board { box-shadow:none !important; max-width:none; }
-  body.xqStage.psFill #stageWrap.onWall { box-shadow:0 0 110px 18px rgba(46,202,184,.14); }
+  body.xqStage.psFill #stageWrap.onWall { box-shadow:none; }
   /* The floor console is Presentation's in the Full Studio View only; a zoomed camera shows a screen's own controls. */
   body.xqStage[data-stage="presentation"] #stageConsole { transition:opacity .35s ease; }
   body.xqStage[data-stage="presentation"]:not(.panorama) #stageConsole { opacity:0; pointer-events:none; }
@@ -1056,8 +1077,10 @@
   /* ── PS-001 Stage 7 — teal accents (§22): teal as light, not as outline. ──
      Screen recesses: a hairline of indirect teal at a screen's edge while it sits in its
      wall recess, brightening a touch on the screen the camera is on. */
-  body.xqStage #studioTrack > .studioFrame.onWall, body.xqStage #stageWrap.onWall #board {
+  body.xqStage #studioTrack > .studioFrame.onWall {
     box-shadow:0 0 0 1px rgba(46,202,184,.16), inset 0 0 0 1px rgba(46,202,184,.10), 0 0 42px 6px rgba(150,215,210,.10); }
+  /* the water polo field on the centre screen carries no teal frame (MIZE 2026-09-23) -- the side screens keep their hairline */
+  body.xqStage #stageWrap.onWall #board { box-shadow:0 20px 60px rgba(0,0,0,.5); }
   body.xqStage #studioTrack > .studioFrame.camFocus { box-shadow:0 0 0 1px rgba(46,202,184,.28), 0 0 26px 2px rgba(46,202,184,.14), 0 30px 80px rgba(0,0,0,.6); }
   /* Active-camera indicator: the dot for the screen the camera is on carries the teal light;
      the others stay neutral. In Panorama the ring carries it. */
@@ -1079,7 +1102,7 @@
     background:radial-gradient(58% 56% at 50% 56%, rgba(46,202,184,.30), rgba(46,202,184,.12) 42%, rgba(46,202,184,0) 72%); mix-blend-mode:screen;
     opacity:0; animation:psWindowIn .9s var(--cam-ease) forwards; }
   @keyframes psWindowIn { to { opacity:1; } }
-  body.presentation.field3d[data-cam="center"] #board { box-shadow:0 30px 90px rgba(0,0,0,.62), 0 0 140px 28px rgba(40,150,170,.30), 0 70px 170px rgba(46,202,184,.18); }
+  body.presentation.field3d[data-cam="center"] #board { box-shadow:0 30px 90px rgba(0,0,0,.62); }
   body.presentation.field3d[data-cam="center"] #boardTilt::after { opacity:1.15; }
   @media (prefers-reduced-motion:reduce) { body.presentation.field3d[data-cam="center"] #stageWrap::before { animation:none; opacity:1; } }
   /* PS-001 Stage 1 -- PANORAMA: the same three screens, side by side and live,
@@ -1097,7 +1120,7 @@
   body.xqStage.panorama .studioFramePlaceholder > div:last-of-type:not(.studioFrameLoadRow) { display:none; }
   body.xqStage.panorama #studioTrack > .studioFrame, body.xqStage.panorama #studioTrack > #stageWrap { cursor:pointer; }
   body.xqStage.panorama #studioTrack > .studioFrame *, body.xqStage.panorama #studioTrack > #stageWrap * { pointer-events:none !important; }  /* nothing inside a screen is interactive in Panorama -- .studioFrameLoadRow button re-enables pointer-events otherwise */
-  body.xqStage.panorama #board { box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(46,202,184,.22), 0 0 40px rgba(46,202,184,.10); }
+  body.xqStage.panorama #board { box-shadow:0 20px 60px rgba(0,0,0,.5); }
   body.xqStage.panorama .studioFrameClearBtn { display:none; }
   .studioFramePlaceholder { color:rgba(255,255,255,.55); text-align:center; font-family:'Space Grotesk',sans-serif; user-select:none; }
   .studioFramePlaceholderIcon { font-size:64px; margin-bottom:14px; opacity:.7; }
@@ -13380,6 +13403,12 @@ function psPresConsoleRefresh(force){
   // Any landscape screen, the iPhone included (MIZE, 2026-09-22); portrait has the mini bar (Modes · Home)
   // instead. Rotation is followed on 'layout'.
   const fits=window.innerWidth>window.innerHeight;
+  // MIZE 2026-09-23: the Workbench-style control surface replaces this console in Presentation (not during a tutorial)
+  if(document.body.classList.contains('cwSurfaceOn') && !document.body.classList.contains('tutorialModeActive')){
+    if(_psConsoleShape!=='cw'){ _psConsoleShape='cw'; XQStage.setControls(null); }
+    if(typeof cwSync==='function') setTimeout(()=>{ if(cwGroup==='present') cwRender(); else cwSync(); }, 0);
+    return;
+  }
   const shape=!fits ? 'none' : hasPres ? 'pres' : 'plain';
   if(shape==='none'){ if(_psConsoleShape!=='none'){ _psConsoleShape='none'; XQStage.setControls(null); } return; }
   if(force || shape!==_psConsoleShape){
@@ -14888,6 +14917,7 @@ function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenc
   tutorialOnComplete = onComplete || null;
   tutorialModeActive = true;
   document.body.classList.add('tutorialModeActive');
+  if(typeof psPresConsoleRefresh==='function') setTimeout(()=>psPresConsoleRefresh(true), 0);
   clearSelection();
   // Ensure the board is freshly sized before the tutorial places its formation.
   // On mobile (especially iPad), the layout pipeline is slower and rect() can
@@ -14907,6 +14937,7 @@ function exitTutorial(){
     window._modeIntroductionPending = null;
   }
   document.body.classList.remove('tutorialModeActive');
+  if(typeof psPresConsoleRefresh==='function') setTimeout(()=>psPresConsoleRefresh(true), 0);
   if(tutorialTrackHandle) clearTimeout(tutorialTrackHandle);
   tutorialTrackHandle = null;
   if(tutorialPhaseTimer) clearTimeout(tutorialPhaseTimer);
@@ -19997,11 +20028,19 @@ updateSaveOpenButton();
 // on the Stage or during a tutorial -- there the Quick Command Bar, Creator panel and Remote are as before).
 document.getElementById('menuFeedbackBtn')?.addEventListener('click', ()=>{ document.getElementById('controlsPanel')?.classList.remove('open'); document.getElementById('feedbackToggleTab')?.click(); });
 const CW_GROUPS=['functions','quicks','creator','system'];
-const CW_LABEL={ functions:'Functions', quicks:'Quicks', creator:'Creator', system:'System' };
+// Presentation's set (MIZE 2026-09-23): comparable to Coaching's, with Presentation's functions
+const CW_GROUPS_PRES=['functions','quicks','present','screens','camera','system'];
+const CW_LABEL={ functions:'Functions', quicks:'Quicks', creator:'Creator', system:'System', present:'Present', screens:'Screens', camera:'Camera' };
+function cwMode(){ return (typeof XQStage!=='undefined' && XQStage.isOpen() && XQStage.consumer()==='presentation') ? 'pres' : 'coach'; }
+function cwGroupList(){ return cwMode()==='pres' ? CW_GROUPS_PRES : CW_GROUPS; }
+// the surface is live in Coaching (no stage) and in Presentation; any other stage consumer has its own console
+function cwLiveSync(){ const on = typeof XQStage==='undefined' || !XQStage.isOpen() || XQStage.consumer()==='presentation'; document.body.classList.toggle('cwLive', on); return on; }
+let _cwModeLast='coach', cwGroupPres='present', cwGroupCoach=null;
 let cwGroup='quicks', cwFolded=false, cwOpen=false, cwWasOpen={}, cwFramesOpen=false;
+try{ const gp=localStorage.getItem('xquixCwGroupPres'); if(CW_GROUPS_PRES.includes(gp)) cwGroupPres=gp; }catch(e){}
 try{ let g=localStorage.getItem('xquixCwGroup'); g=({ create:'functions', timeline:'creator' })[g]||g; if(CW_GROUPS.includes(g)) cwGroup=g;
   cwFolded=localStorage.getItem('xquixCwFolded')==='1'; cwFramesOpen=localStorage.getItem('xquixCwFrames')==='1'; }catch(e){}
-function cwPress(id){ const b=document.getElementById(id); if(b) b.click(); }
+function cwPress(id){ const b=document.getElementById(id); if(!b) return; window._psConsolePress=true; try{ b.click(); } finally { window._psConsolePress=false; } }   // the flag: a press inside a studio screen must not move the camera
 function cwIsShown(id, cls){ const e=document.getElementById(id); if(!e) return false; return cls ? e.classList.contains(cls) : (e.style.display!=='none' && getComputedStyle(e).display!=='none'); }
 const _cwS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
 const CW_ICO={
@@ -20024,6 +20063,17 @@ const CW_ICO={
   frameDel:_cwS+'<rect x="3" y="5" width="13" height="14" rx="2"/><path d="M18 12h5"/></svg>',
   left:_cwS+'<path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
   right:_cwS+'<path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  video:_cwS+'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg>',
+  file:_cwS+'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
+  clear:_cwS+'<path d="M6 6l12 12M18 6 6 18"/></svg>',
+  web:_cwS+'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>',
+  studio:_cwS+'<path d="M2 7l4 1v8l-4 1z"/><rect x="7" y="6" width="10" height="12" rx="1"/><path d="M22 7l-4 1v8l4 1z"/></svg>',
+  scrL:_cwS+'<path d="M3 6l7 1.5v9L3 18z"/></svg>',
+  scrC:_cwS+'<rect x="5" y="6" width="14" height="12" rx="1"/></svg>',
+  scrR:_cwS+'<path d="M21 6l-7 1.5v9L21 18z"/></svg>',
+  spot:_cwS+'<path d="M9 3h6l-1 5h-4z"/><path d="M10 8 5 20h14L14 8"/></svg>',
+  dim:_cwS+'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>',
+  tilt:_cwS+'<path d="M7 7h10l4 11H3z"/><path d="M12 7v11"/></svg>',
   frames:_cwS+'<rect x="3" y="4" width="5" height="7" rx="1"/><rect x="10" y="4" width="5" height="7" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/><path d="M3 15h18M3 19h12"/></svg>',
 };
 // A tool from the Quick Command Bar: the surface presses the same source button the bar pressed.
@@ -20078,7 +20128,7 @@ async function cwNewBoard(){
 function cwItems(g){
   const L=[];
   if(g==='functions'){
-    L.push({ id:'new', label:'New', icon:CW_ICO.newb, title:'New board: the starting line-up, one empty frame, default settings', tap:()=>cwNewBoard() });
+    if(cwMode()!=='pres') L.push({ id:'new', label:'New', icon:CW_ICO.newb, title:'New board: the starting line-up, one empty frame, default settings', tap:()=>cwNewBoard() });
     L.push({ id:'add', label:'Add', icon:CW_ICO.add, title:'Add players, a formation, or a sequence/drill', pop:true, open:()=>anyEmptyFieldBoxOpen(), tap:()=>openEmptyFieldMenu(), close:()=>closeAllEmptyFieldBoxes() });
     L.push({ id:'undo', label:'Undo', icon:CW_ICO.undo, title:(undoStack.length?'Undo: '+undoStack[undoStack.length-1].label:'Nothing to undo'), disabled:!undoStack.length, tap:()=>undo() });
     L.push({ id:'redo', label:'Redo', icon:CW_ICO.redo, title:(redoStack.length?'Redo: '+redoStack[redoStack.length-1].label:'Nothing to redo'), disabled:!redoStack.length, tap:()=>redo() });
@@ -20111,6 +20161,46 @@ function cwItems(g){
     L.push({ id:'moveRight', label:'Later', icon:CW_ICO.right, iconOnly:true, title:'Move this frame later in the sequence', disabled:i>=n-1, tap:()=>cwPress('moveFrameRightBtn') });
     L.push({ id:'frames', label:'Frames', icon:CW_ICO.frames, title:'All frames, the frame note, timing and Live Animation', active:cwFramesOpen,
       tap:()=>{ cwFramesOpen=!cwFramesOpen; try{ localStorage.setItem('xquixCwFrames', cwFramesOpen?'1':'0'); }catch(_){} } });
+  } else if(g==='present'){
+    // a loaded presentation's steps, then the board's own sequence playback (no editing here -- that is Coaching's CREATOR)
+    const hasPres=!!(typeof activePresentation!=='undefined' && activePresentation && activePresentation.slides && activePresentation.slides.length);
+    if(hasPres){ const n=activePresentation.slides.length, k=activeSlideIndex;
+      L.push({ id:'stepPrev', label:'Previous step', icon:CW_ICO.prev, iconOnly:true, title:'Previous step', disabled:k<=0, tap:()=>presentationStep(-1) });
+      L.push({ id:'stepCounter', kind:'label', label:'Step '+(k+1)+' / '+n, title:'The current step' });
+      L.push({ id:'stepNext', label:'Next step', icon:CW_ICO.next, iconOnly:true, title:'Next step', disabled:k>=n-1, tap:()=>presentationStep(1) });
+      L.push('|'); }
+    const n=frames.length, i=currentFrame;
+    L.push({ id:'start', label:'Start', icon:CW_ICO.start, iconOnly:true, title:'Back to the first frame', disabled:n<2 || i<=0, tap:()=>cwPress('tcRewindToStartBtn') });
+    L.push({ id:'prev', label:'Previous', icon:CW_ICO.prev, iconOnly:true, title:'Previous frame', disabled:n<2 || i<=0, tap:()=>cwPress('tcPrevFrameBtn') });
+    L.push({ id:'counter', kind:'label', label:n ? 'Frame '+(i+1)+' / '+n : 'No frames', title:'Current frame / total frames' });
+    L.push({ id:'next', label:'Next', icon:CW_ICO.next, iconOnly:true, title:'Next frame', disabled:n<2 || i>=n-1, tap:()=>cwPress('tcNextFrameBtn') });
+    L.push({ id:'play', label:playing?'Pause':'Play', icon:playing?CW_ICO.pause:CW_ICO.play, title:playing?'Stop playback':'Play the sequence', active:!!playing, disabled:n<2 && !playing, tap:()=>playFrames() });
+    L.push('|');
+    L.push({ id:'presentations', label:'Presentations', icon:CW_ICO.frames, title:'Presentation Studio: build, load and save presentations',
+      tap:()=>{ const b=document.querySelector('.toolListBtn[data-panel="presentationStudioPanel"]'); if(b){ window._psConsolePress=true; try{ b.click(); } finally { window._psConsolePress=false; } } openToolPanel('presentationStudioPanel'); } });
+  } else if(g==='screens'){
+    const loaded=k=>!!document.getElementById(k+'Content')?.classList.contains('loaded');
+    L.push({ id:'capLeft', kind:'caption', label:'Left' });
+    L.push({ id:'mediaUrl', label:'Video', icon:CW_ICO.video, title:'Load a video onto the left screen (YouTube, Vimeo or a video link)', tap:()=>cwPress('videoLoadUrlBtn') });
+    L.push({ id:'mediaFile', label:'File', icon:CW_ICO.file, title:'Load a video file onto the left screen', tap:()=>cwPress('videoLoadFileBtn') });
+    L.push({ id:'mediaClear', label:'Clear', icon:CW_ICO.clear, title:'Clear the left screen', disabled:!loaded('video'), tap:()=>clearStudioFrameContent('video') });
+    L.push('|');
+    L.push({ id:'capRight', kind:'caption', label:'Right' });
+    L.push({ id:'infoUrl', label:'Website', icon:CW_ICO.web, title:'Load a website onto the right screen', tap:()=>cwPress('statsLoadUrlBtn') });
+    L.push({ id:'infoFile', label:'File', icon:CW_ICO.file, title:'Load an image or PDF onto the right screen', tap:()=>cwPress('statsLoadFileBtn') });
+    L.push({ id:'infoClear', label:'Clear', icon:CW_ICO.clear, title:'Clear the right screen', disabled:!loaded('stats'), tap:()=>clearStudioFrameContent('stats') });
+  } else if(g==='camera'){
+    const cam=(typeof XQStage!=='undefined' && XQStage.isOpen()) ? XQStage.camera() : 'pan';
+    const go=st=>()=>{ if(typeof XQStage!=='undefined') XQStage.setCamera(st); };
+    L.push({ id:'camPan', label:'Studio', icon:CW_ICO.studio, title:'The Full Studio View (all three screens)', active:cam==='pan', tap:go('pan') });
+    L.push({ id:'camLeft', label:'Left', icon:CW_ICO.scrL, title:'The left screen', active:cam==='left', tap:go('left') });
+    L.push({ id:'camCenter', label:'Center', icon:CW_ICO.scrC, title:'The center screen', active:cam==='center', tap:go('center') });
+    L.push({ id:'camRight', label:'Right', icon:CW_ICO.scrR, title:'The right screen', active:cam==='right', tap:go('right') });
+    L.push('|');
+    const sp=MIZE.State.spotlight||{};
+    L.push({ id:'spotlight', label:'Spotlight', icon:CW_ICO.spot, title:'Spotlight: tap a screen to place it', active:!!(sp.armed||sp.placed), tap:()=>cwPress('spotlightToggleBtn') });
+    L.push({ id:'dim', label:'Dim', icon:CW_ICO.dim, title:'Studio Dim Mode', active:document.body.classList.contains('studioDim'), tap:()=>cwPress('studioWindowDarkenBtn') });
+    L.push({ id:'view3d', label:'3D', icon:CW_ICO.tilt, title:'3D View: tilt the field for an arena look', active:document.body.classList.contains('field3d'), disabled:typeof frontCourtActive!=='undefined' && frontCourtActive, tap:()=>cwPress('field3dToggleBtn') });
   } else {
     L.push({ id:'library', label:'Library', icon:CW_ICO.library, title:'Coaching Library', tap:()=>{ if(typeof openCoachingLibrary==='function') openCoachingLibrary(); else cwPress('libraryToggleTab'); } });
     L.push({ id:'notes', label:'Notes', icon:CW_ICO.notes, title:'Your presentation notes', active:cwIsShown('coachingModeToggleTab','active'), tap:()=>cwPress('coachingModeToggleTab') });
@@ -20123,13 +20213,16 @@ function cwItems(g){
 // always icons (a quick-access bar for coaches who know the tools; the name is the tooltip). Below the field, labelled
 // buttons wrap to a second row instead (§5.3: rows, not shrinking).
 function cwDenseFor(g, dock){
-  if(dock==='left') return g==='functions' || g==='creator';
+  if(dock==='left') return ['functions','creator','present','screens','camera'].includes(g);
   if(dock==='below') return false;
+  if(g==='screens' || g==='camera') return innerWidth<1180;
+  if(g==='present') return innerWidth<1000;
   return g==='creator' && innerWidth<(dock==='bottom' ? 1000 : 860);
 }
 let _cwDock='top';
 function cwBlur(el){ const a=document.activeElement; if(a && el.contains(a) && a.blur) a.blur(); }
 function cwButton(it, el){
+  if(it.kind==='caption'){ const c=document.createElement('span'); c.className='cwCap'; c.dataset.id=it.id; c.textContent=it.label; return c; }
   if(it.kind==='label'){ const s=document.createElement('span'); s.className='cwCounter'; s.dataset.id=it.id; s.title=it.title||''; s.textContent=it.label; return s; }
   const b=document.createElement('button'); b.type='button';
   b.className='stageConsoleBtn'+(it.active?' active':'')+(it.cls?' '+it.cls:'')+(it.iconOnly?' cwIconOnly':'');
@@ -20186,6 +20279,9 @@ function cwSyncDrawer(d){
     if(m.type==='checkbox') m.checked=s.checked; else if(m.dataset.mirror==='tcDurationInput') m.value=document.getElementById('frameDuration')?.value||s.value; else m.value=s.value; });
 }
 function cwRender(){
+  cwLiveSync();
+  const _m=cwMode(); if(_m!==_cwModeLast){ if(_cwModeLast==='pres') cwGroupPres=cwGroup; else cwGroupCoach=cwGroup; cwGroup = _m==='pres' ? cwGroupPres : cwGroupCoach; _cwModeLast=_m; cwOpen=false; }
+  if(!cwGroupList().includes(cwGroup)) cwGroup=cwGroupList()[0];
   let el=document.getElementById('cwSurface');
   if(!el){ el=document.createElement('div'); el.id='cwSurface'; el.setAttribute('role','toolbar'); el.setAttribute('aria-label','Coaching controls'); document.body.appendChild(el); document.body.classList.add('cwSurfaceOn'); }
   // keep a focused note or duration field while the group re-renders around it
@@ -20194,12 +20290,12 @@ function cwRender(){
   const tabs=document.createElement('div'); tabs.className='cwTabs';
   const grip=document.createElement('button'); grip.type='button'; grip.className='cwGrip'; grip.textContent='⋮⋮'; grip.title='Drag to move the panel · double-click to put it back'; grip.setAttribute('aria-label','Move the panel');
   cwWireGrip(grip, el); tabs.appendChild(grip);
-  CW_GROUPS.forEach(g=>{ const t=document.createElement('button'); t.type='button'; t.className='cwTab'+(g===cwGroup?' on':''); t.dataset.group=g; t.textContent=CW_LABEL[g];
+  cwGroupList().forEach(g=>{ const t=document.createElement('button'); t.type='button'; t.className='cwTab'+(g===cwGroup?' on':''); t.dataset.group=g; t.textContent=CW_LABEL[g];
     t.addEventListener('click', e=>{ e.stopPropagation(); cwBlur(el);
       if(cwFolded){ cwFolded=false; try{ localStorage.setItem('xquixCwFolded','0'); }catch(_){} }
       else if(el.classList.contains('cwCompact')){ cwOpen = !(cwOpen && g===cwGroup); }
       if(g!==cwGroup) closeQcbDrawingToolsPopup();
-      cwGroup=g; try{ localStorage.setItem('xquixCwGroup', g); }catch(_){}
+      cwGroup=g; try{ localStorage.setItem(cwMode()==='pres' ? 'xquixCwGroupPres' : 'xquixCwGroup', g); }catch(_){}
       cwRender(); });
     tabs.appendChild(t); });
   const fold=document.createElement('button'); fold.type='button'; fold.className='cwFold'; fold.title=cwFolded?'Show the controls':'Fold the controls away'; fold.textContent=cwFolded?'▾':'▴';
@@ -20229,6 +20325,11 @@ function cwSync(){
   el.querySelectorAll('.cwRow [data-src]').forEach(b=>{ const id=b.dataset.src, s=document.getElementById(id); if(!s) return;
     b.classList.toggle('active', id==='quickViewToggleBtn' ? !!frontCourtActive : s.classList.contains('active')); });
   const d=el.querySelector('[data-src="freeDrawBtn"]'); if(d && typeof freehandColor!=='undefined') d.style.setProperty('--cwInk', freehandColor);
+  if(['present','camera','screens'].includes(cwGroup)){ const want=cwItems(cwGroup), row=el.querySelector('.cwRow');
+    want.forEach(it=>{ if(typeof it!=='object') return; const b=row && row.querySelector('[data-id="'+it.id+'"]'); if(!b) return;
+      if(it.kind==='label'){ b.textContent=it.label; return; } if(it.kind==='caption') return;
+      b.disabled=!!it.disabled; b.classList.toggle('active', !!it.active);
+      if(it.id==='play'){ const i=b.querySelector('.cwIco'); if(i) i.innerHTML=it.icon; const l=b.querySelector('.stageConsoleBtnLabel'); if(l) l.textContent=it.label; } }); }
   if(cwGroup==='creator'){
     const want=cwItems('creator'); const row=el.querySelector('.cwRow');
     want.forEach(it=>{ if(it==='|' || it==='||') return; const b=row && row.querySelector('[data-id="'+it.id+'"]'); if(!b) return;
@@ -20308,7 +20409,7 @@ function cwAnchorPopup(btn){
 { const _sp=syncPlayPauseUI; syncPlayPauseUI=function(){ const r=_sp.apply(this, arguments); cwSync(); return r; }; }
 document.addEventListener('keyup', ()=>setTimeout(cwSync, 0));
 window.addEventListener('resize', ()=>{ const d=document.getElementById('cwSurface'); if(d && d.classList.contains('cwDense')!==cwDenseFor(cwGroup, _cwDock)) cwRender(); else cwPlace(); });
-if(typeof XQStage!=='undefined') XQStage.on('close', ()=>setTimeout(cwRender, 0));
+if(typeof XQStage!=='undefined'){ XQStage.on('close', ()=>setTimeout(cwRender, 0)); XQStage.on('open', ()=>setTimeout(cwRender, 0)); XQStage.on('camera', ()=>setTimeout(cwSync, 0)); XQStage.on('screen', ()=>setTimeout(cwSync, 0)); }
 document.addEventListener('click', e=>{ const el=document.getElementById('cwSurface'); if(el && cwOpen && !el.contains(e.target)){ cwOpen=false; cwRender(); } else if(el && e.target.closest && e.target.closest('#edgeTabStack, #quickCommandBar, #timelinePanel, #controlsPanel, #closeSidebarBtn, #closeTimelineBtn, #hideQuickCommandBarBtn')) setTimeout(cwRender, 0); else if(el) setTimeout(cwSync, 0); });
 cwRender();
 
