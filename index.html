@@ -2267,6 +2267,11 @@
   #xqNP_clubArt{position:absolute;left:50%;top:50%;width:22%;aspect-ratio:1;object-fit:contain;z-index:2;pointer-events:none;display:none;
                 transform:translate(-50%,-50%);will-change:transform,left,top;user-select:none;-webkit-user-drag:none}  /* no CSS filter: a drop-shadow on a moving logo is re-painted every frame (it stalled rendering) */
   #xqNP_art{backface-visibility:visible}
+  /* Echo trails and pulse rings (drops) */
+  #xqNP .xqNP_echo{pointer-events:none;z-index:1;box-shadow:none;filter:none}
+  #xqNP .xqNP_ring{position:absolute;aspect-ratio:1;border:2px solid;border-radius:50%;transform:translate(-50%,-50%) scale(1);opacity:.85;pointer-events:none;z-index:2;
+                   transition:transform 1s cubic-bezier(.2,.7,.3,1), opacity 1s ease-out}
+  #xqNP .xqNP_ring.go{transform:translate(-50%,-50%) scale(3.2);opacity:0}
   /* FX canvas: lasers drawn above the screen (#xqNP z20, StageFX z22) and below #xqCanvas (z30) */
   #xqFX{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:25}
   /* NP overlay coordinates set in XQ-ENV-001 CSS block above */
@@ -30122,7 +30127,7 @@ function frame(ts){
   (function(){var t=isPlaying?0.20:1.0;if(_xqSt.countdown>0)t=Math.max(0.20,1.0-(5-_xqSt.countdown)/5*0.80);_xqSt.spotDim=(_xqSt.spotDim||1.0)+(t-(_xqSt.spotDim||1.0))*Math.min(1,dt*0.003);})();
   if(isPlaying||_xqSt.countdown>0)drawSpots(W,H,bass,rms,bd,ts,_xqSt.spotDim);
   if(!_stFX&&typeof tickFog==='function'&&typeof drawFog==='function'){tickFog(W,H,ts,isPlaying?bass:0,isPlaying&&hit);drawFog(W,H);}   // the canvas-fog fallback is not in this build; without WebGL there is no fog rather than an error every frame
-  _sbShowTick(dt,rms,isPlaying); _lzTick(dt,hit&&isPlaying,isPlaying); _sbFogTick(dt,isPlaying);
+  _sbShowTick(dt,rms,isPlaying); _lzTick(dt,hit&&isPlaying,isPlaying); _sbFogTick(dt,isPlaying); if(isPlaying) _sbTintTick(dt);
   if(isPlaying && window._syncStageBeams) window._syncStageBeams();   // the fog lights up along the moving beams
   if(fxCtx){fxCtx.clearRect(0,0,W,H); if(isPlaying) drawLasers(W,H,ts,bass,hit,bd);}
   drawNPScreen(ts,bass,mid,high,rms,hit);
@@ -30176,7 +30181,7 @@ function _sbEaseOut(t){ t=Math.max(0,Math.min(1,t)); return 1-Math.pow(1-t,3); }
 //    chose one on Session Ready). Each drifts and bounces inside the screen, breathes with the bass,
 //    jumps on a hit, and now and then spins, flips, melts away, shatters, and builds itself back up
 //    out of ~10,000 pieces (#xqNP_px). A tap on the screen kicks them. Positions in screen fractions.
-function _npMkDancer(id,size,round){ return { id:id, size:size, round:round, x:0.5, y:0.5, vx:0.00008, vy:0.00006, s:1,
+function _npMkDancer(id,size,round){ return { id:id, size:size, round:round, k:1, partsWait:[], partsBusySrc:'', x:0.5, y:0.5, vx:0.00008, vy:0.00006, s:1,
   rot:0, rotA:0, rotB:0, rotT0:0, rotDur:0, fy:0, fyA:0, fyB:0, fyT0:0, fyDur:0, fx:null, parts:null, partsSrc:'', partsBusy:false, shown:false }; }
 var _npDancers={ art:_npMkDancer('xqNP_art',0.34,true), club:_npMkDancer('xqNP_clubArt',0.22,false) };
 var _npArt=_npDancers.art;   // kept: the old name for the cover's motion state
@@ -30195,9 +30200,17 @@ function _npSample(d,cb){
   var el=_npEl(d); if(!el) return cb&&cb(null);
   var src=el.getAttribute('src')||''; if(!src) return cb&&cb(null);
   if(d.parts && d.partsSrc===src) return cb&&cb(d.parts);
-  if(d.partsBusy) return; d.partsBusy=true;
-  function build(img,readable){
-    d.partsBusy=false;
+  if(d.partsBusy && d.partsBusySrc===src){ if(cb) d.partsWait.push(cb); return; }
+  d.partsBusy=true; d.partsBusySrc=src; d.partsWait=cb?[cb]:[]; var done=false;
+  var finish=function(P){ var w=d.partsWait; d.partsWait=[]; d.partsBusy=false; w.forEach(function(f){ try{ f(P); }catch(e){} }); };
+  cb=finish;
+  // an image that never answers (seen once headless) must not leave the logo invisible: after 5 s use the
+  // element's own, already shown picture as tiles
+  var watchdog=setTimeout(function(){ if(!done && d.partsBusySrc===src){ done=true; if(el.complete && el.naturalWidth) build(el,false); else finish(null); } },5000);
+  function build(img,readable){ try{ build0(img,readable); }catch(e){ window.__sbErr=String(e&&e.stack||e); finish(null); } }
+  function build0(img,readable){
+    done=true; clearTimeout(watchdog);
+    if(d.partsBusySrc!==src && d.partsBusy) return;
     var N=d.round?113:128, T=d.round?40:44;
     var iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height; if(!iw||!ih) return cb&&cb(null);
     var cv=document.createElement('canvas'); cv.width=cv.height=N; var c=cv.getContext('2d',{willReadFrequently:true});
@@ -30215,6 +30228,7 @@ function _npSample(d,cb){
         var k=(j*N+i)*4, a=data[k+3]; if(a<40) continue;
         hx.push(u); hy.push(v); col.push(((255<<24)|(data[k+2]<<16)|(data[k+1]<<8)|data[k])>>>0);
       }
+      if(d===_npDancers.art) _sbAccentFrom(data,N);
       if(hx.length>10500){ var keep=10000/hx.length, h2=[],v2=[],c2=[]; for(var z=0;z<hx.length;z++) if(Math.random()<keep){ h2.push(hx[z]); v2.push(hy[z]); c2.push(col[z]); } hx=h2; hy=v2; col=c2; cell*=1.08; }   // about 10,000 pieces
       if(hx.length<200) data=null;
     }
@@ -30235,8 +30249,8 @@ function _npSample(d,cb){
   }
   var im=new Image();
   if(!/^data:/.test(src)) im.crossOrigin='anonymous';
-  im.onload=function(){ build(im,true); };
-  im.onerror=function(){ var im2=new Image(); im2.onload=function(){ build(im2,false); }; im2.onerror=function(){ d.partsBusy=false; cb&&cb(null); }; im2.src=src; };
+  im.onload=function(){ if(!done) build(im,true); };
+  im.onerror=function(){ if(done) return; var im2=new Image(); im2.onload=function(){ if(!done) build(im2,false); }; im2.onerror=function(){ if(!done){ done=true; clearTimeout(watchdog); finish(null); } }; im2.src=src; };
   im.src=src;
 }
 // ---- effects ----
@@ -30255,10 +30269,11 @@ function _npStartFx(d,kind,opts){
         var r1=P.r1[i], r2=P.r2[i];
         if(st==='rise'){ P.sx[i]=cx+(r1-0.5)*0.9; P.sy[i]=1.04+r2*0.05; P.dl[i]=(0.5-P.hy[i])*0.45+r2*0.12; }        // from a puddle on the floor
         else if(st==='implode'){ var a=r1*Math.PI*2, rr=0.45+r2*0.55; P.sx[i]=cx+Math.cos(a)*rr; P.sy[i]=cy+Math.sin(a)*rr*1.7; P.dl[i]=r2*0.35; }
+        else if(st==='vortex'){ var va=r1*Math.PI*2, vr=0.35+r2*0.5; P.sx[i]=cx+Math.cos(va)*vr; P.sy[i]=cy+Math.sin(va)*vr*1.7; P.dl[i]=(1-Math.sqrt(P.hx[i]*P.hx[i]+P.hy[i]*P.hy[i])*2)*0.4; }   // a whirlpool: the outer ring lands last
         else if(st==='rain'){ P.sx[i]=cx+(r1-0.5)*0.7; P.sy[i]=-0.1-r2*0.5; P.dl[i]=(P.hy[i]+0.5)*0.35+r1*0.1; }
         else { P.sx[i]=r1; P.sy[i]=r2; P.dl[i]=Math.random()*0.45; }                                                      // out of nothing, anywhere on the screen
       }
-      fx.swirl=(Math.random()<0.5?-1:1)*(0.8+Math.random()*1.4);
+      fx.swirl=(Math.random()<0.5?-1:1)*(st==='vortex'?5+Math.random()*3:0.8+Math.random()*1.4);
       el.style.opacity='0';
     } else if(kind==='melt'){
       fx.dur=Math.max(2000,Math.min(3600,beat*6)); fx.cx=cx; fx.cy=cy; fx.rot=d.rot; fx.sc=d.s;
@@ -30293,7 +30308,7 @@ function _npPxFrame(){
   ['art','club'].forEach(function(key){
     var d=_npDancers[key], fx=d.fx, P=d.parts; if(!fx||!P) return;
     var t=fx.t/fx.dur, D=fx.dur/1000;
-    var sizePx=d.size*cw;                         // the logo's width in device px
+    var sizePx=d.size*d.k*cw;                     // the logo's width in device px
     var bs=Math.max(1,Math.ceil(P.cell*sizePx*d.s*1.15));
     var baseX, baseY, rot, sc;
     if(fx.kind==='build'){ baseX=d.x*cw; baseY=d.y*ch; rot=d.rot*Math.PI/180; sc=d.s; }
@@ -30349,7 +30364,7 @@ function _npFxTick(d,dt){
 }
 // melt / shatter, then a beat or two of nothing, then the logo builds itself back up
 function _npVanishAndReturn(d,kind){
-  var styles=kind==='melt'?['rise','scatter','rain']:['implode','scatter'];
+  var styles=kind==='melt'?['rise','scatter','rain','vortex']:['implode','scatter','vortex'];
   _npStartFx(d,kind,{ then:function(){
     setTimeout(function(){ if(_npVisible(d)) _npStartFx(d,'build',{ style:styles[(Math.random()*styles.length)|0], beats:5 }); }, _sbBeatMs()*(1+Math.round(Math.random())));
   }});
@@ -30361,7 +30376,7 @@ function _npFlip(d){ d.fyA=d.fy; d.fyB=d.fy+360; d.fyT0=_sbShow.clock; d.fyDur=M
 // The logo director: something happens every 10-24 s (sooner when the music is intense)
 function _npDirect(hit){
   var clk=_sbShow.clock, drive=_sbShow.drive;
-  var ds=[_npDancers.art,_npDancers.club].filter(function(d){ return _npVisible(d) && !d.fx; });
+  var ds=[_npDancers.art,_npDancers.club].filter(function(d){ return _npVisible(d) && !d.fx && !(_sbShow.finale && d===_npDancers.club && (d.rotDur||d.fyDur)); });
   if(_npDir.pending){                          // a shatter waits for the next hit (or 2 s)
     if(hit || clk>_npDir.pending.until){ var pd=_npDir.pending.d; _npDir.pending=null; if(_npVisible(pd) && !pd.fx) _npVanishAndReturn(pd,'shatter'); }
     return;
@@ -30379,7 +30394,11 @@ function _npDirect(hit){
 }
 function _npDancerTick(d,dt,bass,rms,bd,hit,np,aspect){
   var el=_npEl(d); if(!el) return;
-  var r=d.size/2, ry=r*aspect*(d.round?1:1);
+  // the club finale (MIZE's last track): the club logo takes the centre and grows, the cover steps back
+  var fin=_sbShow.finale && _npVisible(_npDancers.club), kT=fin?(d===_npDancers.club?1.45:0.72):1;
+  d.k+=(kT-d.k)*(1-Math.exp(-dt/900));
+  var r=d.size*d.k/2, ry=r*aspect;
+  if(fin && d===_npDancers.club){ var cf=1-Math.exp(-dt/700); d.x+=(0.5-d.x)*cf; d.y+=(0.5-d.y)*cf; d.vx*=0.9; d.vy*=0.9; }
   var sp=1+rms*1.2+bass*0.8;
   d.x+=d.vx*dt*sp; d.y+=d.vy*dt*sp;
   if(d.x<r){ d.x=r; d.vx=Math.abs(d.vx); } if(d.x>1-r){ d.x=1-r; d.vx=-Math.abs(d.vx); }
@@ -30392,7 +30411,7 @@ function _npDancerTick(d,dt,bass,rms,bd,hit,np,aspect){
   if(d.rotDur){ var p=(_sbShow.clock-d.rotT0)/d.rotDur; d.rot=d.rotA+(d.rotB-d.rotA)*_sbEase(p); if(p>=1){ d.rot=d.rotB%360; d.rotDur=0; } }
   if(d.fyDur){ var q=(_sbShow.clock-d.fyT0)/d.fyDur; d.fy=d.fyA+(d.fyB-d.fyA)*_sbEase(q); if(q>=1){ d.fy=0; d.fyDur=0; } }
   el.style.left=(d.x*100).toFixed(2)+'%'; el.style.top=(d.y*100).toFixed(2)+'%';
-  el.style.transform='translate(-50%,-50%)'+(d.fyDur?' perspective(900px) rotateY('+d.fy.toFixed(1)+'deg)':'')+' rotate('+(d.rot+(d.x-0.5)*6).toFixed(2)+'deg) scale('+d.s.toFixed(3)+')';   // 3D only while flipping
+  el.style.transform='translate(-50%,-50%)'+(d.fyDur?' perspective(900px) rotateY('+d.fy.toFixed(1)+'deg)':'')+' rotate('+(d.rot+(d.x-0.5)*6).toFixed(2)+'deg) scale('+(d.s*d.k).toFixed(3)+')';   // 3D only while flipping
 }
 function _npArtTick(dt,bass,rms,bd,hit){
   var np=document.getElementById('xqNP'); var aspect=np && np.offsetHeight ? np.offsetWidth/np.offsetHeight : 16/9;
@@ -30407,7 +30426,7 @@ function _npArtTick(dt,bass,rms,bd,hit){
   });
   // two dancers bounce off each other
   if(_npVisible(A) && _npVisible(C)){
-    var dx=(C.x-A.x), dy=(C.y-A.y)/aspect, dist=Math.sqrt(dx*dx+dy*dy), min=(A.size*A.s+C.size*C.s)/2*0.92;
+    var dx=(C.x-A.x), dy=(C.y-A.y)/aspect, dist=Math.sqrt(dx*dx+dy*dy), min=(A.size*A.k*A.s+C.size*C.k*C.s)/2*0.92;
     if(dist>0 && dist<min){
       var nx=dx/dist, ny=dy/dist, push=(min-dist)/2;
       A.x-=nx*push; A.y-=ny*push*aspect; C.x+=nx*push; C.y+=ny*push*aspect;
@@ -30415,15 +30434,97 @@ function _npArtTick(dt,bass,rms,bd,hit){
       if(rv<0){ A.vx+=rv*nx; A.vy+=rv*ny*aspect; C.vx-=rv*nx; C.vy-=rv*ny*aspect; }
     }
   }
+  _npDropCheck(hit);
+  _npEchoTick(dt);
   _npDirect(hit);
   _npPxFrame();
 }
+
+// ── More show (MIZE, 2026-09-23, "let's realize your additional ideas as well") ──────────────────
+// A DROP: a hit while the music drives and the short-term level jumps above the song's own level
+// (refractory 6 s). On a drop every visible logo leaves echo trails and throws a pulse ring.
+var _npDropAt=-1e9;
+function _npDropCheck(hit){
+  if(!hit) return;
+  var S=_sbShow; if(S.drive>0.62 && S.Es>S.El*1.2 && S.clock-_npDropAt>6000) _npDrop();
+}
+function _npDrop(){
+  _npDropAt=_sbShow.clock;
+  [_npDancers.art,_npDancers.club].forEach(function(d,i){ if(_npVisible(d) && !d.fx){ _npEchoStart(d); _npRing(d,0); _npRing(d,140+i*60); } });
+}
+// Echo trails: faded copies of the logo left where it was, for ~0.7 s, fading out
+var _npEchoes=[], _npEchoRuns=[];
+function _npEchoStart(d){ _npEchoRuns.push({ d:d, left:700, next:0 }); }
+function _npEchoTick(dt){
+  var np=document.getElementById('xqNP'); if(!np) return;
+  _npEchoRuns=_npEchoRuns.filter(function(run){
+    run.left-=dt; run.next-=dt;
+    var el=_npEl(run.d);
+    if(run.next<=0 && el && _npVisible(run.d) && !run.d.fx && _npEchoes.length<14){
+      run.next=70;
+      var g=el.cloneNode(false); g.removeAttribute('id'); g.className='xqNP_echo'; g.setAttribute('aria-hidden','true');
+      g.style.cssText=el.style.cssText; g.style.position='absolute'; g.style.width=(run.d.size*100)+'%'; g.style.aspectRatio='1'; g.style.objectFit=run.d.round?'cover':'contain'; g.style.borderRadius=run.d.round?'50%':'0'; g.style.display='block'; g.style.opacity='0.42'; g.style.transition='opacity .55s ease-out';
+      np.insertBefore(g,el); _npEchoes.push(g);
+      requestAnimationFrame(function(){ g.style.opacity='0'; });
+      setTimeout(function(){ if(g.parentNode) g.parentNode.removeChild(g); var k=_npEchoes.indexOf(g); if(k>=0) _npEchoes.splice(k,1); },600);
+    }
+    return run.left>0;
+  });
+}
+function _npEchoClear(){ _npEchoRuns=[]; _npEchoes.splice(0).forEach(function(g){ if(g.parentNode) g.parentNode.removeChild(g); });
+  document.querySelectorAll('#xqNP .xqNP_ring').forEach(function(x){ x.remove(); }); }
+// Pulse ring: a shock wave rolling out from the logo, in the lasers' colour
+function _npRing(d,delay){
+  setTimeout(function(){
+    var np=document.getElementById('xqNP'), el=_npEl(d); if(!np||!el||!_npVisible(d)) return;
+    var ring=document.createElement('div'); ring.className='xqNP_ring'; ring.setAttribute('aria-hidden','true');
+    var tc=_sbTint.cur, c='rgb('+(tc[0]|0)+','+(tc[1]|0)+','+(tc[2]|0)+')';
+    ring.style.cssText='left:'+(d.x*100).toFixed(2)+'%;top:'+(d.y*100).toFixed(2)+'%;width:'+(d.size*d.k*d.s*100).toFixed(2)+'%;border-color:'+c+';box-shadow:0 0 18px '+c+', inset 0 0 12px '+c;
+    np.appendChild(ring);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ring.classList.add('go'); }); });
+    setTimeout(function(){ if(ring.parentNode) ring.parentNode.removeChild(ring); },1100);
+  },delay||0);
+}
+// Collection colours: the cover's strongest colour, sampled from its pieces, tints the lasers,
+// the fog's glow and the rings -- half teal, half the collection, so teal stays the identity.
+// A cover without a strong colour (or one that cannot be read) keeps pure teal.
+var SB_TEAL=[0,220,160];
+var _sbTint={ cur:SB_TEAL.slice(), target:SB_TEAL.slice(), accent:null };
+function _sbAccentFrom(data,N){
+  var buckets=[]; for(var b=0;b<12;b++) buckets.push({w:0,r:0,g:0,b:0});
+  for(var k=0;k<N*N;k+=2){
+    var o=k*4; if(data[o+3]<200) continue;
+    var R=data[o]/255,G=data[o+1]/255,B=data[o+2]/255, mx=Math.max(R,G,B), mn=Math.min(R,G,B), c=mx-mn;
+    if(mx<0.35 || c/mx<0.4) continue;
+    var h = mx===R ? ((G-B)/c+6)%6 : mx===G ? (B-R)/c+2 : (R-G)/c+4;
+    var bk=buckets[Math.floor(h*2)%12], w=c*mx; bk.w+=w; bk.r+=R*w; bk.g+=G*w; bk.b+=B*w;
+  }
+  var best=null; buckets.forEach(function(x){ if(!best || x.w>best.w) best=x; });
+  if(!best || best.w<N*N*0.004){ _sbTint.accent=null; _sbTint.target=SB_TEAL.slice(); return; }
+  var ac=[best.r/best.w,best.g/best.w,best.b/best.w], m=Math.max(ac[0],ac[1],ac[2])||1;
+  ac=ac.map(function(v){ return v/m*235; });
+  _sbTint.accent=ac.map(function(v){ return Math.round(v); });
+  _sbTint.target=[0,1,2].map(function(i){ return SB_TEAL[i]*0.5+ac[i]*0.5; });
+}
+function _sbTintTick(dt){
+  var k=1-Math.exp(-dt/1800), c=_sbTint.cur, t=_sbTint.target;
+  for(var i=0;i<3;i++) c[i]+=(t[i]-c[i])*k;
+  if(_stFX){ var m=Math.max(c[0],c[1],c[2])||1; _stFX.set({teal:[c[0]/m*0.84,c[1]/m*0.84,c[2]/m*0.84]}); }
+}
+// The club finale: the last track of a session belongs to the club logo -- it spins into the centre
+// with a vortex of its pieces and two rings; the cover steps back and keeps dancing around it.
+function _npFinale(on){
+  _sbShow.finale=!!on;
+  var C=_npDancers.club;
+  if(on && _npVisible(C)){ setTimeout(function(){ if(_sbShow.finale && _npVisible(C) && !C.fx){ _npSpin(C,1,2,4); _npRing(C,0); _npRing(C,180); } },900); }
+}
 // The cover changed between tracks: the new one builds itself up (SS-001 §58: a short transition)
-function _npCoverChanged(){ var d=_npDancers.art; if(d.shown && !d.fx){ d.parts=null; _npStartFx(d,'build',{ style:'implode', beats:4 }); } }
+function _npCoverChanged(){ var d=_npDancers.art; _sbTint.target=SB_TEAL.slice(); _sbTint.accent=null; if(d.shown && !d.fx){ d.parts=null; _npStartFx(d,'build',{ style:Math.random()<0.5?'implode':'vortex', beats:4 }); } }
 // Session over / Home / a new countdown: no pieces or club logo left behind
 function _npLogoReset(){
   [_npDancers.art,_npDancers.club].forEach(function(d){ d.fx=null; d.shown=false; d.rot=0; d.fy=0; d.rotDur=0; d.fyDur=0; var el=_npEl(d); if(el) el.style.opacity=''; });
-  _npDir.next=0; _npDir.pending=null;
+  _npDir.next=0; _npDir.pending=null; _sbShow.finale=false; _npEchoClear();
+  [_npDancers.art,_npDancers.club].forEach(function(d){ d.k=1; });
   var cv=document.getElementById('xqNP_px'); if(cv){ cv.style.display='none'; _npPx.on=false; }
   var ca=document.getElementById('xqNP_clubArt'); if(ca) ca.style.display='none';
 }
@@ -30575,7 +30676,7 @@ function drawLasers(W,H,ts,bass,hit,bd){
   var cfg=window._laserCfg||{};
   var minA=cfg.minAlpha!=null?cfg.minAlpha:(window._laserAlphaMin!=null?window._laserAlphaMin:0.18);
   var base=Math.max(minA,flash*0.85+bass*0.55);
-  var o=_lzOrigins(), col='rgba(0,220,160,';
+  var o=_lzOrigins(), tc=_sbTint.cur, col='rgba('+(tc[0]|0)+','+(tc[1]|0)+','+(tc[2]|0)+',';
   var wBase=W*0.0012*(cfg.width!=null?cfg.width:1)*(1+bass*1.6+flash*0.8);
   fxCtx.save();
   fxCtx.globalCompositeOperation='lighter';
@@ -30590,10 +30691,10 @@ function drawLasers(W,H,ts,bass,hit,bd){
     grd.addColorStop(0.45,col+(alpha*0.35).toFixed(3)+')');
     grd.addColorStop(1,col+'0)');
     fxCtx.strokeStyle=grd; fxCtx.lineWidth=w*2.4;
-    fxCtx.shadowBlur=W*(0.010+bass*0.010); fxCtx.shadowColor='rgba(0,220,160,'+((0.45+bass*0.35)*fade).toFixed(3)+')';
+    fxCtx.shadowBlur=W*(0.010+bass*0.010); fxCtx.shadowColor=col+((0.45+bass*0.35)*fade).toFixed(3)+')';
     fxCtx.beginPath(); fxCtx.moveTo(b[0],b[1]); fxCtx.lineTo(b[2],b[3]); fxCtx.stroke();
     var core=fxCtx.createLinearGradient(b[0],b[1],b[2],b[3]);
-    core.addColorStop(0,'rgba(200,255,235,'+(alpha*0.95).toFixed(3)+')');
+    core.addColorStop(0,'rgba('+((200+tc[0])/2|0)+','+((255+tc[1])/2|0)+','+((235+tc[2])/2|0)+','+(alpha*0.95).toFixed(3)+')');
     core.addColorStop(0.6,col+(alpha*0.7).toFixed(3)+')');
     core.addColorStop(1,col+'0)');
     fxCtx.strokeStyle=core; fxCtx.lineWidth=Math.max(0.6,w*0.45); fxCtx.shadowBlur=0;
@@ -30651,6 +30752,7 @@ function drawNPScreen(ts,bass,mid,high,rms,hit){
   npCtx2.fillStyle=_xqSt.playing?'rgba(3,10,6,1.0)':'rgba(2,5,4,0.50)';
   npCtx2.fillRect(0,0,W,H);
   if(!_xqSt.playing)return;
+  _npBlobTick();
   npCtx2.save();npCtx2.globalCompositeOperation='screen';
   _npBlobs.forEach(function(b){
     var energy=b.band==='bass'?bass:b.band==='mid'?mid:high;
@@ -30661,20 +30763,68 @@ function drawNPScreen(ts,bass,mid,high,rms,hit){
     if(b.y<0){b.y=0;b.vy=Math.abs(b.vy);}if(b.y>1){b.y=1;b.vy=-Math.abs(b.vy);}
     var r=b.size*Math.min(W,H)*(0.4+energy*1.8+Math.sin(b.phase)*0.12);
     var a=0.04+energy*0.22+rms*0.14;
-    var g=b.band==='bass'?130:b.band==='mid'?175:210,bl=b.band==='bass'?90:b.band==='mid'?160:220;
+    var bc=_npBlobCol[b.band==='bass'?0:b.band==='mid'?1:2], rgb=(bc[0]|0)+','+(bc[1]|0)+','+(bc[2]|0);
     var grd=npCtx2.createRadialGradient(b.x*W,b.y*H,0,b.x*W,b.y*H,r);
-    grd.addColorStop(0,'rgba(0,'+g+','+bl+','+a.toFixed(3)+')');grd.addColorStop(1,'rgba(0,'+g+','+bl+',0)');
+    grd.addColorStop(0,'rgba('+rgb+','+a.toFixed(3)+')');grd.addColorStop(1,'rgba('+rgb+',0)');
     npCtx2.fillStyle=grd;npCtx2.beginPath();npCtx2.arc(b.x*W,b.y*H,r,0,Math.PI*2);npCtx2.fill();
   });
   npCtx2.restore();
   if(hit)_npHitFlash=1;
-  if(_npHitFlash>0.02){npCtx2.fillStyle='rgba(0,200,160,'+(_npHitFlash*0.10).toFixed(3)+')';npCtx2.fillRect(0,0,W,H);_npHitFlash*=0.82;}
+  if(_npHitFlash>0.02){var hc=_npBlobCol[1];npCtx2.fillStyle='rgba('+(hc[0]|0)+','+(hc[1]|0)+','+(hc[2]|0)+','+(_npHitFlash*0.10).toFixed(3)+')';npCtx2.fillRect(0,0,W,H);_npHitFlash*=0.82;}
+}
+
+// ── The centre screen's pulsing bubbles take the club logo's colours (MIZE, 2026-09-23: "It stays black
+//    but the pulsing bubbles should have those colors"). While the club logo dances along, the three
+//    bands (bass / mid / high) use the logo's three strongest colours; otherwise the teal family as
+//    before. A logo with no strong colour (black / white / grey) keeps teal. Colours ease in over ~2 s.
+var NP_BLOB_TEAL=[[0,130,90],[0,175,160],[0,210,220]];
+var _npBlobCol=NP_BLOB_TEAL.map(function(c){ return c.slice(); });
+var _sbClubPal={ src:'', cols:null, busy:false };
+function _sbPaletteFrom(data,N){
+  var buckets=[]; for(var b=0;b<12;b++) buckets.push({w:0,r:0,g:0,b:0});
+  for(var k=0;k<N*N;k++){
+    var o=k*4; if(data[o+3]<160) continue;
+    var R=data[o]/255,G=data[o+1]/255,B=data[o+2]/255, mx=Math.max(R,G,B), mn=Math.min(R,G,B), c=mx-mn;
+    if(mx<0.3 || c/mx<0.35) continue;
+    var h = mx===R ? ((G-B)/c+6)%6 : mx===G ? (B-R)/c+2 : (R-G)/c+4;
+    var bk=buckets[Math.floor(h*2)%12], w=c*mx; bk.w+=w; bk.r+=R*w; bk.g+=G*w; bk.b+=B*w;
+  }
+  var tot=buckets.reduce(function(a,x){ return a+x.w; },0);
+  if(tot<N*N*0.01) return null;
+  var top=buckets.filter(function(x){ return x.w>tot*0.08; }).sort(function(a,b){ return b.w-a.w; }).slice(0,3)
+    .map(function(x){ var c=[x.r/x.w,x.g/x.w,x.b/x.w], m=Math.max(c[0],c[1],c[2])||1; return c.map(function(v){ return v/m*225; }); });
+  if(!top.length) return null;
+  // fewer than three strong colours: a deeper and a lighter shade of the first
+  if(top.length<2) top.push(top[0].map(function(v){ return v*0.62; }));
+  if(top.length<3) top.push(top[0].map(function(v){ return v*0.7+255*0.3; }));
+  return [top[1],top[0],top[2]];   // the strongest colour on the mid band (the most bubbles and the flash)
+}
+function _sbClubPalette(){
+  var src=_sbClubWanted()?_sbClubSrc():''; if(!src) return null;
+  if(_sbClubPal.src===src) return _sbClubPal.cols;
+  if(_sbClubPal.busy===src) return null;
+  _sbClubPal.busy=src;
+  var im=new Image(); if(!/^data:/.test(src)) im.crossOrigin='anonymous';
+  im.onload=function(){
+    var cols=null;
+    try{ var N=64, cv=document.createElement('canvas'); cv.width=cv.height=N; var c=cv.getContext('2d',{willReadFrequently:true});
+      var sc=Math.min(N/im.width,N/im.height); c.drawImage(im,(N-im.width*sc)/2,(N-im.height*sc)/2,im.width*sc,im.height*sc);
+      cols=_sbPaletteFrom(c.getImageData(0,0,N,N).data,N); }catch(e){ cols=null; }
+    _sbClubPal.src=src; _sbClubPal.cols=cols; _sbClubPal.busy=false;
+  };
+  im.onerror=function(){ _sbClubPal.src=src; _sbClubPal.cols=null; _sbClubPal.busy=false; };
+  im.src=src; return null;
+}
+function _npBlobTick(){
+  var pal=_xqSt.playing ? _sbClubPalette() : null, tgt=pal||NP_BLOB_TEAL;
+  for(var i=0;i<3;i++) for(var j=0;j<3;j++) _npBlobCol[i][j]+=(tgt[i][j]-_npBlobCol[i][j])*0.03;
 }
 resize();requestAnimationFrame(frame);
 // The show's state for the Stage Editor and the tests (read-only use)
 window._sbFogBlow=_sbFogBlow;
 window.__sbShow={ show:_sbShow, lz:_lz, fog:_fogShow, dancers:_npDancers, fx:_npStartFx, vanish:_npVanishAndReturn, spin:_npSpin, flip:_npFlip, start:_xqActStart, reset:_npLogoReset, coverChanged:_npCoverChanged,
-  track:function(t){ _sbShow.bpm=t.bpm>0?Number(t.bpm):120; _sbShow.role=t.role||'bridge'; _sbFogTrack(); } };
+  track:function(t){ _sbShow.bpm=t.bpm>0?Number(t.bpm):120; _sbShow.role=t.role||'bridge'; _sbFogTrack(); _npFinale(t.total>1 && t.trackIndex===t.total); },
+  drop:function(){ _npDrop(); }, tint:_sbTint, accent:_sbAccentFrom, finale:function(){ return !!_sbShow.finale; }, blobs:function(){ return _npBlobCol.map(function(c){ return c.map(Math.round); }); }, clubPal:function(){ return _sbClubPal.cols; }, echoes:function(){ return _npEchoes.length; } };
 
 // Tap #xqNP to kick the logo physics
 var npEl=document.getElementById('xqNP');
