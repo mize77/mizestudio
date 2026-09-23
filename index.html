@@ -7062,6 +7062,19 @@ XQUIX.CloudProvider = (function(){
     return c==='23514' || c==='23502' || c==='22P02' || c==='42703' || c==='PGRST204';
   }
   function localBackupDelete(kind, name){ if(kind==='practice') return; XQUIX.LocalStorageProvider.deleteItem(kind, name); }
+  async function pruneLocalConflictCopies(){
+    let n = 0;
+    for(const item of await XQUIX.OfflineDB.getAllItems()){
+      if(xquixIsConflictCopyName(item.name) && !(cache[item.kind] && cache[item.kind][item.name])){ await XQUIX.OfflineDB.deleteItem(item.kind, item.name); n++; }
+    }
+    for(const kind of ['formation','sequence']){
+      const local = XQUIX.LocalStorageProvider.listStoreSync(kind);
+      for(const name of Object.keys(local)){
+        if(xquixIsConflictCopyName(name) && !(cache[kind] && cache[kind][name])){ XQUIX.LocalStorageProvider.deleteItem(kind, name); n++; }
+      }
+    }
+    if(n) console.info('XQUIX.CloudProvider: removed '+n+' conflict copies from this device (no longer in the library).');
+  }
 
   // Cloud rows are normalized (name/owner/etc. as real columns, tactical
   // content in one jsonb payload column); local records are one flat
@@ -7192,6 +7205,10 @@ XQUIX.CloudProvider = (function(){
           if(kind!=='practice' && XQUIX.LocalStorageProvider.getItemSync(kind, corruptedName)) XQUIX.LocalStorageProvider.deleteItem(kind, corruptedName);
         }
         loadedAllOnce = true;
+        // Conflict copies are always made by the library itself, so the library is their truth: one that is no
+        // longer there (MIZE removed 623 of them, 2026-09-23) is dropped from this device's copies too --
+        // otherwise the sign-in upload of "local items missing from the account" put them all straight back.
+        try { await pruneLocalConflictCopies(); } catch(e){ console.error('XQUIX.CloudProvider: conflict-copy prune failed:', e); }
         setSyncStatus('idle');
       } catch(err) {
         console.error('XQUIX.CloudProvider: loadAll network refresh failed, showing offline/cached state:', err);
@@ -7460,6 +7477,8 @@ function xquixSwitchToLocalProvider(){
 // 5B: never deletes anything local -- only ever offers to additionally
 // upload what's on this device but missing from the account. Declining
 // changes nothing; local saves keep working exactly as before either way.
+// "<name> (conflict copy <date>)" -- the name CloudProvider gives the losing side of a save conflict.
+function xquixIsConflictCopyName(name){ return typeof name==='string' && / \(conflict copy [^)]*\)$/.test(name); }
 async function xquixOfferLocalMigrationIfNeeded(){
   const kinds = ['formation', 'sequence'];
   const toUpload = { formation: [], sequence: [] };
@@ -7468,6 +7487,7 @@ async function xquixOfferLocalMigrationIfNeeded(){
     const localStore = XQUIX.LocalStorageProvider.listStoreSync(kind);
     const cloudStore = XQUIX.CloudProvider.listStoreSync(kind);
     for(const name of Object.keys(localStore)){
+      if(xquixIsConflictCopyName(name)) continue;   // never re-upload a conflict copy the library no longer has
       if(!cloudStore[name]){ toUpload[kind].push(name); totalCount++; }
     }
   }
