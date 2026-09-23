@@ -1559,7 +1559,10 @@ function toast(msg) {
 
 /* ===================================================================== sheet */
 function sheetEl() { return el('xgtSheet'); }
-function openSheet() { sheetEl().classList.add('on'); el('xgtScrim').classList.add('on'); }
+// kind (2026-09-23, briefs/GAMETRACKER-STAGE-SCREENS.md): which sheet this is -- 'landing' | 'setup' | 'clock' | 'menu' |
+// 'shootout', default 'record' (the recording flow). Written to data-kind for the Studio Stage, which places screen sheets
+// on the centre screen and record sheets on the floor console. Nothing in the module reads it.
+function openSheet(kind) { sheetEl().dataset.kind = kind || 'record'; sheetEl().classList.add('on'); el('xgtScrim').classList.add('on'); }
 function closeSheet() {
   sheetEl().classList.remove('on'); el('xgtScrim').classList.remove('on');
   S.draft = null; S.onScrim = null;
@@ -2460,7 +2463,7 @@ function openClock() {
   S.running = false; clearInterval(S.tick); paintClock();
   var before = { q: S.q, clock: S.clock };
   S.onScrim = cancel;
-  draw(); openSheet();
+  draw(); openSheet('clock');
   function draw() {
     sheetEl().innerHTML = head('Set the time', 'Match the pool clock, then Done', null) +
       '<span class="xgtLbl">Quarter</span><div class="xgtChips" style="margin-bottom:14px">' +
@@ -2705,20 +2708,20 @@ async function xgtOfferToFinishGame(force) {
 function openShootout() {
   // Asked once, the very first time -- never again after that. Everyone
   // after this alternates automatically per shootoutCurrentSide() above.
-  if (!S.shootoutStartSide) { drawStart(); openSheet(); return; }
+  if (!S.shootoutStartSide) { drawStart(); openSheet('shootout'); return; }
   // A side with no water roster (opponent tracking wasn't enabled,
   // most likely) has no chips to offer as shooters at all -- rather
   // than falling back to typing a cap number every single attempt,
   // this is asked once, tap-only, right here, and reused as that
   // side's shooter grid for the rest of the shootout.
-  if (needsRosterDeclare('us')) { drawDeclareRoster('us'); openSheet(); return; }
-  if (needsRosterDeclare('them')) { drawDeclareRoster('them'); openSheet(); return; }
+  if (needsRosterDeclare('us')) { drawDeclareRoster('us'); openSheet('shootout'); return; }
+  if (needsRosterDeclare('them')) { drawDeclareRoster('them'); openSheet('shootout'); return; }
   // Defaults to each side's primary declared keeper the first time this
   // actually renders -- freely changeable afterward, per shot, since a
   // backup keeper subbing in specifically for this is real and expected.
   if (S.shootoutGoalkeepers.us == null) S.shootoutGoalkeepers.us = (S.keepers && S.keepers[0]) != null ? S.keepers[0] : null;
   if (S.shootoutGoalkeepers.them == null) S.shootoutGoalkeepers.them = (S.oppKeepers && S.oppKeepers[0]) != null ? S.oppKeepers[0] : null;
-  drawMain(); openSheet();
+  drawMain(); openSheet('shootout');
 
   function needsRosterDeclare(side) {
     var known = side === 'us' ? S.water : S.oppWater;
@@ -3084,7 +3087,7 @@ function renderBar() {
   if (singlePlayerMode()) {
     var iw = inWater(S.me.number);
     bar.innerHTML =
-      '<div class="xgtRow" style="margin-bottom:7px"><div class="xgtWho"><span class="num">#' + S.me.number + '</span>' +
+      '<div class="xgtRow" style="margin-bottom:7px"><div class="xgtWho"><span class="num">#' + (S.me.number != null && S.me.number !== '' ? S.me.number : '\u2013') + '</span>' +
       '<div class="meta" style="flex:1">' + (S.me.name || (gk ? 'Goalkeeper' : 'My player')) + '<br>' +
       (gk ? 'In goal' : 'In water') + ' ' + fmt(waterSeconds(S.me.number)) + '</div></div></div>' +
       '<div class="xgtRow"><button class="xgtPill ' + (iw ? 'in' : 'out') + '" id="xgtPres" style="flex:1">' +
@@ -3442,7 +3445,7 @@ function xgtOpenSessions() {
 // they're common enough to be worth a shortcut from wherever the coach
 // happens to be looking.
 function openOptions() {
-  draw(); openSheet();
+  draw(); openSheet('menu');
   function draw() {
     var isFrontCourt = frontCourtOn();
     // Sessions only shown when it would actually lead somewhere useful --
@@ -3858,7 +3861,7 @@ function download(name, type, data) {
 
 /* ===================================================================== setup */
 function openSetup() {
-  openSheet();
+  openSheet('setup');
   S.onScrim = function () { closeSheet(); API.close(); };
   draw();
   function draw() {
@@ -4668,7 +4671,7 @@ var API = {
   }
 };
 function openGameTrackerLanding(saved) {
-  openSheet();
+  openSheet('landing');
   var showSessions = xgtShouldShowSessionsEntry();
   var when = '';
   if (saved) { try { when = new Date(saved.savedAt).toLocaleString(); } catch (err) {} }

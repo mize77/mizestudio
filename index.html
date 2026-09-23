@@ -1766,6 +1766,57 @@
   .stageConsoleBtn.active { background:linear-gradient(180deg, rgba(46,202,184,.28), rgba(46,202,184,.14)); border-color:#2ecab8; color:#dffaf6; box-shadow:0 2px 0 rgba(0,0,0,.6), 0 0 18px 2px rgba(46,202,184,.35), inset 0 1px 0 rgba(255,255,255,.12); }
   body.xqStage.psIdle:not(.tutorialModeActive) #stageConsole { opacity:1; }   /* the console never fades: it is furniture, not chrome */
   @media (prefers-reduced-motion:reduce) { .stageConsoleBtn { transition:none; } }
+  /* ---- Game Tracker sheets on the stage (briefs/GAMETRACKER-STAGE-SCREENS.md, MIZE 2026-09-23): a studio skin; every sheet
+     on the centre screen, the field hidden behind it (recording steps too, MIZE 2026-09-23: the console's clock stays in view), stats too ---- */
+  body[data-stage="gametracker"] #xgtScrim { background:transparent !important; }
+  body[data-stage="gametracker"] #xgtScrim { pointer-events:none !important; }
+  body[data-stage="gametracker"] #xgtSheet { background:linear-gradient(180deg, rgba(6,14,15,.96), rgba(3,8,9,.98)); color:#eaf7f5; border:1px solid rgba(46,202,184,.18); border-radius:6px;
+    box-shadow:inset 0 2px 0 rgba(150,215,210,.10), 0 18px 40px rgba(0,0,0,.55); font:14px/1.45 'Archivo',system-ui,-apple-system,sans-serif; max-width:none; margin:0; transform:none; transition:none; }
+  body[data-stage="gametracker"] #xgtSheet:not(.on) { visibility:hidden; pointer-events:none; }
+  body[data-stage="gametracker"] #xgtSheet .xgtGrab { display:none; }
+  body[data-stage="gametracker"] #xgtSheet .xgtHd .z { color:#eef9f8; font-size:17px; letter-spacing:.02em; }
+  body[data-stage="gametracker"] #xgtSheet .xgtHd .cr { color:#9fd8d3; }
+  body[data-stage="gametracker"] #xgtSheet .xgtLbl { color:#5fc9cc; font:600 10px/1 'Archivo',system-ui,sans-serif; letter-spacing:.18em; margin:14px 0 7px; }
+  body[data-stage="gametracker"] #xgtSheet .xgtNote, body[data-stage="gametracker"] #xgtSheet .xgtOpt .sub { color:#9fb7b4; }
+  body[data-stage="gametracker"] #xgtSheet .xgtSeg { background:rgba(255,255,255,.035); border-color:rgba(255,255,255,.10); }
+  body[data-stage="gametracker"] #xgtSheet .xgtSeg button { color:#b9cfcc; }
+  body[data-stage="gametracker"] #xgtSheet .xgtSeg button[aria-pressed="true"], body[data-stage="gametracker"] #xgtSheet .xgtChip[aria-pressed="true"] { background:linear-gradient(180deg, rgba(46,202,184,.30), rgba(46,202,184,.15)); color:#dffaf6; box-shadow:inset 0 0 0 1px #2ecab8, 0 0 14px rgba(46,202,184,.3); }
+  body[data-stage="gametracker"] #xgtSheet .xgtField { background:#0d1719; color:#e6f2f0; border-color:rgba(255,255,255,.14); color-scheme:dark; }
+  body[data-stage="gametracker"] #xgtSheet .xgtField:focus { border-color:#2ecab8; }
+  body[data-stage="gametracker"] #xgtSheet .xgtOpt, body[data-stage="gametracker"] #xgtSheet .xgtNum, body[data-stage="gametracker"] #xgtSheet .xgtStep, body[data-stage="gametracker"] #xgtSheet .xgtBtn, body[data-stage="gametracker"] #xgtSheet .xgtIcon, body[data-stage="gametracker"] #xgtSheet .xgtChip {
+    background:linear-gradient(180deg, rgba(38,50,52,.95), rgba(22,30,31,.95)); border:1px solid rgba(255,255,255,.16); color:#eef9f8; box-shadow:0 2px 0 rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08); }
+  body[data-stage="gametracker"] #xgtSheet .xgtOpt:active, body[data-stage="gametracker"] #xgtSheet .xgtNum:active, body[data-stage="gametracker"] #xgtSheet .xgtStep:active { background:linear-gradient(180deg, rgba(46,202,184,.40), rgba(46,202,184,.2)); border-color:#2ecab8; }
+  body[data-stage="gametracker"] #xgtSheet .xgtBtn.pri { background:linear-gradient(180deg, rgba(46,202,184,.30), rgba(46,202,184,.15)); border-color:#2ecab8; color:#dffaf6; }
+  body[data-stage="gametracker"] #xgtSheet .xgtNum:disabled { background:rgba(255,255,255,.04) !important; color:#5d706e !important; border-color:rgba(255,255,255,.08) !important; }
+  body[data-stage="gametracker"] #xgtSheet .xgtTdisp { color:#eef9f8; }
+  body[data-stage="gametracker"] #xgtSheet .soDecidedBanner { background:rgba(46,202,184,.12); color:#dffaf6; }
+  body[data-stage="gametracker"] #xgtSheet .xgtErr { color:#ffb4ae; background:rgba(229,57,53,.14); }
+  /* screen sheets: the centre screen's own frame, the field hidden behind them */
+  body[data-stage="gametracker"].gtSheetScreen #xgtSheet { left:var(--gtScrL) !important; top:var(--gtScrT) !important; width:var(--gtScrW); height:var(--gtScrH); right:auto; bottom:auto; max-height:none;
+    border-radius:4px; padding:20px 40px 22px; overflow-y:auto; }
+  body[data-stage="gametracker"].gtSheetScreen #xgtSheet .xgtGoal { max-height:190px; width:auto; max-width:100%; margin-left:auto; margin-right:auto; display:block; }
+  body[data-stage="gametracker"].gtSheetScreen #xgtSheet > * { max-width:620px; margin-left:auto !important; margin-right:auto !important; }
+  body[data-stage="gametracker"].gtSheetScreen #board, body[data-stage="gametracker"].gtSheetScreen #xgtOppoZone, body[data-stage="gametracker"].gtSheetScreen #gtStageBanner,
+  body[data-stage="gametracker"].gtStatsScreen #board, body[data-stage="gametracker"].gtStatsScreen #xgtOppoZone { visibility:hidden !important; }
+  /* the console carries Start tracking and Mode -- except in a tutorial, whose steps may point at the form's own buttons */
+  body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="setup"] #xgtX, body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="setup"] #xgtGo, body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="setup"] #xgtGo + .xgtNote,
+  body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="landing"] #xgtX { display:none !important; }
+  /* before tracking starts the TEAM screen has nothing to show yet */
+  body[data-stage="gametracker"].gtPreTrack #gtTeamInfo > *, body[data-stage="gametracker"].gtPreTrack #gtLiveInfo > * { visibility:hidden; }
+  /* stats: the centre screen, dark */
+  body[data-stage="gametracker"] #xgtStats { inset:auto; left:var(--gtScrL); top:var(--gtScrT); width:var(--gtScrW); height:var(--gtScrH); border-radius:4px; background:linear-gradient(180deg, rgba(6,14,15,.97), rgba(3,8,9,.99)); color:#eaf7f5;
+    border:1px solid rgba(46,202,184,.18); font-family:'Archivo',system-ui,sans-serif; }
+  body[data-stage="gametracker"] #xgtStats h2, body[data-stage="gametracker"] #xgtStats th { color:#5fc9cc; letter-spacing:.14em; }
+  body[data-stage="gametracker"] #xgtStats td { color:#eaf7f5; border-bottom-color:rgba(255,255,255,.08); }
+  body[data-stage="gametracker"] #xgtStats th { border-bottom-color:rgba(255,255,255,.14); }
+  body[data-stage="gametracker"] #xgtStats .xgtCard, body[data-stage="gametracker"] #xgtStats .xgtTile, body[data-stage="gametracker"] #xgtStats .xgtPlayerTile { background:linear-gradient(180deg, rgba(38,50,52,.9), rgba(22,30,31,.92)); border-color:rgba(255,255,255,.12); color:#eaf7f5; }
+  body[data-stage="gametracker"] #xgtStats .xgtTile .v, body[data-stage="gametracker"] #xgtStats .xgtPlayerTile .num { color:#eef9f8; }
+  body[data-stage="gametracker"] #xgtStats .xgtTile .k, body[data-stage="gametracker"] #xgtStats .xgtPlayerTile .pstats { color:#9fb7b4; }
+  body[data-stage="gametracker"] #xgtStats .xgtPlayerTile .pstats .g { color:#2ecab8; }
+  body[data-stage="gametracker"] #xgtStats .xgtGp { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.12); }
+  body[data-stage="gametracker"] #xgtStats .xgtGpc { color:#eef9f8; }
+  body[data-stage="gametracker"] #xgtStats .xgtBtn, body[data-stage="gametracker"] #xgtStats button.xgtIcon, body[data-stage="gametracker"] #xgtStats .xgtSeg { background:linear-gradient(180deg, rgba(38,50,52,.95), rgba(22,30,31,.95)); border-color:rgba(255,255,255,.16); color:#eef9f8; }
+  body[data-stage="gametracker"] #xgtStats .xgtSeg button { color:#b9cfcc; }
   /* Game Tracker LIVE on the stage: the team on the left screen, the game-over banner on the field */
   #gtTeamInfo { position:absolute; inset:0; padding:8% 6%; color:#eaf7f5; font-family:'Archivo',system-ui,-apple-system,sans-serif; font-size:13.5px; line-height:1.38; overflow:hidden; background:linear-gradient(180deg, rgba(2,8,8,.70), rgba(2,8,8,.86)); }
   #gtTeamInfo .gtTiHead { font-size:12.5px; font-weight:600; color:#b6dcd9; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:8px; }
@@ -12274,9 +12325,69 @@ function xquixOpenGameTracker(o){
     gtConsoleMount();
   }
   T.open(onStage ? { chrome:'stage' } : undefined);
-  if(onStage) gtStageRefresh('state');
+  if(onStage){ gtStageRefresh('state'); gtSheetWatch(); }
   return true;
 }
+// ---- The tracker's sheets on the stage (briefs/GAMETRACKER-STAGE-SCREENS.md; MIZE 2026-09-23) ----
+// Screen sheets (start, setup, quarter/time, Menu, shootout: data-kind from the module's openSheet) fill the centre screen
+// with the field hidden; recording steps (data-kind 'record') take the floor band in place of the console, the field left
+// clear. The sheet is only positioned, never re-parented (inside #stageWrap it would sit under the tracker's shield). The
+// console follows the phase: start -> Mode; setup -> Start tracking (presses the module's own #xgtGo) + Mode; else live.
+let _gtSheetObs=null, _gtPhase=null;
+function gtStageRects(){
+  if(XQStage.consumer()!=='gametracker') return;
+  const w=document.getElementById('stageWrap'), c=document.getElementById('stageConsole'), st=document.body.style; if(!w) return;
+  const r=w.getBoundingClientRect();
+  st.setProperty('--gtScrL', Math.round(r.left)+'px'); st.setProperty('--gtScrT', Math.round(r.top)+'px');
+  st.setProperty('--gtScrW', Math.round(r.width)+'px'); st.setProperty('--gtScrH', Math.round(r.height)+'px');
+  const cr=c ? c.getBoundingClientRect() : r; const cx=(cr.width ? cr.left+cr.width/2 : r.left+r.width/2);
+  const fw=Math.min(innerWidth-16, Math.max(640, (cr.width||r.width)+40));
+  const top=Math.round(r.bottom+8);
+  st.setProperty('--gtFlL', Math.round(Math.max(8, Math.min(cx-fw/2, innerWidth-fw-8)))+'px'); st.setProperty('--gtFlW', Math.round(fw)+'px');
+  st.setProperty('--gtFlMax', Math.max(150, innerHeight-top-8)+'px');
+}
+function gtSheetSync(){
+  const b=document.body;
+  if(XQStage.consumer()!=='gametracker'){ b.classList.remove('gtSheetScreen','gtSheetFloor','gtStatsScreen','gtPreTrack','gtTut'); _gtPhase=null; return; }
+  const sh=document.getElementById('xgtSheet'), stats=document.getElementById('xgtStats');
+  const on=!!(sh && sh.classList.contains('on')), kind=on ? (sh.dataset.kind||'record') : '';
+  // MIZE 2026-09-23 (after approving the concept): recording steps on the centre screen too, not on the console, so the
+  // clock and the other console information stay in view while a play is logged. Every sheet is a screen sheet now.
+  b.classList.toggle('gtSheetScreen', on);
+  b.classList.remove('gtSheetFloor');
+  b.classList.toggle('gtStatsScreen', !!(stats && stats.classList.contains('on')));
+  gtStageRects();
+  // a tracker tutorial rings the live console's controls (clock, quarter, undo, menu): keep it live while one runs
+  const tut=window.XquiXGameTrackerTutorial && typeof window.XquiXGameTrackerTutorial.isRunning==='function' && window.XquiXGameTrackerTutorial.isRunning();
+  b.classList.toggle('gtTut', !!tut);
+  const phase = tut ? 'live' : kind==='landing' ? 'landing' : kind==='setup' ? 'setup' : 'live';
+  b.classList.toggle('gtPreTrack', phase!=='live');
+  if(phase!==_gtPhase){
+    _gtPhase=phase;
+    if(phase==='live'){ gtConsoleMount(); gtStageRefresh('state'); }
+    else XQStage.setControls({ groups:[
+      ...(phase==='setup' ? [ { label:'Game setup', items:[ { id:'start', label:'Start tracking', big:true, active:true, title:'Start tracking this game', onTap:gtStageStartTap } ] } ] : []),
+      { label:'System', items:[ { id:'exit', label:'Mode', title:'Choose a mode (XquiX Home)', onTap:gtStageModeTap } ] } ] });
+  }
+}
+function gtStageStartTap(){
+  document.getElementById('xgtGo')?.click();
+  // the module's own validation message sits at the end of the form: bring it into view on the screen
+  setTimeout(()=>{ const e=document.getElementById('xgtSetupErr'); if(e && e.classList.contains('on')) e.scrollIntoView({ block:'nearest', behavior:'smooth' }); }, 30);
+}
+function gtSheetWatch(){
+  if(_gtSheetObs) _gtSheetObs.disconnect();
+  const sh=document.getElementById('xgtSheet'), stats=document.getElementById('xgtStats');
+  _gtSheetObs=new MutationObserver(()=>gtSheetSync());
+  if(sh) _gtSheetObs.observe(sh, { attributes:true, attributeFilter:['class','data-kind'] });
+  if(stats) _gtSheetObs.observe(stats, { attributes:true, attributeFilter:['class'] });
+  _gtPhase=null; gtSheetSync();
+  // a tracker tutorial starting or ending changes the phase without a sheet change: re-sync then (wrapped once)
+  const TT=window.XquiXGameTrackerTutorial;
+  if(TT && !TT._gtStageWrapped){ TT._gtStageWrapped=true; ['start','exit'].forEach(k=>{ const f=TT[k]; if(typeof f==='function') TT[k]=function(){ const r=f.apply(this, arguments); setTimeout(gtSheetSync, 0); return r; }; }); }
+  if(!gtSheetWatch._layoutHooked){ gtSheetWatch._layoutHooked=true; XQStage.on('layout', ()=>{ if(XQStage.consumer()==='gametracker') gtStageRects(); }); }
+}
+
 let _gtTeamNode=null;
 function gtTeamInfoMount(){
   if(!_gtTeamNode){ _gtTeamNode=document.createElement('div'); _gtTeamNode.id='gtTeamInfo'; }
@@ -12336,9 +12447,11 @@ function gtLiveInfoMount(){
   gtLiveInfoRender('state');
   if(!_gtHooked && window.XquiXGameTracker && typeof window.XquiXGameTracker.onChange==='function'){
     _gtHooked=true;
-    window.XquiXGameTracker.onChange(kind=>{ if(XQStage.consumer()==='gametracker'){ gtLiveInfoRender(kind); gtStageRefresh(kind); } });
+    window.XquiXGameTracker.onChange(kind=>{ if(XQStage.consumer()==='gametracker'){ if(kind!=='clock') gtSheetSync(); gtLiveInfoRender(kind); gtStageRefresh(kind); } });
     window.XquiXGameTracker.onClose(()=>{
       if(XQStage.consumer()!=='gametracker') return;
+      if(_gtSheetObs){ _gtSheetObs.disconnect(); _gtSheetObs=null; } _gtPhase=null;
+      document.body.classList.remove('gtSheetScreen','gtSheetFloor','gtStatsScreen','gtPreTrack','gtTut');
       document.getElementById('gtStageBanner')?.remove();
       document.getElementById('xgtBar')?.remove();   // the module's bar, hosted on the TEAM screen; its chrome is gone
       if(_gtTeamNode){ _gtTeamNode.innerHTML=''; _gtTeamNode.classList.remove('xgtBarHost'); }
