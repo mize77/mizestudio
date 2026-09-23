@@ -12290,7 +12290,7 @@ function gtTeamInfoRender(r){
   const single = !(r.trackingMode==='coach' && r.playerRole==='team');
   let head=_gtTeamNode.querySelector('.gtTiHead'), slot=_gtTeamNode.querySelector('.gtTiBarSlot');
   if(!head){ _gtTeamNode.classList.add('xgtBarHost'); _gtTeamNode.innerHTML='<div class="gtTiHead"></div><div class="gtTiBarSlot"></div>'; head=_gtTeamNode.querySelector('.gtTiHead'); slot=_gtTeamNode.querySelector('.gtTiBarSlot'); }
-  head.textContent = single ? ((r.playerRole==='goalkeeper' ? 'Goalkeeper' : 'Field player')+(r.trackedPlayer && r.trackedPlayer.number!=null ? ' #'+r.trackedPlayer.number : '')) : (r.game && r.game.home || 'My team')+(r.opponentTracked ? ' · '+(r.game && r.game.away || 'Opponent') : '');
+  head.textContent = single ? ((r.playerRole==='goalkeeper' ? 'Goalkeeper' : 'Field player')+(r.trackedPlayer && r.trackedPlayer.number!=null && r.trackedPlayer.number!=='' ? ' #'+r.trackedPlayer.number : '')) : (r.game && r.game.home || 'My team')+(r.opponentTracked ? ' · '+(r.game && r.game.away || 'Opponent') : '');
   const bar=document.getElementById('xgtBar');
   if(bar && bar.parentElement!==slot) slot.appendChild(bar);
 }
@@ -12302,8 +12302,17 @@ function gtConsoleMount(){
       { id:'quarter', label:'Quarter', title:'Quarter and time', onTap:()=>T.openQuarterMenu() } ] },
     { label:'Action', items:[ { id:'undo', label:'Undo', disabled:true, onTap:()=>T.undo() } ] },
     { label:'Information', items:[ { id:'stats', label:'Stats', onTap:()=>T.openStats() } ] },
-    { label:'System', items:[ { id:'menu', label:'Menu', onTap:()=>T.openMenu() }, { id:'exit', label:'Exit', onTap:()=>T.exit() } ] },
+    // Mode (MIZE 2026-09-23, was Exit): leaves the tracker exactly as Exit did (the game is kept, as before) and opens
+    // the mode selection (XquiX Home). The id stays 'exit' -- the stage tutorials ring '#stageConsole [data-id="exit"]';
+    // during a tutorial it only closes the tracker, so the lesson's own ending is unchanged.
+    { label:'System', items:[ { id:'menu', label:'Menu', onTap:()=>T.openMenu() }, { id:'exit', label:'Mode', title:'Choose a mode (XquiX Home)', onTap:gtStageModeTap } ] },
   ] });
+}
+function gtStageModeTap(){
+  const T=window.XquiXGameTracker; if(!T) return;
+  const tut=window.XquiXGameTrackerTutorial && typeof window.XquiXGameTrackerTutorial.isRunning==='function' && window.XquiXGameTrackerTutorial.isRunning();
+  T.exit();
+  if(!tut && !(typeof T.isOpen==='function' && T.isOpen()) && typeof xquixShowHome==='function') xquixShowHome();
 }
 function gtStageRefresh(kind){
   const T=window.XquiXGameTracker; if(!T || typeof T.liveRecord!=='function' || XQStage.consumer()!=='gametracker') return;
