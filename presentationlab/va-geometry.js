@@ -237,6 +237,18 @@
     if (!vg) return { error: 'set which team attacks the visible goal (Light attacks / Dark attacks) — it is not inferred' };
     const seq = { W: 0, B: 0 }, letters = 'abcdefghijklmnopqrstuvwxyz';
     const players = [], excluded = [];
+    /* FACING (MIZE, 2026-09-24): faces cannot be read through the splash, so a coaching rule stands in.
+       Everyone squares to the BALL, not to the goal: an attacker faces the ball (which is between him and the goal he
+       attacks, or beside him), a defender keeps his back to the goal he defends and squares to the ball. The center
+       pair - the players in front of the goal at about 2-4 m - are exempt: they fight for position and are not
+       squared to anything; they face along the goal line, toward each other. Without a ball the attackers face the
+       goal center and the defenders face out. Studio rotation: 0 = up the board, 90 = east; y grows downward. */
+    const goalPt = vg === 'left' ? { x: 2, y: 12 } : { x: 27, y: 12 };
+    const ballPt = (result.ball && result.ball.calc) ? (() => { const bb = toBoard(result.ball.calc.X, result.ball.calc.Y, vg, hand); return bb.inXquiX ? { x: bb.x, y: bb.y } : null; })() : null;
+    const rotTo = (from, to) => { const dx = to.x - from.x, dy = to.y - from.y, d = Math.hypot(dx, dy); if (d < 0.01) return null; return ((Math.atan2(dx / d, -(dy / d)) * 180 / Math.PI) % 360 + 360) % 360; };
+    const away = a => (a + 180) % 360;
+    const attackingTeam = opts.attackingAtVisibleGoal;
+    const placed = [], labelOf = {};   // board positions with side, for the center-pair rule; label per source id
     for (const r of result.players || []) {
       if (r.team !== 'light' && r.team !== 'dark') { excluded.push({ id: r.id, reason: 'team unknown' }); continue; }
       const b = toBoard(r.calc.X, r.calc.Y, vg, hand);
@@ -250,22 +262,43 @@
       // A goalkeeper's label must start with W/B (Studio reads the goalie's side from label[0]), so the
       // goalkeeper keeps that single team letter on the cap — the one visible mark, and not a number.
       const ZW = '\u200b';
+      // A play (several frames): r.track is the player's number in the tracked play, so the same player keeps the
+      // same label in every frame - Studio's timeline animates players by label.
       let label;
-      if (gk) { const k = side + 'g'; seq[k] = (seq[k] || 0) + 1; label = side + ZW.repeat(seq[k]); }
+      if (r.track > 0) label = gk ? side + ZW.repeat(r.track) : ZW.repeat(r.track + 10);
+      else if (gk) { const k = side + 'g'; seq[k] = (seq[k] || 0) + 1; label = side + ZW.repeat(seq[k]); }
       else { seq.zw = (seq.zw || 0) + 1; label = ZW.repeat(seq.zw + 10); }
-      // Field players face the visible goal; goalkeepers face out into the field. 90 = east, 270 = west.
+      if (r.id != null) labelOf[r.id] = label;
       const towardGoal = vg === 'left' ? 270 : 90, outward = vg === 'left' ? 90 : 270;
+      const isAtt = r.team === attackingTeam, here = { x: b.x, y: b.y };
+      let rot;
+      if (gk) rot = (ballPt && rotTo(here, ballPt)) || outward;                    // the goalkeeper squares to the ball (MIZE); out into the field without one
+      else if (ballPt && Math.hypot(here.x - ballPt.x, here.y - ballPt.y) < 0.8) rot = isAtt ? rotTo(here, goalPt) ?? towardGoal : outward;   // the ball carrier: faces the goal he attacks
+      else if (ballPt) { const toBall = rotTo(here, ballPt); rot = toBall == null ? (isAtt ? towardGoal : outward) : toBall;
+        if (!isAtt && toBall != null) {                                              // a defender squares to the ball but never turns his back... 
+          // keeps his back to his goal: if the ball is behind him (nearer the goal than he is), face out instead
+          const dHere = Math.hypot(here.x - goalPt.x, here.y - goalPt.y), dBall = Math.hypot(ballPt.x - goalPt.x, ballPt.y - goalPt.y);
+          if (dBall < dHere - 0.5) rot = outward;
+        } }
+      else rot = isAtt ? towardGoal : outward;
+      placed.push({ i: players.length, att: isAtt, gk, here });
       players.push({
         label, team: gk ? 'goalie' : studioColour(r.team), name: label, role: gk ? 'Goalkeeper' : 'Driver',
-        x: +b.x.toFixed(3), y: +b.y.toFixed(3), pose: 'v', rot: gk ? outward : towardGoal,
+        x: +b.x.toFixed(3), y: +b.y.toFixed(3), pose: 'v', rot,
         locked: false, hidden: false, blockArm: 'none', blockArmSaved: 'right', blockMaxAngle: 15, category: '',
         sizePercent: 100, visionDistance: 5, secondaryVisionAngle: 0, showPrimaryVision: false, showSecondaryVision: false
       });
     }
+    // the center pair: the attacker and the defender in front of the goal at 2-4 m, within 2 m of each other and near
+    // the goal's center line - they face each other along the goal line, not the ball
+    const front = placed.filter(p => !p.gk && Math.abs(p.here.x - goalPt.x) >= 1.5 && Math.abs(p.here.x - goalPt.x) <= 4.5 && Math.abs(p.here.y - goalPt.y) <= 2.5);
+    const ca = front.filter(p => p.att), cd = front.filter(p => !p.att); let pair = null;
+    for (const a of ca) for (const d of cd) { const dist = Math.hypot(a.here.x - d.here.x, a.here.y - d.here.y); if (dist <= 2 && (!pair || dist < pair.dist)) pair = { a, d, dist }; }
+    if (pair) { const ra = rotTo(pair.a.here, pair.d.here), rd = rotTo(pair.d.here, pair.a.here); if (ra != null) players[pair.a.i].rot = ra; if (rd != null) players[pair.d.i].rot = rd; }
     let ball = { x: 14.5, y: 12, carrier: null, hand: 'right' }, ballShown = false;
     if (result.ball && result.ball.calc) {
       const b = toBoard(result.ball.calc.X, result.ball.calc.Y, vg, hand);
-      if (b.inXquiX) { ball = { x: +b.x.toFixed(3), y: +b.y.toFixed(3), carrier: null, hand: 'right' }; ballShown = true; }
+      if (b.inXquiX) { ball = { x: +b.x.toFixed(3), y: +b.y.toFixed(3), carrier: (result.ball.holderId != null && labelOf[result.ball.holderId]) || null, hand: 'right' }; ballShown = true; }
     }
     const name = opts.name || 'Video geometry test';
     return {
@@ -274,7 +307,7 @@
         savedAt: opts.savedAt || new Date().toISOString(),
         state: { players, ball, extraBalls: [], drawings: [],
                  layers: { players: true, ball: ballShown, drawings: true, highlights: true, notes: true, ghosts: true } },
-        videoAnalysis: { phase: 'B', orientation: byConvention ? 'by-colour' : 'as-video', visibleGoal: vg, handedness: hand, attacking: opts.attackingAtVisibleGoal, studioColours: { light: studioColour('light'), dark: studioColour('dark') }, spec: result.spec,
+        videoAnalysis: { phase: 'B', orientation: byConvention ? 'by-colour' : 'as-video', visibleGoal: vg, handedness: hand, attacking: opts.attackingAtVisibleGoal, facing: ballPt ? 'squared-to-ball' : 'toward-goal', centerPair: !!pair, studioColours: { light: studioColour('light'), dark: studioColour('dark') }, spec: result.spec,
                          players: (result.players || []).map(r => ({ id: r.id, team: r.team, side: r.team === opts.attackingAtVisibleGoal ? 'offence' : (r.team === 'unknown' ? 'unknown' : 'defence'), role: r.role, capNumber: null, sourceField: r.calc })) }
       },
       excluded

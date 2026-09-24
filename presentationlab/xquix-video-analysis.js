@@ -81,6 +81,25 @@
   #xqva .tags input{font:13px system-ui,-apple-system,sans-serif;color:#e8eef0;background:#121a1d;border:1px solid #2a3a3e;border-radius:7px;padding:6px 9px;min-width:130px;max-width:200px}
   #xqva .tags input:focus{outline:none;border-color:#2ecab8}
   #xqva .tags .hint{font-size:12px;color:#8a9aa0}
+  #xqvaLib{position:fixed;inset:0;z-index:2147481500;background:rgba(7,9,10,.92);color:#e8eef0;display:flex;flex-direction:column;font:14px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  #xqvaLib .bar{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;background:#0e1416;border-bottom:1px solid #1d282b;flex-wrap:wrap}
+  body.xqvaLab #xqvaLib{top:22px}
+  #xqvaLib .title{font-weight:650}
+  #xqvaLib select,#xqvaLib input{font:13px system-ui,-apple-system,sans-serif;color:#e8eef0;background:#121a1d;border:1px solid #2a3a3e;border-radius:7px;padding:6px 9px}
+  #xqvaLib button{font:600 13px system-ui,-apple-system,sans-serif;color:#e8eef0;background:#172124;border:1px solid #2a3a3e;border-radius:7px;padding:7px 12px;cursor:pointer}
+  #xqvaLib button:hover{border-color:#2ecab8}
+  #xqvaLib button.primary{background:#10302c;border-color:#2ecab8;color:#fff}
+  #xqvaLib .lbl{font-size:12px;color:#8a9aa0}
+  #xqvaLib .spacer{flex:1}
+  #xqvaLib .grid{flex:1;overflow:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;align-content:start}
+  #xqvaLib .card{background:#0e1416;border:1px solid #1d282b;border-radius:10px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
+  #xqvaLib .card:hover{border-color:#2ecab8}
+  #xqvaLib .card .thumb{aspect-ratio:16/9;background:#050708 center/cover no-repeat}
+  #xqvaLib .card .meta{padding:8px 10px;display:flex;flex-direction:column;gap:3px}
+  #xqvaLib .card .teams{font-weight:650;font-size:13px}
+  #xqvaLib .card .sys{font-size:12px;color:#cfdadd}
+  #xqvaLib .card .when{font-size:11px;color:#8a9aa0}
+  #xqvaLib .empty{grid-column:1/-1;color:#8a9aa0;padding:30px;text-align:center}
   #xqva .checks{display:flex;gap:6px;flex-wrap:wrap}
   #xqva .chk{font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid #243236;color:#b8c6ca;background:transparent;cursor:pointer}
   #xqva .chk.ok{color:#cfe9e5;border-color:rgba(46,202,184,.45)}
@@ -185,6 +204,7 @@
     if (window.VAField && window.VAFieldStd && window.VACheck) return Promise.resolve();
     return (window.VAFieldStd ? Promise.resolve() : loadScript('va-field-std.js')).then(() => window.VAField ? null : loadScript('va-field.js')).then(() => window.VACheck ? null : loadScript('va-check.js'));
   }
+  const ensureTrack = () => window.VATrack ? Promise.resolve() : loadScript('va-track.js');
   function autoField() {
     const busy = $('#xqvaBusy'); busy.textContent = 'Finding the field…'; busy.classList.add('on');
     ensureField().then(() => new Promise(r => setTimeout(r, 30))).then(() => {
@@ -392,13 +412,14 @@
     for (const v of ['light', 'dark']) el('button', { class: S.attacking === v ? 'sel' : '', text: v === 'light' ? 'Light' : 'Dark', on: { click: () => { S.attacking = v; S.attackingBy = 'coach'; render(); } } }, a);
     el('span', { class: 'spacer' }, b);
     el('button', { text: 'Back to field', on: { click: () => { S.step = 'field'; closePop(); render(); } } }, b);
-    el('button', { class: 'primary', id: 'xqvaShow', text: 'Show on board', disabled: showReady() ? null : '', on: { click: showOnBoard } }, b);
+    if (S.play) el('button', { class: 'primary', id: 'xqvaShow', text: 'Track the play', title: `Read every 0.5 s from ${fmtT(S.play.start)} to ${fmtT(S.play.end)} and animate it on the board`, disabled: showReady() ? null : '', on: { click: trackPlay } }, b);
+    else el('button', { class: 'primary', id: 'xqvaShow', text: 'Show on board', disabled: showReady() ? null : '', on: { click: showOnBoard } }, b);
     const shaky = S.fitInfo && S.fitInfo.pxMax > 20;
     const pre = S.autoField && S.autoField.ok ? (shaky ? 'Field found automatically, but the lane-line marks don’t fully agree — check the field lines closely. ' : 'Field found automatically — check the field lines. ') : '';
     if (c.unknown) msg(pre + 'Tap each grey “?” player and set Light or Dark.', 'warn');
     else if (S.attacking && !tagsComplete()) msg(pre + 'Name the offensive or the defensive system (one is required), then Show on board.', 'warn');
     else if (!S.attacking) msg(pre + 'Which team is attacking? The scene can’t tell from these pairs — choose Light or Dark.', 'warn');
-    else msg(pre + 'Tap a ring to fix it, tap the water to add a missed player or the ball.' + (S.attackingBy === 'pairs' ? ' Attacking side read from the player pairs — change it if wrong.' : ''), shaky ? 'warn' : '');
+    else msg(pre + (S.play ? 'This is the first moment of the play: check every player, team and the ball — the play is tracked from them. ' : '') + 'Tap a ring to fix it, tap the water to add a missed player or the ball.' + (S.attackingBy === 'pairs' ? ' Attacking side read from the player pairs — change it if wrong.' : ''), shaky ? 'warn' : '');
   }
 
   // ---------- pointer ----------
@@ -521,7 +542,7 @@
     if (out.error) { msg(out.error, 'warn'); return; }
     const rec = out.record;
     rec.videoAnalysis.phase = 'E-lab';
-    rec.videoAnalysis.tags = Object.assign({}, S.tags);
+    rec.videoAnalysis.tags = Object.assign({}, S.tags); rec.videoAnalysis.H = S.cal.H;
     rec.videoAnalysis.review = { frameCheck: S.metrics || null, teamSep: S.teamSep ?? null, markers: S.markers.map(m => Object.assign({ label: markerLabel(m) }, m, markerWorld(m, S.spec))), fit: S.fitInfo,
       detector: S.detector, corrections: S.corrections, ballPlacedAtHolder: !!(S.ball && nearestHolder(S.ball.px)) };
     try {
@@ -543,6 +564,120 @@
     return best && bd < Math.max(60, 3 * best.capPx) ? best : null;
   }
 
+  // ---------- a play, not one moment (MIZE, 2026-09-24: "animate the play on the tactical board") ----------
+  /* The coach pauses the video at the start of the possession and taps Track play; plays on to its end, pauses,
+     taps again. The first moment is analyzed and confirmed exactly like a scene (it is saved for learning like one).
+     Then every 0.5 s of the play is read with the same calibration, the detections are linked to the confirmed
+     players (va-track.js), and the frames go onto the Studio timeline, 0.5 s apart, ready to play. Frames where a
+     player was not found keep his last position and say so in the frame note - a gap is shown, never filled in. */
+  const PLAY = { step: 0.5, maxSec: 30 };
+  let playMark = null;   // { video, start } after the first tap
+  const fmtT = t => { t = Math.max(0, t || 0); const m = Math.floor(t / 60), sec = t - m * 60; return m + ':' + (sec < 10 ? '0' : '') + sec.toFixed(1); };
+  function seekTo(v, t) {
+    return new Promise((res, rej) => {
+      if (Math.abs(v.currentTime - t) < 0.02 && v.readyState >= 2) return res();
+      const h = setTimeout(() => { v.removeEventListener('seeked', on); rej(new Error('the video did not seek to ' + fmtT(t))); }, 5000);
+      const on = () => { clearTimeout(h); v.removeEventListener('seeked', on); res(); };
+      v.addEventListener('seeked', on); v.currentTime = t;
+    }).then(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 40))));
+  }
+  function markPlay() {
+    const m = sourceMedia();
+    if (!m || m.tagName !== 'VIDEO') { notify('Track play needs a video file on the left screen (Screens → Left → File). A YouTube player can’t be read frame by frame — use Analyze with screen capture for single moments.'); return; }
+    if (!m.videoWidth) { notify('The video has not loaded a picture yet. Play it to the start of the possession, pause, and try again.'); return; }
+    if (!m.paused) m.pause();
+    const t = m.currentTime;
+    if (!playMark || playMark.video !== m || t <= playMark.start + 0.6) {
+      playMark = { video: m, start: t };
+      toast(`Start of the play marked at ${fmtT(t)}. Play on to the end of the possession, pause there, and tap “End here”.`, true);
+      try { if (typeof cwRender === 'function') cwRender(); } catch (_) {}
+      return;
+    }
+    const start = playMark.start; let end = t, cut = '';
+    if (end - start > PLAY.maxSec) { end = start + PLAY.maxSec; cut = ` The play is cut at ${PLAY.maxSec} s.`; }
+    playMark = null; try { if (typeof cwRender === 'function') cwRender(); } catch (_) {}
+    loadModel().catch(() => {});
+    seekTo(m, start).then(() => {
+      const g = grab();
+      if (g.error) { notify(g.error); return; }
+      if (g.capture) { notify('The video’s picture can’t be read (a protected or cross-site video). Use a video file.'); return; }
+      g.name = `Play ${fmtT(start)}–${fmtT(end)}`;
+      start_(g, { video: m, start, end });
+      if (cut) notify(cut.trim());
+    }).catch(e => notify('Could not go to the start of the play: ' + e.message));
+  }
+  function start_(g, play) { start(g); S.play = play; render(); }
+  const detToWorld = p => { const w = VADetect.ap(S.cal.Hi, p.waterline[0], p.waterline[1]); return { id: p.id, team: p.team, role: p.role, X: w[0], Y: w[1], head: p.head, capPx: p.capPx }; };
+  async function trackPlay() {
+    if (!S || !S.play || !showReady()) return;
+    const P = S.play, v = P.video, H = S.cal.H, spec = { length: S.spec.length, width: S.spec.width, goalWidth: S.spec.goalWidth };
+    const busy = $('#xqvaBusy'); busy.textContent = 'Reading the play…'; busy.classList.add('on');
+    const btn = $('#xqvaShow'); if (btn) btn.disabled = '';
+    try {
+      const [model] = await Promise.all([loadModel(), ensureTrack()]);
+      // the confirmed first moment: the tracks. The goalkeeper's team is the defending team (as in showOnBoard).
+      const defending = S.attacking === 'light' ? 'dark' : 'light';
+      const tracks = S.players.map((p, i) => Object.assign(detToWorld(p), { track: i + 1, team: p.role === 'goalkeeper' ? 'unknown' : p.team, held: false, jump: false, moved: 0 }));
+      const ballAt = (ball, players) => {   // where the ball is, in meters: at its holder if one is close (a held ball is above the water)
+        if (!ball) return null;
+        let best = null, bd = 1e9; for (const q of players) { const d = Math.hypot(q.head[0] - ball.px[0], q.head[1] - ball.px[1]); if (d < bd) { bd = d; best = q; } }
+        if (best && bd < Math.max(60, 3 * best.capPx)) return { calc: { X: best.X, Y: best.Y }, holderId: best.id, px: ball.px };
+        const w = VADetect.ap(S.cal.Hi, ball.px[0], ball.px[1]); return { calc: { X: w[0], Y: w[1] }, holderId: null, px: ball.px };
+      };
+      const times = []; for (let t = P.start + PLAY.step; t <= P.end + 1e-6; t += PLAY.step) times.push(+t.toFixed(3));
+      const framesOut = [], log = [];
+      let ball = ballAt(S.ball, tracks), ballHeld = 0;
+      const snapshot = (t, info) => {
+        const res = { H, spec, ball: ball ? { calc: ball.calc, holderId: ball.holderId } : null,
+          players: tracks.map(k => ({ id: k.id, team: k.role === 'goalkeeper' ? defending : k.team, role: k.role, calc: { X: k.X, Y: k.Y }, track: k.track })) };
+        const out = VAG.toStudioFormation(res, { attackingAtVisibleGoal: S.attacking, name: S.frame.name });
+        if (out.error) throw new Error(out.error);
+        const held = tracks.filter(k => k.held).length, jumps = tracks.filter(k => k.jump).length;
+        const note = [fmtT(t), held ? `${held} not found (held)` : '', jumps ? `${jumps} jumped` : '', info && info.ballHeld ? 'ball not seen' : ''].filter(Boolean).join(' · ');
+        framesOut.push(Object.assign(out.record.state, { duration: PLAY.step, note }));
+        log.push({ t: +(t - P.start).toFixed(2), players: tracks.map(k => ({ track: k.track, team: k.team, role: k.role, X: +k.X.toFixed(2), Y: +k.Y.toFixed(2), held: k.held, jump: k.jump, moved: +k.moved.toFixed(2) })),
+                   ball: ball ? { X: +ball.calc.X.toFixed(2), Y: +ball.calc.Y.toFixed(2), holder: ball.holderId, held: !!(info && info.ballHeld) } : null, matched: info ? info.matched : tracks.length });
+      };
+      snapshot(P.start, null);
+      for (let k = 0; k < times.length; k++) {
+        busy.textContent = `Reading the play… ${k + 1} of ${times.length}`;
+        await seekTo(v, times[k]);
+        const f = frameFrom(v, v.videoWidth, v.videoHeight, '');
+        if (f.error) throw new Error('the video’s picture could not be read at ' + fmtT(times[k]));
+        await new Promise(r => setTimeout(r, 15));
+        const r = VADetect.detect(f.data, H, spec, model, {});
+        const dets = r.players.map(detToWorld);
+        const info = VATrack.link(tracks, dets, {});
+        tracks.forEach(k => { if (k.det) { k.head = k.det.head; k.capPx = k.det.capPx; } });
+        const nb = ballAt(r.ball, tracks.filter(k => !k.held));
+        if (nb) { ball = nb; info.ballHeld = false; }
+        else if (ball) { info.ballHeld = true; ballHeld++; if (ball.holderId) { const h = tracks.find(k => k.id === ball.holderId); if (h) ball = { calc: { X: h.X, Y: h.Y }, holderId: h.id }; } }
+        // a ball that was at a holder stays with that player while it is not seen (he is the last one known to have it)
+        snapshot(times[k], info);
+      }
+      // the first moment is a confirmed scene: saved for learning exactly like Show on board
+      const first = framesOut[0];
+      const rec = { schemaVersion: 1, type: 'formation', name: S.frame.name, savedAt: new Date().toISOString(), state: first,
+        videoAnalysis: { phase: 'E-lab', play: { start: P.start, end: P.end, step: PLAY.step, frames: framesOut.length }, tags: Object.assign({}, S.tags), H, attacking: S.attacking,
+          review: { frameCheck: S.metrics || null, teamSep: S.teamSep ?? null, markers: S.markers.map(m => Object.assign({ label: markerLabel(m) }, m, markerWorld(m, S.spec))), fit: S.fitInfo, detector: S.detector, corrections: S.corrections } } };
+      const snapshotRec = trainingRecord(rec);
+      const held = log.reduce((a, f) => a + f.players.filter(p => p.held).length, 0), jumps = log.reduce((a, f) => a + f.players.filter(p => p.jump).length, 0);
+      window.XQUIX.VideoAnalysis.lastPlay = { name: S.frame.name, start: P.start, end: P.end, step: PLAY.step, tags: Object.assign({}, S.tags), attacking: S.attacking, H, spec, frames: log, held, jumps, ballHeld };
+      // onto the timeline
+      if (typeof frames === 'undefined' || typeof loadFrame !== 'function') throw new Error('this Studio has no timeline to take the play');
+      try { if (typeof recordHistory === 'function') recordHistory('Analyze play: ' + S.frame.name); } catch (_) {}
+      frames = framesOut; currentFrame = 0; loadFrame(0);
+      try { if (typeof openTimelinePanel === 'function') openTimelinePanel(); } catch (_) {}
+      const n = framesOut.length; busy.classList.remove('on'); close();
+      saveForTraining(snapshotRec);
+      try { if (typeof XQStage !== 'undefined' && XQStage.isOpen()) XQStage.setCamera('center'); } catch (_) {}
+      const flags = [held ? `${held} player position${held === 1 ? '' : 's'} held (not found)` : '', jumps ? `${jumps} jump${jumps === 1 ? '' : 's'} flagged` : '', ballHeld ? `ball not seen in ${ballHeld} frame${ballHeld === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ');
+      setTimeout(() => notify(`Play on the timeline: ${n} frames, ${((n - 1) * PLAY.step).toFixed(1)} s. ` + (flags ? `Check the frames whose note says so: ${flags}.` : 'Every player was found in every frame.')), 700);
+    } catch (e) {
+      busy.classList.remove('on'); if (btn) btn.disabled = null; msg('The play could not be tracked: ' + e.message, 'warn');
+    }
+  }
+
   // ---------- learning by doing (MIZE, 2026-09-24) ----------
   /* Every confirmed scene is kept as training data: the frame (private bucket video-analysis, <user id>/<scene id>.jpg)
      and a row in public.video_analysis_scenes with the field, the detector's reading, what the coach confirmed and every
@@ -562,7 +697,7 @@
   function toast(text, warn) {
     let t = document.getElementById('xqvaToast');
     if (!t) { t = el('div', { id: 'xqvaToast' }, document.body);
-      t.style.cssText = 'position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:2147481600;background:#0e1416;color:#e8eef0;border:1px solid #2a3a3e;border-radius:8px;padding:8px 14px;font:600 13px system-ui,-apple-system,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.5);transition:opacity .4s;max-width:min(560px,calc(100vw - 32px));text-align:center'; }
+      t.style.cssText = 'position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:2147481600;background:#0e1416;color:#e8eef0;border:1px solid #2a3a3e;border-radius:8px;padding:8px 14px;font:600 13px system-ui,-apple-system,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.5);transition:opacity .4s;max-width:min(560px,calc(100vw - 32px));text-align:center;pointer-events:none'; }
     t.textContent = text; t.style.borderColor = warn ? 'rgba(242,194,48,.7)' : 'rgba(46,202,184,.55)'; t.style.opacity = '1';
     clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = '0'; }, warn ? 6000 : 3000);
   }
@@ -612,6 +747,164 @@
     btn.disabled = false; btn.textContent = label;
   }
 
+  // ---------- scene library (MIZE, 2026-09-24: tagged situations, searchable by team and system) ----------
+  let LIB = null;
+  async function openLibrary() {
+    const A = auth(), sb = A && A.getClient();
+    if (!sb || !A.getCurrentUser()) { toast('Sign in to the Studio to open the scene library.', true); return; }
+    closeLibrary();
+    document.body.classList.toggle('xqvaLab', !!document.getElementById('labBanner'));
+    const o = el('div', { id: 'xqvaLib', role: 'dialog', 'aria-label': 'Scene library' }, document.body);
+    const top = el('div', { class: 'bar' }, o);
+    el('span', { class: 'title', text: 'Scene library' }, top);
+    el('span', { class: 'lbl', text: 'Team' }, top); const fTeam = el('select', { id: 'xqvaLibTeam' }, top);
+    el('span', { class: 'lbl', text: 'System' }, top); const fSys = el('select', { id: 'xqvaLibSys' }, top);
+    el('span', { class: 'lbl', text: 'Side' }, top); const fSide = el('select', { id: 'xqvaLibSide' }, top);
+    for (const [v, t] of [['', 'Any'], ['offense', 'Offense'], ['defense', 'Defense']]) el('option', { value: v, text: t }, fSide);
+    const count = el('span', { class: 'lbl', id: 'xqvaLibCount' }, top);
+    el('span', { class: 'spacer' }, top);
+    el('button', { class: 'primary', id: 'xqvaLibCompare', text: 'Compare', title: 'The average formation of the scenes shown, on the board', on: { click: compareScenes } }, top);
+    el('button', { text: 'Close', on: { click: closeLibrary } }, top);
+    const grid = el('div', { class: 'grid', id: 'xqvaLibGrid' }, o);
+    el('div', { class: 'empty', text: 'Loading…' }, grid);
+    document.addEventListener('keydown', libKey, true);
+    const { data, error } = await sb.from('video_analysis_scenes').select('id,created_at,name,source,frame_path,team_attacking,team_defending,system_offense,system_defense,formation,field').order('created_at', { ascending: false });
+    if (error) { grid.innerHTML = ''; el('div', { class: 'empty', text: 'Could not load the scenes: ' + error.message }, grid); return; }
+    LIB = { scenes: data, thumbs: {} };
+    const teams = [...new Set(data.flatMap(r => [r.team_attacking, r.team_defending]).filter(Boolean))].sort();
+    const systems = [...new Set(data.flatMap(r => [r.system_offense, r.system_defense]).filter(Boolean))].sort();
+    el('option', { value: '', text: 'Any team' }, fTeam); teams.forEach(t => el('option', { value: t, text: t }, fTeam));
+    el('option', { value: '', text: 'Any system' }, fSys); systems.forEach(t => el('option', { value: t, text: t }, fSys));
+    [fTeam, fSys, fSide].forEach(f => f.addEventListener('change', renderLibrary));
+    renderLibrary();
+  }
+  function libKey(e) { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); closeLibrary(); } }
+  function closeLibrary() { const o = document.getElementById('xqvaLib'); if (o) o.remove(); if (!document.getElementById('xqva')) document.body.classList.remove('xqvaLab'); document.removeEventListener('keydown', libKey, true); }
+  function libraryFilter() {
+    const team = ($('#xqvaLibTeam') || {}).value || '', sys = ($('#xqvaLibSys') || {}).value || '', side = ($('#xqvaLibSide') || {}).value || '';
+    return LIB.scenes.filter(r => {
+      if (team && r.team_attacking !== team && r.team_defending !== team) return false;
+      if (sys && r.system_offense !== sys && r.system_defense !== sys) return false;
+      // "side" is about the chosen team when one is chosen (its offense = it attacks), else about which system is named
+      if (side === 'offense') { if (team ? r.team_attacking !== team : !r.system_offense) return false; }
+      if (side === 'defense') { if (team ? r.team_defending !== team : !r.system_defense) return false; }
+      return true;
+    });
+  }
+  function renderLibrary() {
+    const grid = $('#xqvaLibGrid'); if (!grid || !LIB) return; grid.innerHTML = '';
+    const rows = libraryFilter(); $('#xqvaLibCount').textContent = rows.length + (rows.length === 1 ? ' scene' : ' scenes');
+    const cb = $('#xqvaLibCompare'); if (cb) cb.disabled = rows.length < 2;
+    if (!rows.length) { el('div', { class: 'empty', text: LIB.scenes.length ? 'No scene matches these filters.' : 'No scenes saved yet. Every scene you put on the board with Analyze is saved here.' }, grid); return; }
+    for (const r of rows) {
+      const card = el('div', { class: 'card', role: 'button', tabindex: 0, title: 'Open this scene on the board' }, grid);
+      const th = el('div', { class: 'thumb' }, card); loadThumb(r, th);
+      const m = el('div', { class: 'meta' }, card);
+      el('div', { class: 'teams', text: [r.team_attacking, r.team_defending].filter(Boolean).join(' vs ') || (r.name || 'Scene') }, m);
+      el('div', { class: 'sys', text: [r.system_offense && 'O: ' + r.system_offense, r.system_defense && 'D: ' + r.system_defense].filter(Boolean).join('  ·  ') }, m);
+      el('div', { class: 'when', text: new Date(r.created_at).toLocaleString() + (r.source === 'lab' ? ' · lab' : '') }, m);
+      const open = () => openScene(r);
+      card.addEventListener('click', open); card.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') open(); });
+    }
+  }
+  async function loadThumb(r, th) {
+    if (!r.frame_path) return;
+    if (LIB.thumbs[r.id]) { th.style.backgroundImage = `url(${LIB.thumbs[r.id]})`; return; }
+    try { const sb = auth().getClient(); const { data, error } = await sb.storage.from('video-analysis').createSignedUrl(r.frame_path, 600);
+      if (!error && data && data.signedUrl) { LIB.thumbs[r.id] = data.signedUrl; th.style.backgroundImage = `url(${data.signedUrl})`; } } catch (e) {}
+  }
+  /* A saved scene back onto the board: the same formation record that went there when it was confirmed. */
+  function openScene(r) {
+    const va = r.formation; if (!va) { toast('This scene has no board record.', true); return; }
+    try {
+      // rebuild the Studio record from the stored videoAnalysis + confirmed players via toStudioFormation
+      const res = { H: va.H, spec: va.spec, players: (va.players || []).map(p => ({ id: p.id, team: p.team, role: p.role, calc: p.sourceField })), ball: null };
+      const out = VAG.toStudioFormation(Object.assign({}, res, { H: va.H || hFromVa(r) }), { attackingAtVisibleGoal: va.attacking, name: r.name || 'Scene' });
+      if (out.error) throw new Error(out.error);
+      const rec = out.record; rec.videoAnalysis = va;
+      if (typeof recordHistory === 'function') recordHistory('Scene library: ' + rec.name);
+      loadState(typeof formationRecordState === 'function' ? formationRecordState(rec) : rec.state);
+      if (typeof resetTimelineForFormationLoad === 'function') resetTimelineForFormationLoad();
+      closeLibrary();
+      try { if (typeof XQStage !== 'undefined' && XQStage.isOpen()) XQStage.setCamera('center'); } catch (e) {}
+    } catch (e) { toast('Could not open the scene: ' + e.message, true); }
+  }
+  /* Compare (MIZE, 2026-09-24: "analyze patterns and structures of systems with the same tag"): the average formation
+     of the scenes shown. Every scene is put in one frame (X out from the goal the attack goes to, Y across, +Y = the
+     far side as seen from the camera... which differs per camera - so Y is mirrored where needed so that the attackers'
+     mean Y is the same sign, the best available normalisation without cap numbers). Players of a side are matched
+     across scenes to running average positions (Hungarian assignment, iterated); each average position carries how
+     far the matched players sit from it (the spread) and in how many scenes it was found. Shown on the board as a
+     formation: the average positions as players, a note with the spread; nothing is invented - only the scenes'
+     confirmed positions go in. Needs 2 scenes; 20-30 of one team and system to say something. */
+  function scenePositions(r) {
+    const va = r.formation; if (!va || !va.players) return null;
+    const out = [];
+    for (const p of va.players) { if (!p.sourceField || p.role === 'goalkeeper') continue; if (p.side !== 'offence' && p.side !== 'defence') continue;
+      out.push({ side: p.side === 'offence' ? 'offense' : 'defense', X: p.sourceField.X, Y: p.sourceField.Y }); }
+    return out.length ? out : null;
+  }
+  function hungarian(D) {          // rows <= cols; returns col index per row (min total cost), small sizes only
+    const n = D.length, m = D[0].length; let best = null;
+    const perm = (used, row, cost, asg) => { if (best && cost >= best.cost) return; if (row === n) { best = { cost, asg: asg.slice() }; return; }
+      for (let j = 0; j < m; j++) if (!used[j]) { used[j] = true; asg.push(j); perm(used, row + 1, cost + D[row][j], asg); asg.pop(); used[j] = false; } };
+    if (n <= 7) { perm(new Array(m).fill(false), 0, 0, []); return best.asg; }
+    // greedy fallback for larger sets
+    const asg = [], used = new Set(); for (let i = 0; i < n; i++) { let bj = -1; for (let j = 0; j < m; j++) if (!used.has(j) && (bj < 0 || D[i][j] < D[i][bj])) bj = j; used.add(bj); asg.push(bj); } return asg;
+  }
+  function averageFormation(sets, iters) {
+    sets = sets.filter(s => s.length);
+    if (sets.length < 2) return null;
+    // normalise the across-field sign: the attackers' ball-side is unknown, so use the side with more spread... keep simple:
+    // mirror a scene when its mean Y has the opposite sign of the first scene's mean Y (both sides together)
+    let ref = sets.reduce((a, b) => (b.length > a.length ? b : a)).map(p => [p[0], p[1]]);
+    let acc;
+    for (let it = 0; it < (iters || 8); it++) {
+      acc = ref.map(() => []);
+      for (const s of sets) {
+        const rows = ref.length <= s.length ? ref : s, cols = ref.length <= s.length ? s : ref;
+        const D = rows.map(a => cols.map(b => Math.hypot(a[0] - b[0], a[1] - b[1])));
+        const asg = hungarian(D);
+        asg.forEach((j, i) => { const ri = ref.length <= s.length ? i : j, sp = ref.length <= s.length ? s[j] : s[i]; acc[ri].push(sp); });
+      }
+      ref = acc.map((a, i) => a.length ? [a.reduce((t, p) => t + p[0], 0) / a.length, a.reduce((t, p) => t + p[1], 0) / a.length] : ref[i]);
+    }
+    return ref.map((p, i) => ({ X: p[0], Y: p[1], n: acc[i].length, spread: acc[i].length ? acc[i].reduce((t, q) => t + Math.hypot(q[0] - p[0], q[1] - p[1]), 0) / acc[i].length : null }));
+  }
+  function compareScenes() {
+    const rows = libraryFilter().map(r => ({ r, pos: scenePositions(r) })).filter(x => x.pos);
+    if (rows.length < 2) { toast('Choose at least two scenes with player positions to compare.', true); return; }
+    // mirror across the field where needed: align each scene's attackers' mean Y sign with the first scene's
+    const meanY = pos => { const a = pos.filter(p => p.side === 'offense'); return a.length ? a.reduce((t, p) => t + p.Y, 0) / a.length : 0; };
+    const sign0 = Math.sign(meanY(rows[0].pos)) || 1;
+    const norm = rows.map(x => { const sg = (Math.sign(meanY(x.pos)) || 1) === sign0 ? 1 : -1; return x.pos.map(p => ({ side: p.side, X: p.X, Y: sg * p.Y })); });
+    const avg = {};
+    for (const side of ['offense', 'defense']) avg[side] = averageFormation(norm.map(pos => pos.filter(p => p.side === side).map(p => [p.X, p.Y])));
+    if (!avg.offense && !avg.defense) { toast('These scenes hold no comparable positions.', true); return; }
+    // onto the board: attackers light, defenders dark (a comparison has no real cap colors), goal on the left
+    const H = [[1, 0, 0], [0, -1, 0], [0, 0, 1]];  // image y grows down: this puts the goal on the Studio's LEFT (handedness +1)
+    const players = [];
+    for (const side of ['offense', 'defense']) for (const p of (avg[side] || [])) players.push({ id: side + players.length, team: side === 'offense' ? 'light' : 'dark', role: 'field', calc: { X: p.X, Y: p.Y }, n: p.n, spread: p.spread });
+    const team = ($('#xqvaLibTeam') || {}).value, sys = ($('#xqvaLibSys') || {}).value, sd = ($('#xqvaLibSide') || {}).value;
+    const name = 'Average of ' + rows.length + ' scenes' + (team ? ' · ' + team : '') + (sys ? ' · ' + sys : '') + (sd ? ' · ' + sd : '');
+    const out = VAG.toStudioFormation({ H, spec: { length: 25, width: 20, goalWidth: 3 }, players, ball: null }, { attackingAtVisibleGoal: 'light', name });
+    if (out.error) { toast(out.error, true); return; }
+    const rec = out.record;
+    rec.videoAnalysis.comparison = { scenes: rows.map(x => x.r.id), filters: { team, system: sys, side: sd }, positions: players.map(p => ({ side: p.team === 'light' ? 'offense' : 'defense', X: +p.calc.X.toFixed(2), Y: +p.calc.Y.toFixed(2), scenes: p.n, spread: p.spread == null ? null : +p.spread.toFixed(2) })) };
+    try {
+      if (typeof recordHistory === 'function') recordHistory('Scene library: ' + name);
+      loadState(typeof formationRecordState === 'function' ? formationRecordState(rec) : rec.state);
+      if (typeof resetTimelineForFormationLoad === 'function') resetTimelineForFormationLoad();
+    } catch (e) { toast('The board could not take the comparison: ' + e.message, true); return; }
+    window.XQUIX.VideoAnalysis.lastComparison = rec.videoAnalysis.comparison;
+    closeLibrary();
+    try { if (typeof XQStage !== 'undefined' && XQStage.isOpen()) XQStage.setCamera('center'); } catch (e) {}
+    const worst = players.filter(p => p.spread != null).sort((a, b) => b.spread - a.spread)[0];
+    toast(`${name}: attackers light, defenders dark. Average positions; the least settled one moves ${worst ? worst.spread.toFixed(1) : '?'} m between scenes.`);
+  }
+  // the handedness (which Studio goal) needs H; it was stored in the field record of the scene
+  function hFromVa(r) { const f = r.field || {}; return f.H || null; }
+
   // ---------- Studio wiring (lab) ----------
   function wire() {
     // 1. Screens -> Left: an Analyze button next to Video · File · Clear
@@ -625,6 +918,10 @@
         L.splice(i + 1, 0, { id: 'analyze', label: 'Analyze', icon: ICON,
           title: readable ? 'Put this paused moment on the center board' : 'Put a paused game on the center board: pick the tab or window where it is paused (YouTube, Vimeo, any player)',
           tap: () => open() });
+        const marked = playMark && playMark.video === m;
+        L.splice(i + 2, 0, { id: 'trackPlay', label: marked ? 'End here' : 'Track play', icon: marked ? ICON_END : ICON_PLAY,
+          title: marked ? `Play marked from ${fmtT(playMark.start)}: pause at the end of the possession and tap` : 'Animate a possession on the center board: pause at its start and tap, play to its end, pause and tap again',
+          tap: () => markPlay() });
         return L;
       };
       wrapped._xqva = true; window.cwItems = wrapped;
@@ -641,7 +938,15 @@
         setTimeout(() => { try { if (typeof cwRender === 'function') cwRender(); } catch (_) {} }, 50);
       }, true);
     }
-    // 3. LAB panel: export the collected training scenes
+    // 3. SYSTEM group: the scene library (next to Library / Notes / Menu / Mode)
+    if (typeof window.cwItems === 'function' && !window.cwItems._xqvaLib) {
+      const orig2 = window.cwItems;
+      const wrapped2 = function (g) { const L = orig2.apply(this, arguments); if (g !== 'system' || !Array.isArray(L)) return L;
+        const i = L.findIndex(x => x && x.id === 'library');
+        L.splice(i < 0 ? 0 : i + 1, 0, { id: 'scenes', label: 'Scenes', icon: ICON, title: 'Scene library: the situations you analyzed, by team and system', tap: () => openLibrary() }); return L; };
+      wrapped2._xqva = window.cwItems._xqva; wrapped2._xqvaLib = true; window.cwItems = wrapped2;
+    }
+    // 4. LAB panel: export the collected training scenes
     const panel = document.getElementById('labPanel');
     if (panel && !document.getElementById('labVaExport')) {
       const b = document.createElement('button'); b.id = 'labVaExport'; b.textContent = 'Export training scenes (video analysis)';
@@ -651,10 +956,12 @@
     const c = document.getElementById('videoContent');
     if (c && !c._xqva) { c._xqva = true; new MutationObserver(() => { try { if (typeof cwRender === 'function') cwRender(); } catch (_) {} }).observe(c, { childList: true }); }
   }
+  const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="14" r="1.8"/><circle cx="12" cy="9" r="1.8"/><circle cx="18" cy="13" r="1.8"/><path d="M7.5 12.7 10.5 10.3M13.7 9.8l2.8 2.2"/><path d="M3 20h18"/></svg>';
+  const ICON_END = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>';
   const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="1.6"/><circle cx="15" cy="10" r="1.6"/><circle cx="12" cy="15" r="1.6"/></svg>';
 
   window.XQUIX = window.XQUIX || {};
-  window.XQUIX.VideoAnalysis = { open, close, state: () => S, loadModel, _grab: grab, canCapture, saveForTraining, exportScenes };
+  window.XQUIX.VideoAnalysis = { open, close, state: () => S, loadModel, _grab: grab, canCapture, saveForTraining, exportScenes, openLibrary, closeLibrary, markPlay, trackPlay, playMark: () => playMark };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
   window.addEventListener('load', wire);
 })();
