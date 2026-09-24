@@ -72,6 +72,13 @@
   #xqva .pop .hd{font-size:11px;color:#8a9aa0;letter-spacing:.06em;text-transform:uppercase;padding:0 2px}
   #xqva .busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(7,9,10,.55);z-index:4;font-weight:600}
   #xqva .busy.on{display:flex}
+  #xqva .checks{display:flex;gap:6px;flex-wrap:wrap}
+  #xqva .chk{font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid #243236;color:#b8c6ca;background:transparent;cursor:pointer}
+  #xqva .chk.ok{color:#cfe9e5;border-color:rgba(46,202,184,.45)}
+  #xqva .chk.ok::before{content:"✓ ";color:#2ecab8}
+  #xqva .chk.no{color:#f2c230;border-color:rgba(242,194,48,.6)}
+  #xqva .chk.no::before{content:"⚠ "}
+  #xqva .chk.wait{opacity:.55}
   body.xqvaOpen #labTools{display:none}
   body.xqvaLab #xqva{top:22px}
   #xqva .bar:first-child{padding-top:calc(10px + env(safe-area-inset-top))}
@@ -162,15 +169,18 @@
   /* Automatic field (MIZE's requirements): the far lane line's 0 / 2 / 5 / 6 m and the near lane line's 5 m / 6 m,
      read from the rope colors. Found -> the markers are placed for the coach to check and the players are read at
      once (one confirmation view). Not found -> the reason, and marking by hand as the fallback. */
-  const FIELD_URL = new URL('va-field.js', SCRIPT_URL).href.replace(/\?.*$/, '') + '?t=' + Date.now();
+  // va-field-std.js: the standard-color reader (tried first); va-field.js: the pattern reader and the fitting
+  const FIELD_T = Date.now(), fieldUrl = f => new URL(f, SCRIPT_URL).href.replace(/\?.*$/, '') + '?t=' + FIELD_T;
+  function loadScript(f) { return new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = fieldUrl(f); sc.onload = () => res(); sc.onerror = () => rej(new Error(f + ' did not load')); document.head.appendChild(sc); }); }
   function ensureField() {
-    if (window.VAField) return Promise.resolve();
-    return new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = FIELD_URL; sc.onload = () => res(); sc.onerror = () => rej(new Error('va-field.js did not load')); document.head.appendChild(sc); });
+    if (window.VAField && window.VAFieldStd && window.VACheck) return Promise.resolve();
+    return (window.VAFieldStd ? Promise.resolve() : loadScript('va-field-std.js')).then(() => window.VAField ? null : loadScript('va-field.js')).then(() => window.VACheck ? null : loadScript('va-check.js'));
   }
   function autoField() {
     const busy = $('#xqvaBusy'); busy.textContent = 'Finding the field…'; busy.classList.add('on');
     ensureField().then(() => new Promise(r => setTimeout(r, 30))).then(() => {
       if (!S) return;
+      try { S.metrics = VACheck.measure(S.frame.data, null); } catch (e) {}
       const r = VAField.auto(S.frame.data, { width: S.spec.width });
       S.autoField = { ok: !!r.refs, why: r.why, ms: r.ms };
       busy.classList.remove('on');
@@ -178,11 +188,20 @@
         const KEY = { 0: 'r0', 2: 'm2', 5: 'm5', 6: 'm6' };
         S.markers = r.refs.map(q => ({ key: KEY[q.X], side: q.side, u: q.u, v: q.v, auto: true }));
         refit();
-        if (S.cal) { render(); findPlayers(); return; }
+        if (S.cal) { remeasure(); render(); findPlayers(); return; }
         S.autoField = { ok: false, why: 'The lane lines were found but do not define the field.' }; S.markers = [];
       }
       render();
     }).catch(e => { busy.classList.remove('on'); if (S) { S.autoField = { ok: false, why: e.message }; render(); } });
+  }
+  // glare and sharpness on the pool itself once the field is known (deck, walls and overlays no longer count)
+  function remeasure() { try { if (window.VACheck && S && S.cal) S.metrics = VACheck.measure(S.frame.data, S.cal.H); } catch (e) {} }
+  function renderChecks() {
+    const box = $('#xqvaChecks'); if (!box || !S || !window.VACheck || !S.metrics) return; box.innerHTML = '';
+    const field = S.autoField ? { ok: S.autoField.ok || !!(S.cal && S.markers.length >= 4), why: S.autoField.ok ? null : (S.cal ? 'Set by hand from your markers.' : S.autoField.why) } : null;
+    for (const c of VACheck.checks(S.metrics, field, S.teamSep == null ? null : S.teamSep)) {
+      el('button', { class: 'chk ' + (c.ok === true ? 'ok' : c.ok === false ? 'no' : 'wait'), title: c.text, text: c.label, on: { click: () => msg(c.text, c.ok === false ? 'warn' : '') } }, box);
+    }
   }
   function close() {
     const o = document.getElementById('xqva'); if (o) o.remove(); document.body.classList.remove('xqvaOpen', 'xqvaLab');
@@ -205,6 +224,7 @@
     const steps = el('div', { class: 'steps' }, top);
     el('span', { class: 'step', 'data-s': 'field', text: '1 Field' }, steps);
     el('span', { class: 'step', 'data-s': 'players', text: '2 Players' }, steps);
+    el('div', { class: 'checks', id: 'xqvaChecks', 'aria-label': 'Frame check' }, top);
     el('span', { class: 'msg', id: 'xqvaMsg' }, top);
     el('button', { id: 'xqvaCancel', text: 'Cancel', on: { click: close } }, top);
     const view = el('div', { class: 'view' }, o);
@@ -246,6 +266,7 @@
   // ---------- rendering ----------
   function render() {
     if (!S) return;
+    renderChecks();
     document.querySelectorAll('#xqva .step').forEach(s => { s.classList.toggle('on', s.dataset.s === S.step); s.classList.toggle('done', S.step === 'players' && s.dataset.s === 'field'); });
     drawLines(); drawMarks(); bottom();
   }
@@ -436,7 +457,7 @@
     loadModel().then(m => new Promise(res => setTimeout(() => res(m), 30))).then(m => {
       const spec = { length: S.spec.length, width: S.spec.width, goalWidth: S.spec.goalWidth };
       const r = VADetect.detect(S.frame.data, S.cal.H, spec, m, {});
-      S.detector = { players: r.players.map(p => Object.assign({}, p)), ball: r.ball, ms: r.ms };
+      S.detector = { players: r.players.map(p => Object.assign({}, p)), ball: r.ball, ms: r.ms }; S.teamSep = r.teamSep; remeasure();
       S.players = r.players.map(p => Object.assign({ source: 'detector' }, p));
       S.ball = r.ball ? { px: r.ball.px, source: 'detector' } : null;
       S.step = 'players'; S.attacking = null; S.attackingBy = null; inferAttack();
@@ -456,7 +477,7 @@
     if (out.error) { msg(out.error, 'warn'); return; }
     const rec = out.record;
     rec.videoAnalysis.phase = 'E-lab';
-    rec.videoAnalysis.review = { markers: S.markers.map(m => Object.assign({ label: markerLabel(m) }, m, markerWorld(m, S.spec))), fit: S.fitInfo,
+    rec.videoAnalysis.review = { frameCheck: S.metrics || null, teamSep: S.teamSep ?? null, markers: S.markers.map(m => Object.assign({ label: markerLabel(m) }, m, markerWorld(m, S.spec))), fit: S.fitInfo,
       detector: S.detector, corrections: S.corrections, ballPlacedAtHolder: !!(S.ball && nearestHolder(S.ball.px)) };
     try {
       if (typeof recordHistory === 'function') recordHistory('Analyze scene: ' + rec.name);

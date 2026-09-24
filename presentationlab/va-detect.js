@@ -250,23 +250,53 @@
     const use = sel.length >= 4 ? sel : all, med = k => { const v = use.map(c => c[k]).sort((a, b) => a - b); return v[v.length >> 1]; };
     return use.length ? [med(0), med(1), med(2)] : null;
   }
-  function teams(cols) {
-    const idx = cols.map((c, i) => c ? i : -1).filter(i => i >= 0), out = cols.map(() => ({ team: 'unknown', teamConf: null }));
-    if (idx.length < 2) return out;
-    let c0 = cols[idx.reduce((a, b) => cols[b][0] > cols[a][0] ? b : a)].slice(), c1 = cols[idx.reduce((a, b) => cols[b][0] < cols[a][0] ? b : a)].slice();
-    const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
-    for (let it = 0; it < 20; it++) {
-      const s = [[0, 0, 0, 0], [0, 0, 0, 0]];
-      for (const i of idx) { const k = dist(cols[i], c0) <= dist(cols[i], c1) ? 0 : 1; for (let j = 0; j < 3; j++) s[k][j] += cols[i][j]; s[k][3]++; }
-      if (!s[0][3] || !s[1][3]) break;
-      c0 = s[0].slice(0, 3).map(v => v / s[0][3]); c1 = s[1].slice(0, 3).map(v => v / s[1][3]);
+  /* Team by cap color (2026-09-24, measured on MIZE's confirmed positions: 80 % -> 85 %). The cap is sampled on the
+     upper head only (not the face, not the splash below), skin excluded; each player is described by the 25th / 75th
+     lightness percentiles and the median a / b; two teams of about equal size (6 v 6, 6 v 5) are split along the axis
+     between the two color clusters. The lighter group is "light". Red caps are goalkeepers' only when the goalkeeper
+     rule says so - never here. */
+  function capFeature(P, x, y, d) {
+    const { w, h, lab, bg } = P, r = Math.max(3, 0.55 * d), cy = y - 0.1 * d, L = [], A = [], B = [], L2 = [], A2 = [], B2 = [];
+    for (let yy = Math.max(0, Math.floor(cy - r)); yy <= Math.min(h - 1, Math.floor(cy + 0.1 * r)); yy++) for (let xx = Math.max(0, Math.floor(x - r)); xx <= Math.min(w - 1, Math.floor(x + r)); xx++) {
+      if ((xx - x) ** 2 + (yy - cy) ** 2 > r * r) continue;
+      const p = yy * w + xx, hh = lab.hue[p], ss = lab.sat[p], vv = lab.val[p];
+      if (hh >= 3 && hh <= 24 && ss >= 40 && vv >= 80) continue;               // skin
+      L2.push(lab.L[p]); A2.push(lab.A[p] - 128); B2.push(lab.B[p] - 128);
+      const dev = Math.hypot(lab.A[p] - bg.A[p], lab.B[p] - bg.B[p]) + 0.35 * Math.abs(lab.L[p] - bg.L[p]);
+      if (dev > 12) { L.push(lab.L[p]); A.push(lab.A[p] - 128); B.push(lab.B[p] - 128); }
     }
-    const lightIs0 = c0[0] >= c1[0];
-    for (const i of idx) {
-      const a = dist(cols[i], c0), b = dist(cols[i], c1), near0 = a <= b, margin = (near0 ? b : a) / Math.max(1e-6, near0 ? a : b);
-      const team = (near0 === lightIs0) ? 'light' : 'dark';
-      out[i] = margin >= 1.5 ? { team, teamConf: Math.min(1, (margin - 1) / 2) } : { team: 'unknown', teamConf: Math.min(1, (margin - 1) / 2) };
+    const use = L.length >= 6 ? [L, A, B] : [L2, A2, B2]; if (use[0].length < 3) return null;
+    const q = (v, f) => { const s2 = v.slice().sort((a, b) => a - b), k = (s2.length - 1) * f, lo = Math.floor(k), hi = Math.ceil(k); return s2[lo] + (s2[hi] - s2[lo]) * (k - lo); };
+    return [q(use[0], 0.25), q(use[0], 0.75), q(use[1], 0.5), q(use[2], 0.5)];
+  }
+  function teams(feats) {
+    const idx = feats.map((f, i) => f ? i : -1).filter(i => i >= 0), out = feats.map(() => ({ team: 'unknown', teamConf: null }));
+    const n = idx.length; if (n < 2) return out;
+    // standardize
+    const mu = [0, 1, 2, 3].map(k => idx.reduce((s2, i) => s2 + feats[i][k], 0) / n);
+    const sd = [0, 1, 2, 3].map(k => Math.sqrt(idx.reduce((s2, i) => s2 + (feats[i][k] - mu[k]) ** 2, 0) / n) + 1e-6);
+    const Z = idx.map(i => feats[i].map((v, k) => (v - mu[k]) / sd[k]));
+    // 2-means, seeded with the lightest and the darkest
+    let c0 = Z[Z.reduce((a, _, i) => feats[idx[i]][1] > feats[idx[a]][1] ? i : a, 0)].slice(), c1 = Z[Z.reduce((a, _, i) => feats[idx[i]][1] < feats[idx[a]][1] ? i : a, 0)].slice();
+    const dist = (p, q2) => Math.hypot(...p.map((v, k) => v - q2[k]));
+    for (let it = 0; it < 30; it++) {
+      const s0 = [0, 0, 0, 0], s1 = [0, 0, 0, 0]; let n0 = 0, n1 = 0;
+      for (const z of Z) { if (dist(z, c0) <= dist(z, c1)) { z.forEach((v, k) => s0[k] += v); n0++; } else { z.forEach((v, k) => s1[k] += v); n1++; } }
+      if (!n0 || !n1) break; c0 = s0.map(v => v / n0); c1 = s1.map(v => v / n1);
     }
+    // split along the axis between the clusters, team sizes within 2 of half
+    const ax = c0.map((v, k) => v - c1[k]), s = Z.map(z => z.reduce((a, v, k) => a + v * ax[k], 0)), order = s.map((v, i) => i).sort((a, b) => s[a] - s[b]);
+    let best = null;
+    for (let k = Math.max(1, Math.floor(n / 2) - 2); k <= Math.min(n - 1, Math.floor(n / 2) + 2); k++) {
+      const lo = order.slice(0, k).map(i => s[i]), hi = order.slice(k).map(i => s[i]);
+      const sdv = v => { const m = v.reduce((a, b) => a + b, 0) / v.length; return Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length); };
+      const sc = (Math.min(...hi) - Math.max(...lo)) / (sdv(lo) + sdv(hi) + 1e-6);
+      if (!best || sc > best.sc) best = { sc, k };
+    }
+    const hiSet = new Set(order.slice(best.k)), meanL = set => { const a = [...set]; return a.reduce((t, i) => t + feats[idx[i]][1], 0) / a.length; };
+    const loSet = new Set(order.slice(0, best.k)), hiLight = meanL(hiSet) > meanL(loSet);
+    const thr = (s[order[best.k - 1]] + s[order[best.k]]) / 2, spread = Math.abs([...hiSet].reduce((a, i) => a + s[i], 0) / hiSet.size - [...loSet].reduce((a, i) => a + s[i], 0) / loSet.size) || 1;
+    Z.forEach((z, j) => { const light = hiSet.has(j) === hiLight; out[idx[j]] = { team: light ? 'light' : 'dark', teamConf: Math.min(1, 2 * Math.abs(s[j] - thr) / spread) }; });
     return out;
   }
   function findBall(P, spec) {
@@ -311,14 +341,19 @@
     // goalkeeper by position (nearest the goal centre within 2.5 m); never by cap colour
     let gk = -1, bestR = Infinity;
     keep.forEach((c, i) => { const wp = ap(P.G.Hi, c.cap[0], c.cap[1] + 0.8 * c.d), r = Math.hypot(wp[0], wp[1]); if (wp[0] < 2.5 && Math.abs(wp[1]) < 2.5 && r < bestR) { bestR = r; gk = i; } });
-    const cols = keep.map((c, i) => i === gk ? null : capColour(P, c.cap[0], c.cap[1], c.d)), tm = teams(cols);
+    const cols = keep.map((c, i) => i === gk ? null : capFeature(P, c.cap[0], c.cap[1], c.d)), tm = teams(cols);
     const players = keep.map((c, i) => ({
       id: 'd' + (i + 1), head: [c.cap[0], c.cap[1]], capPx: +c.d.toFixed(1), waterline: [c.cap[0], +(c.cap[1] + 0.9 * c.d).toFixed(1)],
       detectConf: +c.prob.toFixed(2), team: i === gk ? 'unknown' : tm[i].team, teamConf: i === gk ? null : (tm[i].teamConf == null ? null : +tm[i].teamConf.toFixed(2)),
       role: i === gk ? 'goalkeeper' : 'field'
     }));
     const ball = findBall(P, spec);
-    return { players, ball, ms: Date.now() - t0, candidates: cand.length };
+    // how different the two teams' caps look (L75, a, b of the group means; 8-bit Lab units). Low -> the coach is warned.
+    let teamSep = null;
+    { const g = { light: [], dark: [] }; cols.forEach((f, i) => { if (f && tm[i] && g[tm[i].team]) g[tm[i].team].push(f); });
+      if (g.light.length && g.dark.length) { const m = a => [1, 2, 3].map(k => a.reduce((s2, f) => s2 + f[k], 0) / a.length), A = m(g.light), B = m(g.dark);
+        teamSep = +Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]).toFixed(1); } }
+    return { players, ball, teamSep, ms: Date.now() - t0, candidates: cand.length };
   }
 
   return { detect, prepare, candidates, features, predict, NFEAT, MAX_PLAYERS, inv3, ap };
