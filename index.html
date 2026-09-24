@@ -1000,6 +1000,17 @@
   body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwIco, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwIco svg { width:19px; height:19px; }
   body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwDrawer { width:100%; min-width:min(520px, calc(100vw - 40px)); box-sizing:border-box; padding:10px 12px; border:1px solid rgba(46,202,184,.16); border-radius:12px;
     background:linear-gradient(180deg, rgba(6,14,15,.92), rgba(3,8,9,.97)); box-shadow:0 14px 34px rgba(0,0,0,.55); }
+
+  /* Grows from its orientation point (MIZE 2026-09-24): the tabs and the controls sit centred in a centred panel, so a
+     wider group grows to both sides and the tab bar stays where it is; a panel moved to the left or right edge keeps
+     them against that edge (data-anchor from cwApplyAnchored). The left rail is vertical and keeps its own layout. */
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBottom .cwDesk { align-items:center; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwTop, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow { align-items:center; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface:not(.cwLeft) .cwTabs, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface:not(.cwLeft) .cwRow { justify-content:center; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved:not(.cwLeft)[data-anchor^="l"] .cwDesk, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved.cwTop[data-anchor^="l"], body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved.cwBelow[data-anchor^="l"] { align-items:flex-start; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved:not(.cwLeft)[data-anchor^="l"] .cwTabs, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved:not(.cwLeft)[data-anchor^="l"] .cwRow { justify-content:flex-start; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved:not(.cwLeft)[data-anchor^="r"] .cwDesk, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved.cwTop[data-anchor^="r"], body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved.cwBelow[data-anchor^="r"] { align-items:flex-end; }
+  body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved:not(.cwLeft)[data-anchor^="r"] .cwTabs, body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwMoved:not(.cwLeft)[data-anchor^="r"] .cwRow { justify-content:flex-end; }
   /* narrow screens: the Stage-style labels tighten so the tab row always fits inside the panel */
   @media (max-width:560px){ body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTab { letter-spacing:.1em; padding:6px 5px; } body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwBelow .cwTabs { gap:1px; } }
   body.cwSurfaceOn.cwLive:not(.tutorialModeActive:not(.cwTutorial)):not(.gameTrackerActive):not(.pxParentMode):not(.guestExperienceActive:not(.cwGuest)):not(.xquixAudienceMode) #cwSurface.cwLeft .cwTab { padding:7px 5px; letter-spacing:.12em; }
@@ -21823,6 +21834,29 @@ function cwSync(){
 let cwPos={}; try{ cwPos=JSON.parse(localStorage.getItem('xquixCwPos')||'{}')||{}; }catch(e){ cwPos={}; }
 function cwCtx(){ const land=innerWidth>innerHeight, phoneL=land && innerHeight<=520; return (phoneL?'phoneL':(land?'land':'port'))+((typeof frontCourtActive!=='undefined' && frontCourtActive)?'-fc':''); }
 function cwSavedPos(){ const p=cwPos[cwCtx()]; return (p && isFinite(p.x) && isFinite(p.y)) ? p : null; }
+// Anchored placement (MIZE 2026-09-24: "always centred or fixed to the orientation point … right now when it is centred
+// to the bottom and gets bigger it just extends to one side"). A moved panel is remembered by the point it is fixed to:
+// horizontally its left edge, its centre or its right edge (whichever third of the screen its centre is in; within
+// 24 px of the middle it snaps to the exact centre), vertically its top or its bottom edge (the half it is in). When the
+// panel grows or shrinks -- another group, the Frames drawer, a wider row -- it grows away from that point: a centred
+// panel grows to both sides, a bottom one upward, a right one to the left. Saved as { ax, ay, x, y }: x/y are the
+// distances from that edge (for the centre: from the screen's middle). Spots saved before this ({x,y} = top-left)
+// are read as a rectangle and converted.
+function cwAnchorOf(r){
+  const W=innerWidth, H=innerHeight, cx=r.left+r.width/2, cy=r.top+r.height/2;
+  let ax = cx < W*0.36 ? 'l' : (cx > W*0.64 ? 'r' : 'c'), x;
+  if(ax==='c'){ x=cx-W/2; if(Math.abs(x)<24) x=0; } else x = ax==='l' ? r.left : W-r.right;
+  const ay = cy > H/2 ? 'b' : 't', y = ay==='t' ? r.top : H-r.bottom;
+  return { ax, ay, x:Math.round(x), y:Math.round(y) };
+}
+function cwApplyAnchored(el, p){
+  if(!p.ax){ const w=el.offsetWidth, h=el.offsetHeight; p=cwAnchorOf({ left:p.x, top:p.y, right:p.x+w, bottom:p.y+h, width:w, height:h }); cwSavePos(p); }   // converted once, then kept
+  const w=el.offsetWidth, h=el.offsetHeight, W=innerWidth, H=innerHeight;
+  const left = p.ax==='l' ? p.x : (p.ax==='r' ? W-p.x-w : W/2+p.x-w/2);
+  const top  = p.ay==='t' ? p.y : H-p.y-h;
+  cwApplyPos(el, left, top);
+  el.dataset.anchor=p.ax+p.ay;
+}
 function cwSavePos(p){ if(p) cwPos[cwCtx()]=p; else delete cwPos[cwCtx()]; try{ localStorage.setItem('xquixCwPos', JSON.stringify(cwPos)); }catch(e){} }
 // x/y are the panel's top-left in viewport px; always kept fully on screen
 function cwApplyPos(el, x, y){ const w=el.offsetWidth, h=el.offsetHeight;
@@ -21840,7 +21874,7 @@ function cwWireGrip(grip, el){
     if(!d.moved){ d.moved=true; el.classList.add('cwMoved','cwDragging'); closeQcbDrawingToolsPopup(); closeAllEmptyFieldBoxes(); closeAllSaveOpenBoxes(); }
     cwApplyPos(el, e.clientX-d.dx, e.clientY-d.dy); });
   const end=e=>{ if(!d) return; const was=d.moved; d=null; el.classList.remove('cwDragging'); try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
-    if(was){ cwSavePos({ x:parseFloat(el.style.left), y:parseFloat(el.style.top) }); return; }
+    if(was){ const p=cwAnchorOf(el.getBoundingClientRect()); cwSavePos(p); cwApplyAnchored(el, p); return; }
     // a double tap on a phone or iPad (no dblclick there): automatic placement again
     const now=Date.now(); if(now-(grip._lastTap||0)<350){ grip._lastTap=0; cwSavePos(null); cwPlace(); } else grip._lastTap=now; };
   grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
@@ -21859,7 +21893,8 @@ function cwPlace(){
   document.body.classList.toggle('cwDockTop', dock==='top');
   el.style.top=''; el.style.bottom=''; el.style.left='';
   const moved=cwSavedPos(); el.classList.toggle('cwMoved', !!moved);
-  if(moved){ cwApplyPos(el, moved.x, moved.y); }
+  if(!moved) delete el.dataset.anchor;
+  if(moved){ cwApplyAnchored(el, moved); }
   else if(dock==='left'){
     // vertically centred, but below the player action bar when a player is selected (it sits top-left)
     const pab=document.getElementById('playerActionBar'); const pr=(pab && getComputedStyle(pab).display!=='none') ? pab.getBoundingClientRect() : null;
@@ -21891,6 +21926,13 @@ window.addEventListener('resize', ()=>{ const d=document.getElementById('cwSurfa
 if(typeof XQStage!=='undefined'){ XQStage.on('close', ()=>setTimeout(cwRender, 0)); XQStage.on('open', ()=>setTimeout(cwRender, 0)); XQStage.on('camera', ()=>setTimeout(cwSync, 0)); XQStage.on('screen', ()=>setTimeout(cwSync, 0)); }
 document.addEventListener('click', e=>{ const el=document.getElementById('cwSurface'); if(el && cwOpen && !el.contains(e.target)){ cwOpen=false; cwRender(); } else if(el && e.target.closest && e.target.closest('#edgeTabStack, #quickCommandBar, #timelinePanel, #controlsPanel, #closeSidebarBtn, #closeTimelineBtn, #hideQuickCommandBarBtn')) setTimeout(cwRender, 0); else if(el) setTimeout(cwSync, 0); });
 cwRender();
+// Size changes (a group with more controls, the Frames drawer, fold/unfold) keep the panel on its anchor:
+// a moved panel re-applies its anchor, the docks re-place (the left rail stays vertically centred).
+{ const el=document.getElementById('cwSurface'); let lastW=0, lastH=0;
+  if(el && typeof ResizeObserver!=='undefined') new ResizeObserver(()=>{ const w=el.offsetWidth, h=el.offsetHeight; if(w===lastW && h===lastH) return; lastW=w; lastH=h;
+    if(el.classList.contains('cwDragging')) return;
+    const p=cwSavedPos(); if(p && el.classList.contains('cwMoved')) cwApplyAnchored(el, p); else if(el.classList.contains('cwLeft') || el.classList.contains('cwBelow')) cwPlace();
+    const r=el.getBoundingClientRect(); document.body.style.setProperty('--cwBottom', Math.round(r.bottom)+'px'); }).observe(el); }
 
 // ---- The console during a tutorial that runs on it (the Coaching tutorial: steps.tutorialOptions.surface) ----
 // body.cwTutorial lets the console show while tutorialModeActive (see the CSS gate). The tutorial starts it on

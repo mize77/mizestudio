@@ -275,7 +275,11 @@
     if (S.step === 'field') {
       el('span', { class: 'lbl', text: 'Field width' }, b);
       const w = el('div', { class: 'seg' }, b);
-      for (const v of [20, 25]) el('button', { class: S.spec.width === v ? 'sel' : '', text: v + ' m', on: { click: () => { S.spec.width = v; refit(); render(); } } }, w);
+      // MIZE 2026-09-24: the field is 20 m wide as a rule; only a special pool is narrower, and then the coach says so
+      el('button', { class: S.spec.width === 20 ? 'sel' : '', text: '20 m', on: { click: () => { S.spec.width = 20; refit(); render(); } } }, w);
+      el('button', { class: S.spec.width !== 20 ? 'sel' : '', text: S.spec.width !== 20 ? S.spec.width + ' m' : 'Narrower…', title: 'Only for a special pool whose field is narrower than 20 m',
+        on: { click: () => { const a = prompt('Field width in meters (narrower than 20):', S.spec.width !== 20 ? S.spec.width : ''); const v = parseFloat(a);
+          if (v > 5 && v < 20) { S.spec.width = v; refit(); render(); } } } }, w);
       el('span', { class: 'lbl', text: 'Goal rope' }, b);
       const r = el('div', { class: 'seg' }, b);
       for (const [v, t] of [[0, 'On the goal line'], [0.3, '0.3 m behind']]) el('button', { class: S.spec.ropeBehind === v ? 'sel' : '', text: t, on: { click: () => { S.spec.ropeBehind = v; refit(); render(); } } }, r);
