@@ -1941,6 +1941,44 @@
   .xgtBarHost .xgtPill { width:100%; }
   .xgtBarHost .xgtPill.in { background:#2ecab8; color:#052a27; }
   .xgtBarHost .xgtPill.out { color:#9fc9c6; border-color:rgba(255,255,255,.25); background:transparent; }
+  /* ---- Game Tracker on phones (MIZE 2026-09-23, briefs/GAMETRACKER-PHONE-STAGE.md) ----
+     PORTRAIT: the centre screen fitted to the width, no side screens (substitutions and the game information are landscape's),
+     long sheets in a taller frame (the screen extended up into the black), recording steps on the screen itself, the console
+     under the screen at its natural size in two rows with the score under the clock. */
+  body[data-stage="gametracker"].gtPortrait #videoFrame, body[data-stage="gametracker"].gtPortrait #statsFrame { visibility:hidden !important; }
+  body[data-stage="gametracker"].gtPortrait #videoFrame *, body[data-stage="gametracker"].gtPortrait #statsFrame * { visibility:hidden !important; pointer-events:none !important; }
+  body[data-stage="gametracker"].gtPortrait .stageConsolePanel { position:relative; inset:auto; padding:11px 12px 13px; transform:rotateX(12deg); }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleInner { flex-wrap:wrap; width:100%; column-gap:10px; row-gap:11px; }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleLabel { font-size:9px; letter-spacing:.12em; }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleGroup[data-group="game"] { flex:1 1 100%; align-items:center; }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleGroup[data-group="game"] .stageConsoleLabel { align-self:center; }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleBtn { min-height:44px; min-width:64px; padding:10px 12px; }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleBtn.big { min-width:180px; }
+  body[data-stage="gametracker"].gtPortrait.gtSheetScreen:not(.gtSheetRecord) #xgtSheet { top:var(--gtTallT) !important; height:var(--gtTallH); }
+  body[data-stage="gametracker"].gtPortrait #xgtStats { top:var(--gtTallT); height:var(--gtTallH); }
+  body[data-stage="gametracker"].gtPortrait.gtLibScreen #coachingLibraryPanel { top:var(--gtTallT) !important; height:var(--gtTallH) !important; }
+  body[data-stage="gametracker"].gtPortrait.gtSheetScreen #xgtSheet, body[data-stage="gametracker"].gtCompact.gtSheetScreen #xgtSheet { padding:12px 16px 14px; }
+  body[data-stage="gametracker"].gtPortrait.gtSheetRecord #xgtSheet .xgtGoal, body[data-stage="gametracker"].gtCompact.gtSheetScreen #xgtSheet .xgtGoal { max-height:118px; }
+  body[data-stage="gametracker"].gtPortrait #xgtToast { top:calc(var(--gtTallT, 10px) + 8px); }
+  /* COMPACT (landscape phones): the TEAM and GAME screens are about 80 px wide -- both rosters and the score must still fit */
+  body[data-stage="gametracker"].gtCompact #gtTeamInfo { padding:5% 5% 3%; font-size:10px; }
+  body[data-stage="gametracker"].gtCompact #gtTeamInfo .gtTiHead { font-size:8.5px; letter-spacing:.04em; margin-bottom:4px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtBarSplit { gap:4px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtLbl { display:block; font-size:7.5px; letter-spacing:.08em; margin:0 0 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtChips, body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtRow { gap:2px 3px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtChipWrap { gap:0; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtChip { min-width:20px; width:20px; height:19px; min-height:0; padding:0; font-size:10.5px; border-radius:6px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtChipBadges { top:-4px; right:-4px; transform:scale(.7); transform-origin:100% 0; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtWho { padding:4px 5px; font-size:10px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtWho .num { font-size:16px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtWho .meta { font-size:8px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtPill { font-size:9px; padding:5px 4px; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo { padding:6% 5%; font-size:9.5px; line-height:1.3; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo .gtLiHead { margin-bottom:4px; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo .gtLiTeam { font-size:8px; letter-spacing:.02em; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo .gtLiScore { font-size:22px; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo .gtLiClock { font-size:9px; letter-spacing:.06em; margin-top:1px; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo .gtLiSection { font-size:7px; letter-spacing:.08em; margin:5px 0 2px; padding-top:3px; }
   #gtStageBanner { position:absolute; left:50%; top:6%; transform:translateX(-50%); z-index:8; max-width:80%; padding:10px 18px; border-radius:10px; background:rgba(3,10,10,.85); border:1px solid rgba(46,202,184,.5); color:#f2fbfa; font:600 14px/1.35 'Archivo',system-ui,sans-serif; text-align:center; pointer-events:none; box-shadow:0 0 24px 4px rgba(46,202,184,.25); }
   body[data-stage="home"] #psRoom, body[data-stage="soundbox"] #psRoom { z-index:8998; }
   body[data-stage="home"] #studioTrack, body[data-stage="soundbox"] #studioTrack { z-index:8999; }
@@ -12516,7 +12554,54 @@ function psRoomRect(){
 // the tracker's read-only liveRecord(), and the left screen is the branding screen. Camera
 // locked; the Panorama framing is kept so both side screens stay in view. Phones and any
 // portrait orientation never open the stage (MIZE, 2026-09-21).
+// The rule until 2026-09-23 (landscape >= 900 px). Since MIZE's phone decision every tracker opens on the stage; this rule
+// now only decides where the tracker TUTORIALS run on the stage (they walk substitutions on the TEAM screen, which portrait
+// does not show, and place their box for rooms >= 900 px): briefs/GAMETRACKER-PHONE-STAGE.md.
 function gtStageFits(){ return viewportWidth()>=900 && viewportWidth()>viewportHeight(); }
+// Game Tracker on phones (MIZE 2026-09-23, briefs/GAMETRACKER-PHONE-STAGE.md): landscape (any width) = the full studio with
+// the side screens on the walls ('wall'); portrait = the centre screen fitted to the width, the console under it, no side
+// screens ('portrait'). body.gtPortrait / body.gtCompact (wall on a short landscape phone) carry the CSS differences.
+let _gtMode=null;
+// The layout viewport (innerWidth/innerHeight), not the visual one: an on-screen keyboard shrinks visualViewport and would turn
+// an iPad in portrait "landscape" while a cap number is typed. And never switch while a field in the tracker has focus.
+function gtStageMode(){
+  const a=document.activeElement;
+  if(_gtMode && a && a.matches && a.matches('#xgtSheet input, #xgtSheet textarea, #xgtSheet select, #mizeDialogInput')) return _gtMode;
+  return window.innerWidth>window.innerHeight ? 'wall' : 'portrait';
+}
+function gtStageOpts(mode){
+  return mode==='portrait'
+    ? { camera:'center', lockCamera:true, instant:true, readingBox:'screen', fitScreen:true, insetTop:gtPortraitInset }
+    : { camera:'center', lockCamera:true, instant:true, roomCamera:'pan', readingBox:'screen' };
+}
+function gtStageFlags(){
+  const b=document.body, on=typeof XQStage!=='undefined' && XQStage.consumer()==='gametracker', m=gtStageMode();
+  b.classList.toggle('gtPortrait', on && m==='portrait');
+  b.classList.toggle('gtCompact', on && m==='wall' && window.innerHeight<600);
+}
+// A rotation mid-game: switch the stage's options in place (XQStage.opts() is the live object), re-mount the console for the
+// phase (the portrait clock carries the score) and re-lay out. The game, the open sheet and the shield are untouched.
+function gtStageOrient(){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='gametracker') return;
+  gtStageFlags();
+  const m=gtStageMode(); if(m===_gtMode) return;
+  _gtMode=m;
+  const o=XQStage.opts(); delete o.fitScreen; delete o.roomCamera; delete o.insetTop; Object.assign(o, gtStageOpts(m));
+  _gtPhase=null; gtSheetSync();
+  XQStage.layout();
+}
+window.addEventListener('resize', gtStageOrient);
+window.visualViewport?.addEventListener('resize', gtStageOrient);
+// Portrait: the centre screen and the console under it are centred as one group in the viewport (a short Safari viewport --
+// an SE with its bars is 548 px -- would otherwise push the console off the bottom). Returns the room's vertical offset.
+let _gtConsoleH=170;
+function gtPortraitInset(){
+  if(typeof psRoomRect!=='function' || typeof PS_SCREENS==='undefined') return 0;
+  const LB=psRoomRect(), sc=psMapWallBox(PS_SCREENS.center, 'center', LB), vh=viewportHeight();
+  const groupH=sc.height+10+_gtConsoleH, top=Math.max(10, (vh-groupH)/2);
+  return Math.round(top-sc.top);
+}
+const gtScoreText=r=>(r && r.trackScore && r.finalScore) ? (r.finalScore.home+' : '+r.finalScore.away) : '';
 // Step 5 (MIZE, 2026-09-21): on the stage the tracker runs with chrome:'stage' -- its own bars
 // are not shown; the Studio draws the console in the floor (clock, quarter, undo, stats, menu,
 // exit), the team on the left screen, the game on the right screen, and the field is the
@@ -12528,9 +12613,11 @@ function xquixOpenGameTracker(o){
   if(!(T && typeof T.open==='function')) return false;
   if(document.body.classList.contains('presentation')) togglePresentation();
   if(typeof xquixHideHome==='function') xquixHideHome();
-  const onStage = o.stage!==false && typeof XQStage!=='undefined' && gtStageFits() && typeof T.liveRecord==='function';
+  const onStage = o.stage!==false && typeof XQStage!=='undefined' && typeof T.liveRecord==='function';
   if(onStage){
-    XQStage.open('gametracker', { camera:'center', lockCamera:true, instant:true, roomCamera:'pan', readingBox:'screen' });
+    _gtMode=gtStageMode();
+    XQStage.open('gametracker', gtStageOpts(_gtMode));
+    gtStageFlags();
     gtLiveInfoMount();
     gtTeamInfoMount();
     gtConsoleMount();
@@ -12557,15 +12644,29 @@ function gtStageRects(){
   const top=Math.round(r.bottom+8);
   st.setProperty('--gtFlL', Math.round(Math.max(8, Math.min(cx-fw/2, innerWidth-fw-8)))+'px'); st.setProperty('--gtFlW', Math.round(fw)+'px');
   st.setProperty('--gtFlMax', Math.max(150, innerHeight-top-8)+'px');
+  // Portrait (MIZE 2026-09-23): long sheets use a taller frame -- the centre screen extended up into the black above the room --
+  // and the console sits under the screen at its controls' natural size, in two rows, instead of being scaled down to the floor.
+  if(document.body.classList.contains('gtPortrait')){
+    const tallT=10;
+    st.setProperty('--gtTallT', tallT+'px'); st.setProperty('--gtTallH', Math.round(Math.max(r.height, r.bottom-tallT))+'px');
+    if(c && c.childElementCount){
+      const ctop=Math.round(Math.max(r.bottom+10, parseFloat(c.style.top)||0));
+      c.style.left='8px'; c.style.width=Math.round(viewportWidth()-16)+'px'; c.style.top=ctop+'px'; c.style.height='';
+      XQStage._fitControls();
+      // the group centring above uses the console's real height: re-lay out once if it changed (two rows vs one in setup)
+      const ch=Math.round(c.offsetHeight); if(ch>40 && Math.abs(ch-_gtConsoleH)>2){ _gtConsoleH=ch; setTimeout(()=>XQStage.layout(), 0); }
+    }
+  }
 }
 function gtSheetSync(){
   const b=document.body;
-  if(XQStage.consumer()!=='gametracker'){ b.classList.remove('gtSheetScreen','gtSheetFloor','gtStatsScreen','gtPreTrack','gtTut','gtLibScreen'); _gtPhase=null; return; }
+  if(XQStage.consumer()!=='gametracker'){ b.classList.remove('gtSheetScreen','gtSheetFloor','gtSheetRecord','gtStatsScreen','gtPreTrack','gtTut','gtLibScreen','gtPortrait','gtCompact'); _gtPhase=null; return; }
   const sh=document.getElementById('xgtSheet'), stats=document.getElementById('xgtStats');
   const on=!!(sh && sh.classList.contains('on')), kind=on ? (sh.dataset.kind||'record') : '';
   // MIZE 2026-09-23 (after approving the concept): recording steps on the centre screen too, not on the console, so the
   // clock and the other console information stay in view while a play is logged. Every sheet is a screen sheet now.
   b.classList.toggle('gtSheetScreen', on);
+  b.classList.toggle('gtSheetRecord', on && kind==='record');   // portrait: recording steps stay on the screen; the rest use the tall frame
   b.classList.remove('gtSheetFloor');
   b.classList.toggle('gtStatsScreen', !!(stats && stats.classList.contains('on')));
   // the Coaching Library (the tracker's View Saved Sessions / Sessions opens it) on the centre screen too (MIZE 2026-09-23)
@@ -12642,9 +12743,11 @@ function gtTeamInfoRender(r){
 }
 function gtConsoleMount(){
   const T=window.XquiXGameTracker;
+  // portrait has no GAME screen: the score (when the game tracks one) is the clock's second line (MIZE 2026-09-23)
+  let sc=''; if(document.body.classList.contains('gtPortrait')){ try{ sc=gtScoreText(T.liveRecord()); }catch(e){} }
   XQStage.setControls({ groups:[
     { label:'Game', items:[
-      { id:'clock', label:'Q1 · 8:00', big:true, title:'Start / stop the clock', onTap:()=>T.toggleClock() },
+      { id:'clock', label:'Q1 · 8:00', sub:sc||undefined, big:true, title:'Start / stop the clock', onTap:()=>T.toggleClock() },
       { id:'quarter', label:'Quarter', title:'Quarter and time', onTap:()=>T.openQuarterMenu() } ] },
     { label:'Action', items:[ { id:'undo', label:'Undo', disabled:true, onTap:()=>T.undo() } ] },
     { label:'Information', items:[ { id:'stats', label:'Stats', onTap:()=>T.openStats() } ] },
@@ -12664,6 +12767,7 @@ function gtStageRefresh(kind){
   const T=window.XquiXGameTracker; if(!T || typeof T.liveRecord!=='function' || XQStage.consumer()!=='gametracker') return;
   let r; try{ r=T.liveRecord(); }catch(e){ return; }
   XQStage.updateControl('clock', { label:'Q'+r.q+' · '+r.clockText, active:!!r.running });
+  if(document.body.classList.contains('gtPortrait') && r.trackScore) XQStage.updateControl('clock', { sub:gtScoreText(r) });
   if(kind!=='clock'){
     XQStage.updateControl('undo', { disabled:!r.canUndo });
     gtTeamInfoRender(r);
@@ -12686,7 +12790,8 @@ function gtLiveInfoMount(){
     window.XquiXGameTracker.onClose(()=>{
       if(XQStage.consumer()!=='gametracker') return;
       if(_gtSheetObs){ _gtSheetObs.disconnect(); _gtSheetObs=null; } _gtPhase=null;
-      document.body.classList.remove('gtSheetScreen','gtSheetFloor','gtStatsScreen','gtPreTrack','gtTut','gtLibScreen');
+      document.body.classList.remove('gtSheetScreen','gtSheetFloor','gtSheetRecord','gtStatsScreen','gtPreTrack','gtTut','gtLibScreen','gtPortrait','gtCompact'); _gtMode=null;
+      ['--gtTallT','--gtTallH'].forEach(k=>document.body.style.removeProperty(k));
       document.getElementById('gtStageBanner')?.remove();
       document.getElementById('xgtBar')?.remove();   // the module's bar, hosted on the TEAM screen; its chrome is gone
       if(_gtTeamNode){ _gtTeamNode.innerHTML=''; _gtTeamNode.classList.remove('xgtBarHost'); }
@@ -13967,10 +14072,12 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
       });
       obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
-    // The tutorials run wherever the tracker runs: on the Studio Stage in landscape >= 900 px
-    // (the tutorial maps the bar targets to the floor console and the side screens itself,
-    // gametracker/TUTORIALS-ON-THE-STAGE.md), with the tracker's own bars elsewhere.
-    xquixOpenGameTracker();
+    // The tutorials run on the Studio Stage in landscape >= 900 px (the tutorial maps the bar targets
+    // to the floor console and the side screens itself, gametracker/TUTORIALS-ON-THE-STAGE.md), with the
+    // tracker's own bars elsewhere. Phones open the tracker on the stage since 2026-09-23, but the lessons
+    // walk substitutions on the TEAM screen (not shown in portrait) and place their box for wide rooms,
+    // so until they get a phone variant they keep the bars there (briefs/GAMETRACKER-PHONE-STAGE.md).
+    xquixOpenGameTracker({ stage: gtStageFits() });
     if (typeof MIZE !== 'undefined' && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start === 'function')
       setTimeout(function () { MIZE.GameTrackerTutorial.start(name); }, 300);
   }
