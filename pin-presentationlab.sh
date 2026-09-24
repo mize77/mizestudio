@@ -25,7 +25,7 @@ for f in xquix-game-tracker.js xquix-game-tracker-tutorial.js xquix-player-rig.j
 done
 [ -f "$LAB/xquix-presentation-tutorial.js" ] || cp xquix-presentation-tutorial.js "$LAB/xquix-presentation-tutorial.js"
 echo "    kept    $LAB/xquix-presentation-tutorial.js (work in progress, never overwritten)"
-for f in homography.js va-geometry.js va-detect.js va-model.json xquix-video-analysis.js; do
+for f in homography.js va-geometry.js va-detect.js va-field.js va-model.json xquix-video-analysis.js; do
   if [ -f "$LAB/$f" ]; then echo "    kept    $LAB/$f (Video Analysis test, lab-owned, never overwritten)"; else echo "    absent  $LAB/$f (Video Analysis test not installed - Analyze will be missing)"; fi
 done
 

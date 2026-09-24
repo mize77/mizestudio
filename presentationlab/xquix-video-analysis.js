@@ -19,6 +19,7 @@
     { key: 'post', label: 'Goal post', X: () => 0, Y: s => s.goalWidth / 2 },
     { key: 'float2', label: '2 m float on the goal rope', X: s => -s.ropeBehind, Y: s => s.goalWidth / 2 + 2 },
     { key: 'gl', label: 'Goal line at the side rope', X: s => -s.ropeBehind, Y: s => s.width / 2 },
+    { key: 'r0', label: '0 m: where the red starts on the side rope', X: () => 0, Y: s => s.width / 2 },
     { key: 'm2', label: '2 m mark at the side rope', X: () => 2, Y: s => s.width / 2 },
     { key: 'm5', label: '5 m mark at the side rope', X: () => 5, Y: s => s.width / 2 },
     { key: 'm6', label: '6 m mark at the side rope', X: () => 6, Y: s => s.width / 2 },
@@ -156,6 +157,32 @@
     S = { frame: g, spec: { length: 25, width: 20, goalWidth: 3, ropeBehind: 0 }, markers: [], cal: null, step: 'field',
           players: [], ball: null, attacking: null, attackingBy: null, corrections: [] };
     build(); render();
+    autoField();
+  }
+  /* Automatic field (MIZE's requirements): the far lane line's 0 / 2 / 5 / 6 m and the near lane line's 5 m / 6 m,
+     read from the rope colors. Found -> the markers are placed for the coach to check and the players are read at
+     once (one confirmation view). Not found -> the reason, and marking by hand as the fallback. */
+  const FIELD_URL = new URL('va-field.js', SCRIPT_URL).href.replace(/\?.*$/, '') + '?t=' + Date.now();
+  function ensureField() {
+    if (window.VAField) return Promise.resolve();
+    return new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = FIELD_URL; sc.onload = () => res(); sc.onerror = () => rej(new Error('va-field.js did not load')); document.head.appendChild(sc); });
+  }
+  function autoField() {
+    const busy = $('#xqvaBusy'); busy.textContent = 'Finding the field…'; busy.classList.add('on');
+    ensureField().then(() => new Promise(r => setTimeout(r, 30))).then(() => {
+      if (!S) return;
+      const r = VAField.auto(S.frame.data, { width: S.spec.width });
+      S.autoField = { ok: !!r.refs, why: r.why, ms: r.ms };
+      busy.classList.remove('on');
+      if (r.refs) {
+        const KEY = { 0: 'r0', 2: 'm2', 5: 'm5', 6: 'm6' };
+        S.markers = r.refs.map(q => ({ key: KEY[q.X], side: q.side, u: q.u, v: q.v, auto: true }));
+        refit();
+        if (S.cal) { render(); findPlayers(); return; }
+        S.autoField = { ok: false, why: 'The lane lines were found but do not define the field.' }; S.markers = [];
+      }
+      render();
+    }).catch(e => { busy.classList.remove('on'); if (S) { S.autoField = { ok: false, why: e.message }; render(); } });
   }
   function close() {
     const o = document.getElementById('xqva'); if (o) o.remove(); document.body.classList.remove('xqvaOpen', 'xqvaLab');
@@ -201,6 +228,8 @@
     if (refs.length < 4) return;
     const cal = VAG.fit(refs);
     if (cal.error) { S.fitInfo = { error: cal.error }; return; }
+    // the algebraic fit alone is poorly conditioned when the references lie on two ropes: refine in pixels
+    if (window.VAField && refs.length > 4) cal.H = VAField.refineH(cal.H, refs);
     const Hi = VADetect.inv3(cal.H);
     const errs = refs.map(r => { const p = VADetect.ap(Hi, r.u, r.v); return Math.hypot(p[0] - r.X, p[1] - r.Y); });
     // leave-one-out when there is a spare marker: the honest check of the fit
@@ -210,7 +239,8 @@
     if (refs.length >= 5) {
       loo = refs.map((r, i) => { const rest = refs.filter((_, j) => j !== i); if (!spread(rest)) return null; const c = VAG.fit(rest); if (c.error) return null; const p = VADetect.ap(VADetect.inv3(c.H), r.u, r.v); return Math.hypot(p[0] - r.X, p[1] - r.Y); }).filter(v => v != null);
     }
-    S.cal = { H: cal.H, Hi }; S.fitInfo = { mean: errs.reduce((a, b) => a + b, 0) / errs.length, looMax: loo && loo.length ? Math.max(...loo) : null, spread: spread(refs) };
+    const pxMax = Math.max(...refs.map(r => { const p = VADetect.ap(cal.H, r.X, r.Y); return Math.hypot(p[0] - r.u, p[1] - r.v); }));
+    S.cal = { H: cal.H, Hi }; S.fitInfo = { mean: errs.reduce((a, b) => a + b, 0) / errs.length, looMax: loo && loo.length ? Math.max(...loo) : null, spread: spread(refs), pxMax };
   }
 
   // ---------- rendering ----------
@@ -287,7 +317,8 @@
       el('button', { text: 'Undo marker', disabled: S.markers.length ? null : '', on: { click: () => { S.markers.pop(); refit(); render(); } } }, b);
       el('button', { class: 'primary', id: 'xqvaFind', text: 'Find players', disabled: S.cal ? null : '', on: { click: findPlayers } }, b);
       const n = S.markers.length;
-      if (n < 4) msg(`Tap a field marker you can see on the water and name it (${n} of at least 4). Use markers that are spread out: goal posts, 2 m floats, marks on the side ropes.`);
+      if (n === 0 && S.autoField && !S.autoField.ok) msg('The field could not be found automatically: ' + S.autoField.why + ' Mark it by hand: tap a marker you can see on the water and name it (at least 4).', 'warn');
+      else if (n < 4) msg(`Tap a field marker you can see on the water and name it (${n} of at least 4). Use markers that are spread out: goal posts, 2 m floats, marks on the side ropes.`);
       else if (S.fitInfo && S.fitInfo.error) msg('These markers don’t define the field: ' + S.fitInfo.error, 'warn');
       else if (!S.fitInfo.spread) msg('The markers sit almost in one line. Add one further out from the goal line (a 2 m, 5 m or 6 m mark) and one across the pool.', 'warn');
       else if (n === 4) msg('4 markers: the field lines are drawn from them. Check that they sit on the water where they should. A 5th marker lets me measure the fit.');
@@ -303,9 +334,11 @@
     el('span', { class: 'spacer' }, b);
     el('button', { text: 'Back to field', on: { click: () => { S.step = 'field'; closePop(); render(); } } }, b);
     el('button', { class: 'primary', id: 'xqvaShow', text: 'Show on board', disabled: (S.attacking && !c.unknown) ? null : '', on: { click: showOnBoard } }, b);
-    if (c.unknown) msg('Tap each grey “?” player and set Light or Dark.', 'warn');
-    else if (!S.attacking) msg('Which team is attacking? The scene can’t tell from these pairs — choose Light or Dark.', 'warn');
-    else msg('Tap a ring to fix it, tap the water to add a missed player or the ball.' + (S.attackingBy === 'pairs' ? ' Attacking side read from the player pairs — change it if wrong.' : ''));
+    const shaky = S.fitInfo && S.fitInfo.pxMax > 20;
+    const pre = S.autoField && S.autoField.ok ? (shaky ? 'Field found automatically, but the lane-line marks don’t fully agree — check the field lines closely. ' : 'Field found automatically — check the field lines. ') : '';
+    if (c.unknown) msg(pre + 'Tap each grey “?” player and set Light or Dark.', 'warn');
+    else if (!S.attacking) msg(pre + 'Which team is attacking? The scene can’t tell from these pairs — choose Light or Dark.', 'warn');
+    else msg(pre + 'Tap a ring to fix it, tap the water to add a missed player or the ball.' + (S.attackingBy === 'pairs' ? ' Attacking side read from the player pairs — change it if wrong.' : ''), shaky ? 'warn' : '');
   }
 
   // ---------- pointer ----------
@@ -399,7 +432,7 @@
     if (r.attacking) { S.attacking = r.attacking; S.attackingBy = 'pairs'; } else if (S.attackingBy === 'pairs') { S.attacking = null; S.attackingBy = null; }
   }
   function findPlayers() {
-    const busy = $('#xqvaBusy'); busy.classList.add('on');
+    const busy = $('#xqvaBusy'); busy.textContent = 'Reading players…'; busy.classList.add('on');
     loadModel().then(m => new Promise(res => setTimeout(() => res(m), 30))).then(m => {
       const spec = { length: S.spec.length, width: S.spec.width, goalWidth: S.spec.goalWidth };
       const r = VADetect.detect(S.frame.data, S.cal.H, spec, m, {});
