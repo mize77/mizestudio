@@ -15167,13 +15167,20 @@ function tutorialLayoutNav(){
   let side='left', bottom=pad;
   const sf=document.getElementById('cwSurface');
   const sr=(sf && getComputedStyle(sf).display!=='none') ? sf.getBoundingClientRect() : null;
-  const hits=(b, s)=>{ if(!sr || !sr.width) return false; const top=innerHeight-b-rowH, bot=innerHeight-b;
+  const hitsR=(b, s, q)=>{ if(!q || !q.width) return false; const top=innerHeight-b-rowH, bot=innerHeight-b;
     const l = s==='left' ? pad : innerWidth-pad-total, r = l+total;
-    return l < sr.right && r > sr.left && top < sr.bottom && bot > sr.top; };
+    return l < q.right && r > q.left && top < q.bottom && bot > q.top; };
+  const hits=(b, s)=>hitsR(b, s, sr);
   if(hits(bottom, side)){
     if(sf.classList.contains('cwLeft') && !hits(bottom, 'right')) side='right';
     else bottom = Math.round(innerHeight - sr.top + 8);
   }
+  // The stage's floor console, the Remote and the stage's camera arrows sit low on the screen as well (the
+  // Presentation tutorial rings all three; none of them is shown during the Coaching tutorial). The row lifts
+  // above whichever of them it would sit on.
+  const below=['#stageConsole .stageConsolePanel', '#timelineCommandsBar', '#studioNavLeft', '#studioNavRight'].map(q=>document.querySelector(q))
+    .filter(e=>e && e.getClientRects().length && getComputedStyle(e).visibility!=='hidden').map(e=>e.getBoundingClientRect()).filter(q=>q.width);
+  for(let k=0; k<below.length; k++){ const o=below.find(q=>hitsR(bottom, side, q)); if(!o) break; bottom=Math.round(innerHeight - o.top + 8); }
   tutorialAvoidConsole(sr);
   // the instruction box never sits on the row (a short phone screen in landscape): it moves up above it
   const bn=document.getElementById('tutorialBanner');

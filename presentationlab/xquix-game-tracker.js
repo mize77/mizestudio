@@ -74,15 +74,23 @@ function promptZoneNumberEdit(zoneId) {
   // window.prompt matches this module's own existing precedent
   // (window.alert already appears in API.open) rather than introducing
   // MizeDialog, which this self-contained module never otherwise uses.
-  var input = window.prompt('New number for this zone (currently ' + current + '):', String(current));
-  if (input === null) return; // cancelled
-  var n = parseInt(input, 10);
-  if (isNaN(n) || String(n) !== input.trim()) { window.alert('Enter a whole number.'); return; }
-  var conflict = ZONES.some(function (other) { return other.id !== zoneId && zoneNum(other) === n; });
-  if (conflict) { window.alert('Zone ' + n + ' is already in use by another zone. Pick a different number.'); return; }
-  S.zoneNumberOverrides[zoneId] = n;
-  saveZoneNumberOverrides();
-  drawOverlay(null);
+  // 2026-09-23: the Studio's own dialog when it is there (on the Studio Stage everything the tracker shows is in the studio's
+  // materials -- briefs/GAMETRACKER-STAGE-SCREENS.md); the browser's prompt otherwise, exactly as before.
+  var ask = (typeof MizeDialog !== 'undefined' && MizeDialog.prompt)
+    ? function (m, d, cb) { MizeDialog.prompt(m, d).then(cb); }
+    : function (m, d, cb) { cb(window.prompt(m, d)); };
+  var say = (typeof MizeDialog !== 'undefined' && MizeDialog.alert)
+    ? function (m) { MizeDialog.alert(m); } : function (m) { window.alert(m); };
+  ask('New number for this zone (currently ' + current + '):', String(current), function (input) {
+    if (input === null || input === undefined) return; // cancelled
+    var n = parseInt(input, 10);
+    if (isNaN(n) || String(n) !== String(input).trim()) { say('Enter a whole number.'); return; }
+    var conflict = ZONES.some(function (other) { return other.id !== zoneId && zoneNum(other) === n; });
+    if (conflict) { say('Zone ' + n + ' is already in use by another zone. Pick a different number.'); return; }
+    S.zoneNumberOverrides[zoneId] = n;
+    saveZoneNumberOverrides();
+    drawOverlay(null);
+  });
 }
 
 /* ------------------------------------------------------------ action trees */
@@ -265,6 +273,7 @@ var MISS_TARGETS = [
 /* -------------------------------------------------------------------- state */
 var S = {
   active: false,
+  tutorialMode: false,         // set only through API.setTutorialMode(): no persistence while a tutorial runs
   trackingMode: 'parent',      // parent | coach
   playerRole: 'field',         // field | goalkeeper | team
   game: { date: '', loc: '', home: '', away: '' },
@@ -747,6 +756,7 @@ function openEditEvent(eventId) {
 
 /* ------------------------------------------------------------- persistence */
 function save() {
+  if (S.tutorialMode) return;   // a tutorial session lives in memory only -- never over the coach's saved game
   try {
     localStorage.setItem(KEY, JSON.stringify({
       v: 1, savedAt: new Date().toISOString(),
@@ -832,7 +842,7 @@ function syncSessionToCloud() {
     try {
       var authClient = XQUIX.Auth.getClient && XQUIX.Auth.getClient();
       preRefresh = (authClient && authClient.auth)
-        ? authClient.auth.refreshSession().catch(function () {})
+        ? authClient.auth.getSession().catch(function () {})   // refreshes only when due, under the client's lock (a forced refresh raced the client's own)
         : Promise.resolve();
     } catch (e) { preRefresh = Promise.resolve(); }
     return preRefresh.then(function () {
@@ -893,7 +903,7 @@ function resetGameState() {
   // the last moment, not the primary save mechanism. Only bothers if
   // there's actually something to save; a session with no events yet
   // has nothing worth writing.
-  if (S.events.length) syncSessionToCloud();
+  if (S.events.length && !S.tutorialMode) syncSessionToCloud();
   S.game = { date: '', loc: '', home: '', away: '' };
   S.me = { number: null, name: '' };
   S.squad = []; S.water = []; S.keepers = [];
@@ -911,7 +921,7 @@ function resetGameState() {
   S.regulationEnded = false;
   S.officiallyEnded = false;
   S.finishPromptShown = false;
-  clearSaved();
+  if (!S.tutorialMode) clearSaved();
 }
 function restore(d) {
   S.game = d.game; S.trackingMode = d.trackingMode; S.playerRole = d.playerRole;
@@ -953,6 +963,7 @@ var CSS = [
 '#xgtRoot *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}',
 '#xgtRoot button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}',
 '.xgtPane{pointer-events:auto;background:#fff;border:1px solid #ccd6d6;box-shadow:0 2px 14px rgba(20,35,92,.10)}',
+'#xgtRoot.xgtStageChrome #xgtTop,#xgtRoot.xgtStageChrome #xgtBottom{display:none}',
 '#xgtTop{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;gap:6px;',
 '  padding:calc(env(safe-area-inset-top) + 5px) 10px 5px;border-width:0 0 1px}',
 '#xgtClockRow{display:flex;align-items:center;justify-content:center;gap:16px;padding-right:38px}', // now a 3-part row (home score / clock / away score) rather than the clock alone -- see xgtScore below for how the score elements join this same row without a second visibility toggle to keep in sync. padding-right reserves exactly #xgtExitBtn's own footprint (32px wide, 6px offset) so the away team's name/score never sits underneath it, regardless of team name length
@@ -1026,15 +1037,15 @@ var CSS = [
 // feedback, the field itself is the priority -- these chips are
 // tapped often but only need to be legible, not prominent, and the
 // smaller footprint leaves more room for the field above them.
-'#xgtRoot .xgtChip{min-width:28px;height:28px;padding:0 6px;font-size:13px}',
+'#xgtRoot .xgtChip,.xgtBarHost .xgtChip{min-width:28px;height:28px;padding:0 6px;font-size:13px}',   /* .xgtBarHost: a Studio Stage screen that hosts #xgtBar (chrome:\'stage\') */
 '#xgtSheet .xgtChip[aria-pressed="true"]{background:#1b7373;color:#fff;border-color:transparent}',
-'#xgtRoot .xgtChip.water, #xgtSheet .xgtChip.water{background:#2e7d32;color:#fff;border-color:transparent}', /* #xgtSheet alone isn\'t enough: renderBar() renders these chips into #xgtBar, which is inside #xgtRoot (NOT #xgtSheet -- confirmed these are separate containers), and #xgtRoot button{background:none} outranks a plain two-class rule by specificity. Both ID scopes are needed to cover both locations these chips actually render in. */
+'#xgtRoot .xgtChip.water, #xgtSheet .xgtChip.water, .xgtBarHost .xgtChip.water{background:#2e7d32;color:#fff;border-color:transparent}', /* #xgtSheet alone isn\'t enough: renderBar() renders these chips into #xgtBar, which is inside #xgtRoot (NOT #xgtSheet -- confirmed these are separate containers), and #xgtRoot button{background:none} outranks a plain two-class rule by specificity. Both ID scopes are needed to cover both locations these chips actually render in. */
 // Phase F: goalie designation -- solid fill in the setup sheet (nothing
 // else competes for that chip's background there), an inset ring in the
 // live bar instead (has to coexist with the green water fill, which
 // already owns the chip's actual background there).
 '#xgtSheet .xgtChip.goalie{background:#c0392b;color:#fff;border-color:transparent}',
-'#xgtRoot .xgtChip.goalie{box-shadow:inset 0 0 0 2px #c0392b}',
+'#xgtRoot .xgtChip.goalie,.xgtBarHost .xgtChip.goalie{box-shadow:inset 0 0 0 2px #c0392b}',
 // Phase E: live scoreboard badges + opponent quick-tap goal/foul buttons
 // Both rosters always visible now, side by side, rather than a toggle
 // that only ever showed one at a time -- own team left, opponent
@@ -1277,6 +1288,12 @@ function buildChrome() {
   oppoZone.type = 'button'; oppoZone.textContent = 'OPPO';
   oppoZone.setAttribute('aria-label', 'Action happened in the opposite half of the pool');
   var root = document.createElement('div'); root.id = 'xgtRoot';
+  if (S.chromeMode === 'stage') {
+    root.className = 'xgtStageChrome';
+    // With stage chrome the Studio Stage owns everything outside the field (its floor console
+    // must be tappable); the full-viewport blocker stays out. The shield over the field is unchanged.
+    block.style.display = 'none';
+  }
   root.innerHTML =
     '<div class="xgtPane" id="xgtTop">' +
       '<button id="xgtExitBtn" aria-label="Exit Game Tracker">\u2715</button>' +
@@ -1427,7 +1444,9 @@ function positionShield() {
   // then computes exactly how far down it needs to move to start right
   // where the chrome ends, rather than guessing a fixed number.
   var wrap = document.getElementById('stageWrap');
-  if (wrap) {
+  if (wrap && S.chromeMode === 'stage') {
+    // the Studio Stage positions #stageWrap; nothing to correct for here
+  } else if (wrap) {
     if (S.active) {
       var topBar = el('xgtTop');
       var chromeH = topBar ? topBar.getBoundingClientRect().height : 0;
@@ -1548,7 +1567,10 @@ function toast(msg) {
 
 /* ===================================================================== sheet */
 function sheetEl() { return el('xgtSheet'); }
-function openSheet() { sheetEl().classList.add('on'); el('xgtScrim').classList.add('on'); }
+// kind (2026-09-23, briefs/GAMETRACKER-STAGE-SCREENS.md): which sheet this is -- 'landing' | 'setup' | 'clock' | 'menu' |
+// 'shootout', default 'record' (the recording flow). Written to data-kind for the Studio Stage, which places screen sheets
+// on the centre screen and record sheets on the floor console. Nothing in the module reads it.
+function openSheet(kind) { sheetEl().dataset.kind = kind || 'record'; sheetEl().classList.add('on'); el('xgtScrim').classList.add('on'); }
 function closeSheet() {
   sheetEl().classList.remove('on'); el('xgtScrim').classList.remove('on');
   S.draft = null; S.onScrim = null;
@@ -2442,13 +2464,14 @@ function paintClock() {
   t.textContent = fmt(S.clock);
   t.className = S.running ? 'run' : '';
   el('xgtQ').textContent = 'Q' + S.q + ' ✎';
+  xgtEmit('change', 'clock');
 }
 function openClock() {
   var wasRunning = S.running;
   S.running = false; clearInterval(S.tick); paintClock();
   var before = { q: S.q, clock: S.clock };
   S.onScrim = cancel;
-  draw(); openSheet();
+  draw(); openSheet('clock');
   function draw() {
     sheetEl().innerHTML = head('Set the time', 'Match the pool clock, then Done', null) +
       '<span class="xgtLbl">Quarter</span><div class="xgtChips" style="margin-bottom:14px">' +
@@ -2669,7 +2692,12 @@ async function xgtOfferToFinishGame(force) {
   }
 
   var message;
-  if (syncResult.status === 'error') {
+  if (syncResult.status === 'error' && /check constraint|violates|object_type/i.test(syncResult.message || '')) {
+    // The library refused the row itself (2026-09-22: it does not accept Game Tracker sessions yet) -- not the sign-in.
+    message = 'Saved as ' + name + ' on this device. The Coaching Library does not accept Game Tracker sessions yet, so it was not uploaded \u2014 this is a setup issue on our side, not your sign-in. '
+            + 'A CSV export was downloaded automatically. '
+            + 'Open the Library on this device to export a PDF.';
+  } else if (syncResult.status === 'error') {
     message = 'Saved as ' + name + ' on this device, but uploading to the Coaching Library failed \u2014 your sign-in session may have expired. '
             + 'A CSV export was downloaded automatically. '
             + 'Open the Library on this device to export a PDF, or sign in again and the session will sync.';
@@ -2688,20 +2716,20 @@ async function xgtOfferToFinishGame(force) {
 function openShootout() {
   // Asked once, the very first time -- never again after that. Everyone
   // after this alternates automatically per shootoutCurrentSide() above.
-  if (!S.shootoutStartSide) { drawStart(); openSheet(); return; }
+  if (!S.shootoutStartSide) { drawStart(); openSheet('shootout'); return; }
   // A side with no water roster (opponent tracking wasn't enabled,
   // most likely) has no chips to offer as shooters at all -- rather
   // than falling back to typing a cap number every single attempt,
   // this is asked once, tap-only, right here, and reused as that
   // side's shooter grid for the rest of the shootout.
-  if (needsRosterDeclare('us')) { drawDeclareRoster('us'); openSheet(); return; }
-  if (needsRosterDeclare('them')) { drawDeclareRoster('them'); openSheet(); return; }
+  if (needsRosterDeclare('us')) { drawDeclareRoster('us'); openSheet('shootout'); return; }
+  if (needsRosterDeclare('them')) { drawDeclareRoster('them'); openSheet('shootout'); return; }
   // Defaults to each side's primary declared keeper the first time this
   // actually renders -- freely changeable afterward, per shot, since a
   // backup keeper subbing in specifically for this is real and expected.
   if (S.shootoutGoalkeepers.us == null) S.shootoutGoalkeepers.us = (S.keepers && S.keepers[0]) != null ? S.keepers[0] : null;
   if (S.shootoutGoalkeepers.them == null) S.shootoutGoalkeepers.them = (S.oppKeepers && S.oppKeepers[0]) != null ? S.oppKeepers[0] : null;
-  drawMain(); openSheet();
+  drawMain(); openSheet('shootout');
 
   function needsRosterDeclare(side) {
     var known = side === 'us' ? S.water : S.oppWater;
@@ -2961,6 +2989,7 @@ function openShootout() {
 /* ==================================================================== render */
 function render() {
   if (!el('xgtRoot')) return;
+  xgtEmit('change', 'state');
   var sc = scoreOf();
   el('xgtHs').textContent = sc[0]; el('xgtAs').textContent = sc[1];
   el('xgtScore').style.display = S.trackScore ? 'contents' : 'none'; // kept in sync every render, not just at setup, since S.trackScore could in principle change after buildChrome()'s one-time HTML already ran. 'contents' (not 'flex') so the two .tm children lay out as direct members of xgtClockRow's own flex row, not as a nested box within it
@@ -3066,7 +3095,7 @@ function renderBar() {
   if (singlePlayerMode()) {
     var iw = inWater(S.me.number);
     bar.innerHTML =
-      '<div class="xgtRow" style="margin-bottom:7px"><div class="xgtWho"><span class="num">#' + S.me.number + '</span>' +
+      '<div class="xgtRow" style="margin-bottom:7px"><div class="xgtWho"><span class="num">#' + (S.me.number != null && S.me.number !== '' ? S.me.number : '\u2013') + '</span>' +
       '<div class="meta" style="flex:1">' + (S.me.name || (gk ? 'Goalkeeper' : 'My player')) + '<br>' +
       (gk ? 'In goal' : 'In water') + ' ' + fmt(waterSeconds(S.me.number)) + '</div></div></div>' +
       '<div class="xgtRow"><button class="xgtPill ' + (iw ? 'in' : 'out') + '" id="xgtPres" style="flex:1">' +
@@ -3424,7 +3453,7 @@ function xgtOpenSessions() {
 // they're common enough to be worth a shortcut from wherever the coach
 // happens to be looking.
 function openOptions() {
-  draw(); openSheet();
+  draw(); openSheet('menu');
   function draw() {
     var isFrontCourt = frontCourtOn();
     // Sessions only shown when it would actually lead somewhere useful --
@@ -3840,7 +3869,7 @@ function download(name, type, data) {
 
 /* ===================================================================== setup */
 function openSetup() {
-  openSheet();
+  openSheet('setup');
   S.onScrim = function () { closeSheet(); API.close(); };
   draw();
   function draw() {
@@ -4344,9 +4373,23 @@ function xgtBuildStatsPdf(jsPDFCtor, opts) {
     return opts.filename;
   });
 }
+// Read-only hooks for the Studio Stage (2026-09-21, briefs/GAMETRACKER-STUDIO-REVIEW.md
+// Step 3): the Studio shows live game information beside the tracker while it runs on the
+// stage. Nothing here changes tracking; listeners get no arguments beyond a kind string and
+// read through API.liveRecord(). Errors in a listener never reach the tracker.
+var _xgtHooks = { change: [], close: [] };
+function xgtEmit(kind, detail) {
+  var list = _xgtHooks[kind] || [];
+  for (var i = 0; i < list.length; i++) { try { list[i](detail); } catch (err) {} }
+}
 var API = {
-  open: function () {
+  open: function (opts) {
     if (S.active) return;
+    // chrome:'stage' (2026-09-21, Step 5): the Studio Stage draws the controls (its floor
+    // console, its side screens); this module's own top/bottom bars are not shown and
+    // positionShield() leaves #stageWrap where the stage put it. Everything else -- the
+    // sheets, the shield, the recording flow, persistence -- is identical.
+    S.chromeMode = (opts && opts.chrome === 'stage') ? 'stage' : 'own';
     if (!window.MIZE || !el('fieldZonesSvg')) {
       window.alert('Game Tracker needs the XquiX Studio field — load it after the Studio scripts.');
       return;
@@ -4446,6 +4489,7 @@ var API = {
       try { if (typeof loadState === 'function') loadState(S.savedBoardState); } catch (err) {}
       S.savedBoardState = null;
     }
+    xgtEmit('close');
   },
   isOpen: function () { return S.active; },
   state: S,
@@ -4456,6 +4500,38 @@ var API = {
   FIELD_PLAYER_ACTIONS: FIELD_PLAYER_ACTIONS,
   GOALKEEPER_ACTIONS: GOALKEEPER_ACTIONS,
   events: function () { return S.events.slice(); },
+  // Studio Stage hooks (read-only). liveRecord() has the shape of a saved session record
+  // (what renderSessionStatsHtml takes) plus the clock, built fresh from the live state --
+  // a snapshot, never S itself.
+  liveRecord: function () {
+    var sc = scoreOf();
+    var banner = el('xgtGameOverBanner');
+    var cp = function (a) { return Array.isArray(a) ? a.slice() : a; };
+    return { trackingMode: S.trackingMode, playerRole: S.playerRole, trackedPlayer: S.me,
+      game: S.game, finalScore: { home: sc[0], away: sc[1] }, trackScore: S.trackScore,
+      q: S.q, clock: S.clock, clockText: fmt(S.clock), running: S.running,
+      regulationEnded: !!S.regulationEnded, officiallyEnded: !!S.officiallyEnded,
+      gameOverText: (banner && banner.style.display !== 'none') ? (banner.textContent || '').trim() : '',
+      squad: cp(S.squad), water: cp(S.water), keepers: cp(S.keepers), keeperLabels: S.keeperLabels ? Object.assign({}, S.keeperLabels) : S.keeperLabels,
+      opponentTracked: !!S.opponentTracked, oppSquad: cp(S.oppSquad), oppWater: cp(S.oppWater), oppKeepers: cp(S.oppKeepers),
+      canUndo: S.events.length > 0, canRedo: S.undone.length > 0, chromeMode: S.chromeMode || 'own',
+      events: S.events.slice() };
+  },
+  // Commands for a Studio-drawn control surface (Step 5). Each is the function the module's
+  // own button calls -- no new logic, no new confirmations.
+  toggleClock: function () { if (S.active) toggleClock(); },
+  openQuarterMenu: function () { if (S.active) openClock(); },
+  undo: function () { if (S.active) undoLast(); },
+  redo: function () { if (S.active) redoLast(); },
+  openMenu: function () { if (S.active) openOptions(); },
+  openStats: function () { if (S.active) openStats(); },
+  exit: function () { API.close(); },
+  // Restored 2026-09-21: the contract (gametracker/GAMETRACKER-CONTRACT.md) records this as
+  // landed on 2026-08-29 and the shipping tutorial refuses to start without it, but the
+  // module in the repo had no such member. Verified by gametracker/gametracker-smoke.js.
+  setTutorialMode: function (on) { S.tutorialMode = !!on; },
+  onChange: function (cb) { if (typeof cb === 'function') _xgtHooks.change.push(cb); },
+  onClose: function (cb) { if (typeof cb === 'function') _xgtHooks.close.push(cb); },
   // Read-only stats rendering for a SAVED session record (Phase B --
   // "View Stats" from the Coaching Library), completely separate from
   // openStats() and never touching the live S object. This matters: a
@@ -4603,7 +4679,7 @@ var API = {
   }
 };
 function openGameTrackerLanding(saved) {
-  openSheet();
+  openSheet('landing');
   var showSessions = xgtShouldShowSessionsEntry();
   var when = '';
   if (saved) { try { when = new Date(saved.savedAt).toLocaleString(); } catch (err) {} }

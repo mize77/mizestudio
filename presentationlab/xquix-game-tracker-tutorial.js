@@ -128,7 +128,29 @@ var CSS = [
 
 /* --------------------------------------------------------------- helpers */
 function el(id) { return document.getElementById(id); }
-function q(sel) { try { return document.querySelector(sel); } catch (err) { return null; } }
+/* On the Studio Stage (landscape, chrome:'stage') the tracker's own bars are not shown: the
+   clock, quarter, menu, stats, undo and exit live on the stage's floor console, the roster
+   bar on the left screen. A step written against the bars is mapped to the console here,
+   so one tutorial serves both (briefs/GAMETRACKER-STUDIO-REVIEW.md §5.5, 2026-09-21). */
+var STAGE_SEL = {
+  '#xgtClock': '#stageConsole .stageConsoleGroup[data-group="game"]',
+  '#xgtT': '#stageConsole [data-id="clock"]',
+  '#xgtQ': '#stageConsole [data-id="quarter"]',
+  '#xgtOptionsBtn': '#stageConsole [data-id="menu"]',
+  '#xgtStatsBtn': '#stageConsole [data-id="stats"]',
+  '#xgtUn': '#stageConsole [data-id="undo"]',
+  '#xgtExitBtn': '#stageConsole [data-id="exit"]',
+  '#xgtLog': '#gtLiveInfo',
+  '#xgtTop': '#gtLiveInfo'
+};
+function onStage() { return document.body.getAttribute('data-stage') === 'gametracker'; }
+/* Copy that names a place. The same lesson runs on a phone (the tracker's own bars, top and
+   bottom) and on the Studio Stage (console below the field, TEAM screen to the left), so a
+   sentence that says where something is asks at render time. */
+function where(phone, stage) { return onStage() ? stage : phone; }
+function undoHint() { return where('Tap <b>↺</b> at the bottom to undo it', 'Tap <b>Undo</b> on the console to undo it'); }
+function stageSel(sel) { return (onStage() && typeof sel === 'string' && STAGE_SEL[sel]) ? STAGE_SEL[sel] : sel; }
+function q(sel) { try { return document.querySelector(stageSel(sel)); } catch (err) { return null; } }
 function make(tag, id) { var e = document.createElement(tag); if (id) e.id = id; return e; }
 function step() { return idx >= 0 ? steps[idx] : null; }
 function evts() { return T ? T.events() : []; }
@@ -144,7 +166,7 @@ function stageWrap() { return document.getElementById('stageWrap'); }
    two or three screens -- action, outcome, placement -- and a ring fixed to the
    first of them goes blank for the rest of the step, which reads as "there is
    nothing to tap here" at exactly the moment there is. */
-function selOf(s) { return typeof s === 'function' ? s() : s; }
+function selOf(s) { return stageSel(typeof s === 'function' ? s() : s); }
 
 function firstVisible(sels) {
   return function () {
@@ -756,12 +778,22 @@ function positionChrome(force) {
   box.style.maxHeight = '';
   var scroll = el('xgtuScroll');
   if (scroll) scroll.style.maxHeight = '';
+  /* On the Studio Stage home is the bottom-left corner of the room: the floor beside the
+     console and the empty lower part of the TEAM screen. Top-left would sit on the roster
+     bar, which is the one thing on that screen. The box is narrowed so it stops short of the
+     console's left edge. */
+  var stage = onStage();
+  if (stage) {
+    var con = el('stageConsole');
+    var cl = con ? con.getBoundingClientRect().left : 0;
+    box.style.width = cl > 240 ? Math.min(370, Math.round(cl) - 24) + 'px' : '';
+  } else box.style.width = '';
   var h = box.offsetHeight;
 
   var y;
   if (!r || !isPortrait()) {
     // Nothing to avoid, or a screen with room for both. Stay home.
-    y = lim.top;
+    y = stage ? (lim.bottom - h) : lim.top;
   } else {
     var above = (r.top - ANCHOR_GAP) - lim.top;    // room in the band above
     var below = lim.bottom - (r.bottom + ANCHOR_GAP);
@@ -854,6 +886,16 @@ function paintRing() {
   var top = Math.max(pad, r.top), left = Math.max(pad, r.left);
   var bottom = Math.min(window.innerHeight - pad, r.bottom);
   var right = Math.min(window.innerWidth - pad, r.right);
+  // On the Studio Stage the board is confined to the centre screen's frame (#stageWrap clips
+  // it), so a target inside the board is ringed within the frame, not to the window's edge.
+  if (onStage() && target.nodeType) {
+    var sw = stageWrap();
+    if (sw && sw.contains(target)) {
+      var wr = sw.getBoundingClientRect();
+      top = Math.max(top, wr.top); left = Math.max(left, wr.left);
+      bottom = Math.min(bottom, wr.bottom); right = Math.min(right, wr.right);
+    }
+  }
   if (bottom <= top || right <= left) { ring.style.display = 'none'; return; }
   r = { top: top, left: left, bottom: bottom, right: right,
         width: right - left, height: bottom - top };
@@ -1699,7 +1741,7 @@ function buildLessons(which) {
     // Kept short on purpose. This box has to share an 844px phone with a ring
     // that runs down the whole sideline, and the team tutorials' two-column
     // roster bar takes another slice off the bottom.
-    { instruction: 'The pool carries on past the top of the screen. To move up and down it, <b>drag on the narrow strip along either sideline</b> — the middle is for tapping field zones.\n\nTry it now.',
+    { instruction: function () { return where('The pool carries on past the top of the screen.', 'The pool carries on above what the centre screen shows.') + ' To move up and down it, <b>drag on the narrow strip along either sideline</b> — the middle is for tapping field zones.\n\nTry it now.'; },
       gesture: true,
       homeBox: true,
       highlight: scrollStrip,
@@ -1731,8 +1773,8 @@ function buildLessons(which) {
     return   { title: 'The clock', steps: [
     { ack: true,
       // Nothing is clickable on an ack step, so the clock cannot be started here.
-      instruction: 'At the top of the screen you can see the current <b>quarter</b> and the <b>game clock</b>.\n\n' +
-        'The clock counts down from <b>8:00</b>. If your competition plays shorter quarters, the quarter time can be adjusted — in the time sheet behind the quarter button, which this lesson comes to shortly.',
+      instruction: function () { return where('At the top of the screen', 'On the console below the field') + ' you can see the current <b>quarter</b> and the <b>game clock</b>.\n\n' +
+        'The clock counts down from <b>8:00</b>. If your competition plays shorter quarters, the quarter time can be adjusted — in the time sheet behind the quarter button, which this lesson comes to shortly.'; },
       highlight: '#xgtClock' },
 
     { instruction: 'Tap the clock to start it.',
@@ -1782,7 +1824,7 @@ function buildLessons(which) {
       instruction: 'Look at the clock — it stopped on its own, at the moment you started the event. The time you needed for logging the event was not taken off the game.',
       highlight: '#xgtT' },
 
-    { instruction: 'To correct the clock, or to change a quarter, tap the <b>quarter button</b> at the top left — the one showing <b>Q1</b>.',
+    { instruction: function () { return 'To correct the clock, or to change a quarter, tap ' + where('the <b>quarter button</b> at the top left — the one showing <b>Q1</b>.', '<b>Quarter</b> on the console, next to the clock.'); },
       highlight: '#xgtQ',
       allow: '#xgtQ',
       validate: function () { return !!el('xgtDone'); },
@@ -1842,7 +1884,7 @@ function buildLessons(which) {
     opts = opts || {};
     return   { title: 'Ending the game', steps: [
     { ack: true,
-      instruction: 'You can move on to the next quarter by tapping the <b>quarter button</b> at the top of the screen.',
+      instruction: function () { return 'You can move on to the next quarter by tapping ' + where('the <b>quarter button</b> at the top of the screen.', '<b>Quarter</b> on the console below the field.'); },
       highlight: '#xgtQ' },
 
     { ack: true,
@@ -2096,7 +2138,7 @@ function buildLessons(which) {
       success: 'Steal logged' },
 
     { ack: true,
-      instruction: 'The pill at the bottom is your player going in and out of the water. Tap it when they get subbed in or out, so that you can log the playing time.',
+      instruction: function () { return where('The pill at the bottom', 'The pill on the TEAM screen to the left') + ' is your player going in and out of the water. Tap it when they get subbed in or out, so that you can log the playing time.'; },
       highlight: '#xgtPres' },
 
     { ack: true,
@@ -2168,7 +2210,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'goal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log a goal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. ' + undoHint() + ', then log a goal.';
       },
       validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
@@ -2188,7 +2230,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'blocked' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log a blocked shot.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. ' + undoHint() + ', then log a blocked shot.';
       },
       validate: logged({ action: 'shot', outcome: 'blocked' }),
       autoComplete: function () {
@@ -2205,7 +2247,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'steal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log a steal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. ' + undoHint() + ', then log a steal.';
       },
       validate: logged({ action: 'steal' }),
       autoComplete: function () {
@@ -2395,7 +2437,7 @@ function buildLessons(which) {
       instruction: 'That outlet pass is recorded as its own event, with its own time — because it is the start of the counter-attack, not a footnote to the steal.' },
 
     { ack: true,
-      instruction: 'The pill at the bottom is your keeper going in and out of the water. Tap it when they get subbed in or out, so that you can log the playing time.',
+      instruction: function () { return where('The pill at the bottom', 'The pill on the TEAM screen to the left') + ' is your keeper going in and out of the water. Tap it when they get subbed in or out, so that you can log the playing time.'; },
       highlight: '#xgtPres' },
 
     { ack: true,
@@ -2471,7 +2513,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'blocked' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log the save.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. ' + undoHint() + ', then log the save.';
       },
       validate: logged({ action: 'shot', outcome: 'blocked' }),
       autoComplete: function () {
@@ -2488,7 +2530,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'goal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log the goal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. ' + undoHint() + ', then log the goal.';
       },
       validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
@@ -2505,7 +2547,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'steal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log a steal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. ' + undoHint() + ', then log a steal.';
       },
       validate: logged({ action: 'steal' }),
       autoComplete: function () {
@@ -2683,8 +2725,8 @@ function buildLessons(which) {
     { ack: true,
       calmRing: true,
       highlight: '#xgtBar',
-      instruction: 'Along the bottom is the <b>roster bar</b>' + (opp ? ' — your squad on one side, theirs on the other, with the Menu and Stats between them.' : ', with the Menu and Stats beside it.') + '\n\n' +
-        'The number next to ' + (opp ? 'each team’s name counts how many of their players' : 'your team’s name counts how many players') + ' are in the water: <b>7/7</b>.' },
+      instruction: function () { return where('Along the bottom is the <b>roster bar</b>' + (opp ? ' — your squad on one side, theirs on the other, with the Menu and Stats between them.' : ', with the Menu and Stats beside it.'), 'On the TEAM screen to the left is the <b>roster bar</b>' + (opp ? ' — your squad and theirs.' : '.')) + '\n\n' +
+        'The number next to ' + (opp ? 'each team’s name counts how many of their players' : 'your team’s name counts how many players') + ' are in the water: <b>7/7</b>.'; } },
 
     { ack: true,
       calmRing: true,
@@ -2812,7 +2854,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'shot', outcome: 'goal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log the goal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. ' + undoHint() + ', then log the goal.';
       },
       validate: logged({ action: 'shot', outcome: 'goal' }),
       autoComplete: function () {
@@ -2852,7 +2894,7 @@ function buildLessons(which) {
       misstep: function () {
         var e = stray(base, { action: 'steal' });
         if (!e) return null;
-        return 'That logged a <b>' + nameOf(e) + '</b>. Tap <b>↺</b> at the bottom to undo it, then log a steal.';
+        return 'That logged a <b>' + nameOf(e) + '</b>. ' + undoHint() + ', then log a steal.';
       },
       validate: logged({ action: 'steal' }),
       autoComplete: function () {

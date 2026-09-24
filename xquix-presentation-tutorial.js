@@ -20,6 +20,14 @@
  *
  * Design context: presentation/PRESENTATION-TUTORIAL.md in the project.
  *
+ * VOICE (2026-09-23): the same Read aloud + Voice commands the Coaching tutorial
+ * has, through the engine's own XQTutVoice -- nothing voice-related lives in this
+ * file except the step list's options (steps.tutorialOptions: voice, exitScreen,
+ * rebuild) and the welcome box that offers the two switches (voiceOptions).
+ * What is read is the box's own text, so the instructions name buttons in words
+ * ("the Back to start button") rather than by glyph: a speech engine reads a
+ * glyph like the rewind symbol as its Unicode name, or not at all.
+ *
  * What it teaches, in order: enter Presentation Mode from the Menu · the three
  * screens and the camera arrows · playing and stepping the frames with the
  * Remote Control · the Spotlight · the Shot Clock · exit. Every required action
@@ -153,10 +161,10 @@ function restore() {
 }
 
 /* ------------------------------------------------------------------ cleanup */
-function cleanup() {
-  if (!running) return;
-  running = false;
-  if (observer) { observer.disconnect(); observer = null; }
+/* Everything the tutorial may have switched on, switched off again. Shared by
+   cleanup() (the run is over) and Start over (the run begins again, so the
+   coach's own board stays in the snapshot until the real end). */
+function resetPresentationState() {
   try {
     // Order matters: leave presentation first (it disarms the spotlight,
     // closes the modal Menu/panels and resets the field geometry itself),
@@ -175,6 +183,12 @@ function cleanup() {
     document.querySelectorAll('.cmdCategoryGrid.hasOpenCategory').forEach(function (g) { g.classList.remove('hasOpenCategory'); });
     var back = $('cmdCategoryBackBtn'); if (back) back.style.display = 'none';
   } catch (err) { console.error('Presentation tutorial cleanup', err); }
+}
+function cleanup() {
+  if (!running) return;
+  running = false;
+  if (observer) { observer.disconnect(); observer = null; }
+  resetPresentationState();
   restore();
   if (typeof fitBoardToScreen === 'function') safe(fitBoardToScreen);
 }
@@ -183,12 +197,24 @@ function cleanup() {
 function buildPresentationModeSteps() {
   var spotStart = null; // where the spotlight was placed, for the move/resize step
 
-  return [
+  // The welcome box offers the voice, so it says what can be said -- only what
+  // this browser can actually do (Firefox has no speech recognition).
+  var V = (typeof XQTutVoice !== 'undefined') ? XQTutVoice : null;
+  // Kept as short as the Coaching tutorial's: with the two switches under it, a
+  // longer box no longer fits above Exit and Skip on a phone in landscape.
+  var welcome = 'Welcome! This tutorial shows you how to present a play to your team.\nLook for the pulsing red frame. It marks exactly what to tap next.';
+  if (V && V.ttsSupported && V.commandsSupported) welcome += '\nWant the instructions read aloud? You can also answer by voice: "Got it", "Next step", "Repeat" or "Exit".';
+  else if (V && V.ttsSupported) welcome += '\nWant the instructions read aloud? Switch it on below.';
+  welcome += '\nTap "Got it" to begin.';
+
+  var steps = [
 
     /* ---------------------------------------------------- welcome (pre-step) */
     {
+      id: 'welcome',
       isPreStep: true, requiresAcknowledge: true, skipSuccessMessage: true, bannerSide: 'left',
-      instruction: 'Welcome! In this tutorial you present a play to your team: you switch the Studio into Presentation Mode, move between its three screens, play the sequence frame by frame, put a spotlight and a shot clock on the board, and come back to editing.\n\nThroughout, the pulsing red frame marks the one thing to tap next.\n\nTap "Got it" to begin.',
+      voiceOptions: true, // the Read aloud and Voice commands switches, in the box (the engine draws them)
+      instruction: welcome,
       onEnter: function () {
         hideRemote();
         if (!loadTutorialSequence()) {
@@ -210,7 +236,7 @@ function buildPresentationModeSteps() {
     },
     { // 2
       instruction: 'Tap Presentation.',
-      bannerSide: 'left', skipDimPhase: true, useShadeHighlight: true,
+      bannerSide: 'right', /* the button is in the Menu's left column */ skipDimPhase: true, useShadeHighlight: true,
       highlight: '.cmdCategory[data-cat="present"] .cmdCatHeader',
       allowedSelectors: '#controlsPanel', // the whole Menu, so it can still be scrolled on a small screen (same trade the First Coaching Session makes)
       validate: { type: 'custom', fn: function () { return presentCategoryOpen() || inPresentation(); } },
@@ -221,24 +247,24 @@ function buildPresentationModeSteps() {
     },
     { // 3
       instruction: 'Tap Presentation Mode.',
-      bannerSide: 'left', skipDimPhase: true, useShadeHighlight: true,
+      bannerSide: 'right', /* the button is in the Menu's left column */ skipDimPhase: true, useShadeHighlight: true,
       onEnter: function () { reveal('#presentationBtn'); },
       highlight: '#presentationBtn',
       allowedSelectors: ['#presentationBtn'],
       validate: { type: 'custom', fn: inPresentation },
       autoComplete: function () { if (!inPresentation() && typeof togglePresentation === 'function') togglePresentation('fit'); }
     },
-    ack('You are presenting. The editing tools are gone and the studio backdrop with its stage lights is on.\n\nThis opening view is the Panorama: all three screens side by side, with the board in the middle.\n\nA short intro jingle plays each time you enter; you can mute it in the Menu under Presentation → Presentation Sound.\n\nThe Menu tab stays at the edge of the screen, so every tool in this tutorial is one tap away.', { bannerSide: 'left', skipDimPhase: true }),
+    ack('You are presenting. This opening view is the Panorama: all three screens side by side, the board in the middle.\n\nThe Menu tab stays at the edge of the screen, so every tool in this tutorial is one tap away.', { bannerSide: 'left', skipDimPhase: true }),
 
     /* ------------------------------------------------ Lesson 2 · the three screens */
     { // 5
-      instruction: 'The three screens: a video screen on the left, the board in the middle, and a stats screen on the right. Tapping a screen moves the camera to it; the arrows at the edges turn the camera too, and the row of dots at the top shows where it is. The ring at the end of that row brings the Panorama back.\n\nTap the right arrow to turn to the stats screen.',
+      instruction: 'Three screens: video on the left, the board in the middle, stats on the right. Tap a screen, or an arrow at the edge, to turn the camera to it. The dots at the top show where it is.\n\nTap the right arrow to turn to the stats screen.',
       bannerSide: 'left', skipDimPhase: true,
       highlight: '#studioNavRight',
       validate: { type: 'custom', fn: function () { return frameIdx() === 2; } },
       autoComplete: function () { if (typeof goToStudioFrame === 'function') goToStudioFrame(2); }
     },
-    ack('This screen holds an image, a PDF or a website — a stats sheet, for instance. The video screen on the other side holds a video or a video page.\n\nLoading content onto these two screens is a Pro function. The screens themselves and the camera moves are part of the Free version.', { bannerSide: 'left', skipDimPhase: true }),
+    ack('This screen shows an image, a PDF or a website, like a stats sheet. The video screen shows a video.\n\nLoading content onto them is a Pro function. The screens and the camera are Free.', { bannerSide: 'left', skipDimPhase: true }),
     { // 7
       instruction: 'Tap the left arrow twice to swing past the board to the video screen.',
       bannerSide: 'right', skipDimPhase: true,
@@ -247,7 +273,7 @@ function buildPresentationModeSteps() {
       autoComplete: function () { if (typeof goToStudioFrame === 'function') goToStudioFrame(0); }
     },
     { // 8
-      instruction: 'Tap the right arrow to return to the board.',
+      instruction: 'Tap the right arrow to return to the board.\n\nThe ring after the dots at the top brings you back to the Panorama.',
       bannerSide: 'left', skipDimPhase: true,
       highlight: '#studioNavRight',
       validate: { type: 'custom', fn: function () { return frameIdx() === 1; } },
@@ -255,12 +281,12 @@ function buildPresentationModeSteps() {
     },
 
     /* ---------------------------------------------- Lesson 3 · playing the frames */
-    ack('The play on the board has several frames. In Presentation Mode you step through them with the Remote Control at the bottom of the screen: ⏮ jumps back to the first frame, ◀ and ▶ step one frame at a time, and the large ▶ Play runs the whole sequence.', {
+    ack('The play has several frames. The Remote Control at the bottom steps through them: Back to start, Previous frame, Play and Next frame.', {
       bannerSide: 'left', skipDimPhase: true,
       onEnter: function () { showRemote(); if (typeof currentFrame === 'number' && currentFrame !== 0 && typeof loadFrame === 'function') loadFrame(0); }
     }),
     { // 10
-      instruction: 'Tap ▶ Play and watch the play run to its last frame.',
+      instruction: 'Tap the highlighted Play button and watch the play run to its last frame.',
       bannerSide: 'left', skipSuccessMessage: true, skipDimPhase: true,
       onEnter: function () { showRemote(); },
       // The Play button is two halves while idle (◀ reverse | ▶ forward) and
@@ -276,14 +302,14 @@ function buildPresentationModeSteps() {
       }
     },
     { // 11
-      instruction: 'Tap ⏮ to jump back to the first frame.',
+      instruction: 'Tap the highlighted Back to start button to jump back to the first frame.',
       bannerSide: 'left', skipDimPhase: true,
       highlight: '#tcRewindToStartBtn',
       validate: { type: 'custom', fn: function () { return currentFrame === 0 && !isPlaying(); } },
       autoComplete: function () { if (typeof loadFrame === 'function') loadFrame(0); }
     },
     { // 12
-      instruction: 'Tap ▶ Next Frame once. Stepping one frame at a time is how you talk your team through a play one movement at a time.',
+      instruction: 'Tap the highlighted Next frame button once. Stepping one frame at a time is how you talk your team through a play one movement at a time.',
       bannerSide: 'left', skipDimPhase: true,
       highlight: '#tcNextFrameBtn',
       validate: { type: 'custom', fn: function () { return currentFrame >= 1 && !isPlaying(); } },
@@ -300,8 +326,8 @@ function buildPresentationModeSteps() {
       autoComplete: function () { if (!click('#sidebarToggleTab')) openMenu(); }
     },
     { // 14
-      instruction: 'Spotlight sits under Presentation → Coaching & Display Tools. Tap Spotlight.',
-      bannerSide: 'left', skipDimPhase: true, useShadeHighlight: true,
+      instruction: 'Spotlight sits in the Menu under Presentation, in Coaching & Display Tools. Tap Spotlight.',
+      bannerSide: 'right', /* the button is in the Menu's left column */ skipDimPhase: true, useShadeHighlight: true,
       onEnter: function () { reveal('#spotlightToggleBtn'); },
       highlight: '#spotlightToggleBtn',
       allowedSelectors: '#controlsPanel',
@@ -309,7 +335,7 @@ function buildPresentationModeSteps() {
       autoComplete: function () { if (!spot().armed && typeof armSpotlight === 'function') armSpotlight(); }
     },
     { // 15
-      instruction: 'Close the Menu with ✕, then tap the board where the spotlight should be.',
+      instruction: 'Close the Menu with the X at its top right, then tap the board where the spotlight should be.',
       bannerSide: 'left', skipDimPhase: true,
       highlight: function () { return menuOpen() ? '#closeSidebarBtn' : '#board'; },
       allowedSelectors: ['#closeSidebarBtn', '#spotlightOverlay'],
@@ -353,7 +379,7 @@ function buildPresentationModeSteps() {
     },
     { // 19
       instruction: 'Tap Shot Clock, right next to Spotlight under Coaching & Display Tools.',
-      bannerSide: 'left', skipDimPhase: true, useShadeHighlight: true,
+      bannerSide: 'right', /* the button is in the Menu's left column */ skipDimPhase: true, useShadeHighlight: true,
       onEnter: function () { reveal('#shotClockToggleBtn'); },
       highlight: '#shotClockToggleBtn',
       allowedSelectors: '#controlsPanel',
@@ -362,7 +388,7 @@ function buildPresentationModeSteps() {
     },
     { // 20
       instruction: 'The Shot Clock panel opens. Tap Start.',
-      bannerSide: 'right', // Start sits at the panel's left; on a phone the panel is full-width, so the banner keeps to the right skipDimPhase: true, useShadeHighlight: true,
+      bannerSide: 'right', skipDimPhase: true, useShadeHighlight: true, // Start sits at the panel's left; on a phone the panel is full-width, so the banner keeps to the right
       highlight: '#shotClockStartBtn',
       allowedSelectors: '#shotClockPanel',
       validate: { type: 'custom', fn: function () { return !!clock().running; } },
@@ -376,7 +402,7 @@ function buildPresentationModeSteps() {
       validate: { type: 'custom', fn: function () { return !panelOpen('shotClockPanel') && !menuOpen(); } },
       autoComplete: function () { if (typeof closeToolPanels === 'function') closeToolPanels(); closeMenu(); }
     },
-    ack('In that panel you also set the seconds, put the clock at the top of the screen instead of in the corners, and reset it. Counting up and syncing the clock to a play’s duration are Pro functions.\n\nTo remove the clock, tap Shot Clock in the Menu again.\n\nUnder the same Coaching & Display Tools you will find 3D View, which tilts the field like a stadium camera, with a slider for the angle.', { bannerSide: 'left', skipDimPhase: true }),
+    ack('The Shot Clock panel also sets the seconds and the position, and resets the clock. Counting up and syncing it to a play are Pro functions. Tap Shot Clock in the Menu again to remove it.\n\nNext to it is 3D View: it tilts the field like a stadium camera.', { bannerSide: 'right', skipDimPhase: true }), // right: on a phone in landscape the box is as tall as the room above Exit and Skip
 
     /* ------------------------------------------------------------ Lesson 6 · exit */
     { // 23
@@ -388,15 +414,47 @@ function buildPresentationModeSteps() {
     },
     { // 24
       instruction: 'Under Presentation, the button that brought you here now reads Exit Presentation. Tap it.',
-      bannerSide: 'left', skipDimPhase: true, useShadeHighlight: true,
+      bannerSide: 'right', /* the button is in the Menu's left column */ skipDimPhase: true, useShadeHighlight: true,
       onEnter: function () { reveal('#presentationBtn'); },
       highlight: '#presentationBtn',
       allowedSelectors: '#controlsPanel',
       validate: { type: 'custom', fn: function () { return !inPresentation(); } },
       autoComplete: function () { if (inPresentation() && typeof togglePresentation === 'function') togglePresentation(); }
     },
-    ack('You are back in editing, and the board is as you left it.\n\nOn a computer, Esc also leaves Presentation Mode, the ← → keys move between the three screens, and 0 1 2 3 jump to the Panorama, video, board and stats screens.\n\nEverything you used — Presentation Mode, the three screens, the Remote Control, the spotlight and the shot clock — is part of the Free version.', { bannerSide: 'left', skipDimPhase: true })
+    ack('You are back in editing, and the board is as you left it.\n\nOn a computer: Esc leaves Presentation Mode, the arrow keys turn the camera, and 0 to 3 jump to a screen.\n\nEverything you used is part of the Free version.', { bannerSide: 'left', skipDimPhase: true })
   ];
+
+  // Stable names for each step (tests, and anything that dispatches on a step
+  // rather than on its wording, the way the Coaching tutorial's steps carry ids).
+  var IDS = ['welcome', 'openMenu', 'presentCategory', 'presentationMode', 'panoramaAck', 'rightArrow', 'screensAck',
+    'leftArrow', 'backToBoard', 'remoteAck', 'play', 'backToStart', 'nextFrame', 'spotMenu', 'spotlight', 'spotPlace',
+    'spotMove', 'spotOff', 'clockMenu', 'shotClock', 'clockStart', 'clockClose', 'clockAck', 'exitMenu',
+    'exitPresentation', 'doneAck'];
+  steps.forEach(function (st, i) { if (!st.id && IDS[i]) st.id = IDS[i]; });
+
+  // The engine's per-tutorial options (coaching/COACHING-TUTORIAL.md §3), the
+  // same as the Coaching tutorial's minus the Workbench console, which
+  // Presentation's tutorial does not run on (PRESENTATION-MODE.md §27):
+  //   voice      Read aloud + Voice commands, with their switches next to Exit
+  //   exitScreen Exit (the button or the spoken "Exit") asks first: Keep going ·
+  //              Start over · Leave tutorial
+  //   rebuild    what Start over runs -- see startOver() below
+  steps.tutorialOptions = { voice: true, exitScreen: true, rebuild: startOver };
+  return steps;
+}
+
+/* Start over, from the leave screen. The engine calls this between its own
+   exitTutorial() and a fresh startTutorial() with the same completion handling.
+   Everything this run switched on goes off (presentation, spotlight, shot clock,
+   panels), so the new run starts from the editing view exactly as the first one
+   did. The coach's own board is NOT restored here: it stays in the snapshot,
+   and comes back when the tutorial really ends. `running` stays true and the
+   observer stays attached -- exitTutorial() and startTutorial() run in the same
+   task, so by the time the observer is told, tutorialModeActive is back on and
+   cleanup() correctly does nothing. */
+function startOver() {
+  resetPresentationState();
+  return buildPresentationModeSteps();
 }
 
 /* ------------------------------------------------------------------- start */
