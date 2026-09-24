@@ -77,6 +77,10 @@
   #xqva .pop .hd{font-size:11px;color:#8a9aa0;letter-spacing:.06em;text-transform:uppercase;padding:0 2px}
   #xqva .busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(7,9,10,.55);z-index:4;font-weight:600}
   #xqva .busy.on{display:flex}
+  #xqva .tags{display:flex;align-items:center;gap:8px;padding:6px 14px;background:#0b1012;border-top:1px solid #1d282b;flex-wrap:wrap}
+  #xqva .tags input{font:13px system-ui,-apple-system,sans-serif;color:#e8eef0;background:#121a1d;border:1px solid #2a3a3e;border-radius:7px;padding:6px 9px;min-width:130px;max-width:200px}
+  #xqva .tags input:focus{outline:none;border-color:#2ecab8}
+  #xqva .tags .hint{font-size:12px;color:#8a9aa0}
   #xqva .checks{display:flex;gap:6px;flex-wrap:wrap}
   #xqva .chk{font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid #243236;color:#b8c6ca;background:transparent;cursor:pointer}
   #xqva .chk.ok{color:#cfe9e5;border-color:rgba(46,202,184,.45)}
@@ -167,7 +171,7 @@
   function start(g) {
     loadModel().catch(() => {});
     S = { frame: g, spec: { length: 25, width: 20, goalWidth: 3, ropeBehind: 0 }, markers: [], cal: null, step: 'field',
-          players: [], ball: null, attacking: null, attackingBy: null, corrections: [] };
+          players: [], ball: null, attacking: null, attackingBy: null, corrections: [], tags: Object.assign({ teamAttacking: '', teamDefending: '', systemOffense: '', systemDefense: '' }, lastTags()) };
     build(); render();
     autoField();
   }
@@ -244,6 +248,7 @@
     sv('g', { id: 'xqvaLines', 'clip-path': 'url(#xqvaClip)' }, svg); sv('g', { id: 'xqvaMarks' }, svg);
     svg.addEventListener('pointerdown', onDown); svg.addEventListener('pointermove', onMove); svg.addEventListener('pointerup', onUp);
     el('div', { class: 'busy', id: 'xqvaBusy', text: 'Reading players…' }, view);
+    el('div', { class: 'tags', id: 'xqvaTags' }, o);
     el('div', { class: 'bar bottom', id: 'xqvaBottom' }, o);
     document.addEventListener('keydown', onKey, true);
   }
@@ -331,6 +336,26 @@
   }
   function ballRadius() { const d = S.players.length ? S.players.map(p => p.capPx).sort((a, b) => a - b)[S.players.length >> 1] : 24; return d * 0.62 + 9; }
 
+  /* Tags (MIZE, 2026-09-24): both teams by name, and the offensive and the defensive system — at least one of the two
+     systems is required before the scene goes to the board. Saved with the scene so situations can be found and
+     compared later (a team's typical defense, one system across games). Remembered for the next scene of the session. */
+  function lastTags() { try { return JSON.parse(localStorage.getItem('xquixVaTags') || '{}'); } catch (e) { return {}; } }
+  const tagsComplete = () => !!(S && S.tags && (S.tags.systemOffense || S.tags.systemDefense));
+  function renderTags() {
+    const box = $('#xqvaTags'); if (!box) return; box.style.display = S.step === 'players' ? '' : 'none';
+    if (box.dataset.built) return; box.dataset.built = '1';
+    const T = S.tags;
+    const field = (key, ph, title) => { const i = el('input', { type: 'text', placeholder: ph, title, value: T[key] || '', 'aria-label': ph, autocomplete: 'off', autocapitalize: 'words' }, box);
+      i.addEventListener('input', () => { T[key] = i.value.trim(); bottom(); }); i.addEventListener('keydown', ev => ev.stopPropagation()); return i; };
+    el('span', { class: 'lbl', text: 'Teams' }, box);
+    field('teamAttacking', 'Attacking team', 'The team attacking in this scene');
+    field('teamDefending', 'Defending team', 'The team defending in this scene');
+    el('span', { class: 'lbl', text: 'System' }, box);
+    field('systemOffense', 'Offensive system', 'The attacking team’s system (e.g. 6-on-5, center play) — this or the defensive one is required');
+    field('systemDefense', 'Defensive system', 'The defending team’s system (e.g. press, zone, M-drop) — this or the offensive one is required');
+    el('span', { class: 'hint', text: 'one system is required' }, box);
+  }
+  function showReady() { const c = { unknown: 0 }; S.players.forEach(p => { if (p.role !== 'goalkeeper' && p.team === 'unknown') c.unknown++; }); return !!(S.attacking && !c.unknown && tagsComplete()); }
   function bottom() {
     const b = $('#xqvaBottom'); b.innerHTML = '';
     if (S.step === 'field') {
@@ -358,6 +383,7 @@
       else msg(`${n} markers · they agree to ${S.fitInfo.mean.toFixed(2)} m on average` + (S.fitInfo.mean > 0.35 ? ' — they disagree: a marker is probably misplaced or misnamed (check the drawn lines)' : ''), S.fitInfo.mean > 0.35 ? 'warn' : '');
       return;
     }
+    renderTags();
     const c = { light: 0, dark: 0, unknown: 0, gk: 0 }; S.players.forEach(p => { if (p.role === 'goalkeeper') c.gk++; else c[p.team]++; });
     const st = el('span', { class: 'stat' }, b);
     st.innerHTML = `Light <b>${c.light}</b> · Dark <b>${c.dark}</b> · Goalkeeper <b>${c.gk}</b>` + (c.unknown ? ` · <span class="warn">Team unread <b>${c.unknown}</b></span>` : '') + ` · Ball ${S.ball ? '✓' : '<span class="warn">none</span>'}`;
@@ -366,10 +392,11 @@
     for (const v of ['light', 'dark']) el('button', { class: S.attacking === v ? 'sel' : '', text: v === 'light' ? 'Light' : 'Dark', on: { click: () => { S.attacking = v; S.attackingBy = 'coach'; render(); } } }, a);
     el('span', { class: 'spacer' }, b);
     el('button', { text: 'Back to field', on: { click: () => { S.step = 'field'; closePop(); render(); } } }, b);
-    el('button', { class: 'primary', id: 'xqvaShow', text: 'Show on board', disabled: (S.attacking && !c.unknown) ? null : '', on: { click: showOnBoard } }, b);
+    el('button', { class: 'primary', id: 'xqvaShow', text: 'Show on board', disabled: showReady() ? null : '', on: { click: showOnBoard } }, b);
     const shaky = S.fitInfo && S.fitInfo.pxMax > 20;
     const pre = S.autoField && S.autoField.ok ? (shaky ? 'Field found automatically, but the lane-line marks don’t fully agree — check the field lines closely. ' : 'Field found automatically — check the field lines. ') : '';
     if (c.unknown) msg(pre + 'Tap each grey “?” player and set Light or Dark.', 'warn');
+    else if (S.attacking && !tagsComplete()) msg(pre + 'Name the offensive or the defensive system (one is required), then Show on board.', 'warn');
     else if (!S.attacking) msg(pre + 'Which team is attacking? The scene can’t tell from these pairs — choose Light or Dark.', 'warn');
     else msg(pre + 'Tap a ring to fix it, tap the water to add a missed player or the ball.' + (S.attackingBy === 'pairs' ? ' Attacking side read from the player pairs — change it if wrong.' : ''), shaky ? 'warn' : '');
   }
@@ -487,10 +514,14 @@
     const res = { H: S.cal.H, spec: { length: S.spec.length, width: S.spec.width, goalWidth: S.spec.goalWidth },
       players: S.players.map(p => ({ id: p.id, team: p.role === 'goalkeeper' ? defending : p.team, role: p.role, calc: calcOf(p) })),
       ball: S.ball ? { calc: (() => { const nb = nearestHolder(S.ball.px); return nb ? calcOf(nb) : (() => { const w = VADetect.ap(S.cal.Hi, S.ball.px[0], S.ball.px[1]); return { X: w[0], Y: w[1] }; })(); })() } : null };
-    const out = VAG.toStudioFormation(res, { attackingAtVisibleGoal: S.attacking, name: S.frame.name });
+    const T = S.tags, teams = [T.teamAttacking, T.teamDefending].filter(Boolean).join(' vs '), systems = [T.systemOffense && 'O: ' + T.systemOffense, T.systemDefense && 'D: ' + T.systemDefense].filter(Boolean).join(', ');
+    const tagName = [teams, systems].filter(Boolean).join(' · ');
+    try { localStorage.setItem('xquixVaTags', JSON.stringify({ teamAttacking: T.teamAttacking, teamDefending: T.teamDefending })); } catch (e) {}
+    const out = VAG.toStudioFormation(res, { attackingAtVisibleGoal: S.attacking, name: tagName ? tagName + ' — ' + S.frame.name : S.frame.name });
     if (out.error) { msg(out.error, 'warn'); return; }
     const rec = out.record;
     rec.videoAnalysis.phase = 'E-lab';
+    rec.videoAnalysis.tags = Object.assign({}, S.tags);
     rec.videoAnalysis.review = { frameCheck: S.metrics || null, teamSep: S.teamSep ?? null, markers: S.markers.map(m => Object.assign({ label: markerLabel(m) }, m, markerWorld(m, S.spec))), fit: S.fitInfo,
       detector: S.detector, corrections: S.corrections, ballPlacedAtHolder: !!(S.ball && nearestHolder(S.ball.px)) };
     try {
@@ -525,7 +556,7 @@
       detector: S.detector || null,
       confirmed: { players: S.players.map(p => ({ id: p.id, head: p.head.map(round), waterline: p.waterline.map(round), capPx: p.capPx, team: p.team, role: p.role, source: p.source || 'detector', detectConf: p.detectConf ?? null })),
                    ball: S.ball ? { px: S.ball.px.map(round), source: S.ball.source } : null, attacking: S.attacking, attackingBy: S.attackingBy },
-      corrections: S.corrections, frameCheck: Object.assign({}, S.metrics || {}, { teamSep: S.teamSep ?? null }), formation: rec.videoAnalysis
+      corrections: S.corrections, frameCheck: Object.assign({}, S.metrics || {}, { teamSep: S.teamSep ?? null }), formation: rec.videoAnalysis, tags: Object.assign({}, S.tags)
     };
   }
   function toast(text, warn) {
@@ -545,6 +576,7 @@
       const up = await sb.storage.from('video-analysis').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
       if (up.error) throw up.error;
       const row = { id, name: r.name, source: document.getElementById('labBanner') ? 'lab' : 'studio', frame_path: path, frame_w: r.w, frame_h: r.h,
+        team_attacking: r.tags.teamAttacking || null, team_defending: r.tags.teamDefending || null, system_offense: r.tags.systemOffense || null, system_defense: r.tags.systemDefense || null,
         field: r.field, detector: r.detector, confirmed: r.confirmed, corrections: r.corrections, frame_check: r.frameCheck, formation: r.formation,
         app_version: window.LAB_PINNED ? 'presentationlab ' + window.LAB_PINNED : 'studio' };
       const ins = await sb.from('video_analysis_scenes').insert(row);
