@@ -2893,7 +2893,7 @@
       <button id="videoLoadFileBtn">Choose File</button>
     </div>
     <div style="font-size:11px;color:#8a9898;margin-top:4px;text-align:center;">Many sites block embedding entirely -- if a loaded page appears blank, use "Open in Window" instead.</div>
-    <input type="file" id="videoFileInput" accept="video/*" style="display:none;">
+    <input type="file" id="videoFileInput" accept="video/*,image/*" style="display:none;">
   </div>
   <div id="videoContent" class="studioFrameContent"></div>
   <button id="videoClearBtn" class="studioFrameClearBtn" title="Clear and load something else">&#10005;</button>
@@ -13595,6 +13595,14 @@ document.getElementById('videoLoadFileBtn').addEventListener('click', ()=>{
 });
 document.getElementById('videoFileInput').addEventListener('change', e=>{
   const file=e.target.files[0]; if(!file) return;
+  if(file.type.startsWith('image/')){
+    const img=document.createElement('img');
+    img.src=URL.createObjectURL(file); img.alt='Screenshot';
+    img.style='width:100%;height:100%;object-fit:contain;background:#000';
+    img.addEventListener('error', ()=>showMediaError('video', 'This image could not be loaded -- the file may be corrupt or in an unsupported format.'));
+    showStudioFrameContent('video', img);
+    return;
+  }
   const video=document.createElement('video');
   video.src=URL.createObjectURL(file); video.controls=true;
   video.addEventListener('error', ()=>showMediaError('video', 'This file could not be played -- the format may not be supported by your browser.'));
@@ -13828,7 +13836,7 @@ function psPresConsoleRefresh(force){
     const groups=[
       { label:'Left screen', items:[
         { id:'mediaUrl', label:'Video URL', title:'Load a video onto the left screen (YouTube, Vimeo or a video link)', onTap:press('videoLoadUrlBtn') },
-        { id:'mediaFile', label:'File', title:'Load a video file onto the left screen', onTap:press('videoLoadFileBtn') },
+        { id:'mediaFile', label:'File', title:'Load a video file or a screenshot onto the left screen', onTap:press('videoLoadFileBtn') },
         { id:'mediaClear', label:'Clear', title:'Clear the left screen', disabled:!loaded('video'), onTap:()=>clearStudioFrameContent('video') },
       ]},
     ];
@@ -21662,7 +21670,7 @@ function cwItems(g){
     const loaded=k=>!!document.getElementById(k+'Content')?.classList.contains('loaded');
     L.push({ id:'capLeft', kind:'caption', label:'Left' });
     L.push({ id:'mediaUrl', label:'Video', icon:CW_ICO.video, title:'Load a video onto the left screen (YouTube, Vimeo or a video link)', tap:()=>cwPress('videoLoadUrlBtn') });
-    L.push({ id:'mediaFile', label:'File', icon:CW_ICO.file, title:'Load a video file onto the left screen', tap:()=>cwPress('videoLoadFileBtn') });
+    L.push({ id:'mediaFile', label:'File', icon:CW_ICO.file, title:'Load a video file or a screenshot onto the left screen', tap:()=>cwPress('videoLoadFileBtn') });
     L.push({ id:'mediaClear', label:'Clear', icon:CW_ICO.clear, title:'Clear the left screen', disabled:!loaded('video'), tap:()=>clearStudioFrameContent('video') });
     L.push('|');
     L.push({ id:'capRight', kind:'caption', label:'Right' });
