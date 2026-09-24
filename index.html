@@ -2088,6 +2088,83 @@
   body.prBuild #board { visibility:hidden; }   /* Build's centre screen is the builder, not the board (Run and Preview show it) */
   /* Save and Run live on the floor console in Build */
   body.prBuild #prBuildCenter #saveSessionBtn, body.prBuild #prBuildCenter #runSessionBtn { display:none; }
+  /* ---- Build: the centre screen is where things are chosen (MIZE 2026-09-23, briefs/PRACTICE-RUN-STAGE.md §3b) ----
+     The side screens show what is there (read-only summaries); a tap opens that list on the centre screen (#prPick) to choose
+     from; Confirm / Cancel on the console put it back and the centre shows the session again. Portrait: the centre screen with
+     the two sources as tiles above it and the session's totals and the console below it. */
+  body[data-stage="practice"] { --cam-d:0s; }   /* the camera is locked: a re-layout (a rotation) must not slide the studio */
+  .prSum { cursor:pointer; display:flex; flex-direction:column; padding:9% 9% 7%; }
+  .prSum:hover, .prSum:focus-visible { box-shadow:inset 0 0 0 1px rgba(46,202,184,.5); outline:none; }
+  .prSum .prSumHead { color:#5fc9cc; font-size:10px; letter-spacing:.16em; text-transform:uppercase; font-weight:600; }
+  .prSum .prSumCount { font:600 28px/1.05 'Archivo',system-ui,sans-serif; color:#f2fbfa; margin:9px 0 3px; font-variant-numeric:tabular-nums; }
+  .prSum .prSumSub { font-size:11px; color:#9ab8b6; }
+  .prSum .prSumList { margin:10px 0 0; padding:0; list-style:none; flex:1 1 auto; min-height:0; overflow:hidden; }
+  .prSum .prSumList li { font-size:11.5px; color:#dcebe9; padding:4px 0; border-top:1px solid rgba(255,255,255,.07); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .prSum .prSumList li small { color:#8aa9a7; margin-left:4px; font-size:10.5px; }
+  .prSum .prSumList li.cur { color:#7ff0ec; }
+  .prSum .prSumTap { flex:none; margin-top:8px; font-size:10.5px; color:#5fc9cc; letter-spacing:.03em; }
+  body.prPicking[data-pick="library"] #prBuildLeft, body.prPicking[data-pick="saved"] #prBuildRight { box-shadow:inset 0 0 0 2px rgba(46,202,184,.7); }
+  body.prCompact .prSum { padding:8% 7%; }
+  body.prCompact .prSum .prSumHead { font-size:7px; letter-spacing:.08em; }
+  body.prCompact .prSum .prSumCount { font-size:17px; margin:4px 0 1px; }
+  body.prCompact .prSum .prSumSub, body.prCompact .prSum .prSumList { display:none; }
+  body.prCompact .prSum .prSumTap { font-size:7.5px; margin-top:auto; }
+  #prBuildCenter .prTargetRow { display:none !important; }   /* "Add drills to" is chosen where the drills are chosen */
+  .prMin { display:inline-flex; align-items:center; gap:3px; margin-left:auto; flex:none; }
+  .prMin button { width:24px; height:24px; padding:0; line-height:1; font-size:14px; }
+  .prMin span { min-width:44px; text-align:center; font-variant-numeric:tabular-nums; color:#dcebe9; }
+  #prBuildCenter .sessionDrillRow > span:first-child { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* the choosing frame: over the centre screen (portrait: the screen extended up into the black above the room) */
+  #prPick { position:fixed; z-index:9400; display:none; flex-direction:column; padding:0; overflow:hidden; border-radius:4px; transform-origin:0 0;
+    box-shadow:0 0 0 1px rgba(46,202,184,.38), 0 24px 60px rgba(0,0,0,.6); background:linear-gradient(180deg, #051010, #030a0b); font-size:13px; }
+  body.prPicking #prPick { display:flex; }
+  #prPick .prPickHead { flex:none; display:flex; align-items:center; gap:8px 14px; flex-wrap:wrap; padding:12px 16px 10px; border-bottom:1px solid rgba(255,255,255,.08); }
+  #prPick .prPickTitle { font:600 15px/1.2 'Archivo',system-ui,sans-serif; color:#f2fbfa; letter-spacing:.01em; }
+  #prPick .prPickHint { font-size:12px; color:#9ab8b6; flex:1 1 180px; }
+  #prPick .prPickTo { display:flex; align-items:center; gap:6px; font-size:12px; color:#9ab8b6; }
+  #prPick .prPickTo select { padding:5px 6px; font-size:12.5px; max-width:200px; }
+  #prPick .prPickBody { flex:1 1 auto; min-height:0; overflow:auto; padding:12px 16px 16px; -webkit-overflow-scrolling:touch; }
+  #prPick .psPanelTitle { display:none; }   /* the header says what this is */
+  #prPick #drillLibraryList { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:8px; align-items:start; }
+  #prPick .drillCard { cursor:pointer; position:relative; margin:0; padding:9px 10px 8px 36px; }
+  #prPick .drillCard::before { content:''; position:absolute; left:11px; top:10px; width:15px; height:15px; border-radius:4px; border:1.5px solid rgba(255,255,255,.35); box-sizing:border-box; }
+  #prPick .drillCard.prSel { border-color:#2ecab8; box-shadow:inset 0 0 0 1px #2ecab8; background:rgba(46,202,184,.10); }
+  #prPick .drillCard.prSel::before { background:#2ecab8; border-color:#2ecab8; }
+  #prPick .drillCard.prSel::after { content:''; position:absolute; left:16px; top:12px; width:4px; height:8px; border:solid #052a27; border-width:0 2px 2px 0; transform:rotate(45deg); }
+  #prPick .drillCard input[type=number] { width:48px; }
+  #prPick .drillCard .prAddBtn { display:none; }
+  #prPick .versionRow { cursor:pointer; }
+  #prPick .versionRow.prSel { border-color:#2ecab8; box-shadow:inset 0 0 0 1px #2ecab8; background:rgba(46,202,184,.10); }
+  #prPick .prLoadBtn { display:none; }
+  #prPick .drillCard:focus-visible, #prPick .versionRow:focus-visible { outline:2px solid rgba(46,202,184,.7); outline-offset:1px; }
+  /* portrait: no side screens -- the tiles above the screen stand in for them; totals and the console below */
+  body.prPortrait[data-stage="practice"] #videoFrame, body.prPortrait[data-stage="practice"] #statsFrame { visibility:hidden !important; }
+  body.prPortrait[data-stage="practice"] #videoFrame *, body.prPortrait[data-stage="practice"] #statsFrame * { visibility:hidden !important; pointer-events:none !important; }
+  #prTiles { display:none; position:fixed; z-index:9300; left:8px; right:8px; gap:8px; }
+  body.prPortrait.prBuild #prTiles { display:flex; }
+  #prTiles button { flex:1 1 0; min-width:0; min-height:56px; text-align:left; padding:8px 12px; border-radius:6px; cursor:pointer; touch-action:manipulation;
+    background:linear-gradient(180deg, rgba(20,28,29,.96), rgba(10,15,16,.96)); border:1px solid rgba(46,202,184,.28); color:#eaf7f5; font:600 14px/1.2 'Archivo',system-ui,sans-serif; }
+  #prTiles button:active { border-color:#2ecab8; }
+  #prTiles button .k { display:block; color:#5fc9cc; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; margin-bottom:3px; font-weight:600; }
+  #prTiles button small { display:block; font-weight:500; font-size:11.5px; color:#9ab8b6; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #prTotals { display:none; position:fixed; z-index:9300; left:8px; right:8px; text-align:center; font:500 12.5px/1.3 'Archivo',system-ui,sans-serif; color:#9ab8b6; font-variant-numeric:tabular-nums; }
+  #prTotals b { color:#eaf7f5; font-weight:600; }
+  body.prPortrait.prBuild #prTotals { display:block; }
+  body.prPortrait.prBuild #prBuildCenter { top:calc(-1 * var(--prUp, 0px)); padding:12px 12px 14px; font-size:12.5px; border-radius:4px; box-shadow:0 0 0 1px rgba(46,202,184,.30), 0 18px 50px rgba(0,0,0,.55); }
+  body.prPortrait #prBuildCenter .sessionDrillRow { flex-wrap:wrap; row-gap:6px; }
+  body.prPortrait #prBuildCenter .sessionDrillRow > span:first-child { flex:1 1 100%; }
+  body.prPortrait #prBuildCenter .prMin { margin-left:0; }
+  body.prPortrait #prBuildCenter .sdrControls { margin-left:auto; }
+  body.prPortrait #prBuildCenter .blockSectionHeader { flex-wrap:wrap; row-gap:6px; }
+  body.prPortrait #prBuildCenter .blockSectionControls button { padding:5px 8px; }
+  body.prPortrait.prPicking[data-pick="library"] #prTiles [data-pick="library"], body.prPortrait.prPicking[data-pick="saved"] #prTiles [data-pick="saved"] { border-color:#2ecab8; box-shadow:inset 0 0 0 1px #2ecab8; }
+  body.prPortrait[data-stage="practice"] .stageConsolePanel { position:relative; inset:auto; padding:11px 12px 13px; transform:rotateX(12deg); }
+  body.prPortrait[data-stage="practice"] .stageConsoleInner { flex-wrap:wrap; width:100%; column-gap:10px; row-gap:11px; }
+  body.prPortrait[data-stage="practice"] .stageConsoleLabel { font-size:9px; letter-spacing:.12em; }
+  body.prPortrait[data-stage="practice"] .stageConsoleBtn { min-height:44px; min-width:64px; padding:10px 12px; }
+  body.prPortrait[data-stage="practice"] .stageConsoleBtn.big { min-width:150px; font-size:19px; }
+  @media (prefers-reduced-motion:reduce) { #prPick { transition:none !important; } }
+  body.prPortrait[data-stage="practice"] .xquixHomeToast { bottom:auto; top:42%; }   /* the console is at the bottom in portrait */
   /* Step 2: with the floor console in use (landscape >= 900 px) the Sound Box's fixed buttons are not shown */
   body.sbConsole #xqNP_home, body.sbConsole #xqModeBtn, body.sbConsole #xqControls { display:none !important; }
   /* ---- The Sound Box as a stage consumer (briefs/SOUNDBOX-STAGE-CONSUMER.md, Step 1) ---- */
@@ -21730,9 +21807,9 @@ function openPracticeStudio(){
   if(!xquixRequireFunction('Open / close Practice Studio')) return;
   // The library's plans (and any still only on this device, moved in) -- the list re-renders when they are in.
   if(typeof prEnsurePlansLoaded==='function') prEnsurePlansLoaded().then(()=>renderSavedSessions()).catch(()=>{});
-  // Build on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md §3a) where the stage fits; phones and
-  // portrait keep the panel until Step 5 gives Build its tabbed centre screen.
-  if(typeof prStageFits==='function' && prStageFits() && typeof XQStage!=='undefined'){ prOpenBuild(); return; }
+  // Build on the Studio Stage on every viewport (§3a; phones and portrait since 2026-09-23, §3b): the panel below is only
+  // the fallback when the stage is missing.
+  if(typeof prOpenBuild==='function' && typeof XQStage!=='undefined'){ prOpenBuild(); return; }
   document.getElementById('practiceStudioView').style.display='block';
   renderDrillLibrary();
   renderSessionBuilder();
@@ -21768,12 +21845,23 @@ function renderDrillLibrary(){
     const row=document.createElement('div'); row.className='drillCardRow';
     const durLabel=document.createElement('span'); durLabel.textContent='Duration (min):'; durLabel.style.fontSize='11.5px';
     const durInput=document.createElement('input'); durInput.type='number'; durInput.min='1'; durInput.value='5';
-    const addBtn=document.createElement('button'); addBtn.textContent='Add to Block';
+    const addBtn=document.createElement('button'); addBtn.textContent='Add to Block'; addBtn.className='prAddBtn';
     addBtn.onclick=()=>{ addDrillToSession(name, rec, Math.max(1, +durInput.value||5), kind); };
     row.appendChild(durLabel); row.appendChild(durInput); row.appendChild(addBtn);
     card.appendChild(row);
+    // Choosing on the centre screen (§3b): a tap selects or clears the card; its minutes go with it.
+    if(typeof _prPick!=='undefined' && _prPick==='library'){
+      const key=kind+':'+name, sel=_prSel.get(key);
+      if(sel){ card.classList.add('prSel'); durInput.value=sel.minutes; sel.rec=rec; }
+      card.tabIndex=0; card.setAttribute('role','checkbox'); card.setAttribute('aria-checked', sel?'true':'false');
+      const toggle=()=>prPickToggle(key, { kind, name, rec, minutes:Math.max(1, +durInput.value||5) }, card);
+      card.addEventListener('click', e=>{ if(e.target.closest('input,button,select')) return; toggle(); });
+      card.addEventListener('keydown', e=>{ if(e.target!==card) return; if(e.key===' '||e.key==='Enter'){ e.preventDefault(); toggle(); } });
+      durInput.addEventListener('input', ()=>{ const s=_prSel.get(key); if(s){ s.minutes=Math.max(1, +durInput.value||5); prPickConsole(); } });
+    }
     box.appendChild(card);
   });
+  if(typeof prSummaries==='function') prSummaries();
 }
 document.getElementById('drillLibraryFilter')?.addEventListener('input', renderDrillLibrary);
 
@@ -21901,9 +21989,10 @@ function renderSessionBuilder(){
     }
     block.drills.forEach((d,i)=>{
       const row=document.createElement('div'); row.className='sessionDrillRow';
-      const label=document.createElement('span'); label.textContent=(i+1)+'. '+(d.kind==='sequence'?'\u25B6 ':'')+d.formationName+' — '+d.durationMinutes+' min'+(d.kind==='sequence'?' \u00b7 sequence':'');
-      const dcontrols=document.createElement('div'); dcontrols.className='sdrControls';
       const onStage=(typeof _prStage!=='undefined' && _prStage && _prStage.phase==='build');
+      const label=document.createElement('span'); label.textContent=(i+1)+'. '+(d.kind==='sequence'?'\u25B6 ':'')+d.formationName+(onStage ? '' : ' — '+d.durationMinutes+' min')+(d.kind==='sequence'?' \u00b7 sequence':'');
+      label.title=label.textContent;
+      const dcontrols=document.createElement('div'); dcontrols.className='sdrControls';
       const load=document.createElement('button'); load.textContent=onStage?'Preview':'Load'; load.title=onStage ? 'Show this drill on the board (a Run from this drill; changes are temporary)' : (d.state ? 'Load this drill\'s formation onto the board' : 'This drill has no saved tactical content (from an older session)'); load.disabled=!onStage && !d.state;
       load.onclick=()=>{ if(onStage){ prPreviewDrill(bi,i); return; } recordHistory('Load Drill: '+d.formationName);
         if(d.kind==='sequence' && Array.isArray(d.frames) && d.frames.length){ if(frames.length) frames[currentFrame]=makeFrameState(); frames=JSON.parse(JSON.stringify(d.frames)); currentFrame=0; loadFrame(0); } else loadState(d.state); };
@@ -21911,12 +22000,25 @@ function renderSessionBuilder(){
       const ddown=document.createElement('button'); ddown.textContent='↓'; ddown.title='Move down'; ddown.onclick=()=>moveSessionDrill(bi,i,1);
       const drm=document.createElement('button'); drm.textContent='×'; drm.title='Remove'; drm.onclick=()=>removeSessionDrill(bi,i);
       dcontrols.appendChild(load); dcontrols.appendChild(dup); dcontrols.appendChild(ddown); dcontrols.appendChild(drm);
-      row.appendChild(label); row.appendChild(dcontrols);
+      row.appendChild(label);
+      if(onStage){   // minutes are edited in the session itself on the stage (§3b)
+        const st=document.createElement('span'); st.className='prMin';
+        const minus=document.createElement('button'); minus.textContent='\u2212'; minus.title='One minute less'; minus.disabled=(+d.durationMinutes||0)<=1; minus.onclick=()=>prDrillMinutes(bi,i,-1);
+        const val=document.createElement('span'); val.textContent=d.durationMinutes+' min';
+        const plus=document.createElement('button'); plus.textContent='+'; plus.title='One minute more'; plus.onclick=()=>prDrillMinutes(bi,i,1);
+        st.appendChild(minus); st.appendChild(val); st.appendChild(plus); row.appendChild(st);
+      }
+      row.appendChild(dcontrols);
       section.appendChild(row);
     });
     box.appendChild(section);
   });
   document.getElementById('sessionTotalDuration').textContent = 'Total duration: '+computeSessionTotalMinutes()+' min';
+  if(typeof prSummaries==='function') prSummaries();
+}
+function prDrillMinutes(bi, i, delta){
+  const d=currentSessionBlocks[bi] && currentSessionBlocks[bi].drills[i]; if(!d) return;
+  d.durationMinutes=Math.max(1, (+d.durationMinutes||0)+delta); renderSessionBuilder();
 }
 
 function buildSessionRecord(name, coachingDNA){
@@ -21974,6 +22076,7 @@ async function prSaveRecord(name, rec){
     MizeDialog.alert(res.error.code==='P0100' ? res.error.message : ('The session could not be saved: '+res.error.message+'. It is still in the builder.'), 'Session not saved');
     return;
   }
+  if(typeof prMarkClean==='function') prMarkClean();
   renderSavedSessions();
   const saved=XQUIX.StorageProvider.getItemSync(PRACTICE_KIND, name);
   if(cloud){
@@ -22013,6 +22116,15 @@ async function prSaveRecord(name, rec){
 var _prStage=null;   // { saved, phase:'build'|'run' } while Practice holds the stage (var: autosave reads it early)
 var _prRun=null;     // { rec, name, drills, i, fromBuild } during a Run
 function prStageFits(){ return window.innerWidth>=900 && window.innerWidth>window.innerHeight; }
+// Landscape (any width) = the studio with the side screens on the walls ('wall'); portrait = the centre screen fitted to
+// the width, the sources as tiles above it, the console under it ('portrait') -- the Game Tracker's two layouts. The layout
+// viewport decides, and never while a field on the screens has focus (an on-screen keyboard is not a rotation).
+var _prMode=null;
+function prStageMode(){
+  const a=document.activeElement;
+  if(_prMode && a && a.matches && a.matches('.prScreen input, .prScreen select, .prScreen textarea, #mizeDialogInput')) return _prMode;
+  return window.innerWidth>window.innerHeight ? 'wall' : 'portrait';
+}
 function prRunDrills(rec){
   const out=[]; (rec && Array.isArray(rec.blocks) ? rec.blocks : []).forEach((b,bi)=>{
     (b.drills||[]).forEach(d=>out.push({ block:b.name||'', blockIndex:bi, name:d.formationName||'Drill', minutes:d.durationMinutes||0, tags:d.coachingDNA||[], state:d.state||null,
@@ -22020,8 +22132,69 @@ function prRunDrills(rec){
   });
   return out;
 }
-function prCameraOpts(){
-  return prStageFits() ? { camera:'center', roomCamera:'pan', readingBox:'screen' } : { camera:'center', readingBox:'screen', fitScreen:true };
+function prCameraOpts(mode){
+  mode=mode||prStageMode();
+  return mode==='portrait'
+    ? { camera:'center', readingBox:'screen', fitScreen:true, insetTop:prPortraitInset }
+    // a landscape phone: the centre screen takes the wall between the side screens (the Game Tracker's compact framing)
+    : { camera:'center', roomCamera:'pan', readingBox: window.innerHeight<600 ? 'stage' : 'screen' };
+}
+function prStageFlags(){
+  const b=document.body, on=typeof XQStage!=='undefined' && XQStage.consumer()==='practice' && !!_prStage, m=_prMode;
+  b.classList.toggle('prPortrait', on && m==='portrait');
+  b.classList.toggle('prCompact', on && m==='wall' && window.innerHeight<600);
+}
+function prStageOrient(){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='practice' || !_prStage) return;
+  const m=prStageMode(), o=XQStage.opts();
+  if(m!==_prMode){ _prMode=m; ['fitScreen','roomCamera','insetTop','readingBox'].forEach(k=>delete o[k]); Object.assign(o, prCameraOpts(m)); }
+  else if(m==='wall') o.readingBox = window.innerHeight<600 ? 'stage' : 'screen';
+  prStageFlags(); XQStage.layout();
+}
+let _prOrientT=null;
+window.addEventListener('resize', ()=>{ clearTimeout(_prOrientT); _prOrientT=setTimeout(()=>{ prStageOrient(); setTimeout(()=>{ if(XQStage.consumer()==='practice') XQStage.layout(); }, 320); }, 120); });
+// Portrait: the tiles, the centre screen, the totals and the console are centred as one group.
+let _prConsoleH=120, _prTilesH=58;
+function prPortraitInset(){
+  if(typeof psRoomRect!=='function' || typeof PS_SCREENS==='undefined') return 0;
+  const LB=psRoomRect(), sc=psMapWallBox(PS_SCREENS.center, 'center', LB), vh=viewportHeight();
+  if(document.body.classList.contains('prBuild')){
+    // Build: tiles at the top, the console at the bottom, the session frame taking the height between (the photographed
+    // screen extended up into the black above the room, as the Game Tracker's tall frame)
+    const bottom=vh-10-_prConsoleH-10-24, minTop=10+_prTilesH+10;
+    return Math.round(Math.max(bottom, minTop+sc.height)-(sc.top+sc.height));
+  }
+  const top=Math.max(10, (vh-(sc.height+10+_prConsoleH))/2);   // Run: the screen and the console centred as one group
+  return Math.round(top-sc.top);
+}
+// After every stage layout: portrait places the tiles, totals and console around the screen; the choosing frame follows the screen.
+function prStageRects(){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='practice') return;
+  const w=document.getElementById('stageWrap'); if(!w) return;
+  const r=w.getBoundingClientRect(), b=document.body, portrait=b.classList.contains('prPortrait'), build=b.classList.contains('prBuild');
+  if(portrait){
+    const tiles=document.getElementById('prTiles'), tot=document.getElementById('prTotals'), c=document.getElementById('stageConsole');
+    if(tiles && build){
+      const th=tiles.offsetHeight||_prTilesH; tiles.style.top='10px';
+      if(th>20 && Math.abs(th-_prTilesH)>2){ _prTilesH=th; setTimeout(()=>XQStage.layout(), 0); }
+      b.style.setProperty('--prUp', Math.max(0, Math.round(r.top-(10+th+10)))+'px');
+    }
+    let y=r.bottom+10;
+    if(tot && build){ tot.style.top=Math.round(y)+'px'; y+=24; }
+    if(c && c.childElementCount){
+      c.style.left='8px'; c.style.width=Math.round(viewportWidth()-16)+'px'; c.style.top=Math.round(y)+'px'; c.style.height='';
+      XQStage._fitControls();
+      // Build keeps the tallest console it has had as its reservation, so the session frame does not jump when Confirm /
+      // Cancel (one row) replace Save / Run / Exit / Modes (two rows on a phone)
+      const ch=Math.round(c.offsetHeight); if(ch>40 && (ch>_prConsoleH+2 || (!build && Math.abs(ch-_prConsoleH)>2))){ _prConsoleH=ch; setTimeout(()=>XQStage.layout(), 0); }
+    }
+  }
+  const pk=document.getElementById('prPick');
+  if(pk){
+    const up=portrait && build ? (parseFloat(b.style.getPropertyValue('--prUp'))||0) : (portrait ? r.top-10 : 0);
+    const top=r.top-up, h=r.height+up;
+    pk.style.left=Math.round(r.left)+'px'; pk.style.top=Math.round(top)+'px'; pk.style.width=Math.round(r.width)+'px'; pk.style.height=Math.round(h)+'px';
+  }
 }
 // Practice takes the stage (once); the coach's board is saved here and nowhere else.
 function prEnsureStage(){
@@ -22031,43 +22204,220 @@ function prEnsureStage(){
   const wasFC=!!frontCourtActive; if(wasFC) toggleFrontCourt(false);
   let saved=null; try{ if(playing) playFrames(); saved={ state:getState(), undo:undoStack.slice(), redo:redoStack.slice(), frontCourt:wasFC, frames:JSON.parse(JSON.stringify(frames)), currentFrame }; }catch(e){}
   closePracticeStudio();
-  XQStage.open('practice', Object.assign({ lockCamera:true, instant:true }, prCameraOpts()));   // (closes any previous consumer first)
-  _prStage={ saved, phase:null };
+  _prMode=prStageMode(); _prConsoleH=120;
+  XQStage.open('practice', Object.assign({ lockCamera:true, instant:true }, prCameraOpts(_prMode)));   // (closes any previous consumer first)
+  _prStage={ saved, phase:null, pick:null };
+  prStageFlags();
 }
 // ---- BUILD
 const _prHomes=[];   // where the moved panels came from: [node, parent, nextSibling]
 function prMove(node, into){ if(!node) return; _prHomes.push([node, node.parentNode, node.nextSibling]); into.appendChild(node); }
+// Build (MIZE 2026-09-23, §3b): the CENTRE screen shows the session being built and is where every choice is made. The side
+// screens show what is there -- the Drill Library (left) and Saved Sessions (right) as read-only summaries; a tap on one opens
+// that list on the centre screen (#prPick, the real panels moved in), Confirm / Cancel on the console put it back. In portrait
+// the two tiles above the screen stand in for the side screens.
 function prBuildMount(){
   if(document.getElementById('prBuildCenter')) return;
   const mk=(id)=>{ const d=document.createElement('div'); d.id=id; d.className='prScreen'; return d; };
-  const left=mk('prBuildLeft'), center=mk('prBuildCenter'), right=mk('prBuildRight');
+  const left=mk('prBuildLeft'), center=mk('prBuildCenter'), right=mk('prBuildRight'), pick=mk('prPick');
   document.body.appendChild(center);   // the tactical mount returns it here
+  [[left,'library','Drill Library: tap to choose drills'],[right,'saved','Saved Sessions: tap to open a session']].forEach(([n,k,lab])=>{
+    n.classList.add('prSum'); n.tabIndex=0; n.setAttribute('role','button'); n.setAttribute('aria-label', lab);
+    n.addEventListener('click', ()=>prPickOpen(k)); n.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); prPickOpen(k); } });
+  });
+  pick.innerHTML='<div class="prPickHead"><div class="prPickTitle"></div><div class="prPickHint"></div>'+
+    '<label class="prPickTo">Add to <select id="prPickBlock"></select></label></div>'+
+    '<div class="prPickBody"><div data-pick="library"></div><div data-pick="saved"></div></div>';
+  pick.setAttribute('role','dialog'); pick.setAttribute('aria-modal','false');
+  document.body.appendChild(pick);
   const savedTitle=[...document.querySelectorAll('#sessionBuilderPanel .psPanelTitle')].find(t=>/Saved Sessions/.test(t.textContent));
-  const savedWrap=document.createElement('div'); savedWrap.className='psPanel'; right.appendChild(savedWrap);
+  const savedWrap=document.createElement('div'); savedWrap.className='psPanel'; pick.querySelector('[data-pick="saved"]').appendChild(savedWrap);
   [savedTitle, document.getElementById('sessionTagFilter'), document.getElementById('savedSessionsList')].forEach(n=>prMove(n, savedWrap));
-  prMove(document.getElementById('drillLibraryPanel'), left);
+  prMove(document.getElementById('drillLibraryPanel'), pick.querySelector('[data-pick="library"]'));
   prMove(document.getElementById('sessionBuilderPanel'), center);
+  document.getElementById('targetBlockSelect')?.parentElement?.classList.add('prTargetRow');
+  // portrait: the two sources above the screen, the totals under it
+  const tiles=document.createElement('div'); tiles.id='prTiles';
+  tiles.innerHTML='<button type="button" data-pick="library"><span class="k">Drill Library</span><span class="t"></span><small></small></button>'+
+    '<button type="button" data-pick="saved"><span class="k">Saved Sessions</span><span class="t"></span><small></small></button>';
+  tiles.querySelectorAll('button').forEach(bt=>bt.addEventListener('click', ()=>prPickOpen(bt.dataset.pick)));
+  const tot=document.createElement('div'); tot.id='prTotals'; tot.setAttribute('aria-live','polite');
+  document.body.appendChild(tiles); document.body.appendChild(tot);
   XQStage.setScreen('media', left); XQStage.setScreen('info', right); XQStage.setScreen('tactical', center);
   document.body.classList.add('prBuild');
 }
 function prBuildUnmount(){
+  prPickReset();
   if(!document.getElementById('prBuildCenter') && !_prHomes.length) return;
   while(_prHomes.length){ const [n,parent,next]=_prHomes.pop(); if(parent) parent.insertBefore(n, next && next.parentNode===parent ? next : null); }
+  document.getElementById('targetBlockSelect')?.parentElement?.classList.remove('prTargetRow');
   if(typeof XQStage!=='undefined' && XQStage.consumer()==='practice'){ XQStage.setScreen('tactical', null); XQStage.setScreen('media', null); XQStage.setScreen('info', null); }
-  ['prBuildLeft','prBuildCenter','prBuildRight'].forEach(id=>document.getElementById(id)?.remove());
+  ['prBuildLeft','prBuildCenter','prBuildRight','prPick','prTiles','prTotals'].forEach(id=>document.getElementById(id)?.remove());
   document.body.classList.remove('prBuild');
 }
-function prOpenBuild(){
-  prEnsureStage();
-  if(_prRun) prRunStop();
-  _prStage.phase='build';
-  document.getElementById('prDrillNote')?.remove();
-  prBuildMount();
-  renderDrillLibrary(); renderSessionBuilder(); renderSavedSessions();
+// ---- the side screens (and the portrait tiles): what is there, read-only
+const prPlural=(n,one,many)=>n+' '+(n===1?one:many);
+function prSummaries(){
+  const L=document.getElementById('prBuildLeft'), R=document.getElementById('prBuildRight'); if(!L || !R) return;
+  const f=XQUIX.StorageProvider.listStoreSync('formation')||{}, sq=XQUIX.StorageProvider.listStoreSync('sequence')||{};
+  const fn=Object.keys(f), sn=Object.keys(sq), n=fn.length+sn.length;
+  const plans=prPlans(), pn=Object.keys(plans), cur=(document.getElementById('sessionNameInput')?.value||'').trim();
+  const el=(tag, cls, text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!==undefined) e.textContent=text; return e; };
+  const fill=(box, head, count, sub, items, tap)=>{
+    box.innerHTML=''; box.appendChild(el('div','prSumHead',head)); box.appendChild(el('div','prSumCount',String(count))); box.appendChild(el('div','prSumSub',sub));
+    const ul=el('ul','prSumList'); items.forEach(it=>{ const li=el('li', it.cur?'cur':'', it.name); if(it.small){ li.appendChild(el('small','',it.small)); } ul.appendChild(li); }); box.appendChild(ul);
+    box.appendChild(el('div','prSumTap',tap));
+  };
+  fill(L, 'Drill Library', n, n ? prPlural(fn.length,'formation','formations')+' \u00b7 '+prPlural(sn.length,'sequence','sequences') : 'No formations or sequences saved yet',
+    [...fn.map(x=>({ name:x })), ...sn.map(x=>({ name:'\u25B6 '+x }))].slice(0,8), 'Tap to choose drills');
+  fill(R, 'Saved Sessions', pn.length, prCloudOn() ? 'In your library' : 'On this device only',
+    pn.slice(0,8).map(x=>({ name:x, small:(plans[x].totalDurationMinutes||0)+' min'+(x===cur?' \u00b7 open':''), cur:x===cur })), pn.length ? 'Tap to open a session' : 'Save a session to see it here');
+  const tiles=document.getElementById('prTiles');
+  if(tiles){
+    const [a,b]=tiles.querySelectorAll('button');
+    a.querySelector('.t').textContent=prPlural(n,'drill','drills'); a.querySelector('small').textContent='Tap to choose';
+    b.querySelector('.t').textContent=prPlural(pn.length,'session','sessions'); b.querySelector('small').textContent=prCloudOn() ? 'In your library' : 'On this device only';
+  }
+  const tot=document.getElementById('prTotals');
+  if(tot){
+    const dr=currentSessionBlocks.reduce((s,bk)=>s+bk.drills.length,0);
+    tot.innerHTML='';
+    if(!currentSessionBlocks.length) tot.textContent='No blocks yet \u2014 choose drills from the Drill Library';
+    else { const bb=document.createElement('b'); bb.textContent=computeSessionTotalMinutes()+' min'; tot.appendChild(bb);
+      tot.appendChild(document.createTextNode(' \u00b7 '+prPlural(currentSessionBlocks.length,'block','blocks')+' \u00b7 '+prPlural(dr,'drill','drills'))); }
+  }
+}
+document.getElementById('sessionNameInput')?.addEventListener('input', ()=>prSummaries());
+// ---- choosing on the centre screen
+var _prPick=null;            // 'library' | 'saved' while the centre screen shows a list to choose from
+const _prSel=new Map();      // library choices in the order tapped: key -> { kind, name, rec, minutes }
+let _prSelSession=null;      // the saved session chosen
+let _prPickT=null;
+function prPickOpen(kind){
+  if(!_prStage || _prStage.phase!=='build' || XQStage.consumer()!=='practice') return;
+  if(_prPick===kind) return;
+  const pk=document.getElementById('prPick'); if(!pk) return;
+  clearTimeout(_prPickT); _prSel.clear(); _prSelSession=null;
+  _prPick=kind; _prStage.pick=kind;
+  pk.querySelectorAll('.prPickBody > [data-pick]').forEach(n=>{ n.hidden=n.dataset.pick!==kind; });
+  pk.querySelector('.prPickTitle').textContent = kind==='library' ? 'Drill Library' : 'Saved Sessions';
+  pk.querySelector('.prPickHint').textContent = kind==='library' ? 'Tap the drills you want, set their minutes, then Confirm.' : 'Tap a session, then Confirm to open it in the builder.';
+  pk.querySelector('.prPickTo').style.display = kind==='library' ? '' : 'none';
+  if(kind==='library') prPickBlockOptions();
+  pk.setAttribute('aria-label', kind==='library' ? 'Choose drills' : 'Choose a saved session');
+  document.body.classList.add('prPicking'); document.body.dataset.pick=kind;
+  if(kind==='library') renderDrillLibrary(); else renderSavedSessions();
+  prPickConsole();
+  prStageRects();
+  pk.querySelector('.prPickBody').scrollTop=0;
+  prPickFly(pk, kind, 'in');
+}
+function prPickBlockOptions(){
+  const sel=document.getElementById('prPickBlock'); if(!sel) return;
+  sel.innerHTML='';
+  currentSessionBlocks.forEach(b=>{ const o=document.createElement('option'); o.value=b.id; o.textContent=b.name; sel.appendChild(o); });
+  const og=document.createElement('optgroup'); og.label='New block';
+  ['warmup','skill','tactical','conditioning','cooldown'].forEach(t=>{ const o=document.createElement('option'); o.value='new:'+t; o.textContent='New '+BLOCK_TYPE_LABELS[t]; og.appendChild(o); });
+  sel.appendChild(og);
+  sel.value = currentSessionBlocks.some(b=>b.id===targetBlockId) ? targetBlockId : (currentSessionBlocks[0] ? currentSessionBlocks[0].id : 'new:tactical');
+}
+function prPickToggle(key, item, card){
+  if(_prSel.has(key)) _prSel.delete(key); else _prSel.set(key, item);
+  const on=_prSel.has(key); card.classList.toggle('prSel', on); card.setAttribute('aria-checked', on?'true':'false');
+  prPickConsole();
+}
+function prPickSelectSession(name, row){
+  _prSelSession=name;
+  document.querySelectorAll('#savedSessionsList .versionRow.prSel').forEach(x=>x.classList.remove('prSel'));
+  if(row) row.classList.add('prSel');
+  prPickConsole();
+}
+// The side screen the list came from (portrait: its tile) -- the frame grows out of it and goes back into it.
+function prPickFly(pk, kind, dir){
+  if(!pk || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return 0;
+  const portrait=document.body.classList.contains('prPortrait');
+  const src=portrait ? document.querySelector('#prTiles [data-pick="'+kind+'"]') : document.getElementById(kind==='library' ? 'videoFrame' : 'statsFrame');
+  if(!src) return 0;
+  pk.style.transition='none'; pk.style.transform=''; const d=pk.getBoundingClientRect(), s=src.getBoundingClientRect();
+  if(!s.width || !d.width) return 0;
+  const t='translate('+(s.left-d.left).toFixed(1)+'px,'+(s.top-d.top).toFixed(1)+'px) scale('+(s.width/d.width).toFixed(4)+','+(s.height/d.height).toFixed(4)+')';
+  if(dir==='in'){
+    pk.style.transform=t; pk.style.opacity='.35'; void pk.offsetWidth;
+    pk.style.transition='transform .32s cubic-bezier(.2,.7,.2,1), opacity .22s ease'; pk.style.transform=''; pk.style.opacity='';
+    return 320;
+  }
+  void pk.offsetWidth;
+  pk.style.transition='transform .24s cubic-bezier(.5,0,.8,.4), opacity .24s ease'; pk.style.transform=t; pk.style.opacity='0';
+  return 240;
+}
+// Closes the choosing frame; the lists render back to their normal state and the console to Build's.
+function prPickClose(){
+  if(!_prPick) return;
+  const kind=_prPick, pk=document.getElementById('prPick');
+  _prPick=null; if(_prStage) _prStage.pick=null; _prSel.clear(); _prSelSession=null;
+  const ms=prPickFly(pk, kind, 'out');
+  const done=()=>{ document.body.classList.remove('prPicking'); delete document.body.dataset.pick; if(pk){ pk.style.transition=''; pk.style.transform=''; pk.style.opacity=''; }
+    if(kind==='library') renderDrillLibrary(); else renderSavedSessions(); };
+  clearTimeout(_prPickT);
+  if(ms) _prPickT=setTimeout(done, ms); else done();
+  if(_prStage && _prStage.phase==='build' && XQStage.consumer()==='practice') prBuildConsole();
+  prSummaries();
+}
+// Immediately, no motion (unmount, cleanup).
+function prPickReset(){
+  clearTimeout(_prPickT); _prPick=null; if(_prStage) _prStage.pick=null; _prSel.clear(); _prSelSession=null;
+  document.body.classList.remove('prPicking'); delete document.body.dataset.pick;
+}
+function prPickConfirm(){
+  if(_prPick==='library'){
+    if(!_prSel.size) return;
+    const v=document.getElementById('prPickBlock')?.value || 'new:tactical';
+    if(v.startsWith('new:')){
+      const t=v.slice(4); let nm=BLOCK_TYPE_LABELS[t]||'Block';
+      const same=currentSessionBlocks.filter(b=>b.blockType===t).length; if(same) nm=nm+' ('+(same+1)+')';
+      addBlock(t, nm);
+    } else targetBlockId=v;
+    const picks=[..._prSel.values()];
+    picks.forEach(p=>addDrillToSession(p.name, p.rec, p.minutes, p.kind));
+    prPickClose();
+    if(typeof xquixHomeShowToast==='function') xquixHomeShowToast(prPlural(picks.length,'drill','drills')+' added to '+((findBlock(targetBlockId)||{}).name||'the session')+'.', 1800);
+    return;
+  }
+  if(_prPick==='saved'){
+    const name=_prSelSession, rec=name && prPlans()[name]; if(!rec) return;
+    const go=()=>{ loadSessionIntoBuilder(rec); prPickClose(); };
+    if(prBuilderDirty()){
+      const cur=(document.getElementById('sessionNameInput')?.value||'').trim();
+      MizeDialog.confirm('Open \u201c'+name+'\u201d in the builder? '+(cur ? 'Changes to \u201c'+cur+'\u201d' : 'The session in the builder')+' that are not saved will be lost.').then(y=>{ if(y && _prPick==='saved') go(); });
+    } else go();
+  }
+}
+function prPickConsole(){
+  if(!_prPick || typeof XQStage==='undefined' || XQStage.consumer()!=='practice') return;
+  let sub, dis;
+  if(_prPick==='library'){
+    const n=_prSel.size, m=[..._prSel.values()].reduce((a,p)=>a+(+p.minutes||0),0);
+    sub = n ? prPlural(n,'drill','drills')+' \u00b7 '+m+' min' : 'Select drills'; dis=!n;
+  } else {
+    const okS=!!(_prSelSession && prPlans()[_prSelSession]); if(!okS) _prSelSession=null;
+    sub = okS ? _prSelSession : 'Select a session'; dis=!okS;
+  }
+  const btn=document.querySelector('#stageConsole .stageConsoleBtn[data-id="confirm"]');
+  if(btn && btn.closest('.stageConsoleGroup')?.dataset.group===(_prPick==='library'?'drill library':'saved sessions')){ XQStage.updateControl('confirm', { sub, disabled:dis }); return; }
+  XQStage.setControls({ groups:[
+    { label:_prPick==='library' ? 'Drill Library' : 'Saved Sessions', items:[
+      { id:'cancel', label:'Cancel', title:'Back to the session, nothing changed', onTap:prPickClose },
+      { id:'confirm', label:'Confirm', sub, big:true, disabled:dis, title:_prPick==='library' ? 'Add the selected drills to the session' : 'Open the selected session in the builder', onTap:prPickConfirm },
+    ]},
+    { label:'System', items:[ { id:'modes', label:'Modes', title:'Choose a mode', onTap:prRunModes } ]},
+  ]});
+  setTimeout(prRunConsoleShown, 0);
+}
+function prBuildConsole(){
   XQStage.setControls({ groups:[
     { label:'Session', items:[
       { id:'save', label:'Save', title:'Save this session', onTap:()=>document.getElementById('saveSessionBtn')?.click() },
-      { id:'run', label:'▶ Run', big:true, title:'Run this session drill by drill', onTap:()=>document.getElementById('runSessionBtn')?.click() },
+      { id:'run', label:'\u25B6 Run', big:true, title:'Run this session drill by drill', onTap:()=>document.getElementById('runSessionBtn')?.click() },
     ]},
     { label:'System', items:[
       { id:'exit', label:'Exit', title:'Back to the Coaching board', onTap:()=>{ if(XQStage.consumer()==='practice') XQStage.close(); } },
@@ -22075,6 +22425,27 @@ function prOpenBuild(){
     ]},
   ]});
   setTimeout(prRunConsoleShown, 0);
+}
+// Unsaved changes in the builder (asked before a saved session replaces them).
+var _prCleanSig=null;
+function prBuilderSig(){ return JSON.stringify([(document.getElementById('sessionNameInput')?.value||'').trim(), currentSessionBlocks.map(b=>[b.name,b.blockType,b.coachingDNA||[],b.drills.map(d=>[d.formationName,+d.durationMinutes||0,d.kind||''])])]); }
+function prMarkClean(){ _prCleanSig=prBuilderSig(); }
+function prBuilderDirty(){ if(!currentSessionBlocks.length) return false; return prBuilderSig()!==_prCleanSig; }
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Escape' || !_prPick) return;
+  if(document.getElementById('mizeDialogBackdrop')?.classList.contains('open')) return;
+  e.preventDefault(); prPickClose();
+});
+function prOpenBuild(){
+  prEnsureStage();
+  if(_prRun) prRunStop();
+  _prStage.phase='build';
+  document.getElementById('prDrillNote')?.remove();
+  prPickReset();
+  prBuildMount();
+  prStageFlags();
+  renderDrillLibrary(); renderSessionBuilder(); renderSavedSessions();
+  prBuildConsole();
 }
 function prPreviewDrill(bi, di){
   let idx=0; for(let b=0;b<bi;b++) idx+=(currentSessionBlocks[b].drills||[]).length; idx+=di;
@@ -22158,8 +22529,8 @@ function prCleanup(){
   const st=_prStage;
   prRunStop();
   prBuildUnmount();
-  _prStage=null;
-  document.body.classList.remove('prConsole','prBuild');
+  _prStage=null; _prMode=null; document.body.style.removeProperty('--prUp');
+  document.body.classList.remove('prConsole','prBuild','prPortrait','prCompact','prPicking'); delete document.body.dataset.pick;
   if(typeof XQStage!=='undefined' && XQStage.consumer()==='practice') XQStage.close();   // re-entrant: _prStage is already null
   if(st && st.saved){
     const wasReady=historyReady; historyReady=false;
@@ -22174,7 +22545,7 @@ function prCleanup(){
 var prRunCleanup=prCleanup;   // the Step 1 name
 if(typeof XQStage!=='undefined'){
   XQStage.on('close', c=>{ if(c==='practice' && _prStage) prCleanup(); });
-  XQStage.on('layout', ()=>{ if(XQStage.consumer()==='practice') setTimeout(prRunConsoleShown, 0); });
+  XQStage.on('layout', ()=>{ if(XQStage.consumer()==='practice'){ prStageRects(); setTimeout(prRunConsoleShown, 0); } });
 }
 // (the fallback button's markup comes after this script -- listen at the document)
 document.addEventListener('click', e=>{ if(e.target && e.target.closest && e.target.closest('#prExitFallback')){ e.stopPropagation(); if(_prRun) prRunExit(); else if(XQStage.consumer()==='practice') XQStage.close(); } }, true);
@@ -22215,6 +22586,7 @@ function loadSessionIntoBuilder(rec){
     }];
   }
   renderSessionBuilder();
+  if(typeof prMarkClean==='function') prMarkClean();
 }
 
 function effectiveSessionTags(rec){
@@ -22237,7 +22609,7 @@ function renderSavedSessions(){
   const where=document.createElement('div'); where.className='prPlansWhere';
   where.textContent = cloud ? 'Your library · every plan also kept on this device for offline use' : 'This device only — sign in to keep your plans in your library';
   box.appendChild(where);
-  if(!names.length){ const e=document.createElement('div'); e.style.cssText='font-size:12px;color:#7c8a8a;'; e.textContent='No saved sessions yet.'; box.appendChild(e); return; }
+  if(!names.length){ const e=document.createElement('div'); e.style.cssText='font-size:12px;color:#7c8a8a;'; e.textContent='No saved sessions yet.'; box.appendChild(e); if(typeof _prPick!=='undefined' && _prPick==='saved') prPickConsole(); if(typeof prSummaries==='function') prSummaries(); return; }
   names.forEach(name=>{
     const rec=all[name];
     const tags=effectiveSessionTags(rec);
@@ -22254,7 +22626,13 @@ function renderSavedSessions(){
       meta.appendChild(tagRow);
     }
     const btnWrap=document.createElement('div'); btnWrap.style.display='flex'; btnWrap.style.gap='4px';
-    const load=document.createElement('button'); load.textContent='Load'; load.onclick=()=>loadSessionIntoBuilder(rec);
+    const load=document.createElement('button'); load.textContent='Load'; load.className='prLoadBtn'; load.onclick=()=>loadSessionIntoBuilder(rec);
+    if(typeof _prPick!=='undefined' && _prPick==='saved'){   // choosing on the centre screen (§3b): a tap selects the row
+      if(_prSelSession===name) row.classList.add('prSel');
+      row.tabIndex=0; row.setAttribute('role','option'); row.setAttribute('aria-selected', _prSelSession===name ? 'true' : 'false');
+      row.addEventListener('click', e=>{ if(e.target.closest('button,input,select')) return; prPickSelectSession(name, row); });
+      row.addEventListener('keydown', e=>{ if(e.target!==row) return; if(e.key==='Enter'||e.key===' '){ e.preventDefault(); prPickSelectSession(name, row); } });
+    }
     const run=document.createElement('button'); run.textContent='\u25B6 Run'; run.title='Run this session on the Studio Stage'; run.onclick=()=>openPracticeRun(rec);
     btnWrap.appendChild(run);
     const del=MIZE.UI.ConfirmDeleteButton('Delete session "'+name+'"?', async ()=>{ await XQUIX.Storage.delete({ kind:PRACTICE_KIND, name, scope:'personal' }); renderSavedSessions(); }, { title:'Delete session' });
@@ -22262,6 +22640,8 @@ function renderSavedSessions(){
     row.appendChild(meta); row.appendChild(btnWrap);
     box.appendChild(row);
   });
+  if(typeof _prPick!=='undefined' && _prPick==='saved') prPickConsole();   // a deleted choice is no longer a choice
+  if(typeof prSummaries==='function') prSummaries();
 }
 document.getElementById('sessionTagFilter')?.addEventListener('input', renderSavedSessions);
 
