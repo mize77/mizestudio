@@ -1944,6 +1944,16 @@
   #gtStageBanner { position:absolute; left:50%; top:6%; transform:translateX(-50%); z-index:8; max-width:80%; padding:10px 18px; border-radius:10px; background:rgba(3,10,10,.85); border:1px solid rgba(46,202,184,.5); color:#f2fbfa; font:600 14px/1.35 'Archivo',system-ui,sans-serif; text-align:center; pointer-events:none; box-shadow:0 0 24px 4px rgba(46,202,184,.25); }
   body[data-stage="home"] #psRoom, body[data-stage="soundbox"] #psRoom { z-index:8998; }
   body[data-stage="home"] #studioTrack, body[data-stage="soundbox"] #studioTrack { z-index:8999; }
+  /* A tutorial can pass through XquiX Home (the Presentation tutorial: SYSTEM → Mode → Presenting, and back to
+     Coaching the same way). Home's stage sits at 8999, over the tutorial's own chrome (1555-1575); while Home is
+     up during a tutorial, that chrome goes above it, in the same order. */
+  body.tutorialModeActive[data-stage="home"] #tutorialDimOverlay { z-index:9001; }
+  body.tutorialModeActive[data-stage="home"] #tutorialSpotlight, body.tutorialModeActive[data-stage="home"] .tutorialSpotlightRing { z-index:9002; }
+  body.tutorialModeActive[data-stage="home"] .tutorialArrowEl { z-index:9003; }
+  body.tutorialModeActive[data-stage="home"] #tutorialBanner, body.tutorialModeActive[data-stage="home"] #tutorialExitBtn, body.tutorialModeActive[data-stage="home"] #tutorialSkipStepBtn, body.tutorialModeActive[data-stage="home"] #tutorialVoiceNav { z-index:9004; }
+  body.tutorialModeActive[data-stage="home"] #tutorialCheckmark { z-index:9005; }
+  body.tutorialModeActive[data-stage="home"] #tutorialLeaveScreen { z-index:9010; }
+  body.tutorialModeActive[data-stage="home"] #tutorialHeard { z-index:9011; }
   body[data-stage="home"] #stageLights, body[data-stage="soundbox"] #stageLights { z-index:9000; }
   /* The room layer (XQStage.setRoomLayer): on the room rect inside #psRoom -- the photograph's own stacking
      context, no z-index/transform of its own so a blending canvas inside it blends with the room -- below the
@@ -13538,8 +13548,11 @@ function psPresConsoleRefresh(force){
   // Any landscape screen, the iPhone included (MIZE, 2026-09-22); portrait has the mini bar (Modes · Home)
   // instead. Rotation is followed on 'layout'.
   const fits=window.innerWidth>window.innerHeight;
-  // MIZE 2026-09-23: the Workbench-style control surface replaces this console in Presentation (not during a tutorial)
-  if(document.body.classList.contains('cwSurfaceOn') && !document.body.classList.contains('tutorialModeActive')){
+  // MIZE 2026-09-23: the Workbench-style control surface replaces this console in Presentation -- not during a
+  // tutorial, unless the tutorial runs on the surface itself (tutorialOptions.surface: body.cwTutorial; the
+  // Presentation tutorial since 2026-09-24)
+  const _b=document.body.classList;
+  if(_b.contains('cwSurfaceOn') && !(_b.contains('tutorialModeActive') && !_b.contains('cwTutorial'))){
     if(_psConsoleShape!=='cw'){ _psConsoleShape='cw'; XQStage.setControls(null); }
     if(typeof cwSync==='function') setTimeout(()=>{ if(cwGroup==='present') cwRender(); else cwSync(); }, 0);
     return;
@@ -15178,8 +15191,11 @@ function tutorialLayoutNav(){
   // The stage's floor console, the Remote and the stage's camera arrows sit low on the screen as well (the
   // Presentation tutorial rings all three; none of them is shown during the Coaching tutorial). The row lifts
   // above whichever of them it would sit on.
+  // Only what can actually be seen counts: on XquiX Home the Remote still has a box, under Home's stage.
+  const seen=e=>{ const q=e.getBoundingClientRect(); if(!q.width) return false; const h=document.elementFromPoint(Math.min(innerWidth-1, Math.max(0, q.left+q.width/2)), Math.min(innerHeight-1, Math.max(0, q.top+q.height/2)));
+    return !!h && (e===h || e.contains(h) || !!(h.closest && h.closest('#tutorialExitBtn, #tutorialSkipStepBtn, #tutorialVoiceNav, #tutorialBanner, #tutorialSpotlight, .tutorialSpotlightRing'))); };
   const below=['#stageConsole .stageConsolePanel', '#timelineCommandsBar', '#studioNavLeft', '#studioNavRight'].map(q=>document.querySelector(q))
-    .filter(e=>e && e.getClientRects().length && getComputedStyle(e).visibility!=='hidden').map(e=>e.getBoundingClientRect()).filter(q=>q.width);
+    .filter(e=>e && e.getClientRects().length && getComputedStyle(e).visibility!=='hidden' && seen(e)).map(e=>e.getBoundingClientRect()).filter(q=>q.width);
   for(let k=0; k<below.length; k++){ const o=below.find(q=>hitsR(bottom, side, q)); if(!o) break; bottom=Math.round(innerHeight - o.top + 8); }
   tutorialAvoidConsole(sr);
   // the instruction box never sits on the row (a short phone screen in landscape): it moves up above it
@@ -20903,9 +20919,12 @@ cwRender();
 // body.cwTutorial lets the console show while tutorialModeActive (see the CSS gate). The tutorial starts it on
 // QUICKS, unfolded, with the Frames drawer shut, and afterwards puts back the coach's own group, fold and drawer.
 let _cwTutSnap=null;
-const CW_TUT_KEYS=['xquixCwGroup','xquixCwFolded','xquixCwFrames'];
+const CW_TUT_KEYS=['xquixCwGroup','xquixCwGroupPres','xquixCwFolded','xquixCwFrames'];
+// Mode-aware since 2026-09-24: the Presentation tutorial starts in Coaching and crosses into Presentation, whose
+// group is remembered separately (cwGroupPres). Both memories are snapshotted and put back, and the group shown at
+// the end is the coach's own for whichever mode the Studio is in when the tutorial ends.
 function cwTutorialBegin(){
-  if(!_cwTutSnap){ _cwTutSnap={ group:cwGroup, folded:cwFolded, frames:cwFramesOpen, ls:{} };
+  if(!_cwTutSnap){ _cwTutSnap={ mode:cwMode(), group:cwGroup, gPres:cwGroupPres, gCoach:cwGroupCoach, folded:cwFolded, frames:cwFramesOpen, ls:{} };
     CW_TUT_KEYS.forEach(k=>{ try{ _cwTutSnap.ls[k]=localStorage.getItem(k); }catch(e){} }); }
   cwGroup='quicks'; cwFolded=false; cwFramesOpen=false; cwOpen=false;
   if(typeof closeQcbDrawingToolsPopup==='function') closeQcbDrawingToolsPopup();
@@ -20913,7 +20932,11 @@ function cwTutorialBegin(){
 }
 function cwTutorialEnd(){
   const s=_cwTutSnap; _cwTutSnap=null;
-  if(s){ cwGroup=s.group; cwFolded=s.folded; cwFramesOpen=s.frames;
+  if(s){
+    cwGroupPres = s.mode==='pres' ? s.group : s.gPres;
+    cwGroupCoach = s.mode==='coach' ? s.group : s.gCoach;
+    const m=cwMode(); cwGroup = m==='pres' ? cwGroupPres : (cwGroupCoach || cwGroup); _cwModeLast=m;
+    cwFolded=s.folded; cwFramesOpen=s.frames;
     CW_TUT_KEYS.forEach(k=>{ try{ if(s.ls[k]==null) localStorage.removeItem(k); else localStorage.setItem(k, s.ls[k]); }catch(e){} }); }
   cwOpen=false; cwRender();
 }
@@ -20931,7 +20954,7 @@ function cwTutTarget(g, sel){
   return document.querySelector('#cwSurface .cwFold');
 }
 function cwTutShowGroup(g){ const el=document.getElementById('cwSurface'); cwGroup=g; cwFolded=false; cwOpen=!!(el && el.classList.contains('cwCompact'));
-  try{ localStorage.setItem('xquixCwGroup', g); }catch(e){} cwRender(); }
+  try{ localStorage.setItem(cwMode()==='pres' ? 'xquixCwGroupPres' : 'xquixCwGroup', g); }catch(e){} cwRender(); }
 function cwTutPress(g, sel){ cwTutShowGroup(g); const b=document.querySelector('#cwSurface .cwRow '+sel); if(!b || b.disabled) return false;
   b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true})); b.click(); return true; }
 

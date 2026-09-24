@@ -20,31 +20,41 @@
  *
  * Design context: presentation/PRESENTATION-TUTORIAL.md in the project.
  *
+ * ON THE CONTROL PANEL (2026-09-24). Presentation's controls are the Workbench
+ * control surface (#cwSurface) with Presentation's groups — FUNCTIONS, QUICKS,
+ * PRESENT, SCREENS, CAMERA, SYSTEM (PRESENTATION-MODE.md §27) — and a mode is
+ * chosen from XquiX Home (SYSTEM → Mode). Before this the tutorial hid the
+ * panel and taught the Menu tab, Menu → Presentation → Spotlight / Shot Clock
+ * and Exit Presentation: controls a coach never sees again afterwards. It now
+ * runs on the panel (steps.tutorialOptions.surface, as the Coaching tutorial
+ * does): every ring is on a panel tab or button, a Home circle, a camera arrow
+ * or the board. A ring on a button whose group is not showing goes to that
+ * group's tab first (the engine's cwTutTarget).
+ *
  * VOICE (2026-09-23): the same Read aloud + Voice commands the Coaching tutorial
  * has, through the engine's own XQTutVoice -- nothing voice-related lives in this
  * file except the step list's options (steps.tutorialOptions: voice, exitScreen,
  * rebuild) and the welcome box that offers the two switches (voiceOptions).
  * What is read is the box's own text, so the instructions name buttons in words
- * ("the Back to start button") rather than by glyph: a speech engine reads a
- * glyph like the rewind symbol as its Unicode name, or not at all.
+ * ("the Start button") rather than by glyph: a speech engine reads a glyph by
+ * its Unicode name, or not at all.
  *
- * What it teaches, in order: enter Presentation Mode from the Menu · the three
- * screens and the camera arrows · playing and stepping the frames with the
- * Remote Control · the Spotlight · the Shot Clock · exit. Every required action
- * is in the Free version (function_gates P01, P02–P04, P12, SC01–SC04); the
- * Pro-only functions met along the way are named as such and never required.
+ * What it teaches, in order: Mode → Presenting · the Full Studio View and the
+ * camera (CAMERA, the edge arrows) · playing and stepping the frames (PRESENT)
+ * · the Spotlight (CAMERA) · the Shot Clock (QUICKS) · back to the Full Studio
+ * View · Mode → Coaching. Every required action is in the Free version
+ * (function_gates P01, P02–P04, P12, SC01–SC04); the Pro-only functions met
+ * along the way are named as such and never required.
  *
  * What it must never do:
  *   - lose the coach's work. The engine clears the board on start (that is
  *     what the First Coaching Session does too), so the frames and the current
  *     scene are snapshotted before start and put back on teardown.
- *   - leave presentation state behind. Exit Tutorial, completion, and
+ *   - leave presentation state behind. Leave tutorial, completion, and
  *     MIZE.PresentationTutorial.exit() all run the same idempotent cleanup:
- *     presentation off, spotlight off, shot clock off, panels closed, Remote
- *     and Quick Command Bar visibility restored.
- *   - highlight something that does not exist. #presentationModeHandle is
- *     referenced by index.html but is not in its DOM (2026-09-05 build); this
- *     tutorial goes through the Menu, which is the path that exists.
+ *     Home closed, presentation off, spotlight off, shot clock off, panels
+ *     closed, the coach's panel group and fold back (the engine), Remote and
+ *     Quick Command Bar settings restored.
  * ==========================================================================*/
 (function () {
 'use strict';
@@ -53,30 +63,32 @@ var SEQUENCE_NAME = 'Tutorial - First Coaching Session'; // 11 frames, embedded 
 
 var running = false;
 var saved = null;        // what to put back on teardown
-var observer = null;     // watches body.tutorialModeActive so "Exit Tutorial" also cleans up
+var observer = null;     // watches body.tutorialModeActive so "Leave tutorial" also cleans up
 
 /* --------------------------------------------------------------- helpers */
 function $(id) { return document.getElementById(id); }
 function q(sel) { try { return document.querySelector(sel); } catch (err) { return null; } }
 function inPresentation() { return document.body.classList.contains('presentation'); }
-function menuOpen() { var p = $('controlsPanel'); return !!p && p.classList.contains('open'); }
+function homeOpen() { return typeof XQStage !== 'undefined' && XQStage.isOpen() && XQStage.consumer() === 'home'; }
+function camera() { return (typeof XQStage !== 'undefined' && XQStage.isOpen()) ? XQStage.camera() : null; }
 function panelOpen(id) { var p = $(id); return !!p && p.classList.contains('open'); }
-function presentCategory() { return q('.cmdCategory[data-cat="present"]'); }
-function presentCategoryOpen() { var c = presentCategory(); return !!c && c.classList.contains('open'); }
 function spot() { return (window.MIZE && MIZE.State && MIZE.State.spotlight) || {}; }
 function clock() { return (window.MIZE && MIZE.State && MIZE.State.shotClock) || {}; }
-function frameIdx() { return typeof studioFrameIndex === 'number' ? studioFrameIndex : 1; }
 function lastFrame() { return (typeof frames !== 'undefined' && frames && frames.length) ? frames.length - 1 : 0; }
 function isPlaying() { return typeof playing !== 'undefined' && !!playing; }
 function acked() { return typeof tutorialManualAck !== 'undefined' && !!tutorialManualAck; }
-
-function click(sel) { var e = q(sel); if (e && typeof e.click === 'function') { e.click(); return true; } return false; }
-function openMenu() { var p = $('controlsPanel'); if (p) p.classList.add('open'); if (typeof syncPresentationPanelBackdrop === 'function') syncPresentationPanelBackdrop(); }
-function closeMenu() { var p = $('controlsPanel'); if (p) p.classList.remove('open'); if (typeof syncPresentationPanelBackdrop === 'function') syncPresentationPanelBackdrop(); }
-function reveal(sel) { if (typeof tutorialRevealElement === 'function') tutorialRevealElement(sel); else openMenu(); var e = q(sel); if (e && e.scrollIntoView) { try { e.scrollIntoView({ block: 'center' }); } catch (err) {} } }
 function visibleStageLights() { return Array.prototype.slice.call(document.querySelectorAll('#stageLights .stageLight')).filter(function (e) { return e.getClientRects().length > 0; }); }
-function showRemote() { if (typeof tutorialShowTimelineRemote === 'function') tutorialShowTimelineRemote(); }
-function hideRemote() { if (typeof tutorialHideTimelineRemote === 'function') tutorialHideTimelineRemote(); }
+
+/* The control panel, through the engine's own helpers (coaching/COACHING-TUTORIAL.md §2):
+   target(g, sel)  what to ring for "tap <sel> in <g>" -- the button when its group is
+                   showing, otherwise the group's tab (or the tab that unfolds the panel)
+   shown(g)        the group is on screen
+   press(g, sel)   Skip: show the group and press the button, as the coach would        */
+function target(g, sel) { return typeof cwTutTarget === 'function' ? cwTutTarget(g, sel || null) : null; }
+function shown(g) { return typeof cwTutGroupShown === 'function' && cwTutGroupShown(g); }
+function press(g, sel) { return typeof cwTutPress === 'function' && cwTutPress(g, sel); }
+function showGroup(g) { if (typeof cwTutShowGroup === 'function') cwTutShowGroup(g); }
+function B(id) { return '[data-id="' + id + '"]'; }
 
 /* A step that only asks the coach to read and tap "Got it". Not isPreStep:
    pre-steps are labeled "Welcome" and left out of the step count, which is
@@ -90,6 +102,15 @@ function ack(text, extra) {
     validate: { type: 'custom', fn: acked },
     autoComplete: function () { var b = $('tutorialAcknowledgeBtn'); if (b) b.click(); }
   };
+  if (extra) Object.keys(extra).forEach(function (k) { s[k] = extra[k]; });
+  return s;
+}
+/* "Tap the highlighted <GROUP> tab." */
+function tab(id, g, text, extra) {
+  var s = { id: id, instruction: text, skipDimPhase: true,
+    highlight: function () { return target(g, null); },
+    validate: { type: 'custom', fn: function () { return shown(g); } },
+    autoComplete: function () { showGroup(g); } };
   if (extra) Object.keys(extra).forEach(function (k) { s[k] = extra[k]; });
   return s;
 }
@@ -166,9 +187,12 @@ function restore() {
    coach's own board stays in the snapshot until the real end). */
 function resetPresentationState() {
   try {
-    // Order matters: leave presentation first (it disarms the spotlight,
-    // closes the modal Menu/panels and resets the field geometry itself),
-    // then the things togglePresentation() does not own.
+    // XquiX Home first (the tutorial passes through it twice): it is a stage
+    // consumer of its own, and closing it lets the rest act on the Studio.
+    if (homeOpen() && typeof xquixHideHome === 'function') xquixHideHome();
+    // Then leave presentation (it disarms the spotlight, closes panels and
+    // resets the field geometry itself), then what togglePresentation() does
+    // not own.
     if (inPresentation() && typeof togglePresentation === 'function') togglePresentation();
     if (typeof disarmSpotlight === 'function' && (spot().armed || spot().placed)) disarmSpotlight();
     var sc = clock();
@@ -179,9 +203,6 @@ function resetPresentationState() {
     }
     if (typeof closeToolPanels === 'function') closeToolPanels();
     if (typeof closePresentationPanels === 'function') closePresentationPanels();
-    document.querySelectorAll('.cmdCategory.open').forEach(function (c) { c.classList.remove('open'); });
-    document.querySelectorAll('.cmdCategoryGrid.hasOpenCategory').forEach(function (g) { g.classList.remove('hasOpenCategory'); });
-    var back = $('cmdCategoryBackBtn'); if (back) back.style.display = 'none';
   } catch (err) { console.error('Presentation tutorial cleanup', err); }
 }
 function cleanup() {
@@ -216,7 +237,6 @@ function buildPresentationModeSteps() {
       voiceOptions: true, // the Read aloud and Voice commands switches, in the box (the engine draws them)
       instruction: welcome,
       onEnter: function () {
-        hideRemote();
         if (!loadTutorialSequence()) {
           if (typeof MizeDialog !== 'undefined') MizeDialog.alert('Something is wrong with the tutorial’s built-in reference data: the play to present could not be read. This shouldn’t normally happen since it’s embedded in the app itself.');
         }
@@ -226,124 +246,101 @@ function buildPresentationModeSteps() {
       autoComplete: function () { var b = $('tutorialAcknowledgeBtn'); if (b) b.click(); }
     },
 
-    /* ---------------------------------------- Lesson 1 · enter Presentation Mode */
-    { // 1
-      instruction: 'A play is on the board. To show it to your team full-screen, open the Menu: tap the Menu tab at the right edge of the screen.',
-      bannerSide: 'left',
-      highlight: '#sidebarToggleTab',
-      validate: { type: 'custom', fn: function () { return menuOpen() || inPresentation(); } },
-      autoComplete: function () { if (!click('#sidebarToggleTab')) openMenu(); }
+    /* ------------------------------------- into Presentation Mode: Mode → Presenting */
+    tab('tabSystem', 'system', 'A play is on the board. Presentation Mode is one of the XquiX modes, and you choose a mode from the SYSTEM group of the control panel. Tap the highlighted SYSTEM tab.'),
+    {
+      id: 'modeIn',
+      instruction: 'Tap the highlighted Mode button.',
+      skipDimPhase: true,
+      highlight: function () { return target('system', B('mode')); },
+      validate: { type: 'custom', fn: function () { return homeOpen() || inPresentation(); } },
+      autoComplete: function () { if (!homeOpen()) press('system', B('mode')); }
     },
-    { // 2
-      instruction: 'Tap Presentation.',
-      bannerSide: 'right', /* the button is in the Menu's left column */ skipDimPhase: true, useShadeHighlight: true,
-      highlight: '.cmdCategory[data-cat="present"] .cmdCatHeader',
-      allowedSelectors: '#controlsPanel', // the whole Menu, so it can still be scrolled on a small screen (same trade the First Coaching Session makes)
-      validate: { type: 'custom', fn: function () { return presentCategoryOpen() || inPresentation(); } },
-      // Deferred: the Skip button's own click bubbles to the Studio's
-      // document-level "click outside a category closes it" handler, which
-      // would shut the category the very same tick this opens it.
-      autoComplete: function () { setTimeout(function () { reveal('#presentationBtn'); }, 0); }
-    },
-    { // 3
-      instruction: 'Tap Presentation Mode.',
-      bannerSide: 'right', /* the button is in the Menu's left column */ skipDimPhase: true, useShadeHighlight: true,
-      onEnter: function () { reveal('#presentationBtn'); },
-      highlight: '#presentationBtn',
-      allowedSelectors: ['#presentationBtn'],
+    {
+      id: 'presenting',
+      instruction: 'These are the XquiX modes. Tap the highlighted Presenting.',
+      skipDimPhase: true, bannerSide: 'right', // Home's circles: Presenting and Coaching sit left and centre
+      highlight: '#xquixHomeCircle_presenting',
       validate: { type: 'custom', fn: inPresentation },
-      autoComplete: function () { if (!inPresentation() && typeof togglePresentation === 'function') togglePresentation('fit'); }
+      autoComplete: function () { if (!inPresentation()) { var c = $('xquixHomeCircle_presenting'); if (c) c.click(); } }
     },
-    ack('You are presenting. This opening view is the Panorama: all three screens side by side, the board in the middle.\n\nThe Menu tab stays at the edge of the screen, so every tool in this tutorial is one tap away.', { bannerSide: 'left', skipDimPhase: true }),
+    ack('You are presenting. This opening view is the Full Studio View: all three screens, with the board in the middle.\n\nThe control panel stays with you, now with Presentation’s groups.', { id: 'studioAck', bannerSide: 'left', skipDimPhase: true }),
 
-    /* ------------------------------------------------ Lesson 2 · the three screens */
-    { // 5
-      instruction: 'Three screens: video on the left, the board in the middle, stats on the right. Tap a screen, or an arrow at the edge, to turn the camera to it. The dots at the top show where it is.\n\nTap the right arrow to turn to the stats screen.',
+    /* ------------------------------------------------------------- the camera */
+    tab('tabCamera', 'camera', 'Where the camera looks is in the CAMERA group. Tap the highlighted CAMERA tab.', { bannerSide: 'left' }),
+    {
+      id: 'camRight',
+      instruction: 'Tap the highlighted Right button to turn the camera to the right screen.',
       bannerSide: 'left', skipDimPhase: true,
-      highlight: '#studioNavRight',
-      validate: { type: 'custom', fn: function () { return frameIdx() === 2; } },
-      autoComplete: function () { if (typeof goToStudioFrame === 'function') goToStudioFrame(2); }
+      highlight: function () { return target('camera', B('camRight')); },
+      validate: { type: 'custom', fn: function () { return camera() === 'right'; } },
+      autoComplete: function () { if (camera() !== 'right') press('camera', B('camRight')); }
     },
-    ack('This screen shows an image, a PDF or a website, like a stats sheet. The video screen shows a video.\n\nLoading content onto them is a Pro function. The screens and the camera are Free.', { bannerSide: 'left', skipDimPhase: true }),
-    { // 7
-      instruction: 'Tap the left arrow twice to swing past the board to the video screen.',
+    ack('The right screen shows an image, a PDF or a website, like a stats sheet. The left screen shows a video. You load them from the SCREENS group; that is a Pro function.\n\nYou can also turn the camera by tapping a screen, by swiping, or with the arrows at the edges.', { id: 'screensAck', bannerSide: 'left', skipDimPhase: true }),
+    {
+      id: 'arrowLeft',
+      instruction: 'Try the arrows: tap the highlighted arrow at the left edge to turn back to the board.',
       bannerSide: 'right', skipDimPhase: true,
       highlight: '#studioNavLeft',
-      validate: { type: 'custom', fn: function () { return frameIdx() === 0; } },
-      autoComplete: function () { if (typeof goToStudioFrame === 'function') goToStudioFrame(0); }
-    },
-    { // 8
-      instruction: 'Tap the right arrow to return to the board.\n\nThe ring after the dots at the top brings you back to the Panorama.',
-      bannerSide: 'left', skipDimPhase: true,
-      highlight: '#studioNavRight',
-      validate: { type: 'custom', fn: function () { return frameIdx() === 1; } },
-      autoComplete: function () { if (typeof goToStudioFrame === 'function') goToStudioFrame(1); }
+      validate: { type: 'custom', fn: function () { return camera() === 'center'; } },
+      autoComplete: function () { if (typeof XQStage !== 'undefined') XQStage.setCamera('center'); }
     },
 
-    /* ---------------------------------------------- Lesson 3 · playing the frames */
-    ack('The play has several frames. The Remote Control at the bottom steps through them: Back to start, Previous frame, Play and Next frame.', {
-      bannerSide: 'left', skipDimPhase: true,
-      onEnter: function () { showRemote(); if (typeof currentFrame === 'number' && currentFrame !== 0 && typeof loadFrame === 'function') loadFrame(0); }
-    }),
-    { // 10
+    /* --------------------------------------------------------- playing the frames */
+    tab('tabPresent', 'present', 'The play has several frames. You run it from the PRESENT group. Tap the highlighted PRESENT tab.', { bannerSide: 'left' }),
+    {
+      id: 'play',
       instruction: 'Tap the highlighted Play button and watch the play run to its last frame.',
       bannerSide: 'left', skipSuccessMessage: true, skipDimPhase: true,
-      onEnter: function () { showRemote(); },
-      // The Play button is two halves while idle (◀ reverse | ▶ forward) and
-      // one Pause button while playing; the ring goes on the forward half
-      // only, which is the one the instruction names.
-      highlight: function () { return isPlaying() ? null : '#tcPlayForwardHalf'; },
-      allowedSelectors: function () { return isPlaying() ? '#tcPlayPauseBtn' : '#tcPlayForwardHalf'; },
+      // no ring while the play runs (the box hides too); the button stays tappable so the coach can pause
+      highlight: function () { return isPlaying() ? null : target('present', B('play')); },
+      allowedSelectors: function () { return target('present', B('play')); },
       validate: { type: 'custom', fn: function () { return lastFrame() > 0 && currentFrame === lastFrame() && !isPlaying(); } },
       autoComplete: function () {
         if (isPlaying()) return;
-        if (typeof animateToFrame === 'function') { playing = true; var target = lastFrame(); animateToFrame(target, 1.0, function () { currentFrame = target; playing = false; if (typeof syncPlayPauseUI === 'function') syncPlayPauseUI(); if (typeof renderFrames === 'function') renderFrames(); }); }
+        showGroup('present');
+        if (typeof animateToFrame === 'function') { var t = lastFrame(); playing = true; animateToFrame(t, 1.0, function () { currentFrame = t; playing = false; if (typeof syncPlayPauseUI === 'function') syncPlayPauseUI(); if (typeof renderFrames === 'function') renderFrames(); }); }
         else if (typeof loadFrame === 'function') loadFrame(lastFrame());
       }
     },
-    { // 11
-      instruction: 'Tap the highlighted Back to start button to jump back to the first frame.',
+    {
+      id: 'start',
+      instruction: 'Tap the highlighted Start button to jump back to the first frame.',
       bannerSide: 'left', skipDimPhase: true,
-      highlight: '#tcRewindToStartBtn',
+      highlight: function () { return target('present', B('start')); },
       validate: { type: 'custom', fn: function () { return currentFrame === 0 && !isPlaying(); } },
-      autoComplete: function () { if (typeof loadFrame === 'function') loadFrame(0); }
+      autoComplete: function () { showGroup('present'); if (typeof loadFrame === 'function') loadFrame(0); }
     },
-    { // 12
-      instruction: 'Tap the highlighted Next frame button once. Stepping one frame at a time is how you talk your team through a play one movement at a time.',
+    {
+      id: 'next',
+      instruction: 'Tap the highlighted Next button once. Stepping one frame at a time is how you talk your team through a play one movement at a time.',
       bannerSide: 'left', skipDimPhase: true,
-      highlight: '#tcNextFrameBtn',
+      highlight: function () { return target('present', B('next')); },
       validate: { type: 'custom', fn: function () { return currentFrame >= 1 && !isPlaying(); } },
-      autoComplete: function () { if (typeof loadFrame === 'function') loadFrame(1); }
+      autoComplete: function () { showGroup('present'); if (typeof loadFrame === 'function') loadFrame(1); }
     },
 
-    /* ------------------------------------------------------ Lesson 4 · spotlight */
-    { // 13
-      instruction: 'Now put a spotlight on the board. Open the Menu.',
+    /* -------------------------------------------------------------- spotlight */
+    {
+      id: 'spotlight',
+      instruction: 'Now put a spotlight on the board. The Spotlight is in CAMERA: tap the highlighted button.',
       bannerSide: 'left', skipDimPhase: true,
-      onEnter: function () { hideRemote(); },
-      highlight: '#sidebarToggleTab',
-      validate: { type: 'custom', fn: function () { return menuOpen() || spot().armed; } },
-      autoComplete: function () { if (!click('#sidebarToggleTab')) openMenu(); }
-    },
-    { // 14
-      instruction: 'Spotlight sits in the Menu under Presentation, in Coaching & Display Tools. Tap Spotlight.',
-      bannerSide: 'right', /* the button is in the Menu's left column */ skipDimPhase: true, useShadeHighlight: true,
-      onEnter: function () { reveal('#spotlightToggleBtn'); },
-      highlight: '#spotlightToggleBtn',
-      allowedSelectors: '#controlsPanel',
+      highlight: function () { return target('camera', B('spotlight')); },
       validate: { type: 'custom', fn: function () { return !!spot().armed; } },
-      autoComplete: function () { if (!spot().armed && typeof armSpotlight === 'function') armSpotlight(); }
+      autoComplete: function () { if (!spot().armed) press('camera', B('spotlight')); }
     },
-    { // 15
-      instruction: 'Close the Menu with the X at its top right, then tap the board where the spotlight should be.',
+    {
+      id: 'spotPlace',
+      instruction: 'Tap the board where the spotlight should be.',
       bannerSide: 'left', skipDimPhase: true,
-      highlight: function () { return menuOpen() ? '#closeSidebarBtn' : '#board'; },
-      allowedSelectors: ['#closeSidebarBtn', '#spotlightOverlay'],
+      highlight: '#board',
+      allowedSelectors: '#spotlightOverlay',
       validate: { type: 'custom', fn: function () { return !!spot().placed; } },
       onValidated: function () { spotStart = { x: spot().x, y: spot().y, r: spot().r }; },
-      autoComplete: function () { closeMenu(); var c = boardCenter(); if (typeof placeSpotlight === 'function') placeSpotlight(c.x, c.y); }
+      autoComplete: function () { var c = boardCenter(); if (typeof placeSpotlight === 'function') placeSpotlight(c.x, c.y); }
     },
-    { // 16
+    {
+      id: 'spotMove',
       instruction: 'Drag the center handle to move the spotlight, or the outer handle to resize it. Tapping anywhere else on the screen glides the spotlight there.\n\nMove or resize it now.',
       bannerSide: 'left', skipDimPhase: true,
       onEnter: function () { if (!spotStart) spotStart = { x: spot().x, y: spot().y, r: spot().r }; },
@@ -355,103 +352,97 @@ function buildPresentationModeSteps() {
       } },
       autoComplete: function () { var s = spot(); if (typeof animateSpotlightTo === 'function') animateSpotlightTo(s.x + 120, s.y); else if (typeof placeSpotlight === 'function') placeSpotlight(s.x + 120, s.y); }
     },
-    { // 17
-      instruction: 'To switch the spotlight off, tap one of the stage lights above the board — or tap Spotlight in the Menu again.',
+    {
+      id: 'spotOff',
+      instruction: 'To switch the spotlight off, tap the highlighted Spotlight button again. Tapping one of the stage lights above the screens does the same.',
       bannerSide: 'left', skipDimPhase: true,
-      highlight: function () {
-        var lights = visibleStageLights();
-        if (lights.length) return lights;
-        return menuOpen() ? '#spotlightToggleBtn' : '#sidebarToggleTab'; // no stage lights on this screen size: fall back to the Menu route
-      },
-      allowedSelectors: function () { return visibleStageLights().concat(['#sidebarToggleTab', '#controlsPanel']); },
+      highlight: function () { return target('camera', B('spotlight')); },
+      allowedSelectors: function () { var t = target('camera', B('spotlight')); return visibleStageLights().concat(t ? [t] : []); },
       validate: { type: 'custom', fn: function () { var s = spot(); return !s.armed && !s.placed; } },
-      onValidated: function () { closeMenu(); },
-      autoComplete: function () { if (typeof disarmSpotlight === 'function') disarmSpotlight(); closeMenu(); }
+      autoComplete: function () { if (typeof disarmSpotlight === 'function') disarmSpotlight(); if (typeof cwSync === 'function') cwSync(); }
     },
 
-    /* ----------------------------------------------------- Lesson 5 · shot clock */
-    { // 18
-      instruction: 'A shot clock on the board makes a drill feel like a game. Open the Menu.',
+    /* ------------------------------------------------------------- shot clock */
+    {
+      id: 'shotClock',
+      instruction: 'A shot clock on the board makes a drill feel like a game. It is in QUICKS: tap the highlighted Shot Clock icon.',
       bannerSide: 'left', skipDimPhase: true,
-      highlight: '#sidebarToggleTab',
-      validate: { type: 'custom', fn: function () { return menuOpen() || !!clock().active; } },
-      autoComplete: function () { if (!click('#sidebarToggleTab')) openMenu(); }
-    },
-    { // 19
-      instruction: 'Tap Shot Clock, right next to Spotlight under Coaching & Display Tools.',
-      bannerSide: 'right', /* the button is in the Menu's left column */ skipDimPhase: true, useShadeHighlight: true,
-      onEnter: function () { reveal('#shotClockToggleBtn'); },
-      highlight: '#shotClockToggleBtn',
-      allowedSelectors: '#controlsPanel',
+      highlight: function () { return target('quicks', '[data-src="shotClockToggleBtn"]'); },
       validate: { type: 'custom', fn: function () { return !!clock().active; } },
-      autoComplete: function () { if (!clock().active) click('#shotClockToggleBtn'); }
+      autoComplete: function () { if (!clock().active) press('quicks', '[data-src="shotClockToggleBtn"]'); }
     },
-    { // 20
+    {
+      id: 'clockStart',
       instruction: 'The Shot Clock panel opens. Tap Start.',
       bannerSide: 'right', skipDimPhase: true, useShadeHighlight: true, // Start sits at the panel's left; on a phone the panel is full-width, so the banner keeps to the right
       highlight: '#shotClockStartBtn',
       allowedSelectors: '#shotClockPanel',
       validate: { type: 'custom', fn: function () { return !!clock().running; } },
-      autoComplete: function () { if (!click('#shotClockStartBtn') && typeof startShotClock === 'function') startShotClock(); }
+      autoComplete: function () { var b = $('shotClockStartBtn'); if (b) b.click(); else if (typeof startShotClock === 'function') startShotClock(); }
     },
-    { // 21
-      instruction: 'Tap OK to close the panel, then close the Menu. The clock keeps counting in the corners of the board.',
+    {
+      id: 'clockOk',
+      instruction: 'Tap OK. The clock keeps counting in the corners of the board.',
       bannerSide: 'right', skipDimPhase: true, useShadeHighlight: true,
-      highlight: function () { return panelOpen('shotClockPanel') ? '#shotClockOkBtn' : (menuOpen() ? '#closeSidebarBtn' : null); },
-      allowedSelectors: ['#shotClockOkBtn', '#closeSidebarBtn'],
-      validate: { type: 'custom', fn: function () { return !panelOpen('shotClockPanel') && !menuOpen(); } },
-      autoComplete: function () { if (typeof closeToolPanels === 'function') closeToolPanels(); closeMenu(); }
+      // on a phone in landscape the panel is taller than the screen and OK is below its fold: bring it up
+      onEnter: function () { [0, 350].forEach(function (ms) { setTimeout(function () { var b = $('shotClockOkBtn'); if (b && b.scrollIntoView) { try { b.scrollIntoView({ block: 'nearest' }); } catch (e) {} } }, ms); }); },
+      highlight: '#shotClockOkBtn',
+      validate: { type: 'custom', fn: function () { return !panelOpen('shotClockPanel'); } },
+      autoComplete: function () { if (typeof closeToolPanels === 'function') closeToolPanels(); }
     },
-    ack('The Shot Clock panel also sets the seconds and the position, and resets the clock. Counting up and syncing it to a play are Pro functions. Tap Shot Clock in the Menu again to remove it.\n\nNext to it is 3D View: it tilts the field like a stadium camera.', { bannerSide: 'right', skipDimPhase: true }), // right: on a phone in landscape the box is as tall as the room above Exit and Skip
+    ack('The Shot Clock panel also sets the seconds and the position, and resets the clock. Counting up and syncing it to a play are Pro functions. Tap Shot Clock in QUICKS again to remove it.\n\nIn CAMERA you will also find Dim, which darkens the studio, and 3D, which tilts the field like a stadium camera.', { id: 'clockAck', bannerSide: 'right', skipDimPhase: true }), // right: on a phone in landscape the box is as tall as the room above Exit and Skip
 
-    /* ------------------------------------------------------------ Lesson 6 · exit */
-    { // 23
-      instruction: 'Time to go back to editing. Open the Menu.',
+    /* ------------------------------------------------------------ back out */
+    {
+      id: 'camStudio',
+      instruction: 'Back to the whole studio: in CAMERA, tap the highlighted Studio button.',
       bannerSide: 'left', skipDimPhase: true,
-      highlight: '#sidebarToggleTab',
-      validate: { type: 'custom', fn: function () { return menuOpen() || !inPresentation(); } },
-      autoComplete: function () { if (!click('#sidebarToggleTab')) openMenu(); }
+      highlight: function () { return target('camera', B('camPan')); },
+      validate: { type: 'custom', fn: function () { return camera() === 'pan'; } },
+      autoComplete: function () { if (camera() !== 'pan') press('camera', B('camPan')); }
     },
-    { // 24
-      instruction: 'Under Presentation, the button that brought you here now reads Exit Presentation. Tap it.',
-      bannerSide: 'right', /* the button is in the Menu's left column */ skipDimPhase: true, useShadeHighlight: true,
-      onEnter: function () { reveal('#presentationBtn'); },
-      highlight: '#presentationBtn',
-      allowedSelectors: '#controlsPanel',
-      validate: { type: 'custom', fn: function () { return !inPresentation(); } },
-      autoComplete: function () { if (inPresentation() && typeof togglePresentation === 'function') togglePresentation(); }
+    tab('tabSystemOut', 'system', 'To go back to editing, you choose Coaching as the mode. Tap the highlighted SYSTEM tab.', { bannerSide: 'left' }),
+    {
+      id: 'modeOut',
+      instruction: 'Tap the highlighted Mode button.',
+      bannerSide: 'left', skipDimPhase: true,
+      highlight: function () { return target('system', B('mode')); },
+      validate: { type: 'custom', fn: function () { return homeOpen() || !inPresentation(); } },
+      autoComplete: function () { if (!homeOpen()) press('system', B('mode')); }
     },
-    ack('You are back in editing, and the board is as you left it.\n\nOn a computer: Esc leaves Presentation Mode, the arrow keys turn the camera, and 0 to 3 jump to a screen.\n\nEverything you used is part of the Free version.', { bannerSide: 'left', skipDimPhase: true })
+    {
+      id: 'coaching',
+      instruction: 'Tap the highlighted Coaching.',
+      bannerSide: 'right', skipDimPhase: true,
+      highlight: '#xquixHomeCircle_coaching',
+      validate: { type: 'custom', fn: function () { return !homeOpen() && !inPresentation(); } },
+      autoComplete: function () { if (homeOpen()) { var c = $('xquixHomeCircle_coaching'); if (c) c.click(); } }
+    },
+    ack('You are back in editing, and the board is as you left it.\n\nOn a computer: Esc leaves Presentation Mode, the arrow keys turn the camera, and 0 to 3 jump to a screen.\n\nEverything you used is part of the Free version.', { id: 'doneAck', bannerSide: 'left', skipDimPhase: true })
   ];
 
-  // Stable names for each step (tests, and anything that dispatches on a step
-  // rather than on its wording, the way the Coaching tutorial's steps carry ids).
-  var IDS = ['welcome', 'openMenu', 'presentCategory', 'presentationMode', 'panoramaAck', 'rightArrow', 'screensAck',
-    'leftArrow', 'backToBoard', 'remoteAck', 'play', 'backToStart', 'nextFrame', 'spotMenu', 'spotlight', 'spotPlace',
-    'spotMove', 'spotOff', 'clockMenu', 'shotClock', 'clockStart', 'clockClose', 'clockAck', 'exitMenu',
-    'exitPresentation', 'doneAck'];
-  steps.forEach(function (st, i) { if (!st.id && IDS[i]) st.id = IDS[i]; });
-
-  // The engine's per-tutorial options (coaching/COACHING-TUTORIAL.md §3), the
-  // same as the Coaching tutorial's minus the Workbench console, which
-  // Presentation's tutorial does not run on (PRESENTATION-MODE.md §27):
+  // The engine's per-tutorial options (coaching/COACHING-TUTORIAL.md §3) -- the
+  // same as the Coaching tutorial's:
+  //   surface    run on the control panel (body.cwTutorial): it stays on screen,
+  //              starts unfolded, and the coach's own group and fold come back
+  //              afterwards, in Coaching and in Presentation alike
   //   voice      Read aloud + Voice commands, with their switches next to Exit
   //   exitScreen Exit (the button or the spoken "Exit") asks first: Keep going ·
   //              Start over · Leave tutorial
   //   rebuild    what Start over runs -- see startOver() below
-  steps.tutorialOptions = { voice: true, exitScreen: true, rebuild: startOver };
+  steps.tutorialOptions = { surface: true, voice: true, exitScreen: true, rebuild: startOver };
   return steps;
 }
 
 /* Start over, from the leave screen. The engine calls this between its own
    exitTutorial() and a fresh startTutorial() with the same completion handling.
-   Everything this run switched on goes off (presentation, spotlight, shot clock,
-   panels), so the new run starts from the editing view exactly as the first one
-   did. The coach's own board is NOT restored here: it stays in the snapshot,
-   and comes back when the tutorial really ends. `running` stays true and the
-   observer stays attached -- exitTutorial() and startTutorial() run in the same
-   task, so by the time the observer is told, tutorialModeActive is back on and
-   cleanup() correctly does nothing. */
+   Everything this run switched on goes off (Home, presentation, spotlight, shot
+   clock, panels), so the new run starts from the editing view exactly as the
+   first one did. The coach's own board is NOT restored here: it stays in the
+   snapshot, and comes back when the tutorial really ends. `running` stays true
+   and the observer stays attached -- exitTutorial() and startTutorial() run in
+   the same task, so by the time the observer is told, tutorialModeActive is
+   back on and cleanup() correctly does nothing. */
 function startOver() {
   resetPresentationState();
   return buildPresentationModeSteps();
@@ -464,8 +455,8 @@ function start() {
   if (typeof xquixHideHome === 'function') safe(xquixHideHome);
   if (typeof closeToolPanels === 'function') safe(closeToolPanels);
   snapshot();
-  // The engine's own reset assumes the editing view; entering from inside a
-  // presentation would leave the modal Menu and the widened field in the way.
+  // The tutorial starts from the editing view: out of Home, out of an open
+  // presentation, before the engine resets the board.
   if (inPresentation() && typeof togglePresentation === 'function') togglePresentation();
   running = true;
 
