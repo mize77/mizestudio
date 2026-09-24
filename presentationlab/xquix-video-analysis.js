@@ -23,10 +23,15 @@
     { key: 'm2', label: '2 m mark at the side rope', X: () => 2, Y: s => s.width / 2 },
     { key: 'm5', label: '5 m mark at the side rope', X: () => 5, Y: s => s.width / 2 },
     { key: 'm6', label: '6 m mark at the side rope', X: () => 6, Y: s => s.width / 2 },
-    { key: 'half', label: 'Half line at the side rope', X: s => s.length / 2, Y: s => s.width / 2 }
+    { key: 'half', label: 'Half line at the side rope', X: s => s.length / 2, Y: s => s.width / 2 },
+    // MIZE 2026-09-24: when the near side shows no marker, the 2 / 5 / 6 m line exactly in the middle of the field
+    // (in line with the goal center), placed by eye. Two of them are needed; 2 m and 6 m are the best pair.
+    { key: 'c2', label: '2 m line, middle of the field', X: () => 2, Y: () => 0, middle: true },
+    { key: 'c5', label: '5 m line, middle of the field', X: () => 5, Y: () => 0, middle: true },
+    { key: 'c6', label: '6 m line, middle of the field', X: () => 6, Y: () => 0, middle: true }
   ];
-  const markerWorld = (m, spec) => { const d = MARKERS.find(k => k.key === m.key); return { X: d.X(spec), Y: (m.side === 'far' ? 1 : -1) * d.Y(spec) }; };
-  const markerLabel = m => (MARKERS.find(k => k.key === m.key) || {}).label + (m.side === 'far' ? ' — far side' : ' — near side');
+  const markerWorld = (m, spec) => { const d = MARKERS.find(k => k.key === m.key); return { X: d.X(spec), Y: d.middle ? 0 : (m.side === 'far' ? 1 : -1) * d.Y(spec) }; };
+  const markerLabel = m => { const d = MARKERS.find(k => k.key === m.key) || {}; return d.label + (d.middle ? '' : (m.side === 'far' ? ' — far side' : ' — near side')); };
 
   // ---------- state ----------
   let S = null, model = null, modelPromise = null;
@@ -190,6 +195,11 @@
         refit();
         if (S.cal) { remeasure(); render(); findPlayers(); return; }
         S.autoField = { ok: false, why: 'The lane lines were found but do not define the field.' }; S.markers = [];
+      } else if (r.far && r.far.marks) {
+        // the far lane line was read: keep its marks; the coach adds the middle points the near side does not show
+        const KEY = { 0: 'r0', 2: 'm2', 5: 'm5', 6: 'm6' };
+        S.markers = [0, 2, 5, 6].filter(X => r.far.marks[X]).map(X => ({ key: KEY[X], side: 'far', u: r.far.marks[X][0], v: r.far.marks[X][1], auto: true }));
+        S.autoField.farOnly = true;
       }
       render();
     }).catch(e => { busy.classList.remove('on'); if (S) { S.autoField = { ok: false, why: e.message }; render(); } });
@@ -198,7 +208,7 @@
   function remeasure() { try { if (window.VACheck && S && S.cal) S.metrics = VACheck.measure(S.frame.data, S.cal.H); } catch (e) {} }
   function renderChecks() {
     const box = $('#xqvaChecks'); if (!box || !S || !window.VACheck || !S.metrics) return; box.innerHTML = '';
-    const field = S.autoField ? { ok: S.autoField.ok || !!(S.cal && S.markers.length >= 4), why: S.autoField.ok ? null : (S.cal ? 'Set by hand from your markers.' : S.autoField.why) } : null;
+    const field = S.autoField ? { ok: S.autoField.ok || !!(S.cal && S.markers.length >= 4), why: S.autoField.ok ? null : (S.cal ? (S.autoField.farOnly ? 'Far lane line found automatically; middle points placed by you.' : 'Set by hand from your markers.') : S.autoField.why) } : null;
     for (const c of VACheck.checks(S.metrics, field, S.teamSep == null ? null : S.teamSep)) {
       el('button', { class: 'chk ' + (c.ok === true ? 'ok' : c.ok === false ? 'no' : 'wait'), title: c.text, text: c.label, on: { click: () => msg(c.text, c.ok === false ? 'warn' : '') } }, box);
     }
@@ -297,7 +307,7 @@
         sv('circle', { cx: m.u, cy: m.v, r: 9 * u, fill: 'rgba(46,202,184,.18)', stroke: '#2ecab8', 'stroke-width': 2 * u }, g);
         sv('circle', { cx: m.u, cy: m.v, r: 1.6 * u, fill: '#2ecab8' }, g);
         const t = sv('text', { x: m.u + 13 * u, y: m.v - 10 * u, fill: '#e8eef0', 'font-size': 13 * u, 'font-weight': 600, stroke: '#000', 'stroke-width': 3 * u, 'paint-order': 'stroke' }, g);
-        t.textContent = (i + 1) + ' ' + (MARKERS.find(k => k.key === m.key) || {}).label.replace(' at the side rope', '').replace(' on the goal rope', '') + (m.side === 'far' ? ' (far)' : ' (near)');
+        t.textContent = (i + 1) + ' ' + (MARKERS.find(k => k.key === m.key) || {}).label.replace(' at the side rope', '').replace(' on the goal rope', '').replace(', middle of the field', ' (middle)') + (m.side === 'middle' ? '' : m.side === 'far' ? ' (far)' : ' (near)');
       });
       if (S.pending) sv('circle', { cx: S.pending[0], cy: S.pending[1], r: 7 * u, fill: 'none', stroke: '#f2c230', 'stroke-width': 2 * u }, g);
       return;
@@ -338,7 +348,9 @@
       el('button', { text: 'Undo marker', disabled: S.markers.length ? null : '', on: { click: () => { S.markers.pop(); refit(); render(); } } }, b);
       el('button', { class: 'primary', id: 'xqvaFind', text: 'Find players', disabled: S.cal ? null : '', on: { click: findPlayers } }, b);
       const n = S.markers.length;
-      if (n === 0 && S.autoField && !S.autoField.ok) msg('The field could not be found automatically: ' + S.autoField.why + ' Mark it by hand: tap a marker you can see on the water and name it (at least 4).', 'warn');
+      const mids = S.markers.filter(m => MARKERS.find(k => k.key === m.key && k.middle)).length;
+      if (S.autoField && S.autoField.farOnly && !S.cal) msg(`The far lane line was found automatically. The near side shows no marker: tap where the 2 m line and the 6 m line cross the middle of the field (in line with the goal center) and choose "Here"${mids ? ` (${mids} of 2 placed)` : ''}. The 5 m line works too.`, 'warn');
+      else if (n === 0 && S.autoField && !S.autoField.ok) msg('The field could not be found automatically: ' + S.autoField.why + ' Mark it by hand: tap a marker you can see on the water and name it (at least 4).', 'warn');
       else if (n < 4) msg(`Tap a field marker you can see on the water and name it (${n} of at least 4). Use markers that are spread out: goal posts, 2 m floats, marks on the side ropes.`);
       else if (S.fitInfo && S.fitInfo.error) msg('These markers don’t define the field: ' + S.fitInfo.error, 'warn');
       else if (!S.fitInfo.spread) msg('The markers sit almost in one line. Add one further out from the goal line (a 2 m, 5 m or 6 m mark) and one across the pool.', 'warn');
@@ -405,6 +417,8 @@
     for (const k of MARKERS) {
       const row = el('div', { class: 'row' }, pp); el('span', { text: k.label }, row);
       const seg = el('div', { class: 'seg' }, row);
+      if (k.middle) { el('button', { text: 'Here', title: 'Where this line crosses the middle of the field, in line with the goal center',
+        on: { click: () => { S.markers = S.markers.filter(m => m.key !== k.key); S.markers.push({ key: k.key, side: 'middle', u: p[0], v: p[1] }); closePop(); refit(); render(); } } }, seg); continue; }
       for (const side of ['near', 'far']) el('button', { text: side === 'near' ? 'Near' : 'Far', title: side === 'near' ? 'The side nearer the camera' : 'The side away from the camera',
         on: { click: () => { if (S.markers.some(m => m.key === k.key && m.side === side)) { S.markers = S.markers.filter(m => !(m.key === k.key && m.side === side)); }
           S.markers.push({ key: k.key, side, u: p[0], v: p[1] }); closePop(); refit(); render(); } } }, seg);
