@@ -32,7 +32,19 @@ var GEO = {
   goal:   { x: 2, y: 12 },   // left goal — the end Front Court crops to
   innerR: 4,                 // centre / hole set
   outerR: 9,                 // perimeter arc
-  half:   { x0: 2, x1: 14.5, y0: 2, y1: 22 }   // attacking half of the field
+  half:   { x0: 2, x1: 14.5, y0: 2, y1: 22 },  // attacking half of the field
+  // The OPPO dome (MIZE 2026-09-23: "a fixed part of the field zones in that half"): a half-disc drawn in
+  // the zone layer in board metres, so it moves, scales and clips with the other zones. It used to be a
+  // position:fixed 130 x 65 px button placed from boardToClient(14.5, 12) on a 700 ms poll: between polls
+  // (a re-fit, a scroll of the field, a camera move) it sat where the field had been; its pixel size made it
+  // 4.6 m wide on a Mac and 8 m on a phone; and the halfway line it sat on is ~1.1 m above the top of the
+  // Studio Stage's centre-screen view (which shows board x 0 to ~13.0-13.4 depending on the frame), so half of
+  // it was always off the field. Its flat edge is on the halfway line (x) by default -- where the tracker's own
+  // chrome shows it -- and the Studio Stage moves it to the top of the field as its frame shows it
+  // (API.setOppoEdge, after each layout). 1.5 m deep (3 m wide): zone 13 is only ~2-3 m deep in the stage's
+  // view, and its number needs room beside the dome. An OPPO event's recorded position stays nominal
+  // (nominalX/Y, the halfway line).
+  oppo:   { x: 14.5, defaultX: 14.5, y: 12, r: 1.5, nominalX: 14.5, nominalY: 12 }
 };
 
 /* phi = 0 points into the field; +phi rotates toward the goalkeeper's left,
@@ -49,9 +61,9 @@ var ZONES = [
   { id: 'z14', n: 14, name: 'Right Back',       r1: 9, r2: 30, a1:  18, a2:  90, outer: true },
   // Not part of the polar system at all -- represents "somewhere in the
   // far, unrendered half of the pool" rather than a specific position,
-  // so it deliberately carries no r1/r2/a1/a2 (openZone()/zoneNum() never
-  // read those; only hitZone()'s polar loop does, and OPPO is matched by
-  // its own dedicated check there instead, before that loop even runs).
+  // so it deliberately carries no r1/r2/a1/a2. It is drawn and hit-tested
+  // as the GEO.oppo dome (drawOverlay(), hitOppo()); hitZone() itself never
+  // returns it, so the tutorial's zone checks see the polar zone underneath.
   { id: 'oppo', n: 'OPPO', name: 'Opposite Half' }
 ];
 function zoneById(id) { for (var i = 0; i < ZONES.length; i++) if (ZONES[i].id === id) return ZONES[i]; return null; }
@@ -384,6 +396,15 @@ function hitZone(bx, by) {
   }
   return phi < -18 ? 'z12' : (phi > 18 ? 'z14' : 'z13');
 }
+/* Inside the OPPO dome? Checked by the shield before hitZone(). */
+function hitOppo(bx, by) {
+  var o = GEO.oppo, dx = bx - o.x, dy = by - o.y;
+  return bx <= o.x && dx * dx + dy * dy <= o.r * o.r;
+}
+function oppoPath() {
+  var o = GEO.oppo;
+  return 'M ' + o.x + ' ' + (o.y - o.r) + ' A ' + o.r + ' ' + o.r + ' 0 0 0 ' + o.x + ' ' + (o.y + o.r) + ' Z';
+}
 function polar(phiDeg, r) {
   var p = phiDeg * Math.PI / 180;
   return { x: GEO.goal.x + r * Math.cos(p), y: GEO.goal.y + r * Math.sin(p) };
@@ -406,6 +427,7 @@ function labelPoint(z) {
     var mid = (z.a1 + z.a2) / 2, rr = 11.4;
     if (z.id === 'z12') { mid = -50; rr = 10.8; }
     if (z.id === 'z14') { mid = 50;  rr = 10.8; }
+    if (z.id === 'z13') { mid = -11.4; rr = 9.6; }   // clear of the OPPO dome wherever its edge sits (x 12.9-14.5)   // beside the OPPO dome, not under it
     return polar(mid, rr);
   }
   return polar((z.a1 + z.a2) / 2, (z.r1 + z.r2) / 2);
@@ -452,6 +474,7 @@ function drawOverlay(counts) {
   clipped.setAttribute('clip-path', 'url(#xgtHalfClip)');
   g.appendChild(clipped);
   ZONES.forEach(function (z) {
+    if (z.id === 'oppo') return;   // drawn below, on top of zone 13
     var path = document.createElementNS(NS, 'path');
     path.setAttribute('d', wedgePath(z.r1, z.r2, z.a1, z.a2));
     path.setAttribute('class', 'xgtZone');
@@ -475,6 +498,18 @@ function drawOverlay(counts) {
     txt.textContent = counts ? (counts.map[z.id] || 0) : zoneNum(z);
     clipped.appendChild(txt);
   });
+  var op = document.createElementNS(NS, 'path');
+  op.setAttribute('d', oppoPath());
+  op.setAttribute('class', 'xgtZone xgtOppo');
+  op.setAttribute('data-zone', 'oppo');
+  if (counts) { var on = counts.map.oppo || 0; op.setAttribute('fill', on ? heat(counts.max ? on / counts.max : 0) : 'rgba(255,255,255,.05)'); op.setAttribute('fill-opacity', '0.9'); }
+  clipped.appendChild(op);
+  var ol = document.createElementNS(NS, 'text'), ox = GEO.oppo.x - GEO.oppo.r * 0.42, oy = GEO.oppo.y;
+  ol.setAttribute('x', ox); ol.setAttribute('y', oy);
+  ol.setAttribute('class', 'xgtZoneLabel xgtOppoLabel');
+  if (frontCourtOn()) ol.setAttribute('transform', 'rotate(90,' + ox + ',' + oy + ')');
+  ol.textContent = counts ? (counts.map.oppo || 0) : 'OPPO';
+  clipped.appendChild(ol);
   g.style.display = S.zonesVisible ? '' : 'none';
 }
 function flashZone(id) {
@@ -941,23 +976,8 @@ var CSS = [
 '#xgtBlock{position:fixed;inset:0;z-index:999980;background:transparent;touch-action:manipulation}',
 '#xgtShield{position:fixed;z-index:999981;background:transparent;touch-action:manipulation;',
 '  box-shadow:0 0 0 9999px rgba(13,43,43,.45);border-radius:4px}',
-// A 3m-radius dome positioned at the far edge of the visible half (a
-// real water-polo pool's halfway boundary), for logging actions that
-// happened somewhere in the unrendered other half rather than a
-// specific tracked position there. Screen-space CSS positioning rather
-// than an SVG shape drawn in the board's own rotated/translated
-// coordinate space -- positionOppoZone() computes its left/top via the
-// exact same boardToClient() math the rest of this module already
-// trusts for that, so this stays correct across every board orientation
-// without needing its own copy of that transform logic. z-index sits
-// above the shield (999981) since it needs its own direct tap handling,
-// not the shield's board-coordinate hit-testing.
-'#xgtOppoZone{position:fixed;width:130px;height:65px;z-index:999982;',
-'  background:rgba(255,255,255,.30);border:1.5px solid rgba(255,255,255,.7);border-top:0;',
-'  border-radius:0 0 65px 65px;color:#fff;font-weight:800;font-size:11.5px;letter-spacing:.05em;',
-'  cursor:pointer;padding:9px 0 0;display:flex;justify-content:center;text-shadow:0 1px 3px rgba(0,0,0,.5);',
-'  touch-action:manipulation}',
-'#xgtOppoZone.flash{background:rgba(255,255,255,.55)}',
+// (The OPPO dome is drawn in the zone layer since 2026-09-23 -- GEO.oppo, drawOverlay().)
+
 '#xgtRoot{position:fixed;inset:0;z-index:999983;pointer-events:none;',
 '  font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#14235c;-webkit-user-select:none;user-select:none}',
 '#xgtRoot *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}',
@@ -1253,6 +1273,8 @@ var CSS = [
 '.xgtZoneLabel{text-anchor:middle;dominant-baseline:central;fill:#fff;paint-order:stroke;stroke:rgba(13,43,43,.55);stroke-width:.22;',
 '  stroke-linejoin:round;font-family:system-ui,sans-serif}',
 '.xgtZoneNum{font-size:1.3px;font-weight:800}',
+'.xgtOppo{fill:rgba(255,255,255,.30)}',
+'.xgtOppoLabel{font-size:.55px;font-weight:800;letter-spacing:.05px}',
 /* launcher */
 // Phone landscape specifically (max-height, not max-width -- a tablet or
 // desktop turned sideways still has plenty of vertical room and doesn't
@@ -1284,9 +1306,6 @@ function buildChrome() {
   if (el('xgtRoot')) return;
   var block = document.createElement('div'); block.id = 'xgtBlock';
   var shield = document.createElement('div'); shield.id = 'xgtShield';
-  var oppoZone = document.createElement('button'); oppoZone.id = 'xgtOppoZone';
-  oppoZone.type = 'button'; oppoZone.textContent = 'OPPO';
-  oppoZone.setAttribute('aria-label', 'Action happened in the opposite half of the pool');
   var root = document.createElement('div'); root.id = 'xgtRoot';
   if (S.chromeMode === 'stage') {
     root.className = 'xgtStageChrome';
@@ -1314,7 +1333,7 @@ function buildChrome() {
   var sheet = document.createElement('div'); sheet.id = 'xgtSheet';
   var toastEl = document.createElement('div'); toastEl.id = 'xgtToast';
   var stats = document.createElement('div'); stats.id = 'xgtStats';
-  document.body.appendChild(block); document.body.appendChild(shield); document.body.appendChild(oppoZone); document.body.appendChild(root);
+  document.body.appendChild(block); document.body.appendChild(shield); document.body.appendChild(root);
   block.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); }, false);
   block.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); }, false);
   document.body.appendChild(scrim); document.body.appendChild(sheet);
@@ -1327,37 +1346,23 @@ function buildChrome() {
     e.preventDefault(); e.stopPropagation();
     var b = screenToBoard(e.clientX, e.clientY);
     if (!b) return;
+    // The OPPO dome first: it lies over the edge of zone 13. Renumbering does not apply to it, and a
+    // tutorial never asks for it (its zone checks go through hitZone(), which sees zone 13 here) -- the
+    // fixed OPPO button it replaces was not tappable during a lesson either.
+    if (hitOppo(b.x, b.y)) {
+      if (S.editingZoneNumbers || S.tutorialMode) return;
+      flashZone('oppo');
+      if (navigator.vibrate) navigator.vibrate(8);
+      // Nominal board position only: the zone id ('oppo') is what marks the position as not known.
+      openZone('oppo', { x: GEO.oppo.nominalX, y: GEO.oppo.nominalY });
+      return;
+    }
     var z = hitZone(b.x, b.y);
     if (!z) return;
     flashZone(z);
     if (navigator.vibrate) navigator.vibrate(8);
     if (S.editingZoneNumbers) { promptZoneNumberEdit(z); return; }
     openZone(z, b);
-  }, false);
-  // Direct tap handling rather than routing through the shield's own
-  // board-coordinate hit-testing -- this element is positioned in plain
-  // screen-space (see positionOppoZone()), not the board's own rotated/
-  // translated coordinate system, so its own native click event is the
-  // simpler, more robust source of truth for "was this tapped" than
-  // trying to replicate that transform math a second time just to
-  // detect hits inside its shape.
-  oppoZone.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); }, false);
-  oppoZone.addEventListener('click', function (e) {
-    e.preventDefault(); e.stopPropagation();
-    // Renumbering doesn't map cleanly onto OPPO's non-numeric label, and
-    // the coach is unlikely to want to rename it anyway -- a no-op here
-    // rather than trying to fold it into promptZoneNumberEdit()'s
-    // numeric-renumbering flow.
-    if (S.editingZoneNumbers) return;
-    oppoZone.classList.add('flash');
-    setTimeout(function () { oppoZone.classList.remove('flash'); }, 220);
-    if (navigator.vibrate) navigator.vibrate(8);
-    // Nominal board position only, for openZone()'s existing
-    // fieldCoordinates computation to run unchanged -- the fieldZone id
-    // ('oppo') itself is what marks this as "position not meaningfully
-    // known," not these numbers, so nothing downstream should ever treat
-    // them as a real, precise shot location.
-    openZone('oppo', { x: 14.5, y: 12 });
   }, false);
 
   el('xgtQ').onclick = openClock;
@@ -1487,23 +1492,6 @@ function positionShield() {
   // on its own even with the shield's own hole already in place.
   var block = el('xgtBlock');
   if (block) block.style.clipPath = sh.style.clipPath;
-  positionOppoZone();
-}
-// Screen-space positioning for the OPPO dome, computed via the exact
-// same board->screen math boardToClient() already uses elsewhere in this
-// module -- verified empirically against the live rotate/translate
-// transform before this was written, rather than derived from the
-// transform algebra by inspection, since getting this wrong would put
-// the marker somewhere visually nonsensical without necessarily causing
-// any error to surface.
-function positionOppoZone() {
-  var oz = el('xgtOppoZone');
-  if (!oz) return;
-  var c = boardToClient(14.5, 12); // the far edge, centred on the visible half's width
-  if (!c) { oz.style.display = 'none'; return; }
-  oz.style.display = S.active ? 'flex' : 'none';
-  oz.style.left = (c.x - 65) + 'px'; // 130px wide, centred on c.x
-  oz.style.top = c.y + 'px'; // flat top edge sits at the boundary; the dome bulges downward into the visible half
 }
 function onViewportChange() {
   // A real resize/orientation change re-runs Studio's own sizing (via
@@ -1554,7 +1542,7 @@ function watchShield(on) {
 }
 function removeChrome() {
   watchShield(false);
-  ['xgtBlock', 'xgtShield', 'xgtOppoZone', 'xgtRoot', 'xgtScrim', 'xgtSheet', 'xgtToast', 'xgtStats'].forEach(function (id) {
+  ['xgtBlock', 'xgtShield', 'xgtRoot', 'xgtScrim', 'xgtSheet', 'xgtToast', 'xgtStats'].forEach(function (id) {
     var n = el(id); if (n) n.remove();
   });
 }
@@ -3429,11 +3417,10 @@ function xgtOpenSessions() {
     return;
   }
   if (typeof openCoachingLibrary !== 'function' || typeof renderLibraryContent !== 'function') return;
-  var shield = el('xgtShield'), block = el('xgtBlock'), oppoZone = el('xgtOppoZone');
+  var shield = el('xgtShield'), block = el('xgtBlock');
   if (shield || block) {
     if (shield) shield.style.pointerEvents = 'none';
     if (block) block.style.pointerEvents = 'none';
-    if (oppoZone) oppoZone.style.pointerEvents = 'none';
     S.shieldSuspendedForToolPanel = true;
   }
   openCoachingLibrary().then(function () {
@@ -4158,10 +4145,9 @@ function xgtCloseToolPanels() {
   if (_origCloseToolPanels) _origCloseToolPanels();
   if (S.shieldSuspendedForToolPanel) {
     S.shieldSuspendedForToolPanel = false;
-    var shield = el('xgtShield'), block = el('xgtBlock'), oppoZone = el('xgtOppoZone');
+    var shield = el('xgtShield'), block = el('xgtBlock');
     if (shield) shield.style.pointerEvents = '';
     if (block) block.style.pointerEvents = '';
-    if (oppoZone) oppoZone.style.pointerEvents = '';
   }
 }
 if (_origCloseToolPanels) window.closeToolPanels = xgtCloseToolPanels;
@@ -4395,6 +4381,7 @@ var API = {
       return;
     }
     S.active = true;
+    GEO.oppo.x = GEO.oppo.defaultX;   // the halfway line until a host frames the field otherwise (setOppoEdge, from the fit below)
     // Studio's own navigation chrome (the edge tabs, header/sidebar close
     // handles) sit at a lower z-index than this tracker's own chrome, but
     // the tracker's middle field area is deliberately transparent to show
@@ -4495,6 +4482,15 @@ var API = {
   state: S,
   zones: ZONES,
   hitZone: hitZone,
+  // The Studio Stage shows the field only up to about x 13 (its frame keeps the goal and 2 m of deck in view):
+  // it places the OPPO dome's flat edge at the top of the field as framed, so the dome is always whole and
+  // stays a fixed part of the zone layer. Board metres, clamped to [11, 14.5]; redraws the zones if it moved.
+  setOppoEdge: function (bx) {
+    var x = Math.max(11, Math.min(GEO.oppo.defaultX, Number(bx)));
+    if (!isFinite(x) || Math.abs(x - GEO.oppo.x) < 0.01) return;
+    GEO.oppo.x = x;
+    if (S.active) drawOverlay(null);
+  },
   screenToBoard: screenToBoard,
   boardToClient: boardToClient,
   FIELD_PLAYER_ACTIONS: FIELD_PLAYER_ACTIONS,

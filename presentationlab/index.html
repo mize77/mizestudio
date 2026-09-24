@@ -15,7 +15,7 @@
   P.setItem    = function (k, v) { return s.call(this, NS + k, v); };
   P.removeItem = function (k) { return r.call(this, NS + k); };
   window.LAB_NS = NS;
-  window.LAB_PINNED = '2026-09-24 03:56';
+  window.LAB_PINNED = '2026-09-24 00:57';
 })();
 </script>
 <meta charset="utf-8" />
@@ -1238,6 +1238,7 @@
     padding-right:2px;
   }
   /* Small note line above GT chooser list */
+  .msNote.msLibHead { font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; margin:10px 4px 4px; }
   .msNote {
     font-size:11px; color:rgba(255,255,255,.35); margin:0 0 6px 4px; padding:0;
   }
@@ -1749,7 +1750,10 @@
     align-items:center; justify-content:center; padding:calc(var(--gap) * 1.6) 3% calc(var(--gap) * .8); border-radius:4px;
     background:linear-gradient(180deg, rgba(3,10,10,.50), rgba(3,10,10,.68));
     box-shadow:inset 0 0 0 1px rgba(46,202,184,.16), 0 0 90px 14px rgba(46,202,184,.10); animation:xquixHomeIn .45s ease; }
-  #homeCenterScreen.tutorialsOpen { overflow-y:auto; justify-content:flex-start; }
+  /* Tutorials open: the list starts under the heading and scrolls. (The rule needs #stageWrap's
+     specificity: the mounted screen's justify-content:center otherwise wins, and a list taller than
+     the screen is pushed up over the heading, its top out of reach of the scroll.) */
+  #stageWrap > #homeCenterScreen.tutorialsOpen, #homeCenterScreen.tutorialsOpen { overflow-y:auto; justify-content:flex-start; }
   /* Home's rules on the stage: the room at the intro's final brightness, a minimum room width so
      three 110 px circles fit on a phone (the room is cropped at the sides there, never scaled to
      cover), the board hidden under the mounted screen, no placeholders or load controls on the
@@ -1769,6 +1773,15 @@
      camera chrome, live information column on the right screen. The tracker's own chrome
      (z 999980+) sits above all of it, the shield included. */
   body[data-stage="gametracker"] #studioTrack > .camOff { filter:none; }
+  /* ...and it must beat the stage's focus dimming (body.xqStage:not(.panorama) #studioTrack > .camOff: brightness(.38)), which has the
+     higher specificity -- since that rule landed the TEAM and GAME screens were shown at 38 % brightness (MIZE 2026-09-23: "not clearly
+     visible"). */
+  body.xqStage[data-stage="gametracker"]:not(.panorama) #studioTrack > .camOff { filter:none; }
+  /* The tracker's camera is locked, so nothing on its stage ever moves as a camera move -- but the stage's 1 s camera transitions
+     (frames, board, console, room) still ran on every re-layout: rotating a phone animated the whole studio from the old size to
+     the new one, and the field's scroll was computed mid-animation from half-way sizes, leaving the field in the wrong place
+     (MIZE 2026-09-23). No camera transitions for this consumer. */
+  body[data-stage="gametracker"] { --cam-d:0s; }
   body[data-stage="gametracker"] #studioNavLeft, body[data-stage="gametracker"] #studioNavRight, body[data-stage="gametracker"] #studioFrameDots { display:none !important; }
   body[data-stage="gametracker"] .studioFramePlaceholder, body[data-stage="gametracker"] .studioFrameClearBtn,
   body[data-stage="gametracker"] #emptyFieldAddBtn, body[data-stage="gametracker"] #saveOpenBtn { display:none !important; }
@@ -1883,8 +1896,8 @@
     border-radius:4px; padding:20px 40px 22px; overflow-y:auto; }
   body[data-stage="gametracker"].gtSheetScreen #xgtSheet .xgtGoal { max-height:190px; width:auto; max-width:100%; margin-left:auto; margin-right:auto; display:block; }
   body[data-stage="gametracker"].gtSheetScreen #xgtSheet > * { max-width:620px; margin-left:auto !important; margin-right:auto !important; }
-  body[data-stage="gametracker"].gtSheetScreen #board, body[data-stage="gametracker"].gtSheetScreen #xgtOppoZone, body[data-stage="gametracker"].gtSheetScreen #gtStageBanner,
-  body[data-stage="gametracker"].gtStatsScreen #board, body[data-stage="gametracker"].gtStatsScreen #xgtOppoZone { visibility:hidden !important; }
+  body[data-stage="gametracker"].gtSheetScreen #board, body[data-stage="gametracker"].gtSheetScreen #gtStageBanner,
+  body[data-stage="gametracker"].gtStatsScreen #board { visibility:hidden !important; }
   /* the console carries Start tracking and Mode -- except in a tutorial, whose steps may point at the form's own buttons */
   body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="setup"] #xgtX, body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="setup"] #xgtGo, body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="setup"] #xgtGo + .xgtNote,
   body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="landing"] #xgtX { display:none !important; }
@@ -1909,7 +1922,7 @@
     transform:none !important; z-index:999990; border-radius:4px; background:linear-gradient(180deg, rgba(6,14,15,.97), rgba(3,8,9,.99)); color:#eaf7f5; border:1px solid rgba(46,202,184,.18);
     box-shadow:inset 0 2px 0 rgba(150,215,210,.10), 0 18px 40px rgba(0,0,0,.55); font-family:'Archivo',system-ui,sans-serif; }
   body[data-stage="gametracker"].gtLibScreen #xgtSheet { visibility:hidden !important; pointer-events:none !important; }
-  body[data-stage="gametracker"].gtLibScreen #board, body[data-stage="gametracker"].gtLibScreen #xgtOppoZone, body[data-stage="gametracker"].gtLibScreen #toolPanelBackdrop { visibility:hidden !important; }
+  body[data-stage="gametracker"].gtLibScreen #board, body[data-stage="gametracker"].gtLibScreen #toolPanelBackdrop { visibility:hidden !important; }
   body[data-stage="gametracker"] #coachingLibraryPanel .toolPanelHeader { background:rgba(6,14,15,.98); border-bottom-color:rgba(255,255,255,.08); }
   body[data-stage="gametracker"] #coachingLibraryPanel h3, body[data-stage="gametracker"] #coachingLibraryPanel h4 { color:#eef9f8; }
   body[data-stage="gametracker"] #coachingLibraryPanel .closeToolPanelBtn, body[data-stage="gametracker"] #coachingLibraryPanel .libTypeFilterPill, body[data-stage="gametracker"] #coachingLibraryPanel .libViewTab, body[data-stage="gametracker"] #coachingLibraryPanel .libViewModeBtn,
@@ -1958,6 +1971,44 @@
   .xgtBarHost .xgtPill { width:100%; }
   .xgtBarHost .xgtPill.in { background:#2ecab8; color:#052a27; }
   .xgtBarHost .xgtPill.out { color:#9fc9c6; border-color:rgba(255,255,255,.25); background:transparent; }
+  /* ---- Game Tracker on phones (MIZE 2026-09-23, briefs/GAMETRACKER-PHONE-STAGE.md) ----
+     PORTRAIT: the centre screen fitted to the width, no side screens (substitutions and the game information are landscape's),
+     long sheets in a taller frame (the screen extended up into the black), recording steps on the screen itself, the console
+     under the screen at its natural size in two rows with the score under the clock. */
+  body[data-stage="gametracker"].gtPortrait #videoFrame, body[data-stage="gametracker"].gtPortrait #statsFrame { visibility:hidden !important; }
+  body[data-stage="gametracker"].gtPortrait #videoFrame *, body[data-stage="gametracker"].gtPortrait #statsFrame * { visibility:hidden !important; pointer-events:none !important; }
+  body[data-stage="gametracker"].gtPortrait .stageConsolePanel { position:relative; inset:auto; padding:11px 12px 13px; transform:rotateX(12deg); }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleInner { flex-wrap:wrap; width:100%; column-gap:10px; row-gap:11px; }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleLabel { font-size:9px; letter-spacing:.12em; }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleGroup[data-group="game"] { flex:1 1 100%; align-items:center; }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleGroup[data-group="game"] .stageConsoleLabel { align-self:center; }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleBtn { min-height:44px; min-width:64px; padding:10px 12px; }
+  body[data-stage="gametracker"].gtPortrait .stageConsoleBtn.big { min-width:180px; }
+  body[data-stage="gametracker"].gtPortrait.gtSheetScreen:not(.gtSheetRecord) #xgtSheet { top:var(--gtTallT) !important; height:var(--gtTallH); }
+  body[data-stage="gametracker"].gtPortrait #xgtStats { top:var(--gtTallT); height:var(--gtTallH); }
+  body[data-stage="gametracker"].gtPortrait.gtLibScreen #coachingLibraryPanel { top:var(--gtTallT) !important; height:var(--gtTallH) !important; }
+  body[data-stage="gametracker"].gtPortrait.gtSheetScreen #xgtSheet, body[data-stage="gametracker"].gtCompact.gtSheetScreen #xgtSheet { padding:12px 16px 14px; }
+  body[data-stage="gametracker"].gtPortrait.gtSheetRecord #xgtSheet .xgtGoal, body[data-stage="gametracker"].gtCompact.gtSheetScreen #xgtSheet .xgtGoal { max-height:118px; }
+  body[data-stage="gametracker"].gtPortrait #xgtToast { top:calc(var(--gtTallT, 10px) + 8px); }
+  /* COMPACT (landscape phones): the TEAM and GAME screens are about 80 px wide -- both rosters and the score must still fit */
+  body[data-stage="gametracker"].gtCompact #gtTeamInfo { padding:5% 5% 3%; font-size:10px; }
+  body[data-stage="gametracker"].gtCompact #gtTeamInfo .gtTiHead { font-size:8.5px; letter-spacing:.04em; margin-bottom:4px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtBarSplit { gap:4px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtLbl { display:block; font-size:7.5px; letter-spacing:.08em; margin:0 0 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtChips, body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtRow { gap:2px 3px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtChipWrap { gap:0; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtChip { min-width:20px; width:20px; height:19px; min-height:0; padding:0; font-size:10.5px; border-radius:6px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtChipBadges { top:-4px; right:-4px; transform:scale(.7); transform-origin:100% 0; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtWho { padding:4px 5px; font-size:10px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtWho .num { font-size:16px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtWho .meta { font-size:8px; }
+  body[data-stage="gametracker"].gtCompact .xgtBarHost .xgtPill { font-size:9px; padding:5px 4px; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo { padding:6% 5%; font-size:9.5px; line-height:1.3; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo .gtLiHead { margin-bottom:4px; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo .gtLiTeam { font-size:8px; letter-spacing:.02em; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo .gtLiScore { font-size:22px; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo .gtLiClock { font-size:9px; letter-spacing:.06em; margin-top:1px; }
+  body[data-stage="gametracker"].gtCompact #gtLiveInfo .gtLiSection { font-size:7px; letter-spacing:.08em; margin:5px 0 2px; padding-top:3px; }
   #gtStageBanner { position:absolute; left:50%; top:6%; transform:translateX(-50%); z-index:8; max-width:80%; padding:10px 18px; border-radius:10px; background:rgba(3,10,10,.85); border:1px solid rgba(46,202,184,.5); color:#f2fbfa; font:600 14px/1.35 'Archivo',system-ui,sans-serif; text-align:center; pointer-events:none; box-shadow:0 0 24px 4px rgba(46,202,184,.25); }
   body[data-stage="home"] #psRoom, body[data-stage="soundbox"] #psRoom { z-index:8998; }
   body[data-stage="home"] #studioTrack, body[data-stage="soundbox"] #studioTrack { z-index:8999; }
@@ -1971,6 +2022,13 @@
   body.tutorialModeActive[data-stage="home"] #tutorialCheckmark { z-index:9005; }
   body.tutorialModeActive[data-stage="home"] #tutorialLeaveScreen { z-index:9010; }
   body.tutorialModeActive[data-stage="home"] #tutorialHeard { z-index:9011; }
+  /* A Quick Start runs on top of whatever mode it introduces -- Practice's choosing frame sits at 9400 -- so its
+     chrome goes above everything, in the same order. */
+  body.tutorialModeActive.xqQuickStart #tutorialDimOverlay { z-index:9501; }
+  body.tutorialModeActive.xqQuickStart #tutorialSpotlight, body.tutorialModeActive.xqQuickStart .tutorialSpotlightRing { z-index:9502; }
+  body.tutorialModeActive.xqQuickStart .tutorialArrowEl { z-index:9503; }
+  body.tutorialModeActive.xqQuickStart #tutorialBanner, body.tutorialModeActive.xqQuickStart #tutorialExitBtn, body.tutorialModeActive.xqQuickStart #tutorialSkipStepBtn { z-index:9504; }
+  body.tutorialModeActive.xqQuickStart #tutorialCheckmark { z-index:9505; }
   body[data-stage="home"] #stageLights, body[data-stage="soundbox"] #stageLights { z-index:9000; }
   /* The room layer (XQStage.setRoomLayer): on the room rect inside #psRoom -- the photograph's own stacking
      context, no z-index/transform of its own so a blending canvas inside it blends with the room -- below the
@@ -2058,6 +2116,83 @@
   body.prBuild #board { visibility:hidden; }   /* Build's centre screen is the builder, not the board (Run and Preview show it) */
   /* Save and Run live on the floor console in Build */
   body.prBuild #prBuildCenter #saveSessionBtn, body.prBuild #prBuildCenter #runSessionBtn { display:none; }
+  /* ---- Build: the centre screen is where things are chosen (MIZE 2026-09-23, briefs/PRACTICE-RUN-STAGE.md §3b) ----
+     The side screens show what is there (read-only summaries); a tap opens that list on the centre screen (#prPick) to choose
+     from; Confirm / Cancel on the console put it back and the centre shows the session again. Portrait: the centre screen with
+     the two sources as tiles above it and the session's totals and the console below it. */
+  body[data-stage="practice"] { --cam-d:0s; }   /* the camera is locked: a re-layout (a rotation) must not slide the studio */
+  .prSum { cursor:pointer; display:flex; flex-direction:column; padding:9% 9% 7%; }
+  .prSum:hover, .prSum:focus-visible { box-shadow:inset 0 0 0 1px rgba(46,202,184,.5); outline:none; }
+  .prSum .prSumHead { color:#5fc9cc; font-size:10px; letter-spacing:.16em; text-transform:uppercase; font-weight:600; }
+  .prSum .prSumCount { font:600 28px/1.05 'Archivo',system-ui,sans-serif; color:#f2fbfa; margin:9px 0 3px; font-variant-numeric:tabular-nums; }
+  .prSum .prSumSub { font-size:11px; color:#9ab8b6; }
+  .prSum .prSumList { margin:10px 0 0; padding:0; list-style:none; flex:1 1 auto; min-height:0; overflow:hidden; }
+  .prSum .prSumList li { font-size:11.5px; color:#dcebe9; padding:4px 0; border-top:1px solid rgba(255,255,255,.07); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .prSum .prSumList li small { color:#8aa9a7; margin-left:4px; font-size:10.5px; }
+  .prSum .prSumList li.cur { color:#7ff0ec; }
+  .prSum .prSumTap { flex:none; margin-top:8px; font-size:10.5px; color:#5fc9cc; letter-spacing:.03em; }
+  body.prPicking[data-pick="library"] #prBuildLeft, body.prPicking[data-pick="saved"] #prBuildRight { box-shadow:inset 0 0 0 2px rgba(46,202,184,.7); }
+  body.prCompact .prSum { padding:8% 7%; }
+  body.prCompact .prSum .prSumHead { font-size:7px; letter-spacing:.08em; }
+  body.prCompact .prSum .prSumCount { font-size:17px; margin:4px 0 1px; }
+  body.prCompact .prSum .prSumSub, body.prCompact .prSum .prSumList { display:none; }
+  body.prCompact .prSum .prSumTap { font-size:7.5px; margin-top:auto; }
+  #prBuildCenter .prTargetRow { display:none !important; }   /* "Add drills to" is chosen where the drills are chosen */
+  .prMin { display:inline-flex; align-items:center; gap:3px; margin-left:auto; flex:none; }
+  .prMin button { width:24px; height:24px; padding:0; line-height:1; font-size:14px; }
+  .prMin span { min-width:44px; text-align:center; font-variant-numeric:tabular-nums; color:#dcebe9; }
+  #prBuildCenter .sessionDrillRow > span:first-child { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* the choosing frame: over the centre screen (portrait: the screen extended up into the black above the room) */
+  #prPick { position:fixed; z-index:9400; display:none; flex-direction:column; padding:0; overflow:hidden; border-radius:4px; transform-origin:0 0;
+    box-shadow:0 0 0 1px rgba(46,202,184,.38), 0 24px 60px rgba(0,0,0,.6); background:linear-gradient(180deg, #051010, #030a0b); font-size:13px; }
+  body.prPicking #prPick { display:flex; }
+  #prPick .prPickHead { flex:none; display:flex; align-items:center; gap:8px 14px; flex-wrap:wrap; padding:12px 16px 10px; border-bottom:1px solid rgba(255,255,255,.08); }
+  #prPick .prPickTitle { font:600 15px/1.2 'Archivo',system-ui,sans-serif; color:#f2fbfa; letter-spacing:.01em; }
+  #prPick .prPickHint { font-size:12px; color:#9ab8b6; flex:1 1 180px; }
+  #prPick .prPickTo { display:flex; align-items:center; gap:6px; font-size:12px; color:#9ab8b6; }
+  #prPick .prPickTo select { padding:5px 6px; font-size:12.5px; max-width:200px; }
+  #prPick .prPickBody { flex:1 1 auto; min-height:0; overflow:auto; padding:12px 16px 16px; -webkit-overflow-scrolling:touch; }
+  #prPick .psPanelTitle { display:none; }   /* the header says what this is */
+  #prPick #drillLibraryList { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:8px; align-items:start; }
+  #prPick .drillCard { cursor:pointer; position:relative; margin:0; padding:9px 10px 8px 36px; }
+  #prPick .drillCard::before { content:''; position:absolute; left:11px; top:10px; width:15px; height:15px; border-radius:4px; border:1.5px solid rgba(255,255,255,.35); box-sizing:border-box; }
+  #prPick .drillCard.prSel { border-color:#2ecab8; box-shadow:inset 0 0 0 1px #2ecab8; background:rgba(46,202,184,.10); }
+  #prPick .drillCard.prSel::before { background:#2ecab8; border-color:#2ecab8; }
+  #prPick .drillCard.prSel::after { content:''; position:absolute; left:16px; top:12px; width:4px; height:8px; border:solid #052a27; border-width:0 2px 2px 0; transform:rotate(45deg); }
+  #prPick .drillCard input[type=number] { width:48px; }
+  #prPick .drillCard .prAddBtn { display:none; }
+  #prPick .versionRow { cursor:pointer; }
+  #prPick .versionRow.prSel { border-color:#2ecab8; box-shadow:inset 0 0 0 1px #2ecab8; background:rgba(46,202,184,.10); }
+  #prPick .prLoadBtn { display:none; }
+  #prPick .drillCard:focus-visible, #prPick .versionRow:focus-visible { outline:2px solid rgba(46,202,184,.7); outline-offset:1px; }
+  /* portrait: no side screens -- the tiles above the screen stand in for them; totals and the console below */
+  body.prPortrait[data-stage="practice"] #videoFrame, body.prPortrait[data-stage="practice"] #statsFrame { visibility:hidden !important; }
+  body.prPortrait[data-stage="practice"] #videoFrame *, body.prPortrait[data-stage="practice"] #statsFrame * { visibility:hidden !important; pointer-events:none !important; }
+  #prTiles { display:none; position:fixed; z-index:9300; left:8px; right:8px; gap:8px; }
+  body.prPortrait.prBuild #prTiles { display:flex; }
+  #prTiles button { flex:1 1 0; min-width:0; min-height:56px; text-align:left; padding:8px 12px; border-radius:6px; cursor:pointer; touch-action:manipulation;
+    background:linear-gradient(180deg, rgba(20,28,29,.96), rgba(10,15,16,.96)); border:1px solid rgba(46,202,184,.28); color:#eaf7f5; font:600 14px/1.2 'Archivo',system-ui,sans-serif; }
+  #prTiles button:active { border-color:#2ecab8; }
+  #prTiles button .k { display:block; color:#5fc9cc; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; margin-bottom:3px; font-weight:600; }
+  #prTiles button small { display:block; font-weight:500; font-size:11.5px; color:#9ab8b6; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #prTotals { display:none; position:fixed; z-index:9300; left:8px; right:8px; text-align:center; font:500 12.5px/1.3 'Archivo',system-ui,sans-serif; color:#9ab8b6; font-variant-numeric:tabular-nums; }
+  #prTotals b { color:#eaf7f5; font-weight:600; }
+  body.prPortrait.prBuild #prTotals { display:block; }
+  body.prPortrait.prBuild #prBuildCenter { top:calc(-1 * var(--prUp, 0px)); padding:12px 12px 14px; font-size:12.5px; border-radius:4px; box-shadow:0 0 0 1px rgba(46,202,184,.30), 0 18px 50px rgba(0,0,0,.55); }
+  body.prPortrait #prBuildCenter .sessionDrillRow { flex-wrap:wrap; row-gap:6px; }
+  body.prPortrait #prBuildCenter .sessionDrillRow > span:first-child { flex:1 1 100%; }
+  body.prPortrait #prBuildCenter .prMin { margin-left:0; }
+  body.prPortrait #prBuildCenter .sdrControls { margin-left:auto; }
+  body.prPortrait #prBuildCenter .blockSectionHeader { flex-wrap:wrap; row-gap:6px; }
+  body.prPortrait #prBuildCenter .blockSectionControls button { padding:5px 8px; }
+  body.prPortrait.prPicking[data-pick="library"] #prTiles [data-pick="library"], body.prPortrait.prPicking[data-pick="saved"] #prTiles [data-pick="saved"] { border-color:#2ecab8; box-shadow:inset 0 0 0 1px #2ecab8; }
+  body.prPortrait[data-stage="practice"] .stageConsolePanel { position:relative; inset:auto; padding:11px 12px 13px; transform:rotateX(12deg); }
+  body.prPortrait[data-stage="practice"] .stageConsoleInner { flex-wrap:wrap; width:100%; column-gap:10px; row-gap:11px; }
+  body.prPortrait[data-stage="practice"] .stageConsoleLabel { font-size:9px; letter-spacing:.12em; }
+  body.prPortrait[data-stage="practice"] .stageConsoleBtn { min-height:44px; min-width:64px; padding:10px 12px; }
+  body.prPortrait[data-stage="practice"] .stageConsoleBtn.big { min-width:150px; font-size:19px; }
+  @media (prefers-reduced-motion:reduce) { #prPick { transition:none !important; } }
+  body.prPortrait[data-stage="practice"] .xquixHomeToast { bottom:auto; top:42%; }   /* the console is at the bottom in portrait */
   /* Step 2: with the floor console in use (landscape >= 900 px) the Sound Box's fixed buttons are not shown */
   body.sbConsole #xqNP_home, body.sbConsole #xqModeBtn, body.sbConsole #xqControls { display:none !important; }
   /* ---- The Sound Box as a stage consumer (briefs/SOUNDBOX-STAGE-CONSUMER.md, Step 1) ---- */
@@ -2107,6 +2242,23 @@
      needed (these pills are 4.7:1, so a 2x2 grid would render them ~39px tall
      and the subtitles would be unreadable). */
   .xquixHomeTutorialBanners.drilled > .xquixHomeTutorialBanner, .xquixHomeTutorialBanners.drilled > .xquixHomeSubHead { display:none; }
+  /* Tutorial Library (tutorials/TUTORIAL-SYSTEM.md §7): section headings use the sub-head's micro type;
+     items reuse the banner artwork; a text banner stands in where no artwork exists yet (D4). */
+  .xquixHomeTutorialBanners.drilled > .xqLibSection { display:none; }
+  .xqLibSection { display:flex; flex-direction:column; gap:10px; }
+  .xqLibSection + .xqLibSection { margin-top:6px; }
+  /* Quick Start: the engine's Exit reads "Skip" and leaves at once; Next does the step. */
+  body.xqQuickStart #tutorialSkipStepBtn { font-weight:700; }
+  .xqLibHead { font:800 10px system-ui; letter-spacing:.14em; text-transform:uppercase; color:#8fb9b6; padding:2px 2px 0; }
+  .xqLibItem { position:relative; }
+  .xqLibDone { position:absolute; top:6px; right:10px; font:700 10px system-ui; letter-spacing:.04em; color:#bff5ef; background:rgba(5,20,19,.82);
+    border:1px solid rgba(45,212,200,.55); border-radius:6px; padding:3px 7px; pointer-events:none; }
+  .xqLibTextBanner { position:relative; box-sizing:border-box; width:calc(100% - 6%) !important; margin:0 auto; aspect-ratio:4.4 / 1; border-radius:999px; display:flex; flex-direction:column; justify-content:center; padding:0 12% 0 9%;
+    background:linear-gradient(180deg,#0f1c1c,#070d0d); border:1px solid #2a5f5c; box-shadow:inset 0 1px 0 rgba(127,240,236,.08), 0 0 18px rgba(45,212,200,.08); }
+  .xqLibTextBanner:hover, .xqLibTextBanner:focus-visible { border-color:#2dd4c8; outline:none; }
+  .xqLibTextTitle { font-family:'Archivo',system-ui,sans-serif; font-weight:700; font-size:clamp(15px, 4.2cqw, 22px); color:#f2f7f7; letter-spacing:.02em; }
+  .xqLibTextBanner::after { content:'\203A'; position:absolute; right:7%; top:50%; transform:translateY(-56%); font:500 44px system-ui; color:#2dd4c8; }
+  .xqLibTextSub { font:800 10px system-ui; letter-spacing:.16em; text-transform:uppercase; color:#2dd4c8; margin-top:3px; }
   .xquixHomeSubHead { display:flex; align-items:center; gap:8px; margin-bottom:2px; }
   .xquixHomeSubHead button { font:800 12px system-ui; color:#cfeaea; background:#123c3a;
     border:1px solid #2a5f5c; border-radius:8px; padding:6px 10px; cursor:pointer; touch-action:manipulation; }
@@ -2468,21 +2620,11 @@
   <div id="msTutorials" style="display:none">
     <div class="msHeader">
       <button class="msBackBtn" id="msTutorialsBack" aria-label="Back">&#8249;</button>
-      <span class="msTitle">Replay a tutorial</span>
+      <span class="msTitle">Tutorials</span>
       <button class="msCloseBtn" id="msTutorialsCloseBtn" aria-label="Close">&#10005;</button>
     </div>
-    <button class="modeSwitcherOption" data-replay-tutorial="coaching" role="menuitem">
-      <span class="modeSwitcherDot"></span>Coaching<span class="msQual" id="msq-coaching"></span>
-    </button>
-    <button class="modeSwitcherOption" data-replay-tutorial="gametracker" role="menuitem">
-      <span class="modeSwitcherDot"></span>Game Tracker<span class="msQual" id="msq-gametracker"></span>
-    </button>
-    <button class="modeSwitcherOption" data-replay-tutorial="presenting" role="menuitem">
-      <span class="modeSwitcherDot"></span>Presenting<span class="msQual" id="msq-presenting"></span>
-    </button>
-    <button class="modeSwitcherOption" data-replay-tutorial="practice" role="menuitem">
-      <span class="modeSwitcherDot"></span>Practice<span class="msQual" id="msq-practice"></span>
-    </button>
+    <!-- Rendered from the tutorial registry (XQLearn.library()) each time this view opens. -->
+    <div id="msTutorialsList"></div>
   </div>
 
   <!-- ── Game Tracker chooser: all four tutorials ── -->
@@ -5421,6 +5563,7 @@ function xquixHomeToggleTooltip(circleEl){
 document.getElementById('xquixHomeCircle_tutorials')?.addEventListener('click', function(){
   if(this.classList.contains('locked')){ xquixHomeToggleTooltip(this); return; }
   const g = document.getElementById('xquixHomeTutorialBanners');
+  if(g && !g.classList.contains('open') && typeof xquixRenderTutorialLibrary==='function') xquixRenderTutorialLibrary();
   const opened = g?.classList.toggle('open');
   // MS-001 §15: the tutorial choice REPLACES the grid on the centre screen; Back restores it.
   document.getElementById('homeCenterScreen')?.classList.toggle('tutorialsOpen', !!opened);
@@ -5450,9 +5593,12 @@ document.querySelectorAll('.xquixHomeTutorialBanner').forEach(el => {
     // anything -- one more level of exactly the mechanism the Tutorials circle
     // already uses for the group above. Everything else dispatches as before.
     const sub = this.dataset.submenu;
+    // A Library item (xquixRenderTutorialLibrary sets data-learn-id) launches through the
+    // registry, so its progress is recorded; the adapter then dispatches as below.
+    if(!sub && this.dataset.learnId && window.XQLearn){ XQLearn.launch(this.dataset.learnId, 'home'); return; }
     if(sub){
       const group = document.getElementById(sub);
-      const parent = this.parentElement;
+      const parent = this.closest('.xquixHomeTutorialBanners');   // the list, also when the banner sits in a Library item
       group?.classList.add('open');
       parent?.classList.add('drilled');   // hide the top level while drilled in
       // The five mode circles already fill a phone screen, so anything opened
@@ -5864,8 +6010,10 @@ function xquixHomeShowToast(msg, ms){
 // and Practice Mode is the existing Organization Library panel (premade
 // formations/sequences shared at the org level). Nothing here needed
 // building from scratch, just correctly wiring to what's already there.
-document.addEventListener('xquixHomeModeSelected', (e) => {
-  const mode = e.detail.mode;
+// The route into each mode from Home. Home's circles go through the same
+// gate as the Mode Switcher (XQLearn.enterMode): the mode opens first, and a
+// Quick Start runs on top of it for an account that has not seen it yet.
+function xquixHomeRouteMode(mode){
   xquixHideHome();
   if(mode === 'gametracker'){
     // Exit presentation mode first so its background and stage setup
@@ -5957,6 +6105,11 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
   }
   // 'coaching': just reveals the Studio as-is, already handled by
   // xquixHideHome() uncovering it -- that IS the coaching environment.
+}
+document.addEventListener('xquixHomeModeSelected', (e) => {
+  const mode = e.detail.mode;
+  if(window.XQLearn) XQLearn.enterMode(mode, { source:'home', open:()=>xquixHomeRouteMode(mode) });
+  else xquixHomeRouteMode(mode);
 });
 // Tutorial routing. Only "studio" (XquiX Studio quick guide) maps to
 // real, existing content -- buildFirstCoachingSessionSteps(), the same
@@ -5974,12 +6127,11 @@ document.addEventListener('xquixHomeTutorialSelected', (e) => {
     }
     xquixHideHome();
     closeToolPanels();
-    window._modeIntroductionPending = 'coaching';
+    // Since the Coaching Quick Start exists (tutorial system Step 3), the full tutorial from the
+    // Library no longer marks Coaching introduced -- that is qs.coaching's, per account.
     startTutorial(buildFirstCoachingSessionSteps(), {
       needsIntroSequenceSeeded: true,
       onComplete: ()=>{
-        if(typeof setModeTutorialQualification==='function') setModeTutorialQualification('coaching');
-        window._modeIntroductionPending = null;
         MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.');
       }
     });
@@ -12533,7 +12685,77 @@ function psRoomRect(){
 // the tracker's read-only liveRecord(), and the left screen is the branding screen. Camera
 // locked; the Panorama framing is kept so both side screens stay in view. Phones and any
 // portrait orientation never open the stage (MIZE, 2026-09-21).
+// The rule until 2026-09-23 (landscape >= 900 px). Since MIZE's phone decision every tracker opens on the stage; this rule
+// now only decides where the tracker TUTORIALS run on the stage (they walk substitutions on the TEAM screen, which portrait
+// does not show, and place their box for rooms >= 900 px): briefs/GAMETRACKER-PHONE-STAGE.md.
 function gtStageFits(){ return viewportWidth()>=900 && viewportWidth()>viewportHeight(); }
+// Game Tracker on phones (MIZE 2026-09-23, briefs/GAMETRACKER-PHONE-STAGE.md): landscape (any width) = the full studio with
+// the side screens on the walls ('wall'); portrait = the centre screen fitted to the width, the console under it, no side
+// screens ('portrait'). body.gtPortrait / body.gtCompact (wall on a short landscape phone) carry the CSS differences.
+let _gtMode=null;
+// The layout viewport (innerWidth/innerHeight), not the visual one: an on-screen keyboard shrinks visualViewport and would turn
+// an iPad in portrait "landscape" while a cap number is typed. And never switch while a field in the tracker has focus.
+function gtStageMode(){
+  const a=document.activeElement;
+  if(_gtMode && a && a.matches && a.matches('#xgtSheet input, #xgtSheet textarea, #xgtSheet select, #mizeDialogInput')) return _gtMode;
+  return window.innerWidth>window.innerHeight ? 'wall' : 'portrait';
+}
+function gtStageOpts(mode){
+  return mode==='portrait'
+    ? { camera:'center', lockCamera:true, instant:true, readingBox:'screen', fitScreen:true, insetTop:gtPortraitInset }
+    : { camera:'center', lockCamera:true, instant:true, roomCamera:'pan',
+        // landscape phones (MIZE 2026-09-23: "maximized ... we should be OK with a different ratio"): the centre screen takes the
+        // wall between the side screens, from under the ceiling to the console (readingBox 'stage'), not the photographed frame
+        readingBox: window.innerHeight<600 ? 'stage' : 'screen' };
+}
+function gtStageFlags(){
+  const b=document.body, on=typeof XQStage!=='undefined' && XQStage.consumer()==='gametracker', m=gtStageMode();
+  b.classList.toggle('gtPortrait', on && m==='portrait');
+  b.classList.toggle('gtCompact', on && m==='wall' && window.innerHeight<600);
+}
+// A rotation mid-game: switch the stage's options in place (XQStage.opts() is the live object), re-mount the console for the
+// phase (the portrait clock carries the score) and re-lay out. The game, the open sheet and the shield are untouched.
+function gtStageOrient(){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='gametracker') return;
+  gtStageFlags();
+  const m=gtStageMode(); if(m===_gtMode) return;
+  _gtMode=m;
+  const o=XQStage.opts(); delete o.fitScreen; delete o.roomCamera; delete o.insetTop; delete o.readingBox; Object.assign(o, gtStageOpts(m));
+  _gtPhase=null; gtSheetSync();
+  XQStage.layout();
+}
+// Rotating a phone fires resize events while the browser is still moving its bars and visualViewport catches up
+// (iOS Safari reports the new layout size before the visual one): a layout run from those numbers left the screen
+// in the wrong place or partly off the display (MIZE 2026-09-23). So after any resize the stage waits until both
+// sizes have held still for two checks, then lays out from the settled numbers -- once, and once more after the
+// tracker's own resize correction (220 ms) -- which also returns the field to its canonical scroll.
+let _gtSettleT=null, _gtSettleKey='', _gtSettleN=0;
+function gtStageSettle(){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='gametracker') return;
+  clearTimeout(_gtSettleT); _gtSettleKey=''; _gtSettleN=0;
+  const tick=()=>{
+    if(XQStage.consumer()!=='gametracker') return;
+    const k=[window.innerWidth, window.innerHeight, viewportWidth(), viewportHeight()].map(Math.round).join('x');
+    if(k!==_gtSettleKey){ _gtSettleKey=k; _gtSettleN=0; _gtSettleT=setTimeout(tick, 100); return; }
+    if(++_gtSettleN<2){ _gtSettleT=setTimeout(tick, 100); return; }
+    gtStageOrient(); XQStage.layout();
+    _gtSettleT=setTimeout(()=>{ if(XQStage.consumer()==='gametracker') XQStage.layout(); }, 320);
+  };
+  _gtSettleT=setTimeout(tick, 100);
+}
+window.addEventListener('resize', ()=>{ gtStageOrient(); gtStageSettle(); });
+window.addEventListener('orientationchange', gtStageSettle);
+window.visualViewport?.addEventListener('resize', ()=>{ gtStageOrient(); gtStageSettle(); });
+// Portrait: the centre screen and the console under it are centred as one group in the viewport (a short Safari viewport --
+// an SE with its bars is 548 px -- would otherwise push the console off the bottom). Returns the room's vertical offset.
+let _gtConsoleH=170;
+function gtPortraitInset(){
+  if(typeof psRoomRect!=='function' || typeof PS_SCREENS==='undefined') return 0;
+  const LB=psRoomRect(), sc=psMapWallBox(PS_SCREENS.center, 'center', LB), vh=viewportHeight();
+  const groupH=sc.height+10+_gtConsoleH, top=Math.max(10, (vh-groupH)/2);
+  return Math.round(top-sc.top);
+}
+const gtScoreText=r=>(r && r.trackScore && r.finalScore) ? (r.finalScore.home+' : '+r.finalScore.away) : '';
 // Step 5 (MIZE, 2026-09-21): on the stage the tracker runs with chrome:'stage' -- its own bars
 // are not shown; the Studio draws the console in the floor (clock, quarter, undo, stats, menu,
 // exit), the team on the left screen, the game on the right screen, and the field is the
@@ -12545,9 +12767,11 @@ function xquixOpenGameTracker(o){
   if(!(T && typeof T.open==='function')) return false;
   if(document.body.classList.contains('presentation')) togglePresentation();
   if(typeof xquixHideHome==='function') xquixHideHome();
-  const onStage = o.stage!==false && typeof XQStage!=='undefined' && gtStageFits() && typeof T.liveRecord==='function';
+  const onStage = o.stage!==false && typeof XQStage!=='undefined' && typeof T.liveRecord==='function';
   if(onStage){
-    XQStage.open('gametracker', { camera:'center', lockCamera:true, instant:true, roomCamera:'pan', readingBox:'screen' });
+    _gtMode=gtStageMode();
+    XQStage.open('gametracker', gtStageOpts(_gtMode));
+    gtStageFlags();
     gtLiveInfoMount();
     gtTeamInfoMount();
     gtConsoleMount();
@@ -12574,15 +12798,40 @@ function gtStageRects(){
   const top=Math.round(r.bottom+8);
   st.setProperty('--gtFlL', Math.round(Math.max(8, Math.min(cx-fw/2, innerWidth-fw-8)))+'px'); st.setProperty('--gtFlW', Math.round(fw)+'px');
   st.setProperty('--gtFlMax', Math.max(150, innerHeight-top-8)+'px');
+
+  // Portrait (MIZE 2026-09-23): long sheets use a taller frame -- the centre screen extended up into the black above the room --
+  // and the console sits under the screen at its controls' natural size, in two rows, instead of being scaled down to the floor.
+  if(document.body.classList.contains('gtPortrait')){
+    const tallT=10;
+    st.setProperty('--gtTallT', tallT+'px'); st.setProperty('--gtTallH', Math.round(Math.max(r.height, r.bottom-tallT))+'px');
+    if(c && c.childElementCount){
+      const ctop=Math.round(r.bottom+10);   // the same 10 px gap gtPortraitInset() centres with
+      c.style.left='8px'; c.style.width=Math.round(viewportWidth()-16)+'px'; c.style.top=ctop+'px'; c.style.height='';
+      XQStage._fitControls();
+      // the group centring above uses the console's real height: re-lay out once if it changed (two rows vs one in setup)
+      const ch=Math.round(c.offsetHeight); if(ch>40 && Math.abs(ch-_gtConsoleH)>2){ _gtConsoleH=ch; setTimeout(()=>XQStage.layout(), 0); }
+    }
+  }
+}
+// The OPPO dome belongs to the tracker's zone layer; its flat edge goes to the top of the field as the centre screen frames it
+// at the field's canonical scroll -- run only from the stage's layout (which has just set that scroll), never from a sheet
+// change, so a coach's own scroll of the field never moves it (API.setOppoEdge; MIZE 2026-09-23).
+function gtOppoEdgeSync(){
+  const T=window.XquiXGameTracker, w=document.getElementById('stageWrap');
+  if(!T || typeof T.setOppoEdge!=='function' || typeof T.screenToBoard!=='function' || !w || XQStage.consumer()!=='gametracker') return;
+  const r=w.getBoundingClientRect(); if(!r.width) return;
+  const b=T.screenToBoard(r.left+r.width/2, r.top+1);
+  if(b && isFinite(b.x)) T.setOppoEdge(b.x-0.05);
 }
 function gtSheetSync(){
   const b=document.body;
-  if(XQStage.consumer()!=='gametracker'){ b.classList.remove('gtSheetScreen','gtSheetFloor','gtStatsScreen','gtPreTrack','gtTut','gtLibScreen'); _gtPhase=null; return; }
+  if(XQStage.consumer()!=='gametracker'){ b.classList.remove('gtSheetScreen','gtSheetFloor','gtSheetRecord','gtStatsScreen','gtPreTrack','gtTut','gtLibScreen','gtPortrait','gtCompact'); _gtPhase=null; return; }
   const sh=document.getElementById('xgtSheet'), stats=document.getElementById('xgtStats');
   const on=!!(sh && sh.classList.contains('on')), kind=on ? (sh.dataset.kind||'record') : '';
   // MIZE 2026-09-23 (after approving the concept): recording steps on the centre screen too, not on the console, so the
   // clock and the other console information stay in view while a play is logged. Every sheet is a screen sheet now.
   b.classList.toggle('gtSheetScreen', on);
+  b.classList.toggle('gtSheetRecord', on && kind==='record');   // portrait: recording steps stay on the screen; the rest use the tall frame
   b.classList.remove('gtSheetFloor');
   b.classList.toggle('gtStatsScreen', !!(stats && stats.classList.contains('on')));
   // the Coaching Library (the tracker's View Saved Sessions / Sessions opens it) on the centre screen too (MIZE 2026-09-23)
@@ -12637,7 +12886,7 @@ function gtSheetWatch(){
   // a tracker tutorial starting or ending changes the phase without a sheet change: re-sync then (wrapped once)
   const TT=window.XquiXGameTrackerTutorial;
   if(TT && !TT._gtStageWrapped){ TT._gtStageWrapped=true; ['start','exit'].forEach(k=>{ const f=TT[k]; if(typeof f==='function') TT[k]=function(){ const r=f.apply(this, arguments); setTimeout(gtSheetSync, 0); return r; }; }); }
-  if(!gtSheetWatch._layoutHooked){ gtSheetWatch._layoutHooked=true; XQStage.on('layout', ()=>{ if(XQStage.consumer()==='gametracker') gtStageRects(); }); }
+  if(!gtSheetWatch._layoutHooked){ gtSheetWatch._layoutHooked=true; XQStage.on('layout', ()=>{ if(XQStage.consumer()==='gametracker'){ gtStageRects(); gtOppoEdgeSync(); } }); }
 }
 
 let _gtTeamNode=null;
@@ -12659,9 +12908,11 @@ function gtTeamInfoRender(r){
 }
 function gtConsoleMount(){
   const T=window.XquiXGameTracker;
+  // portrait has no GAME screen: the score (when the game tracks one) is the clock's second line (MIZE 2026-09-23)
+  let sc=''; if(document.body.classList.contains('gtPortrait')){ try{ sc=gtScoreText(T.liveRecord()); }catch(e){} }
   XQStage.setControls({ groups:[
     { label:'Game', items:[
-      { id:'clock', label:'Q1 · 8:00', big:true, title:'Start / stop the clock', onTap:()=>T.toggleClock() },
+      { id:'clock', label:'Q1 · 8:00', sub:sc||undefined, big:true, title:'Start / stop the clock', onTap:()=>T.toggleClock() },
       { id:'quarter', label:'Quarter', title:'Quarter and time', onTap:()=>T.openQuarterMenu() } ] },
     { label:'Action', items:[ { id:'undo', label:'Undo', disabled:true, onTap:()=>T.undo() } ] },
     { label:'Information', items:[ { id:'stats', label:'Stats', onTap:()=>T.openStats() } ] },
@@ -12681,6 +12932,7 @@ function gtStageRefresh(kind){
   const T=window.XquiXGameTracker; if(!T || typeof T.liveRecord!=='function' || XQStage.consumer()!=='gametracker') return;
   let r; try{ r=T.liveRecord(); }catch(e){ return; }
   XQStage.updateControl('clock', { label:'Q'+r.q+' · '+r.clockText, active:!!r.running });
+  if(document.body.classList.contains('gtPortrait') && r.trackScore) XQStage.updateControl('clock', { sub:gtScoreText(r) });
   if(kind!=='clock'){
     XQStage.updateControl('undo', { disabled:!r.canUndo });
     gtTeamInfoRender(r);
@@ -12703,7 +12955,8 @@ function gtLiveInfoMount(){
     window.XquiXGameTracker.onClose(()=>{
       if(XQStage.consumer()!=='gametracker') return;
       if(_gtSheetObs){ _gtSheetObs.disconnect(); _gtSheetObs=null; } _gtPhase=null;
-      document.body.classList.remove('gtSheetScreen','gtSheetFloor','gtStatsScreen','gtPreTrack','gtTut','gtLibScreen');
+      document.body.classList.remove('gtSheetScreen','gtSheetFloor','gtSheetRecord','gtStatsScreen','gtPreTrack','gtTut','gtLibScreen','gtPortrait','gtCompact'); _gtMode=null;
+      ['--gtTallT','--gtTallH'].forEach(k=>document.body.style.removeProperty(k));
       document.getElementById('gtStageBanner')?.remove();
       document.getElementById('xgtBar')?.remove();   // the module's bar, hosted on the TEAM screen; its chrome is gone
       if(_gtTeamNode){ _gtTeamNode.innerHTML=''; _gtTeamNode.classList.remove('xgtBarHost'); }
@@ -13849,19 +14102,692 @@ document.getElementById('resetBtn').onclick=reset;
 document.getElementById('duplicateBtn').onclick=duplicateSelected;
 document.getElementById('deleteObjBtn').onclick=deleteSelectedObject;
 document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit');
+// ===== XQLearn — the learning system core =====
+// tutorials/TUTORIAL-SYSTEM.md. One registry (every Quick Start, tutorial and
+// help topic, as data), one progress store (per ACCOUNT, cached on the
+// device), and one gate every mode entry goes through (Home's circles and the
+// Mode Switcher). Library, Quick Start and Help presenters read the registry;
+// nothing else keeps its own list.
+//
+// Progress lives in public.user_tutorial_progress (own-row RLS). Signed out,
+// it lives on the device and moves into the account at the next sign-in.
+// Statuses only ever get stronger: started < skipped < completed.
+window.XQLearn = (function(){
+  'use strict';
+  var ID_RE = /^(qs|tut|help)\.[a-z0-9]+([._-][a-z0-9]+)*$/;
+  var RANK = { started:1, skipped:2, completed:3 };
+  var P = 'xquixLearnV1:';
+  var LEGACY_KEY = 'xquixModeQualified';
+  var TABLE = 'user_tutorial_progress';
+  var registry = {}, order = [], listeners = [];
+  var sync = { user:null, loaded:false, loading:false, flushing:false, lastError:null, retryTimer:null };
+
+  // ---------------------------------------------------------------- registry
+  function register(item){
+    if(!item || !ID_RE.test(item.id||'')) throw new Error('XQLearn.register: bad id '+(item && item.id));
+    var layer = item.id.slice(0, item.id.indexOf('.'));
+    var full = Object.assign({
+      layer: layer==='qs' ? 'quickstart' : layer==='tut' ? 'tutorial' : 'help',
+      mode:null, sport:'*', version:1, status:'live', parent:null, group:false,
+      runtime:'studio', title:item.id, available:null, start:null
+    }, item);
+    if(!registry[full.id]) order.push(full.id);
+    registry[full.id] = full;
+    notify();
+    return full;
+  }
+  function get(id){ return registry[id] || null; }
+  function activeSport(){
+    try { return (window.MIZE && MIZE.Sports && MIZE.Sports.activeId) || 'water_polo'; } catch(e){ return 'water_polo'; }
+  }
+  function isAvailable(item){
+    if(!item || item.status!=='live') return false;
+    if(item.sport!=='*' && item.sport!==activeSport()) return false;
+    if(typeof item.available==='function'){ try { return !!item.available(); } catch(e){ return false; } }
+    return true;
+  }
+  // list({ layer, mode, parent, includeUnavailable })
+  function list(f){
+    f = f || {};
+    return order.map(get).filter(function(it){
+      if(f.layer && it.layer!==f.layer) return false;
+      if(f.mode!==undefined && it.mode!==f.mode) return false;
+      if(f.parent!==undefined && it.parent!==f.parent) return false;
+      return f.includeUnavailable ? true : (it.group ? list({ parent:it.id }).length>0 : isAvailable(it));
+    });
+  }
+
+  // ---------------------------------------------------------- device storage
+  function readJSON(k, d){ try { var v = JSON.parse(localStorage.getItem(k)); return v==null ? d : v; } catch(e){ return d; } }
+  function writeJSON(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } }
+  function currentUserId(){
+    try { var u = window.XQUIX && XQUIX.Auth && XQUIX.Auth.getCurrentUser && XQUIX.Auth.getCurrentUser(); return u ? u.id : null; } catch(e){ return null; }
+  }
+  function cacheKey(u){ return P + (u || 'device'); }
+  function rows(u){ return readJSON(cacheKey(u), {}); }
+  function pending(u){ return readJSON(P+'pending:'+u, {}); }
+  function setPending(u, p){ writeJSON(P+'pending:'+u, p); }
+  function stronger(a, b){ return (RANK[a]||0) > (RANK[b]||0); }
+
+  // ---------------------------------------------------------------- progress
+  function statusOf(id){ var r = rows(currentUserId())[id]; return r ? r.status : null; }
+  function isDone(id){ var s = statusOf(id); return s==='completed' || s==='skipped'; }
+
+  // record(id, status[, {source}]) -> true if it changed anything. Never downgrades.
+  function record(id, status, opts){
+    if(!/^(qs|tut)\./.test(id) || !ID_RE.test(id) || !RANK[status]) return false;
+    var u = currentUserId(), all = rows(u), cur = all[id];
+    if(cur && !stronger(status, cur.status)) return false;
+    var it = get(id);
+    all[id] = { status:status, version:(it && it.version) || 1, source:(opts && opts.source) || 'app', at:new Date().toISOString() };
+    writeJSON(cacheKey(u), all);
+    if(u){ var p = pending(u); p[id] = true; setPending(u, p); flush(); }
+    notify();
+    return true;
+  }
+
+  // A mode counts as introduced once its Quick Start (or, until a mode has
+  // one, its legacy first-use tutorial) was completed or skipped -- per
+  // account. Signed out, the device's own old flag still counts.
+  function isModeIntroduced(mode){
+    if(isDone('qs.'+mode)) return true;
+    if(!currentUserId()) return !!readJSON(LEGACY_KEY, {})[mode];
+    return false;
+  }
+
+  // ------------------------------------------------------ account sync
+  function client(){ try { return window.XQUIX && XQUIX.Auth && XQUIX.Auth.getClient && XQUIX.Auth.getClient(); } catch(e){ return null; } }
+  function timeout(promise, s){
+    return Promise.race([promise, new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timed out after '+s+'s')); }, s*1000); })]);
+  }
+  function mergeInto(u, incoming, source, markPending){
+    var all = rows(u), p = pending(u), changed = false;
+    Object.keys(incoming).forEach(function(id){
+      var r = incoming[id];
+      if(!r || !RANK[r.status] || !ID_RE.test(id)) return;
+      if(!all[id] || stronger(r.status, all[id].status)){
+        all[id] = { status:r.status, version:r.version || 1, source:r.source || source || 'app', at:r.at || new Date().toISOString() };
+        if(markPending) p[id] = true;
+        changed = true;
+      }
+    });
+    if(changed){ writeJSON(cacheKey(u), all); setPending(u, p); }
+    return changed;
+  }
+
+  // Synchronous part of a sign-in: move signed-out progress into the account
+  // cache, and -- once per device, into the first account that signs in after
+  // this build -- lift the old per-device xquixModeQualified flags.
+  function adoptDeviceState(u){
+    var dev = rows(null);
+    if(Object.keys(dev).length){
+      mergeInto(u, dev, 'app', true);
+      writeJSON(cacheKey(null), {});
+    }
+    if(!readJSON(P+'legacyImportedBy', null)){
+      var legacy = readJSON(LEGACY_KEY, {}), imp = {};
+      Object.keys(legacy).forEach(function(mode){
+        if(legacy[mode] && ID_RE.test('qs.'+mode)) imp['qs.'+mode] = { status:'completed', source:'device_import' };
+      });
+      mergeInto(u, imp, 'device_import', true);
+      writeJSON(P+'legacyImportedBy', u);
+    }
+  }
+
+  function load(u){
+    var c = client();
+    if(!c || !u) return Promise.resolve(false);
+    sync.loading = true;
+    return timeout(c.from(TABLE).select('item_id,status,content_version,source'), 15).then(function(res){
+      if(res.error) throw res.error;
+      if(sync.user!==u) return false;          // signed out or switched meanwhile
+      var server = {}, all = rows(u), p = pending(u);
+      (res.data || []).forEach(function(r){ server[r.item_id] = { status:r.status, version:r.content_version, source:r.source }; });
+      mergeInto(u, server, 'app', false);
+      // Anything the device knows better than the server goes up.
+      all = rows(u);
+      Object.keys(all).forEach(function(id){ if(!server[id] || stronger(all[id].status, server[id].status)) p[id] = true; });
+      setPending(u, p);
+      sync.loaded = true; sync.lastError = null;
+      notify();
+      return true;
+    }).catch(function(err){
+      sync.lastError = String(err && err.message || err);
+      schedule();
+      return false;
+    }).then(function(ok){ sync.loading = false; if(ok) flush(); return ok; });
+  }
+
+  // Push queued statuses. Only after this account's rows were read once, so a
+  // stale device value can never overwrite a stronger one on the server.
+  function flush(){
+    var u = sync.user, c = client();
+    if(!u || !c || !sync.loaded || sync.flushing) return Promise.resolve(false);
+    var p = pending(u), ids = Object.keys(p);
+    if(!ids.length) return Promise.resolve(true);
+    var all = rows(u);
+    var payload = ids.filter(function(id){ return all[id]; }).map(function(id){
+      return { user_id:u, item_id:id, status:all[id].status, content_version:all[id].version || 1, source:all[id].source==='device_import' ? 'device_import' : 'app' };
+    });
+    sync.flushing = true;
+    return timeout(c.from(TABLE).upsert(payload, { onConflict:'user_id,item_id' }), 15).then(function(res){
+      if(res && res.error) throw res.error;
+      var now = pending(u);
+      ids.forEach(function(id){ delete now[id]; });
+      setPending(u, now);
+      sync.lastError = null;
+      return true;
+    }).catch(function(err){
+      // Stays queued on the device; nothing claims it was saved.
+      sync.lastError = String(err && err.message || err);
+      schedule();
+      return false;
+    }).then(function(ok){ sync.flushing = false; return ok; });
+  }
+  function schedule(){
+    if(sync.retryTimer) return;
+    sync.retryTimer = setTimeout(function(){ sync.retryTimer = null; if(!sync.loaded) load(sync.user); else flush(); }, 30000);
+  }
+
+  function authChanged(user){
+    var u = user ? user.id : null;
+    if(u===sync.user) { if(u && !sync.loaded && !sync.loading) load(u); return; }
+    sync.user = u; sync.loaded = false; sync.lastError = null;
+    if(u){ adoptDeviceState(u); load(u); }
+    notify();
+  }
+  try { if(window.XQUIX && XQUIX.Auth && XQUIX.Auth.onChange) XQUIX.Auth.onChange(authChanged); } catch(e){}
+  try { window.addEventListener('online', function(){ if(!sync.loaded) load(sync.user); else flush(); }); } catch(e){}
+
+  // -------------------------------------------------------------------- gate
+  // enterMode(mode, { source:'home'|'switcher', open:fn, legacyFirstUse:fn })
+  // The mode always opens first. A Quick Start then runs on top of it if this
+  // account has not completed or skipped it. Until a mode has a Quick Start,
+  // the Mode Switcher keeps its previous first-use behavior (legacyFirstUse).
+  function enterMode(mode, o){
+    o = o || {};
+    var qs = get('qs.'+mode);
+    if(qs && isAvailable(qs) && typeof qs.start==='function' && !isDone(qs.id)){
+      if(o.open) o.open();
+      runItem(qs, { reason:'first-entry' });
+      return 'quickstart';
+    }
+    if(!qs && o.source==='switcher' && typeof o.legacyFirstUse==='function' && !isModeIntroduced(mode)){
+      o.legacyFirstUse(mode);
+      return 'legacy';
+    }
+    if(o.open) o.open();
+    return 'direct';
+  }
+
+  // Start any registered item. ctx.reason: 'first-entry' | 'replay' | 'library' | 'help'.
+  // Replays never change status; first entries record started, then the item's outcome.
+  function runItem(item, ctx){
+    item = typeof item==='string' ? get(item) : item;
+    if(!item || typeof item.start!=='function' || !isAvailable(item)) return false;
+    ctx = Object.assign({ reason:'library' }, ctx || {});
+    var counts = ctx.reason!=='replay';
+    if(counts) record(item.id, 'started');
+    var done = false;
+    ctx.onDone = function(status){
+      if(done) return; done = true;
+      if(counts && (status==='completed' || status==='skipped')) record(item.id, status);
+    };
+    if(counts && item.layer==='tutorial'){
+      if(item.runtime==='studio') track.pendingStudio = { id:item.id, t:Date.now() };
+      else if(item.runtime==='gametracker') watchGameTracker(item.id);
+    }
+    try { item.start(ctx); } catch(err){ console.error('XQLearn: could not start '+item.id, err); return false; }
+    return true;
+  }
+
+  // ---------------------------------------------- full-tutorial completion
+  // Library launches record started at once; completed is recorded when the
+  // runtime reaches its own end. Studio engine: startTutorial / completeTutorial
+  // / exitTutorial call the _engine* hooks below; the run started from the
+  // Library binds to the next startTutorial() within 15 s (the Water Polo
+  // tutorial starts asynchronously). Start over keeps the binding (_hold).
+  var track = { pendingStudio:null, activeStudio:null, hold:false, gtTimer:null };
+  function engineStarted(){
+    if(track.hold) return;
+    var p = track.pendingStudio;
+    track.activeStudio = (p && Date.now()-p.t < 15000) ? p.id : null;
+    track.pendingStudio = null;
+  }
+  function engineFinished(){
+    if(track.activeStudio) record(track.activeStudio, 'completed');
+    track.activeStudio = null;
+  }
+  function engineLeft(){ if(!track.hold) track.activeStudio = null; }
+  // The Game Tracker's tutorial runtime ends in its own dialog; "Lessons
+  // complete" is its completion. Polled, so its module needs no change.
+  function watchGameTracker(id){
+    clearInterval(track.gtTimer);
+    var t0 = Date.now(), seen = false;
+    track.gtTimer = setInterval(function(){
+      var U = window.XquiXGameTrackerTutorial, dlg = document.getElementById('xgtuDlg');
+      var h = dlg && dlg.querySelector('h2');
+      if(h && /Lessons complete/i.test(h.textContent)){ record(id, 'completed'); clearInterval(track.gtTimer); return; }
+      var running = !!(U && U.isRunning && U.isRunning());
+      if(running) seen = true;
+      if((seen && !running && !dlg) || Date.now()-t0 > 4*3600*1000 || (!seen && Date.now()-t0 > 20000)) clearInterval(track.gtTimer);
+    }, 1000);
+  }
+
+  // The Library as data: sections with their live items (D2: planned and
+  // unavailable items are left out; a section with nothing live is left out).
+  function library(){
+    return (api.sections || []).map(function(sec){
+      var ids = typeof sec.items==='function' ? sec.items() : sec.items;
+      var items = ids.map(get).filter(function(it){
+        if(!it) return false;
+        return it.group ? list({ parent:it.id }).length>0 : isAvailable(it);
+      });
+      return { id:sec.id, title:typeof sec.title==='function' ? sec.title() : sec.title, items:items };
+    }).filter(function(sec){ return sec.items.length>0; });
+  }
+
+  function notify(){ listeners.forEach(function(fn){ try { fn(); } catch(e){} }); }
+
+  // Start an item the user picked in the Library (Home or the Mode Switcher).
+  function launch(id, surface){
+    var it = get(id); if(!it) return false;
+    if(it.layer==='quickstart'){
+      if(typeof it.openMode==='function') it.openMode(surface);
+      return runItem(it, { reason:'replay', surface:surface });
+    }
+    return runItem(it, { reason:'library', surface:surface });
+  }
+  var api = {
+    launch:launch,
+    register:register, get:get, list:list, isAvailable:isAvailable,
+    statusOf:statusOf, isDone:isDone, record:record, isModeIntroduced:isModeIntroduced,
+    enterMode:enterMode, run:runItem,
+    onChange:function(fn){ listeners.push(fn); },
+    syncState:function(){ var u = sync.user; return { user:u, loaded:sync.loaded, pending:u ? Object.keys(pending(u)).length : 0, lastError:sync.lastError }; },
+    // Library sections are data (TUTORIAL-SYSTEM.md §4); the Library screen renders them.
+    sections:[
+      { id:'essentials', title:'XQUIX ESSENTIALS', items:['tut.basics','tut.saving'] },
+      // The sport section lists whatever tutorials are registered for the active sport
+      // (MIZE.Sports.activeId); another sport registers its own and the section follows.
+      { id:'sport', title:function(){ return activeSport()==='water_polo' ? 'LEARN WATER POLO' : 'LEARN THE SPORT'; },
+        items:function(){ return order.filter(function(id){ var it=get(id); return it.layer==='tutorial' && it.sport===activeSport() && !it.parent; }); } },
+      { id:'modes', title:'LEARN THE MODES', items:['tut.coaching','tut.presenting','tut.practice','tut.gametracker','tut.soundbox'] },
+      // Replaying a Quick Start (MIZE: "replay the Quick Start later through Help or a similar menu").
+      // The Library is that menu until a Help control exists; a replay never changes the status.
+      { id:'quickstarts', title:'QUICK STARTS', items:function(){ return order.filter(function(id){ return get(id).layer==='quickstart'; }); } }
+    ],
+    library:library,
+    _authChanged:authChanged, _flush:flush, _load:load,
+    _engineStarted:engineStarted, _engineFinished:engineFinished, _engineLeft:engineLeft,
+    _hold:function(b){ track.hold = !!b; }
+  };
+  return api;
+})();
+
+// ----- The tutorials that exist today, registered as data. -----
+// Each adapter starts its tutorial by the path that surface already used, so
+// behavior is unchanged: from Home the same xquixHomeTutorialSelected dispatch
+// the banners always made; from the Mode Switcher its own replay / chooser
+// path (ctx.surface === 'switcher'). art = the id of the banner artwork
+// already in index.html; items without one get a text banner (decision D4).
+// Planned items stay hidden until live (decision D2).
+(function(){
+  function homeTutorial(name){ document.dispatchEvent(new CustomEvent('xquixHomeTutorialSelected', { detail:{ tutorial:name } })); }
+  var L = XQLearn;
+  L.register({ id:'tut.basics',   title:'XquiX Basics',      status:'planned' });
+  L.register({ id:'tut.saving',   title:'Saving & Library',  status:'planned' });
+  L.register({ id:'tut.waterpolo', title:'Water Polo – Made Easy', sport:'water_polo', art:'xquixHomeBanner_waterpolo',
+    available:function(){ return !!(window.MIZE && MIZE.Parent && typeof MIZE.Parent.start==='function'); },
+    start:function(ctx){ if(window.closeModeChanger) closeModeChanger(); homeTutorial('waterpolo'); } });
+  L.register({ id:'tut.coaching', mode:'coaching', title:'Coaching Tutorial', art:'xquixHomeBanner_studio',
+    available:function(){ return typeof buildFirstCoachingSessionSteps==='function'; },
+    start:function(ctx){ if(ctx.surface==='switcher' && window.xquixReplayModeTutorial) return xquixReplayModeTutorial('coaching'); homeTutorial('studio'); } });
+  L.register({ id:'tut.presenting', mode:'presenting', title:'Presentation Tutorial',
+    available:function(){ return typeof window.startPresentationTutorial==='function'; },
+    start:function(ctx){ if(window.closeModeChanger) closeModeChanger(); if(typeof xquixHideHome==='function') xquixHideHome(); window.startPresentationTutorial(); } });
+  L.register({ id:'tut.practice', mode:'practice', title:'Practice Planner Tutorial', status:'planned' });
+  L.register({ id:'tut.soundbox', mode:'soundbox', title:'Sound Box Tutorial', status:'planned' });
+  L.register({ id:'tut.gametracker', mode:'gametracker', title:'Game Tracker Tutorial', group:true, runtime:'gametracker', art:'xquixHomeBanner_gametracker' });
+  // Titles are the labels the product already shows for these four (artwork alt text, the Mode Switcher).
+  [['field','Field Player'],['goalkeeper','Goalkeeper'],['team','Your Team'],['fullgame','The Whole Game']].forEach(function(t){
+    L.register({ id:'tut.gametracker.'+t[0], mode:'gametracker', parent:'tut.gametracker', runtime:'gametracker', title:t[1], art:'xquixHomeBanner_gametracker_'+t[0],
+      available:function(){ return !!(window.MIZE && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start==='function'); },
+      start:function(ctx){ if(ctx.surface==='switcher' && window.xquixLaunchGTTutorial) return xquixLaunchGTTutorial(t[0], 'replay'); homeTutorial('gametracker-'+t[0]); } });
+  });
+})();
+
+// ===== The Tutorial Library on Home (brief Step 2) =====
+// Home -> TUTORIALS renders XQLearn.library(): one heading per section, one
+// banner per item, the Game Tracker group drilling down as before. The
+// existing banner artwork is reused (moved into place, never copied); an item
+// without artwork gets a text banner in the same 4.7:1 frame (D4). A small
+// "Completed" mark shows a finished tutorial for this account.
+function xquixLibraryItemEl(it, idx){
+  var wrap = document.createElement('div');
+  wrap.className = 'xqLibItem'; wrap.dataset.learnId = it.id;
+  var done = XQLearn.statusOf(it.id)==='completed' || (it.group && XQLearn.list({ parent:it.id }).some(function(c){ return XQLearn.statusOf(c.id)==='completed'; }) && XQLearn.list({ parent:it.id }).every(function(c){ return XQLearn.statusOf(c.id)==='completed'; }));
+  var art = it.art && document.getElementById(it.art);
+  var el;
+  if(art){ el = art; }
+  else {
+    el = document.createElement('div');
+    el.className = 'xquixHomeTutorialBanner xqLibTextBanner';
+    el.setAttribute('role','button'); el.tabIndex = 0;
+    var qs = it.layer==='quickstart';
+    var t = document.createElement('span'); t.className = 'xqLibTextTitle'; t.textContent = it.title.replace(qs ? / Quick Start$/ : / Tutorial$/, '');
+    var s = document.createElement('span'); s.className = 'xqLibTextSub'; s.textContent = qs ? 'Quick Start' : 'Tutorial';
+    el.appendChild(t); el.appendChild(s);
+    var go = function(){ XQLearn.launch(it.id, 'home'); };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); go(); } });
+  }
+  el.dataset.learnId = it.id;
+  el.setAttribute('aria-label', it.title + (done ? ' (completed)' : ''));
+  el.style.animationDelay = (0.03 + idx*0.07).toFixed(2) + 's';
+  wrap.appendChild(el);
+  if(done){ var m = document.createElement('span'); m.className = 'xqLibDone'; m.setAttribute('aria-hidden','true'); m.textContent = '\u2713 Completed'; wrap.appendChild(m); }
+  return wrap;
+}
+function xquixRenderTutorialLibrary(){
+  var root = document.getElementById('xquixHomeTutorialBanners');
+  var gt = document.getElementById('xquixHomeGametrackerBanners');
+  if(!root || !window.XQLearn) return;
+  // Park every artwork banner first, so a re-render never loses one.
+  var park = document.getElementById('xqLibArtPark');
+  if(!park){ park = document.createElement('div'); park.id = 'xqLibArtPark'; park.style.display = 'none'; root.appendChild(park); }
+  root.querySelectorAll('img.xquixHomeTutorialBanner').forEach(function(img){ if(img.id) park.appendChild(img); });
+  root.querySelectorAll('.xqLibSection, .xqLibItem').forEach(function(n){ n.remove(); });
+  var idx = 0;
+  XQLearn.library().forEach(function(sec){
+    var box = document.createElement('div'); box.className = 'xqLibSection'; box.dataset.section = sec.id;
+    var h = document.createElement('div'); h.className = 'xqLibHead'; h.textContent = sec.title; box.appendChild(h);
+    sec.items.forEach(function(it){ box.appendChild(xquixLibraryItemEl(it, idx++)); });
+    root.insertBefore(box, gt || park);
+  });
+  if(gt){
+    var head = gt.querySelector('.xquixHomeSubHead');
+    XQLearn.list({ parent:'tut.gametracker' }).forEach(function(it, i){ gt.appendChild(xquixLibraryItemEl(it, i)); });
+    if(head) gt.insertBefore(head, gt.firstChild);
+  }
+}
+
+// ===== Quick Start presenter (brief Step 3; TUTORIAL-SYSTEM.md §6) =====
+// Runs a qs.* item's steps on the Studio engine with the Quick Start contract:
+// the mode is already open; the board is the user's own and comes back exactly
+// as it was (snapshot/restore, like the Presentation tutorial); nothing is
+// seeded; Skip leaves at once (no leave screen) and Next does the step; no
+// voice switches. The engine's reset of the board and tools is skipped via
+// steps.tutorialOptions.quickStart.
+window.XQQuickStart = (function(){
+  'use strict';
+  var run = null;   // { ctx, saved, labels, observer, done }
+  function snapshot(){
+    var s = { frames: (typeof frames!=='undefined' && frames) ? frames.slice() : [], cur: (typeof currentFrame==='number') ? currentFrame : 0, scene:null, mode:(typeof mode!=='undefined') ? mode : 'select' };
+    try { s.scene = getState(); } catch(e){}
+    return s;
+  }
+  function restore(s){
+    if(!s) return;
+    try {
+      if(typeof setMode==='function') setMode('select');
+      frames = s.frames; currentFrame = Math.min(Math.max(0, s.cur), Math.max(0, frames.length-1));
+      if(s.scene && typeof loadState==='function') loadState(s.scene);
+      if(typeof renderFrames==='function') renderFrames();
+      if(typeof clearSelection==='function') clearSelection();
+    } catch(err){ console.error('Quick Start: could not put the board back', err); }
+  }
+  function label(id, text){ var el = document.getElementById(id); if(!el) return null; var old = el.textContent; el.textContent = text; return old; }
+  function finish(status){
+    if(!run || run.done) return;
+    var r = run; r.done = true; run = null;
+    try { r.observer && r.observer.disconnect(); } catch(e){}
+    document.body.classList.remove('xqQuickStart');
+    if(r.labels){ label('tutorialExitBtn', r.labels.exit); label('tutorialSkipStepBtn', r.labels.skip); }
+    if(r.restoreBoard) restore(r.saved);
+    try { if(r.cleanup) r.cleanup(); } catch(e){ console.error('Quick Start cleanup', e); }
+    if(r.ctx && r.ctx.onDone) r.ctx.onDone(status);
+  }
+  // start(steps, ctx, { prepare }) -- prepare() may put something on an empty
+  // board for the Quick Start to work with; it is undone with everything else.
+  // steps may be a function: it is built after prepare(), so it can look at the board it will run on.
+  // opts: prepare(), cleanup() (runs after the board is back), surface (the Workbench console, default
+  // true -- modes on the stage's own console say false), restoreBoard (default true; a Quick Start that
+  // never touches the board says false).
+  function start(steps, ctx, opts){
+    opts = opts || {};
+    if(typeof tutorialModeActive!=='undefined' && tutorialModeActive) return false;   // never on top of a running tutorial
+    run = { ctx:ctx, saved:snapshot(), done:false, cleanup:opts.cleanup || null, restoreBoard:opts.restoreBoard!==false };
+    try { if(opts.prepare) opts.prepare(); } catch(e){}
+    if(typeof steps==='function') steps = steps();
+    steps.tutorialOptions = { quickStart:true, surface:opts.surface!==false, exitScreen:false, voice:false, avoidTargets:true };
+    document.body.classList.add('xqQuickStart');
+    startTutorial(steps, { completionMessage:'', onComplete:function(){ finish('completed'); } });
+    if(!(typeof tutorialModeActive!=='undefined' && tutorialModeActive)){ finish('skipped'); return false; }
+    run.labels = { exit:label('tutorialExitBtn', 'Skip'), skip:label('tutorialSkipStepBtn', 'Next') };
+    // Skip (the engine's Exit) ends the run without completing: that is the user's decision.
+    // Completion calls finish('completed') synchronously first, so this sees it done.
+    run.observer = new MutationObserver(function(){ if(!document.body.classList.contains('tutorialModeActive')) finish('skipped'); });
+    run.observer.observe(document.body, { attributes:true, attributeFilter:['class'] });
+    return true;
+  }
+  return { start:start, isRunning:function(){ return !!run; }, _finish:finish };
+})();
+
+// ----- qs.coaching: about 45 seconds, six steps -----
+// Select and move a player, the Player Action Bar (the ball), drawing, and
+// where the rest lives. Works on whatever is on the coach's board; an empty
+// board gets the tutorial's own reference formation for the duration.
+function buildCoachingQuickStartSteps(){
+  var touch = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  var target = null, start = null, drawBase = 0, drawSig = '', drawAt = 0, side = 'left';
+  var pl = function(){ return target ? document.querySelector('.player[data-label="'+target+'"]') : null; };
+  var ack = function(){ return typeof tutorialManualAck!=='undefined' && !!tutorialManualAck; };
+  var drawings = function(){ return [].slice.call(document.querySelectorAll('#arrowsGroup .drawing')); };
+  function pickPlayer(){
+    var all = [].slice.call(document.querySelectorAll('#board .player')).filter(function(el){ return el.style.display!=='none' && el.dataset.hidden!=='true'; });
+    var field = all.filter(function(el){ return el.dataset.team!=='goalie'; });
+    var list = field.length ? field : all;
+    if(!list.length) return null;
+    // the field player nearest the middle of the pool: easy to see and to reach
+    list.sort(function(a,b){ return Math.abs(+a.dataset.x-15)+Math.abs(+a.dataset.y-10) - (Math.abs(+b.dataset.x-15)+Math.abs(+b.dataset.y-10)); });
+    return list[0].dataset.label;
+  }
+  // The player is chosen now, from the board the Quick Start runs on, and the box goes to the other
+  // half of the field so it never sits on the player the steps are about.
+  target = pickPlayer();
+  (function(){ var el = pl(); if(el) side = (+el.dataset.x > 15) ? 'left' : 'right'; })();
+  var base = { skipSuccessMessage:true, skipDimPhase:true, bannerSide:side };
+  var S = function(o){ return Object.assign({}, base, o); };
+  return [
+    S({ id:'qsSelect',
+      instruction:'Quick Start, about 45 seconds. Tap the highlighted player to select it.',
+      onEnter:function(){ if(!pl()) target = pickPlayer(); },
+      highlight:function(){ return pl(); },
+      validate:{ type:'custom', fn:function(){ var el = pl(); return !!el && typeof selected!=='undefined' && selected.size===1 && selected.has(el); } },
+      autoComplete:function(){ var el = pl(); if(el){ clearSelection(); setSelected(el, true); } } }),
+    S({ id:'qsMove',
+      instruction: touch ? 'Now move it: drag the player, or use the Direction Pad.' : 'Now move it: drag the player to a new spot.',
+      onEnter:function(){ var el = pl(); start = el ? { x:+el.dataset.x, y:+el.dataset.y } : null; },
+      highlight:function(){ var el = pl(); return touch ? [el, '#directionPad'] : el; },
+      validate:{ type:'custom', fn:function(){ var el = pl(); if(!el || !start) return false; var dx = +el.dataset.x-start.x, dy = +el.dataset.y-start.y; return Math.sqrt(dx*dx+dy*dy) >= 0.8; } },
+      autoComplete:function(){ var el = pl(); if(!el) return; el.dataset.x = String(+el.dataset.x + (+el.dataset.x > 15 ? -1.5 : 1.5)); place(el); } }),
+    S({ id:'qsBall',
+      instruction:'The buttons next to a selected player act on that player. Tap the highlighted ball icon to give this player the ball.',
+      onEnter:function(){ var el = pl(); if(el && !(selected.size===1 && selected.has(el))){ clearSelection(); setSelected(el, true); } },
+      highlight:function(){ return [pl(), '#paClaimBallBtn']; },
+      validate:{ type:'custom', fn:function(){ var el = pl(); return !!el && typeof ballCarrier!=='undefined' && ballCarrier===el; } },
+      autoComplete:function(){ var el = pl(); if(el && typeof moveBallTo==='function') moveBallTo(el, 'right'); } }),
+    S({ id:'qsDrawOn',
+      instruction:'To draw, tap the highlighted Draw icon in QUICKS.',
+      highlight:function(){ return cwTutTarget('quicks', '[data-src="freeDrawBtn"]'); },
+      validate:{ type:'custom', fn:function(){ return mode==='freeDraw'; } },
+      onValidated:function(){ if(typeof closeQcbDrawingToolsPopup==='function') closeQcbDrawingToolsPopup(); },
+      autoComplete:function(){ if(mode!=='freeDraw') cwTutPress('quicks', '[data-src="freeDrawBtn"]'); } }),
+    S({ id:'qsDraw',
+      instruction:'Draw a line on the field with your finger or mouse.',
+      allowedSelectors:'#board',
+      onEnter:function(){ drawBase = drawings().length; drawSig = ''; drawAt = Date.now(); },
+      validate:{ type:'custom', fn:function(){
+        var d = drawings(); if(d.length <= drawBase) return false;
+        var sig = d.map(function(el){ return el.getAttribute('d')||''; }).join('|');
+        if(sig !== drawSig){ drawSig = sig; drawAt = Date.now(); return false; }
+        return Date.now()-drawAt >= 1200; } },
+      autoComplete:function(){
+        var g = document.getElementById('arrowsGroup'), b = document.getElementById('board'); if(!g || !b) return;
+        var r = b.getBoundingClientRect(), path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', 'M '+(r.width*0.4)+','+(r.height*0.55)+' L '+(r.width*0.6)+','+(r.height*0.4));
+        path.classList.add('drawing'); path.dataset.kind='freehand'; path.dataset.id='quickStart'+Date.now(); g.appendChild(path);
+        drawSig = ''; drawAt = 0; setTimeout(function(){ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 0); } }),
+    S({ id:'qsDone', requiresAcknowledge:true,
+      instruction:'That is all you need to start. Your board goes back to how it was.\n\nEvery other tool is in the console (FUNCTIONS, QUICKS, CREATOR, SYSTEM). Home → Tutorials → Coaching teaches them all.',
+      onEnter:function(){ if(typeof setMode==='function') setMode('select'); },
+      highlight:'#tutorialAcknowledgeBtn',
+      validate:{ type:'custom', fn:ack },
+      autoComplete:function(){ var b = document.getElementById('tutorialAcknowledgeBtn'); if(b) b.click(); } })
+  ];
+}
+XQLearn.register({ id:'qs.coaching', mode:'coaching', title:'Coaching Quick Start', runtime:'studio', version:1,
+  // A replay from the Library: into Coaching first (from Home, the same route as its circle).
+  openMode:function(surface){
+    if(window.closeModeChanger) closeModeChanger();
+    var home = document.getElementById('xquixHomeScreen');
+    if(home && home.classList.contains('open') && typeof xquixHomeRouteMode==='function') xquixHomeRouteMode('coaching');
+    if(document.body.classList.contains('presentation') && typeof togglePresentation==='function') togglePresentation();
+  },
+  available:function(){ return typeof startTutorial==='function' && typeof cwTutTarget==='function'; },
+  start:function(ctx){
+    // The mode has just opened (from Home the board is still being refitted): start a moment later.
+    setTimeout(function(){
+      if(!XQQuickStart.start(buildCoachingQuickStartSteps, ctx, { prepare:function(){
+        if(!document.querySelector('#board .player') && typeof tutorialFormationState==='function' && typeof loadState==='function'){
+          var st = tutorialFormationState('T03 - Attacker Moved'); if(st) loadState(st);
+        }
+      } })) { /* a tutorial was already running: stays 'started', offered again next entry */ }
+    }, 550);
+  } });
+
+
+// ----- shared bits for the mode Quick Starts -----
+function xqQsAck(id, text, extra){
+  return Object.assign({ id:id, requiresAcknowledge:true, skipSuccessMessage:true, skipDimPhase:true, bannerSide:'left', instruction:text,
+    highlight:'#tutorialAcknowledgeBtn',
+    validate:{ type:'custom', fn:function(){ return typeof tutorialManualAck!=='undefined' && !!tutorialManualAck; } },
+    autoComplete:function(){ var b = document.getElementById('tutorialAcknowledgeBtn'); if(b) b.click(); } }, extra || {});
+}
+// The mode has just opened; start once its stage has settled.
+function xqQsLater(ms, fn){ setTimeout(fn, ms); }
+
+// ----- qs.presenting: about 40 seconds, six steps -----
+// The Full Studio View, turning the camera and back, where the play is run, how to leave.
+// Nothing on the board changes; the camera goes back to where it was.
+function buildPresentingQuickStartSteps(){
+  var cam = function(){ return (typeof XQStage!=='undefined' && XQStage.isOpen()) ? XQStage.camera() : null; };
+  var B = function(id){ return '[data-id="'+id+'"]'; };
+  return [
+    xqQsAck('qsPresIntro', 'Quick Start, about 40 seconds. This is the Full Studio View: your board on the centre screen, a screen on each side. Presentation’s controls are in the panel below.'),
+    { id:'qsPresCamera', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'left',
+      instruction:'The camera is in the CAMERA group. Tap the highlighted CAMERA tab.',
+      highlight:function(){ return cwTutTarget('camera', null); },
+      validate:{ type:'custom', fn:function(){ return cwTutGroupShown('camera'); } },
+      autoComplete:function(){ cwTutShowGroup('camera'); } },
+    { id:'qsPresRight', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'left',
+      instruction:'Tap the highlighted Right to turn the camera to the right screen.',
+      highlight:function(){ return cwTutTarget('camera', B('camRight')); },
+      validate:{ type:'custom', fn:function(){ return cam()==='right'; } },
+      autoComplete:function(){ if(cam()!=='right') cwTutPress('camera', B('camRight')); } },
+    { id:'qsPresStudio', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'left',
+      instruction:'And back to the whole studio: tap the highlighted Studio.',
+      highlight:function(){ return cwTutTarget('camera', B('camPan')); },
+      validate:{ type:'custom', fn:function(){ return cam()==='pan'; } },
+      autoComplete:function(){ if(cam()!=='pan') cwTutPress('camera', B('camPan')); } },
+    { id:'qsPresPresent', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'left',
+      instruction:'Your sequence runs from the PRESENT group: Play, or Next and Previous one step at a time. Tap the highlighted PRESENT tab.',
+      highlight:function(){ return cwTutTarget('present', null); },
+      validate:{ type:'custom', fn:function(){ return cwTutGroupShown('present'); } },
+      autoComplete:function(){ cwTutShowGroup('present'); } },
+    xqQsAck('qsPresDone', 'To leave, open SYSTEM and choose Modes (on a computer, Esc works too).\n\nHome → Tutorials → Presentation teaches the rest: the Spotlight, the Shot Clock and the side screens.')
+  ];
+}
+XQLearn.register({ id:'qs.presenting', mode:'presenting', title:'Presentation Quick Start', runtime:'studio', version:1,
+  openMode:function(surface){
+    if(window.closeModeChanger) closeModeChanger();
+    var home = document.getElementById('xquixHomeScreen');
+    if(home && home.classList.contains('open') && typeof xquixHomeRouteMode==='function') xquixHomeRouteMode('presenting');
+    else if(!document.body.classList.contains('presentation') && typeof togglePresentation==='function') togglePresentation('fit');
+  },
+  available:function(){ return typeof startTutorial==='function' && typeof cwTutTarget==='function' && typeof togglePresentation==='function'; },
+  start:function(ctx){
+    xqQsLater(900, function(){
+      var cam0 = (typeof XQStage!=='undefined' && XQStage.isOpen()) ? XQStage.camera() : null;
+      XQQuickStart.start(buildPresentingQuickStartSteps, ctx, { restoreBoard:false, cleanup:function(){
+        if(cam0 && typeof XQStage!=='undefined' && XQStage.isOpen() && document.body.classList.contains('presentation') && XQStage.camera()!==cam0) XQStage.setCamera(cam0);
+      } });
+    });
+  } });
+
+// ----- qs.practice: about 40 seconds, five steps -----
+// Where things are, opening the Drill Library on the centre screen (and closing it with Cancel, so nothing
+// is added to the coach's session), minutes and Run, Save. Nothing is saved or changed.
+function buildPracticeQuickStartSteps(){
+  var portrait = document.body.classList.contains('prPortrait');
+  var left = portrait ? '#prTiles [data-pick="library"]' : '#prBuildLeft';
+  var con = function(id){ return document.querySelector('#stageConsole [data-id="'+id+'"]'); };
+  var picking = function(){ return typeof _prPick!=='undefined' && !!_prPick; };
+  return [
+    xqQsAck('qsPrIntro', portrait
+      ? 'Quick Start, about 40 seconds. Your practice session is in the middle. The two tiles above open the Drill Library and your saved sessions.'
+      : 'Quick Start, about 40 seconds. Your practice session is on the centre screen. The Drill Library is on the left screen, your saved sessions on the right.'),
+    { id:'qsPrLibrary', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'right',
+      instruction: portrait ? 'Tap the highlighted Drill Library tile.' : 'Tap the highlighted left screen to open the Drill Library.',
+      highlight:left,
+      validate:{ type:'custom', fn:function(){ return picking() && _prPick==='library'; } },
+      autoComplete:function(){ if(typeof prPickOpen==='function') prPickOpen('library'); } },
+    { id:'qsPrCancel', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'right',
+      instruction:'You choose drills here: tap them, set their minutes, and Confirm adds them to the session. Nothing to add now: tap the highlighted Cancel.',
+      highlight:function(){ return con('cancel'); },
+      validate:{ type:'custom', fn:function(){ return !picking(); } },
+      autoComplete:function(){ var c = con('cancel'); if(c) c.click(); } },
+    xqQsAck('qsPrRun', 'In the session, + and − set a drill’s minutes and the arrows change the order. ▶ Run (highlighted) walks through the drills one by one on the board.',
+      { highlight:function(){ return ['#tutorialAcknowledgeBtn', con('run')].filter(Boolean); } }),
+    xqQsAck('qsPrDone', 'Save keeps the session in your library. Exit goes back to Coaching, Modes to another mode.\n\nHome → Tutorials lists the tutorials that are ready.',
+      { highlight:function(){ return ['#tutorialAcknowledgeBtn', con('save')].filter(Boolean); } })
+  ];
+}
+XQLearn.register({ id:'qs.practice', mode:'practice', title:'Practice Planner Quick Start', runtime:'studio', version:1,
+  openMode:function(surface){
+    if(window.closeModeChanger) closeModeChanger();
+    var home = document.getElementById('xquixHomeScreen');
+    if(home && home.classList.contains('open') && typeof xquixHomeRouteMode==='function') xquixHomeRouteMode('practice');
+    else if(typeof openPracticeStudio==='function' && !(typeof _prStage!=='undefined' && _prStage)) openPracticeStudio();
+  },
+  // Only where the Practice Planner opens on the stage (its Build phase) -- the old panel has none of this.
+  available:function(){ return typeof openPracticeStudio==='function' && typeof prPickOpen==='function'; },
+  start:function(ctx){
+    xqQsLater(800, function(){
+      if(!(typeof _prStage!=='undefined' && _prStage && _prStage.phase==='build')) return;   // stays 'started': offered next time
+      XQQuickStart.start(buildPracticeQuickStartSteps, ctx, { surface:false, restoreBoard:false, cleanup:function(){
+        if(typeof _prPick!=='undefined' && _prPick){ var c = document.querySelector('#stageConsole [data-id="cancel"]'); if(c) c.click(); }
+      } });
+    });
+  } });
+
 // ===== Mode Tutorial Qualification System =====
-// Central registry, persistence helpers, and pending-introduction tracker.
-// All qualification reads/writes go through these helpers so the storage
-// backend can be upgraded (e.g. to user-account storage) without touching
-// routing or UI code.
+// The two helpers every first-use path already calls. Since 2026-09-23 they
+// read and write per ACCOUNT through XQLearn (qs.<mode>); the old per-device
+// key is still written so a rollback to an earlier build keeps its state.
+// how: 'completed' (default) or 'skipped' (a deliberate Exit).
 (function () {
   'use strict';
   var _KEY = 'xquixModeQualified';
   function _read() { try { return JSON.parse(localStorage.getItem(_KEY)) || {}; } catch(e) { return {}; } }
-  window.hasModeTutorialQualification = function (mode) { return !!_read()[mode]; };
-  window.setModeTutorialQualification = function (mode) {
+  window.hasModeTutorialQualification = function (mode) {
+    return window.XQLearn ? XQLearn.isModeIntroduced(mode) : !!_read()[mode];
+  };
+  window.setModeTutorialQualification = function (mode, how) {
     var q = _read(); q[mode] = true;
-    try { try{localStorage.setItem(_KEY, JSON.stringify(q));}catch(_lsE){} } catch(e) {}
+    try { localStorage.setItem(_KEY, JSON.stringify(q)); } catch(e) {}
+    if (window.XQLearn) XQLearn.record('qs.' + mode, how === 'skipped' ? 'skipped' : 'completed');
   };
   // Set to the mode name while a first-use tutorial is running.
   // exitTutorial() reads this to qualify on deliberate exit;
@@ -13897,10 +14823,32 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
     document.getElementById('msGTChooser').style.display  = v === 'gtchooser' ? '' : 'none';
   }
 
-  function _syncQualBadges() {
-    ['coaching','gametracker','presenting','practice'].forEach(function (m) {
-      var el = document.getElementById('msq-' + m);
-      if (el) el.textContent = hasModeTutorialQualification(m) ? '\u2713' : '';
+  // The Tutorials view lists the Tutorial Library from the registry (the same
+  // XQLearn.library() Home renders): one label per section, one row per item,
+  // a check for a tutorial this account completed. The Game Tracker row opens
+  // the chooser below, as before.
+  function _renderTutorialsList() {
+    var box = document.getElementById('msTutorialsList');
+    if (!box || !window.XQLearn) return;
+    box.innerHTML = '';
+    XQLearn.library().forEach(function (sec) {
+      var h = document.createElement('p'); h.className = 'msNote msLibHead'; h.textContent = sec.title; box.appendChild(h);
+      sec.items.forEach(function (it) {
+        var b = document.createElement('button');
+        b.className = 'modeSwitcherOption'; b.setAttribute('role', 'menuitem'); b.dataset.learnId = it.id;
+        var kids = it.group ? XQLearn.list({ parent: it.id }) : null;
+        var done = kids ? kids.every(function (k) { return XQLearn.statusOf(k.id) === 'completed'; }) : XQLearn.statusOf(it.id) === 'completed';
+        var dot = document.createElement('span'); dot.className = 'modeSwitcherDot';
+        var q = document.createElement('span'); q.className = 'msQual'; q.textContent = done ? '\u2713' : '';
+        b.appendChild(dot); b.appendChild(document.createTextNode(it.title.replace(/ (Tutorial|Quick Start)$/, ''))); b.appendChild(q);
+        if (done) b.setAttribute('aria-label', it.title + ' (completed)');
+        b.onclick = function () {
+          if (it.group) { _gtCtx = 'replay'; _showView('gtchooser'); return; }
+          closeSwitcher();
+          XQLearn.launch(it.id, 'switcher');
+        };
+        box.appendChild(b);
+      });
     });
   }
 
@@ -13950,7 +14898,7 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
   // ---- Tutorials button ----
   var tutBtn = document.getElementById('msTutorialsBtn');
   if (tutBtn) tutBtn.addEventListener('click', function () {
-    _syncQualBadges();
+    _renderTutorialsList();
     _showView('tutorials');
   });
 
@@ -13984,10 +14932,12 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
       });
       obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
-    // The tutorials run wherever the tracker runs: on the Studio Stage in landscape >= 900 px
-    // (the tutorial maps the bar targets to the floor console and the side screens itself,
-    // gametracker/TUTORIALS-ON-THE-STAGE.md), with the tracker's own bars elsewhere.
-    xquixOpenGameTracker();
+    // The tutorials run on the Studio Stage in landscape >= 900 px (the tutorial maps the bar targets
+    // to the floor console and the side screens itself, gametracker/TUTORIALS-ON-THE-STAGE.md), with the
+    // tracker's own bars elsewhere. Phones open the tracker on the stage since 2026-09-23, but the lessons
+    // walk substitutions on the TEAM screen (not shown in portrait) and place their box for wide rooms,
+    // so until they get a phone variant they keep the bars there (briefs/GAMETRACKER-PHONE-STAGE.md).
+    xquixOpenGameTracker({ stage: gtStageFits() });
     if (typeof MIZE !== 'undefined' && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start === 'function')
       setTimeout(function () { MIZE.GameTrackerTutorial.start(name); }, 300);
   }
@@ -14047,13 +14997,15 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
   }
 
   // ---- Central mode entry with first-use check ----
+  // One gate for every mode entry (XQLearn.enterMode, also used by Home).
+  // A mode with a Quick Start opens and runs it; until a mode has one, the
+  // first use here still launches its full tutorial (_launchFirstUseTutorial).
   function requestXquiXMode(mode) {
-    if (!hasModeTutorialQualification(mode)) {
-      _launchFirstUseTutorial(mode);
-      return;
-    }
-    closeSwitcher();
-    _enterDirect(mode);
+    XQLearn.enterMode(mode, {
+      source: 'switcher',
+      open: function () { closeSwitcher(); _enterDirect(mode); },
+      legacyFirstUse: _launchFirstUseTutorial
+    });
   }
 
   // ---- Mode buttons ----
@@ -14066,50 +15018,38 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
     };
   });
 
-  // ---- Tutorial replay buttons ----
-  panel.querySelectorAll('[data-replay-tutorial]').forEach(function (btn) {
-    btn.onclick = function () {
-      var mode = btn.dataset.replayTutorial;
-      // Replay: never set _modeIntroductionPending → qualification unchanged
-      if (mode === 'coaching') {
-        closeSwitcher();
-        if (document.body.classList.contains('presentation')) togglePresentation();
-        if (typeof xquixHideHome === 'function') xquixHideHome();
-        if (typeof buildFirstCoachingSessionSteps === 'function' && typeof startTutorial === 'function') {
-          startTutorial(buildFirstCoachingSessionSteps(), {
-            needsIntroSequenceSeeded: true,
-            onComplete: function () {
-              MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.');
-            }
-          });
+  // ---- Replaying the Coaching tutorial from here ----
+  // The registry's tut.coaching adapter calls this when launched from the Mode
+  // Switcher (ctx.surface 'switcher'): the replay path this panel always used.
+  // Replay never sets _modeIntroductionPending, so qualification is unchanged.
+  function _replayModeTutorial(mode) {
+    if (mode !== 'coaching') return;
+    closeSwitcher();
+    if (document.body.classList.contains('presentation')) togglePresentation();
+    if (typeof xquixHideHome === 'function') xquixHideHome();
+    if (typeof buildFirstCoachingSessionSteps === 'function' && typeof startTutorial === 'function') {
+      startTutorial(buildFirstCoachingSessionSteps(), {
+        needsIntroSequenceSeeded: true,
+        onComplete: function () {
+          MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.');
         }
-      } else if (mode === 'gametracker') {
-        _gtCtx = 'replay';
-        _showView('gtchooser');
-      } else if (mode === 'presenting') {
-        closeSwitcher();
-        if (typeof startPresentationTutorial === 'function') {
-          startPresentationTutorial();
-        } else {
-          MizeDialog.alert('The Presenting tutorial is coming soon \u2014 check back after Phase\u00a02.', 'Not yet available');
-        }
-      } else if (mode === 'practice') {
-        closeSwitcher();
-        if (typeof startPracticeTutorial === 'function') {
-          startPracticeTutorial();
-        } else {
-          MizeDialog.alert('The Practice tutorial is coming soon \u2014 check back after Phase\u00a02.', 'Not yet available');
-        }
-      }
-    };
-  });
+      });
+    }
+  }
 
   // ---- GT tutorial chooser buttons ----
+  // First use launches directly (and qualifies Game Tracker on close); from the
+  // Tutorials list it goes through the registry so the run is recorded, and the
+  // adapter comes back to _launchGTTutorial with 'replay'.
   panel.querySelectorAll('[data-gt-tutorial]').forEach(function (btn) {
     btn.onclick = function () {
       var name = btn.dataset.gtTutorial;
       closeSwitcher();
-      _launchGTTutorial(name, _gtCtx);
+      if (_gtCtx === 'replay' && window.XQLearn && XQLearn.get('tut.gametracker.' + name)) {
+        XQLearn.run('tut.gametracker.' + name, { reason: 'library', surface: 'switcher' });
+      } else {
+        _launchGTTutorial(name, _gtCtx);
+      }
     };
   });
 
@@ -14117,6 +15057,8 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
   window.closeModeChanger  = closeSwitcher;
   window.openModeChanger   = openSwitcher;
   window.requestXquiXMode  = requestXquiXMode;
+  window.xquixReplayModeTutorial = _replayModeTutorial;
+  window.xquixLaunchGTTutorial   = _launchGTTutorial;
 })();
 function toggleMultiSelect(){
   multiSelectMode=!multiSelectMode;
@@ -14981,6 +15923,7 @@ let activeTutorialSequenceName = null; // set by whatever loads a sequence befor
 function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenceSeeded } = {}){
   tutorialCompletionMessage = completionMessage || 'Congratulations! You\u2019ve completed your first coaching session.';
   if(!steps || !steps.length) return;
+  if(window.XQLearn) XQLearn._engineStarted(); // binds a run started from the Tutorial Library (records its completion)
   // Whatever menu/panel the tutorial was launched from must not be left
   // open -- once tutorialModeActive flips on, the input guard blocks
   // clicks on anything that isn't the current step's highlighted target,
@@ -14992,6 +15935,9 @@ function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenc
   closePresentationPanels();
   document.querySelectorAll('.cmdCategory.open').forEach(c=>c.classList.remove('open'));
   closeToolPanels();
+  // A Quick Start (steps.tutorialOptions.quickStart, tutorials/TUTORIAL-SYSTEM.md §6) runs on the user's own
+  // board as it is: none of the resets below (board cleared, tools off, Front Court left) apply to it.
+  if(!(steps && steps.tutorialOptions && steps.tutorialOptions.quickStart)){
   // Also closed here (not just in the step that later asks to reopen it):
   // open by default, it covers part of the field for the entire first half
   // of the tutorial otherwise.
@@ -15052,6 +15998,7 @@ function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenc
   // showing stale active/"On" styling even though the underlying state
   // above is now correctly off.
   if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
+  }
   // The intro sequence needs to be findable through the real Open Sequence
   // UI (Steps 1-3 have the coach navigate there and tap it by name) --
   // that list only reads localStorage, so the embedded-data fallback used
@@ -15102,6 +16049,7 @@ let tutorialOpts = {}, tutorialStartArgs = null;
 function exitTutorial(){
   if(!tutorialModeActive) return;
   tutorialModeActive = false;
+  if(window.XQLearn) XQLearn._engineLeft();
   if(typeof XQTutVoice!=='undefined') XQTutVoice.onExit();
   document.getElementById('tutorialLeaveScreen')?.classList.remove('open');
   document.body.classList.remove('tutVoice');
@@ -15114,7 +16062,7 @@ function exitTutorial(){
   // this covers the Exit Tutorial button path.
   if (window._modeIntroductionPending) {
     if (typeof setModeTutorialQualification === 'function')
-      setModeTutorialQualification(window._modeIntroductionPending);
+      setModeTutorialQualification(window._modeIntroductionPending, 'skipped');
     window._modeIntroductionPending = null;
   }
   document.body.classList.remove('tutorialModeActive');
@@ -15172,9 +16120,11 @@ function restartCurrentTutorial(){
   if(typeof rebuild!=='function'){ exitTutorial(); return; }
   const pending = window._modeIntroductionPending;
   window._modeIntroductionPending = null;
+  if(window.XQLearn) XQLearn._hold(true);   // Start over is the same run: keep its Library binding
   exitTutorial();
   window._modeIntroductionPending = pending || null;
   startTutorial(rebuild(), { onComplete:args.onComplete, completionMessage:args.completionMessage, needsIntroSequenceSeeded:args.needsIntroSequenceSeeded });
+  if(window.XQLearn) XQLearn._hold(false);
 }
 document.getElementById('tutorialLeaveKeepBtn')?.addEventListener('click', hideTutorialLeaveScreen);
 document.getElementById('tutorialLeaveExitBtn')?.addEventListener('click', ()=>{ hideTutorialLeaveScreen(); exitTutorial(); });
@@ -15188,7 +16138,7 @@ let _tutNavLast = '';
 function tutorialLayoutNav(){
   const exit=document.getElementById('tutorialExitBtn'), skip=document.getElementById('tutorialSkipStepBtn'), vn=document.getElementById('tutorialVoiceNav');
   if(!exit || !skip) return;
-  const managed = tutorialModeActive && (tutorialOpts.voice || tutorialOpts.surface);
+  const managed = tutorialModeActive && (tutorialOpts.voice || tutorialOpts.surface || tutorialOpts.quickStart);   // Quick Starts: Skip · Next as one row
   const els=[exit, skip, vn].filter(Boolean);
   if(!managed){ if(_tutNavLast){ els.forEach(e=>{ e.style.left=''; e.style.right=''; e.style.bottom=''; }); _tutNavLast=''; } return; }
   const items=[exit, skip].concat(vn && getComputedStyle(vn).display!=='none' ? [vn] : []);
@@ -15213,8 +16163,13 @@ function tutorialLayoutNav(){
     return !!h && (e===h || e.contains(h) || !!(h.closest && h.closest('#tutorialExitBtn, #tutorialSkipStepBtn, #tutorialVoiceNav, #tutorialBanner, #tutorialSpotlight, .tutorialSpotlightRing'))); };
   const below=['#stageConsole .stageConsolePanel', '#timelineCommandsBar', '#studioNavLeft', '#studioNavRight'].map(q=>document.querySelector(q))
     .filter(e=>e && e.getClientRects().length && getComputedStyle(e).visibility!=='hidden' && seen(e)).map(e=>e.getBoundingClientRect()).filter(q=>q.width);
+  // The stage console's own buttons count wherever they are shown (seen() cannot test them: under a tutorial's
+  // interaction lock they take no pointer, so elementFromPoint passes through them). Practice's portrait console
+  // sits bottom-left, under the row.
+  document.querySelectorAll('#stageConsole .stageConsoleBtn').forEach(e=>{ if(e.getClientRects().length && getComputedStyle(e).visibility!=='hidden' && getComputedStyle(document.getElementById('stageConsole')).display!=='none'){ const q=e.getBoundingClientRect(); if(q.width) below.push(q); } });
   for(let k=0; k<below.length; k++){ const o=below.find(q=>hitsR(bottom, side, q)); if(!o) break; bottom=Math.round(innerHeight - o.top + 8); }
   tutorialAvoidConsole(sr);
+  tutorialAvoidTargets(sr);
   // the instruction box never sits on the row (a short phone screen in landscape): it moves up above it
   const bn=document.getElementById('tutorialBanner');
   if(bn && bn.offsetHeight){ const br=bn.getBoundingClientRect(), rowTop=innerHeight-bottom-rowH-8;
@@ -15231,6 +16186,27 @@ window.addEventListener('resize', ()=>{ _tutNavLast=''; setTimeout(()=>{ if(tuto
 // field), and while a step points at a console control the Direction Pad and the Player Action Bar step aside: on
 // a phone they can sit over the console (portrait: the pad; a small phone in landscape: the action bar over the
 // rail). Both come back with the next player step.
+// Opt-in (tutorialOpts.avoidTargets, the Quick Starts): the instruction box never sits on what the step asks
+// for. When it does -- a Quick Start points at whichever player is on the coach's board, anywhere on the field --
+// it moves to the first free place: the other half, then the top or the bottom of the screen, never on the
+// console or the Skip/Next row.
+function tutorialAvoidTargets(sr){
+  if(!tutorialOpts || !tutorialOpts.avoidTargets) return;
+  const step=tutorialSteps[tutorialStepIndex], bn=document.getElementById('tutorialBanner'); if(!bn || !step) return;
+  let ts=[]; try{ ts=resolveTutorialHighlightTargets(step.highlight).filter(e=>e && !bn.contains(e)).map(e=>e.getBoundingClientRect()).filter(q=>q.width && q.width<innerWidth*0.6); }catch(e){}
+  if(!ts.length) return;
+  const nav=['tutorialExitBtn','tutorialSkipStepBtn'].map(id=>document.getElementById(id)).filter(Boolean).map(e=>e.getBoundingClientRect()).filter(q=>q.width);
+  const avoid=ts.concat(sr ? [sr] : [], nav);
+  const hit=(a,q)=>a.left<q.right+6 && a.right>q.left-6 && a.top<q.bottom+6 && a.bottom>q.top-6;
+  const r=bn.getBoundingClientRect(); if(!r.width || !ts.some(q=>hit(r,q))) return;
+  const w=r.width, h=r.height, m=8;
+  const xs=[innerWidth*0.25, innerWidth*0.75, innerWidth*0.5].map(x=>Math.max(w/2+m, Math.min(innerWidth-w/2-m, x)));
+  const ys=[r.top+h/2, h/2+m, innerHeight-h/2-m, innerHeight/2].map(y=>Math.max(h/2+m, Math.min(innerHeight-h/2-m, y)));
+  for(const y of ys) for(const x of xs){
+    const c={ left:x-w/2, right:x+w/2, top:y-h/2, bottom:y+h/2 };
+    if(!avoid.some(q=>hit(c,q))){ bn.style.left=x+'px'; bn.style.top=y+'px'; return; }
+  }
+}
 function tutorialAvoidConsole(sr){
   const step=tutorialSteps[tutorialStepIndex];
   let onConsole=false;
@@ -15507,6 +16483,7 @@ function completeTutorial(){
   tutorialHideAllHighlights();
   if(tutorialPhaseTimer) clearTimeout(tutorialPhaseTimer);
   const cb = tutorialOnComplete;
+  if(window.XQLearn) XQLearn._engineFinished(); // a Library run reached its end: completed for this account
   exitTutorial();
   if(cb) cb();
 }
@@ -15621,7 +16598,7 @@ function tutorialTrackLoop(){
       positionTutorialArrows(step.highlight);
     }
     updateTutorialBannerPlayingVisibility();
-    if(tutorialOpts.voice || tutorialOpts.surface) tutorialLayoutNav();
+    if(tutorialOpts.voice || tutorialOpts.surface || tutorialOpts.quickStart) tutorialLayoutNav();
     if(!tutorialAdvancing && step.validate && evaluateTutorialValidator(step.validate)){
       tutorialAdvancing = true;
       tutorialHideAllHighlights();
@@ -21301,9 +22278,9 @@ function openPracticeStudio(){
   if(!xquixRequireFunction('Open / close Practice Studio')) return;
   // The library's plans (and any still only on this device, moved in) -- the list re-renders when they are in.
   if(typeof prEnsurePlansLoaded==='function') prEnsurePlansLoaded().then(()=>renderSavedSessions()).catch(()=>{});
-  // Build on the Studio Stage (briefs/PRACTICE-RUN-STAGE.md §3a) where the stage fits; phones and
-  // portrait keep the panel until Step 5 gives Build its tabbed centre screen.
-  if(typeof prStageFits==='function' && prStageFits() && typeof XQStage!=='undefined'){ prOpenBuild(); return; }
+  // Build on the Studio Stage on every viewport (§3a; phones and portrait since 2026-09-23, §3b): the panel below is only
+  // the fallback when the stage is missing.
+  if(typeof prOpenBuild==='function' && typeof XQStage!=='undefined'){ prOpenBuild(); return; }
   document.getElementById('practiceStudioView').style.display='block';
   renderDrillLibrary();
   renderSessionBuilder();
@@ -21339,12 +22316,23 @@ function renderDrillLibrary(){
     const row=document.createElement('div'); row.className='drillCardRow';
     const durLabel=document.createElement('span'); durLabel.textContent='Duration (min):'; durLabel.style.fontSize='11.5px';
     const durInput=document.createElement('input'); durInput.type='number'; durInput.min='1'; durInput.value='5';
-    const addBtn=document.createElement('button'); addBtn.textContent='Add to Block';
+    const addBtn=document.createElement('button'); addBtn.textContent='Add to Block'; addBtn.className='prAddBtn';
     addBtn.onclick=()=>{ addDrillToSession(name, rec, Math.max(1, +durInput.value||5), kind); };
     row.appendChild(durLabel); row.appendChild(durInput); row.appendChild(addBtn);
     card.appendChild(row);
+    // Choosing on the centre screen (§3b): a tap selects or clears the card; its minutes go with it.
+    if(typeof _prPick!=='undefined' && _prPick==='library'){
+      const key=kind+':'+name, sel=_prSel.get(key);
+      if(sel){ card.classList.add('prSel'); durInput.value=sel.minutes; sel.rec=rec; }
+      card.tabIndex=0; card.setAttribute('role','checkbox'); card.setAttribute('aria-checked', sel?'true':'false');
+      const toggle=()=>prPickToggle(key, { kind, name, rec, minutes:Math.max(1, +durInput.value||5) }, card);
+      card.addEventListener('click', e=>{ if(e.target.closest('input,button,select')) return; toggle(); });
+      card.addEventListener('keydown', e=>{ if(e.target!==card) return; if(e.key===' '||e.key==='Enter'){ e.preventDefault(); toggle(); } });
+      durInput.addEventListener('input', ()=>{ const s=_prSel.get(key); if(s){ s.minutes=Math.max(1, +durInput.value||5); prPickConsole(); } });
+    }
     box.appendChild(card);
   });
+  if(typeof prSummaries==='function') prSummaries();
 }
 document.getElementById('drillLibraryFilter')?.addEventListener('input', renderDrillLibrary);
 
@@ -21472,9 +22460,10 @@ function renderSessionBuilder(){
     }
     block.drills.forEach((d,i)=>{
       const row=document.createElement('div'); row.className='sessionDrillRow';
-      const label=document.createElement('span'); label.textContent=(i+1)+'. '+(d.kind==='sequence'?'\u25B6 ':'')+d.formationName+' — '+d.durationMinutes+' min'+(d.kind==='sequence'?' \u00b7 sequence':'');
-      const dcontrols=document.createElement('div'); dcontrols.className='sdrControls';
       const onStage=(typeof _prStage!=='undefined' && _prStage && _prStage.phase==='build');
+      const label=document.createElement('span'); label.textContent=(i+1)+'. '+(d.kind==='sequence'?'\u25B6 ':'')+d.formationName+(onStage ? '' : ' — '+d.durationMinutes+' min')+(d.kind==='sequence'?' \u00b7 sequence':'');
+      label.title=label.textContent;
+      const dcontrols=document.createElement('div'); dcontrols.className='sdrControls';
       const load=document.createElement('button'); load.textContent=onStage?'Preview':'Load'; load.title=onStage ? 'Show this drill on the board (a Run from this drill; changes are temporary)' : (d.state ? 'Load this drill\'s formation onto the board' : 'This drill has no saved tactical content (from an older session)'); load.disabled=!onStage && !d.state;
       load.onclick=()=>{ if(onStage){ prPreviewDrill(bi,i); return; } recordHistory('Load Drill: '+d.formationName);
         if(d.kind==='sequence' && Array.isArray(d.frames) && d.frames.length){ if(frames.length) frames[currentFrame]=makeFrameState(); frames=JSON.parse(JSON.stringify(d.frames)); currentFrame=0; loadFrame(0); } else loadState(d.state); };
@@ -21482,12 +22471,25 @@ function renderSessionBuilder(){
       const ddown=document.createElement('button'); ddown.textContent='↓'; ddown.title='Move down'; ddown.onclick=()=>moveSessionDrill(bi,i,1);
       const drm=document.createElement('button'); drm.textContent='×'; drm.title='Remove'; drm.onclick=()=>removeSessionDrill(bi,i);
       dcontrols.appendChild(load); dcontrols.appendChild(dup); dcontrols.appendChild(ddown); dcontrols.appendChild(drm);
-      row.appendChild(label); row.appendChild(dcontrols);
+      row.appendChild(label);
+      if(onStage){   // minutes are edited in the session itself on the stage (§3b)
+        const st=document.createElement('span'); st.className='prMin';
+        const minus=document.createElement('button'); minus.textContent='\u2212'; minus.title='One minute less'; minus.disabled=(+d.durationMinutes||0)<=1; minus.onclick=()=>prDrillMinutes(bi,i,-1);
+        const val=document.createElement('span'); val.textContent=d.durationMinutes+' min';
+        const plus=document.createElement('button'); plus.textContent='+'; plus.title='One minute more'; plus.onclick=()=>prDrillMinutes(bi,i,1);
+        st.appendChild(minus); st.appendChild(val); st.appendChild(plus); row.appendChild(st);
+      }
+      row.appendChild(dcontrols);
       section.appendChild(row);
     });
     box.appendChild(section);
   });
   document.getElementById('sessionTotalDuration').textContent = 'Total duration: '+computeSessionTotalMinutes()+' min';
+  if(typeof prSummaries==='function') prSummaries();
+}
+function prDrillMinutes(bi, i, delta){
+  const d=currentSessionBlocks[bi] && currentSessionBlocks[bi].drills[i]; if(!d) return;
+  d.durationMinutes=Math.max(1, (+d.durationMinutes||0)+delta); renderSessionBuilder();
 }
 
 function buildSessionRecord(name, coachingDNA){
@@ -21545,6 +22547,7 @@ async function prSaveRecord(name, rec){
     MizeDialog.alert(res.error.code==='P0100' ? res.error.message : ('The session could not be saved: '+res.error.message+'. It is still in the builder.'), 'Session not saved');
     return;
   }
+  if(typeof prMarkClean==='function') prMarkClean();
   renderSavedSessions();
   const saved=XQUIX.StorageProvider.getItemSync(PRACTICE_KIND, name);
   if(cloud){
@@ -21584,6 +22587,15 @@ async function prSaveRecord(name, rec){
 var _prStage=null;   // { saved, phase:'build'|'run' } while Practice holds the stage (var: autosave reads it early)
 var _prRun=null;     // { rec, name, drills, i, fromBuild } during a Run
 function prStageFits(){ return window.innerWidth>=900 && window.innerWidth>window.innerHeight; }
+// Landscape (any width) = the studio with the side screens on the walls ('wall'); portrait = the centre screen fitted to
+// the width, the sources as tiles above it, the console under it ('portrait') -- the Game Tracker's two layouts. The layout
+// viewport decides, and never while a field on the screens has focus (an on-screen keyboard is not a rotation).
+var _prMode=null;
+function prStageMode(){
+  const a=document.activeElement;
+  if(_prMode && a && a.matches && a.matches('.prScreen input, .prScreen select, .prScreen textarea, #mizeDialogInput')) return _prMode;
+  return window.innerWidth>window.innerHeight ? 'wall' : 'portrait';
+}
 function prRunDrills(rec){
   const out=[]; (rec && Array.isArray(rec.blocks) ? rec.blocks : []).forEach((b,bi)=>{
     (b.drills||[]).forEach(d=>out.push({ block:b.name||'', blockIndex:bi, name:d.formationName||'Drill', minutes:d.durationMinutes||0, tags:d.coachingDNA||[], state:d.state||null,
@@ -21591,8 +22603,69 @@ function prRunDrills(rec){
   });
   return out;
 }
-function prCameraOpts(){
-  return prStageFits() ? { camera:'center', roomCamera:'pan', readingBox:'screen' } : { camera:'center', readingBox:'screen', fitScreen:true };
+function prCameraOpts(mode){
+  mode=mode||prStageMode();
+  return mode==='portrait'
+    ? { camera:'center', readingBox:'screen', fitScreen:true, insetTop:prPortraitInset }
+    // a landscape phone: the centre screen takes the wall between the side screens (the Game Tracker's compact framing)
+    : { camera:'center', roomCamera:'pan', readingBox: window.innerHeight<600 ? 'stage' : 'screen' };
+}
+function prStageFlags(){
+  const b=document.body, on=typeof XQStage!=='undefined' && XQStage.consumer()==='practice' && !!_prStage, m=_prMode;
+  b.classList.toggle('prPortrait', on && m==='portrait');
+  b.classList.toggle('prCompact', on && m==='wall' && window.innerHeight<600);
+}
+function prStageOrient(){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='practice' || !_prStage) return;
+  const m=prStageMode(), o=XQStage.opts();
+  if(m!==_prMode){ _prMode=m; ['fitScreen','roomCamera','insetTop','readingBox'].forEach(k=>delete o[k]); Object.assign(o, prCameraOpts(m)); }
+  else if(m==='wall') o.readingBox = window.innerHeight<600 ? 'stage' : 'screen';
+  prStageFlags(); XQStage.layout();
+}
+let _prOrientT=null;
+window.addEventListener('resize', ()=>{ clearTimeout(_prOrientT); _prOrientT=setTimeout(()=>{ prStageOrient(); setTimeout(()=>{ if(XQStage.consumer()==='practice') XQStage.layout(); }, 320); }, 120); });
+// Portrait: the tiles, the centre screen, the totals and the console are centred as one group.
+let _prConsoleH=120, _prTilesH=58;
+function prPortraitInset(){
+  if(typeof psRoomRect!=='function' || typeof PS_SCREENS==='undefined') return 0;
+  const LB=psRoomRect(), sc=psMapWallBox(PS_SCREENS.center, 'center', LB), vh=viewportHeight();
+  if(document.body.classList.contains('prBuild')){
+    // Build: tiles at the top, the console at the bottom, the session frame taking the height between (the photographed
+    // screen extended up into the black above the room, as the Game Tracker's tall frame)
+    const bottom=vh-10-_prConsoleH-10-24, minTop=10+_prTilesH+10;
+    return Math.round(Math.max(bottom, minTop+sc.height)-(sc.top+sc.height));
+  }
+  const top=Math.max(10, (vh-(sc.height+10+_prConsoleH))/2);   // Run: the screen and the console centred as one group
+  return Math.round(top-sc.top);
+}
+// After every stage layout: portrait places the tiles, totals and console around the screen; the choosing frame follows the screen.
+function prStageRects(){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='practice') return;
+  const w=document.getElementById('stageWrap'); if(!w) return;
+  const r=w.getBoundingClientRect(), b=document.body, portrait=b.classList.contains('prPortrait'), build=b.classList.contains('prBuild');
+  if(portrait){
+    const tiles=document.getElementById('prTiles'), tot=document.getElementById('prTotals'), c=document.getElementById('stageConsole');
+    if(tiles && build){
+      const th=tiles.offsetHeight||_prTilesH; tiles.style.top='10px';
+      if(th>20 && Math.abs(th-_prTilesH)>2){ _prTilesH=th; setTimeout(()=>XQStage.layout(), 0); }
+      b.style.setProperty('--prUp', Math.max(0, Math.round(r.top-(10+th+10)))+'px');
+    }
+    let y=r.bottom+10;
+    if(tot && build){ tot.style.top=Math.round(y)+'px'; y+=24; }
+    if(c && c.childElementCount){
+      c.style.left='8px'; c.style.width=Math.round(viewportWidth()-16)+'px'; c.style.top=Math.round(y)+'px'; c.style.height='';
+      XQStage._fitControls();
+      // Build keeps the tallest console it has had as its reservation, so the session frame does not jump when Confirm /
+      // Cancel (one row) replace Save / Run / Exit / Modes (two rows on a phone)
+      const ch=Math.round(c.offsetHeight); if(ch>40 && (ch>_prConsoleH+2 || (!build && Math.abs(ch-_prConsoleH)>2))){ _prConsoleH=ch; setTimeout(()=>XQStage.layout(), 0); }
+    }
+  }
+  const pk=document.getElementById('prPick');
+  if(pk){
+    const up=portrait && build ? (parseFloat(b.style.getPropertyValue('--prUp'))||0) : (portrait ? r.top-10 : 0);
+    const top=r.top-up, h=r.height+up;
+    pk.style.left=Math.round(r.left)+'px'; pk.style.top=Math.round(top)+'px'; pk.style.width=Math.round(r.width)+'px'; pk.style.height=Math.round(h)+'px';
+  }
 }
 // Practice takes the stage (once); the coach's board is saved here and nowhere else.
 function prEnsureStage(){
@@ -21602,43 +22675,220 @@ function prEnsureStage(){
   const wasFC=!!frontCourtActive; if(wasFC) toggleFrontCourt(false);
   let saved=null; try{ if(playing) playFrames(); saved={ state:getState(), undo:undoStack.slice(), redo:redoStack.slice(), frontCourt:wasFC, frames:JSON.parse(JSON.stringify(frames)), currentFrame }; }catch(e){}
   closePracticeStudio();
-  XQStage.open('practice', Object.assign({ lockCamera:true, instant:true }, prCameraOpts()));   // (closes any previous consumer first)
-  _prStage={ saved, phase:null };
+  _prMode=prStageMode(); _prConsoleH=120;
+  XQStage.open('practice', Object.assign({ lockCamera:true, instant:true }, prCameraOpts(_prMode)));   // (closes any previous consumer first)
+  _prStage={ saved, phase:null, pick:null };
+  prStageFlags();
 }
 // ---- BUILD
 const _prHomes=[];   // where the moved panels came from: [node, parent, nextSibling]
 function prMove(node, into){ if(!node) return; _prHomes.push([node, node.parentNode, node.nextSibling]); into.appendChild(node); }
+// Build (MIZE 2026-09-23, §3b): the CENTRE screen shows the session being built and is where every choice is made. The side
+// screens show what is there -- the Drill Library (left) and Saved Sessions (right) as read-only summaries; a tap on one opens
+// that list on the centre screen (#prPick, the real panels moved in), Confirm / Cancel on the console put it back. In portrait
+// the two tiles above the screen stand in for the side screens.
 function prBuildMount(){
   if(document.getElementById('prBuildCenter')) return;
   const mk=(id)=>{ const d=document.createElement('div'); d.id=id; d.className='prScreen'; return d; };
-  const left=mk('prBuildLeft'), center=mk('prBuildCenter'), right=mk('prBuildRight');
+  const left=mk('prBuildLeft'), center=mk('prBuildCenter'), right=mk('prBuildRight'), pick=mk('prPick');
   document.body.appendChild(center);   // the tactical mount returns it here
+  [[left,'library','Drill Library: tap to choose drills'],[right,'saved','Saved Sessions: tap to open a session']].forEach(([n,k,lab])=>{
+    n.classList.add('prSum'); n.tabIndex=0; n.setAttribute('role','button'); n.setAttribute('aria-label', lab);
+    n.addEventListener('click', ()=>prPickOpen(k)); n.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); prPickOpen(k); } });
+  });
+  pick.innerHTML='<div class="prPickHead"><div class="prPickTitle"></div><div class="prPickHint"></div>'+
+    '<label class="prPickTo">Add to <select id="prPickBlock"></select></label></div>'+
+    '<div class="prPickBody"><div data-pick="library"></div><div data-pick="saved"></div></div>';
+  pick.setAttribute('role','dialog'); pick.setAttribute('aria-modal','false');
+  document.body.appendChild(pick);
   const savedTitle=[...document.querySelectorAll('#sessionBuilderPanel .psPanelTitle')].find(t=>/Saved Sessions/.test(t.textContent));
-  const savedWrap=document.createElement('div'); savedWrap.className='psPanel'; right.appendChild(savedWrap);
+  const savedWrap=document.createElement('div'); savedWrap.className='psPanel'; pick.querySelector('[data-pick="saved"]').appendChild(savedWrap);
   [savedTitle, document.getElementById('sessionTagFilter'), document.getElementById('savedSessionsList')].forEach(n=>prMove(n, savedWrap));
-  prMove(document.getElementById('drillLibraryPanel'), left);
+  prMove(document.getElementById('drillLibraryPanel'), pick.querySelector('[data-pick="library"]'));
   prMove(document.getElementById('sessionBuilderPanel'), center);
+  document.getElementById('targetBlockSelect')?.parentElement?.classList.add('prTargetRow');
+  // portrait: the two sources above the screen, the totals under it
+  const tiles=document.createElement('div'); tiles.id='prTiles';
+  tiles.innerHTML='<button type="button" data-pick="library"><span class="k">Drill Library</span><span class="t"></span><small></small></button>'+
+    '<button type="button" data-pick="saved"><span class="k">Saved Sessions</span><span class="t"></span><small></small></button>';
+  tiles.querySelectorAll('button').forEach(bt=>bt.addEventListener('click', ()=>prPickOpen(bt.dataset.pick)));
+  const tot=document.createElement('div'); tot.id='prTotals'; tot.setAttribute('aria-live','polite');
+  document.body.appendChild(tiles); document.body.appendChild(tot);
   XQStage.setScreen('media', left); XQStage.setScreen('info', right); XQStage.setScreen('tactical', center);
   document.body.classList.add('prBuild');
 }
 function prBuildUnmount(){
+  prPickReset();
   if(!document.getElementById('prBuildCenter') && !_prHomes.length) return;
   while(_prHomes.length){ const [n,parent,next]=_prHomes.pop(); if(parent) parent.insertBefore(n, next && next.parentNode===parent ? next : null); }
+  document.getElementById('targetBlockSelect')?.parentElement?.classList.remove('prTargetRow');
   if(typeof XQStage!=='undefined' && XQStage.consumer()==='practice'){ XQStage.setScreen('tactical', null); XQStage.setScreen('media', null); XQStage.setScreen('info', null); }
-  ['prBuildLeft','prBuildCenter','prBuildRight'].forEach(id=>document.getElementById(id)?.remove());
+  ['prBuildLeft','prBuildCenter','prBuildRight','prPick','prTiles','prTotals'].forEach(id=>document.getElementById(id)?.remove());
   document.body.classList.remove('prBuild');
 }
-function prOpenBuild(){
-  prEnsureStage();
-  if(_prRun) prRunStop();
-  _prStage.phase='build';
-  document.getElementById('prDrillNote')?.remove();
-  prBuildMount();
-  renderDrillLibrary(); renderSessionBuilder(); renderSavedSessions();
+// ---- the side screens (and the portrait tiles): what is there, read-only
+const prPlural=(n,one,many)=>n+' '+(n===1?one:many);
+function prSummaries(){
+  const L=document.getElementById('prBuildLeft'), R=document.getElementById('prBuildRight'); if(!L || !R) return;
+  const f=XQUIX.StorageProvider.listStoreSync('formation')||{}, sq=XQUIX.StorageProvider.listStoreSync('sequence')||{};
+  const fn=Object.keys(f), sn=Object.keys(sq), n=fn.length+sn.length;
+  const plans=prPlans(), pn=Object.keys(plans), cur=(document.getElementById('sessionNameInput')?.value||'').trim();
+  const el=(tag, cls, text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!==undefined) e.textContent=text; return e; };
+  const fill=(box, head, count, sub, items, tap)=>{
+    box.innerHTML=''; box.appendChild(el('div','prSumHead',head)); box.appendChild(el('div','prSumCount',String(count))); box.appendChild(el('div','prSumSub',sub));
+    const ul=el('ul','prSumList'); items.forEach(it=>{ const li=el('li', it.cur?'cur':'', it.name); if(it.small){ li.appendChild(el('small','',it.small)); } ul.appendChild(li); }); box.appendChild(ul);
+    box.appendChild(el('div','prSumTap',tap));
+  };
+  fill(L, 'Drill Library', n, n ? prPlural(fn.length,'formation','formations')+' \u00b7 '+prPlural(sn.length,'sequence','sequences') : 'No formations or sequences saved yet',
+    [...fn.map(x=>({ name:x })), ...sn.map(x=>({ name:'\u25B6 '+x }))].slice(0,8), 'Tap to choose drills');
+  fill(R, 'Saved Sessions', pn.length, prCloudOn() ? 'In your library' : 'On this device only',
+    pn.slice(0,8).map(x=>({ name:x, small:(plans[x].totalDurationMinutes||0)+' min'+(x===cur?' \u00b7 open':''), cur:x===cur })), pn.length ? 'Tap to open a session' : 'Save a session to see it here');
+  const tiles=document.getElementById('prTiles');
+  if(tiles){
+    const [a,b]=tiles.querySelectorAll('button');
+    a.querySelector('.t').textContent=prPlural(n,'drill','drills'); a.querySelector('small').textContent='Tap to choose';
+    b.querySelector('.t').textContent=prPlural(pn.length,'session','sessions'); b.querySelector('small').textContent=prCloudOn() ? 'In your library' : 'On this device only';
+  }
+  const tot=document.getElementById('prTotals');
+  if(tot){
+    const dr=currentSessionBlocks.reduce((s,bk)=>s+bk.drills.length,0);
+    tot.innerHTML='';
+    if(!currentSessionBlocks.length) tot.textContent='No blocks yet \u2014 choose drills from the Drill Library';
+    else { const bb=document.createElement('b'); bb.textContent=computeSessionTotalMinutes()+' min'; tot.appendChild(bb);
+      tot.appendChild(document.createTextNode(' \u00b7 '+prPlural(currentSessionBlocks.length,'block','blocks')+' \u00b7 '+prPlural(dr,'drill','drills'))); }
+  }
+}
+document.getElementById('sessionNameInput')?.addEventListener('input', ()=>prSummaries());
+// ---- choosing on the centre screen
+var _prPick=null;            // 'library' | 'saved' while the centre screen shows a list to choose from
+const _prSel=new Map();      // library choices in the order tapped: key -> { kind, name, rec, minutes }
+let _prSelSession=null;      // the saved session chosen
+let _prPickT=null;
+function prPickOpen(kind){
+  if(!_prStage || _prStage.phase!=='build' || XQStage.consumer()!=='practice') return;
+  if(_prPick===kind) return;
+  const pk=document.getElementById('prPick'); if(!pk) return;
+  clearTimeout(_prPickT); _prSel.clear(); _prSelSession=null;
+  _prPick=kind; _prStage.pick=kind;
+  pk.querySelectorAll('.prPickBody > [data-pick]').forEach(n=>{ n.hidden=n.dataset.pick!==kind; });
+  pk.querySelector('.prPickTitle').textContent = kind==='library' ? 'Drill Library' : 'Saved Sessions';
+  pk.querySelector('.prPickHint').textContent = kind==='library' ? 'Tap the drills you want, set their minutes, then Confirm.' : 'Tap a session, then Confirm to open it in the builder.';
+  pk.querySelector('.prPickTo').style.display = kind==='library' ? '' : 'none';
+  if(kind==='library') prPickBlockOptions();
+  pk.setAttribute('aria-label', kind==='library' ? 'Choose drills' : 'Choose a saved session');
+  document.body.classList.add('prPicking'); document.body.dataset.pick=kind;
+  if(kind==='library') renderDrillLibrary(); else renderSavedSessions();
+  prPickConsole();
+  prStageRects();
+  pk.querySelector('.prPickBody').scrollTop=0;
+  prPickFly(pk, kind, 'in');
+}
+function prPickBlockOptions(){
+  const sel=document.getElementById('prPickBlock'); if(!sel) return;
+  sel.innerHTML='';
+  currentSessionBlocks.forEach(b=>{ const o=document.createElement('option'); o.value=b.id; o.textContent=b.name; sel.appendChild(o); });
+  const og=document.createElement('optgroup'); og.label='New block';
+  ['warmup','skill','tactical','conditioning','cooldown'].forEach(t=>{ const o=document.createElement('option'); o.value='new:'+t; o.textContent='New '+BLOCK_TYPE_LABELS[t]; og.appendChild(o); });
+  sel.appendChild(og);
+  sel.value = currentSessionBlocks.some(b=>b.id===targetBlockId) ? targetBlockId : (currentSessionBlocks[0] ? currentSessionBlocks[0].id : 'new:tactical');
+}
+function prPickToggle(key, item, card){
+  if(_prSel.has(key)) _prSel.delete(key); else _prSel.set(key, item);
+  const on=_prSel.has(key); card.classList.toggle('prSel', on); card.setAttribute('aria-checked', on?'true':'false');
+  prPickConsole();
+}
+function prPickSelectSession(name, row){
+  _prSelSession=name;
+  document.querySelectorAll('#savedSessionsList .versionRow.prSel').forEach(x=>x.classList.remove('prSel'));
+  if(row) row.classList.add('prSel');
+  prPickConsole();
+}
+// The side screen the list came from (portrait: its tile) -- the frame grows out of it and goes back into it.
+function prPickFly(pk, kind, dir){
+  if(!pk || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return 0;
+  const portrait=document.body.classList.contains('prPortrait');
+  const src=portrait ? document.querySelector('#prTiles [data-pick="'+kind+'"]') : document.getElementById(kind==='library' ? 'videoFrame' : 'statsFrame');
+  if(!src) return 0;
+  pk.style.transition='none'; pk.style.transform=''; const d=pk.getBoundingClientRect(), s=src.getBoundingClientRect();
+  if(!s.width || !d.width) return 0;
+  const t='translate('+(s.left-d.left).toFixed(1)+'px,'+(s.top-d.top).toFixed(1)+'px) scale('+(s.width/d.width).toFixed(4)+','+(s.height/d.height).toFixed(4)+')';
+  if(dir==='in'){
+    pk.style.transform=t; pk.style.opacity='.35'; void pk.offsetWidth;
+    pk.style.transition='transform .32s cubic-bezier(.2,.7,.2,1), opacity .22s ease'; pk.style.transform=''; pk.style.opacity='';
+    return 320;
+  }
+  void pk.offsetWidth;
+  pk.style.transition='transform .24s cubic-bezier(.5,0,.8,.4), opacity .24s ease'; pk.style.transform=t; pk.style.opacity='0';
+  return 240;
+}
+// Closes the choosing frame; the lists render back to their normal state and the console to Build's.
+function prPickClose(){
+  if(!_prPick) return;
+  const kind=_prPick, pk=document.getElementById('prPick');
+  _prPick=null; if(_prStage) _prStage.pick=null; _prSel.clear(); _prSelSession=null;
+  const ms=prPickFly(pk, kind, 'out');
+  const done=()=>{ document.body.classList.remove('prPicking'); delete document.body.dataset.pick; if(pk){ pk.style.transition=''; pk.style.transform=''; pk.style.opacity=''; }
+    if(kind==='library') renderDrillLibrary(); else renderSavedSessions(); };
+  clearTimeout(_prPickT);
+  if(ms) _prPickT=setTimeout(done, ms); else done();
+  if(_prStage && _prStage.phase==='build' && XQStage.consumer()==='practice') prBuildConsole();
+  prSummaries();
+}
+// Immediately, no motion (unmount, cleanup).
+function prPickReset(){
+  clearTimeout(_prPickT); _prPick=null; if(_prStage) _prStage.pick=null; _prSel.clear(); _prSelSession=null;
+  document.body.classList.remove('prPicking'); delete document.body.dataset.pick;
+}
+function prPickConfirm(){
+  if(_prPick==='library'){
+    if(!_prSel.size) return;
+    const v=document.getElementById('prPickBlock')?.value || 'new:tactical';
+    if(v.startsWith('new:')){
+      const t=v.slice(4); let nm=BLOCK_TYPE_LABELS[t]||'Block';
+      const same=currentSessionBlocks.filter(b=>b.blockType===t).length; if(same) nm=nm+' ('+(same+1)+')';
+      addBlock(t, nm);
+    } else targetBlockId=v;
+    const picks=[..._prSel.values()];
+    picks.forEach(p=>addDrillToSession(p.name, p.rec, p.minutes, p.kind));
+    prPickClose();
+    if(typeof xquixHomeShowToast==='function') xquixHomeShowToast(prPlural(picks.length,'drill','drills')+' added to '+((findBlock(targetBlockId)||{}).name||'the session')+'.', 1800);
+    return;
+  }
+  if(_prPick==='saved'){
+    const name=_prSelSession, rec=name && prPlans()[name]; if(!rec) return;
+    const go=()=>{ loadSessionIntoBuilder(rec); prPickClose(); };
+    if(prBuilderDirty()){
+      const cur=(document.getElementById('sessionNameInput')?.value||'').trim();
+      MizeDialog.confirm('Open \u201c'+name+'\u201d in the builder? '+(cur ? 'Changes to \u201c'+cur+'\u201d' : 'The session in the builder')+' that are not saved will be lost.').then(y=>{ if(y && _prPick==='saved') go(); });
+    } else go();
+  }
+}
+function prPickConsole(){
+  if(!_prPick || typeof XQStage==='undefined' || XQStage.consumer()!=='practice') return;
+  let sub, dis;
+  if(_prPick==='library'){
+    const n=_prSel.size, m=[..._prSel.values()].reduce((a,p)=>a+(+p.minutes||0),0);
+    sub = n ? prPlural(n,'drill','drills')+' \u00b7 '+m+' min' : 'Select drills'; dis=!n;
+  } else {
+    const okS=!!(_prSelSession && prPlans()[_prSelSession]); if(!okS) _prSelSession=null;
+    sub = okS ? _prSelSession : 'Select a session'; dis=!okS;
+  }
+  const btn=document.querySelector('#stageConsole .stageConsoleBtn[data-id="confirm"]');
+  if(btn && btn.closest('.stageConsoleGroup')?.dataset.group===(_prPick==='library'?'drill library':'saved sessions')){ XQStage.updateControl('confirm', { sub, disabled:dis }); return; }
+  XQStage.setControls({ groups:[
+    { label:_prPick==='library' ? 'Drill Library' : 'Saved Sessions', items:[
+      { id:'cancel', label:'Cancel', title:'Back to the session, nothing changed', onTap:prPickClose },
+      { id:'confirm', label:'Confirm', sub, big:true, disabled:dis, title:_prPick==='library' ? 'Add the selected drills to the session' : 'Open the selected session in the builder', onTap:prPickConfirm },
+    ]},
+    { label:'System', items:[ { id:'modes', label:'Modes', title:'Choose a mode', onTap:prRunModes } ]},
+  ]});
+  setTimeout(prRunConsoleShown, 0);
+}
+function prBuildConsole(){
   XQStage.setControls({ groups:[
     { label:'Session', items:[
       { id:'save', label:'Save', title:'Save this session', onTap:()=>document.getElementById('saveSessionBtn')?.click() },
-      { id:'run', label:'▶ Run', big:true, title:'Run this session drill by drill', onTap:()=>document.getElementById('runSessionBtn')?.click() },
+      { id:'run', label:'\u25B6 Run', big:true, title:'Run this session drill by drill', onTap:()=>document.getElementById('runSessionBtn')?.click() },
     ]},
     { label:'System', items:[
       { id:'exit', label:'Exit', title:'Back to the Coaching board', onTap:()=>{ if(XQStage.consumer()==='practice') XQStage.close(); } },
@@ -21646,6 +22896,27 @@ function prOpenBuild(){
     ]},
   ]});
   setTimeout(prRunConsoleShown, 0);
+}
+// Unsaved changes in the builder (asked before a saved session replaces them).
+var _prCleanSig=null;
+function prBuilderSig(){ return JSON.stringify([(document.getElementById('sessionNameInput')?.value||'').trim(), currentSessionBlocks.map(b=>[b.name,b.blockType,b.coachingDNA||[],b.drills.map(d=>[d.formationName,+d.durationMinutes||0,d.kind||''])])]); }
+function prMarkClean(){ _prCleanSig=prBuilderSig(); }
+function prBuilderDirty(){ if(!currentSessionBlocks.length) return false; return prBuilderSig()!==_prCleanSig; }
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Escape' || !_prPick) return;
+  if(document.getElementById('mizeDialogBackdrop')?.classList.contains('open')) return;
+  e.preventDefault(); prPickClose();
+});
+function prOpenBuild(){
+  prEnsureStage();
+  if(_prRun) prRunStop();
+  _prStage.phase='build';
+  document.getElementById('prDrillNote')?.remove();
+  prPickReset();
+  prBuildMount();
+  prStageFlags();
+  renderDrillLibrary(); renderSessionBuilder(); renderSavedSessions();
+  prBuildConsole();
 }
 function prPreviewDrill(bi, di){
   let idx=0; for(let b=0;b<bi;b++) idx+=(currentSessionBlocks[b].drills||[]).length; idx+=di;
@@ -21729,8 +23000,8 @@ function prCleanup(){
   const st=_prStage;
   prRunStop();
   prBuildUnmount();
-  _prStage=null;
-  document.body.classList.remove('prConsole','prBuild');
+  _prStage=null; _prMode=null; document.body.style.removeProperty('--prUp');
+  document.body.classList.remove('prConsole','prBuild','prPortrait','prCompact','prPicking'); delete document.body.dataset.pick;
   if(typeof XQStage!=='undefined' && XQStage.consumer()==='practice') XQStage.close();   // re-entrant: _prStage is already null
   if(st && st.saved){
     const wasReady=historyReady; historyReady=false;
@@ -21745,7 +23016,7 @@ function prCleanup(){
 var prRunCleanup=prCleanup;   // the Step 1 name
 if(typeof XQStage!=='undefined'){
   XQStage.on('close', c=>{ if(c==='practice' && _prStage) prCleanup(); });
-  XQStage.on('layout', ()=>{ if(XQStage.consumer()==='practice') setTimeout(prRunConsoleShown, 0); });
+  XQStage.on('layout', ()=>{ if(XQStage.consumer()==='practice'){ prStageRects(); setTimeout(prRunConsoleShown, 0); } });
 }
 // (the fallback button's markup comes after this script -- listen at the document)
 document.addEventListener('click', e=>{ if(e.target && e.target.closest && e.target.closest('#prExitFallback')){ e.stopPropagation(); if(_prRun) prRunExit(); else if(XQStage.consumer()==='practice') XQStage.close(); } }, true);
@@ -21786,6 +23057,7 @@ function loadSessionIntoBuilder(rec){
     }];
   }
   renderSessionBuilder();
+  if(typeof prMarkClean==='function') prMarkClean();
 }
 
 function effectiveSessionTags(rec){
@@ -21808,7 +23080,7 @@ function renderSavedSessions(){
   const where=document.createElement('div'); where.className='prPlansWhere';
   where.textContent = cloud ? 'Your library · every plan also kept on this device for offline use' : 'This device only — sign in to keep your plans in your library';
   box.appendChild(where);
-  if(!names.length){ const e=document.createElement('div'); e.style.cssText='font-size:12px;color:#7c8a8a;'; e.textContent='No saved sessions yet.'; box.appendChild(e); return; }
+  if(!names.length){ const e=document.createElement('div'); e.style.cssText='font-size:12px;color:#7c8a8a;'; e.textContent='No saved sessions yet.'; box.appendChild(e); if(typeof _prPick!=='undefined' && _prPick==='saved') prPickConsole(); if(typeof prSummaries==='function') prSummaries(); return; }
   names.forEach(name=>{
     const rec=all[name];
     const tags=effectiveSessionTags(rec);
@@ -21825,7 +23097,13 @@ function renderSavedSessions(){
       meta.appendChild(tagRow);
     }
     const btnWrap=document.createElement('div'); btnWrap.style.display='flex'; btnWrap.style.gap='4px';
-    const load=document.createElement('button'); load.textContent='Load'; load.onclick=()=>loadSessionIntoBuilder(rec);
+    const load=document.createElement('button'); load.textContent='Load'; load.className='prLoadBtn'; load.onclick=()=>loadSessionIntoBuilder(rec);
+    if(typeof _prPick!=='undefined' && _prPick==='saved'){   // choosing on the centre screen (§3b): a tap selects the row
+      if(_prSelSession===name) row.classList.add('prSel');
+      row.tabIndex=0; row.setAttribute('role','option'); row.setAttribute('aria-selected', _prSelSession===name ? 'true' : 'false');
+      row.addEventListener('click', e=>{ if(e.target.closest('button,input,select')) return; prPickSelectSession(name, row); });
+      row.addEventListener('keydown', e=>{ if(e.target!==row) return; if(e.key==='Enter'||e.key===' '){ e.preventDefault(); prPickSelectSession(name, row); } });
+    }
     const run=document.createElement('button'); run.textContent='\u25B6 Run'; run.title='Run this session on the Studio Stage'; run.onclick=()=>openPracticeRun(rec);
     btnWrap.appendChild(run);
     const del=MIZE.UI.ConfirmDeleteButton('Delete session "'+name+'"?', async ()=>{ await XQUIX.Storage.delete({ kind:PRACTICE_KIND, name, scope:'personal' }); renderSavedSessions(); }, { title:'Delete session' });
@@ -21833,6 +23111,8 @@ function renderSavedSessions(){
     row.appendChild(meta); row.appendChild(btnWrap);
     box.appendChild(row);
   });
+  if(typeof _prPick!=='undefined' && _prPick==='saved') prPickConsole();   // a deleted choice is no longer a choice
+  if(typeof prSummaries==='function') prSummaries();
 }
 document.getElementById('sessionTagFilter')?.addEventListener('input', renderSavedSessions);
 
@@ -25312,6 +26592,15 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 /* Presentation Lab only: every reload fetches the current file. See pin-presentationlab.sh. */
 (function () { var d = document, t = Date.now();
   d.write('<scr' + 'ipt src="presentationlab/xquix-presentation-tutorial.js?t=' + t + '"><\/scr' + 'ipt>');
+})();
+</script>
+<script>
+/* Presentation Lab only: every reload fetches the current file. See pin-presentationlab.sh. */
+(function () { var d = document, t = Date.now();
+  d.write('<scr' + 'ipt src="presentationlab/homography.js?t=' + t + '"><\/scr' + 'ipt>');
+  d.write('<scr' + 'ipt src="presentationlab/va-geometry.js?t=' + t + '"><\/scr' + 'ipt>');
+  d.write('<scr' + 'ipt src="presentationlab/va-detect.js?t=' + t + '"><\/scr' + 'ipt>');
+  d.write('<scr' + 'ipt src="presentationlab/xquix-video-analysis.js?t=' + t + '"><\/scr' + 'ipt>');
 })();
 </script>
 <script>
@@ -31745,6 +33034,9 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
   // runs the first-use path again.
   document.getElementById('labReset').onclick = function () {
     try { var q = JSON.parse(localStorage.getItem('xquixModeQualified') || '{}'); delete q.presenting; localStorage.setItem('xquixModeQualified', JSON.stringify(q)); } catch (e) {}
+    // Since the tutorial system's Step 1 the first-use state also lives in XQLearn's
+    // device cache (the lab is signed out): forget qs.presenting there too.
+    try { var d = JSON.parse(localStorage.getItem('xquixLearnV1:device') || '{}'); delete d['qs.presenting']; localStorage.setItem('xquixLearnV1:device', JSON.stringify(d)); } catch (e) {}
     info('presenting is unqualified again: Switch Mode -> Presenting runs the tutorial first');
   };
   var pro = false;
@@ -31768,7 +33060,7 @@ if(_nx) _nx.addEventListener('click',function(e){e.stopPropagation();e.preventDe
   };
   function info(msg) {
     var U = window.MIZE && MIZE.PresentationTutorial;
-    var qual = false; try { qual = !!(JSON.parse(localStorage.getItem('xquixModeQualified') || '{}').presenting); } catch (e) {}
+    var qual = false; try { qual = (typeof hasModeTutorialQualification === 'function') ? hasModeTutorialQualification('presenting') : !!(JSON.parse(localStorage.getItem('xquixModeQualified') || '{}').presenting); } catch (e) {}
     document.getElementById('labInfo').textContent =
       (msg ? msg + '\n' : '') +
       'pinned: ' + (window.LAB_PINNED || '?') +
