@@ -127,6 +127,9 @@ banner = """<div id="labBanner">Presentation Lab · pinned Studio snapshot · no
   // runs the first-use path again.
   document.getElementById('labReset').onclick = function () {
     try { var q = JSON.parse(localStorage.getItem('xquixModeQualified') || '{}'); delete q.presenting; localStorage.setItem('xquixModeQualified', JSON.stringify(q)); } catch (e) {}
+    // Since the tutorial system's Step 1 the first-use state also lives in XQLearn's
+    // device cache (the lab is signed out): forget qs.presenting there too.
+    try { var d = JSON.parse(localStorage.getItem('xquixLearnV1:device') || '{}'); delete d['qs.presenting']; localStorage.setItem('xquixLearnV1:device', JSON.stringify(d)); } catch (e) {}
     info('presenting is unqualified again: Switch Mode -> Presenting runs the tutorial first');
   };
   var pro = false;
@@ -150,7 +153,7 @@ banner = """<div id="labBanner">Presentation Lab · pinned Studio snapshot · no
   };
   function info(msg) {
     var U = window.MIZE && MIZE.PresentationTutorial;
-    var qual = false; try { qual = !!(JSON.parse(localStorage.getItem('xquixModeQualified') || '{}').presenting); } catch (e) {}
+    var qual = false; try { qual = (typeof hasModeTutorialQualification === 'function') ? hasModeTutorialQualification('presenting') : !!(JSON.parse(localStorage.getItem('xquixModeQualified') || '{}').presenting); } catch (e) {}
     document.getElementById('labInfo').textContent =
       (msg ? msg + '\\n' : '') +
       'pinned: ' + (window.LAB_PINNED || '?') +

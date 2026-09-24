@@ -5894,8 +5894,10 @@ function xquixHomeShowToast(msg, ms){
 // and Practice Mode is the existing Organization Library panel (premade
 // formations/sequences shared at the org level). Nothing here needed
 // building from scratch, just correctly wiring to what's already there.
-document.addEventListener('xquixHomeModeSelected', (e) => {
-  const mode = e.detail.mode;
+// The route into each mode from Home. Home's circles go through the same
+// gate as the Mode Switcher (XQLearn.enterMode): the mode opens first, and a
+// Quick Start runs on top of it for an account that has not seen it yet.
+function xquixHomeRouteMode(mode){
   xquixHideHome();
   if(mode === 'gametracker'){
     // Exit presentation mode first so its background and stage setup
@@ -5987,6 +5989,11 @@ document.addEventListener('xquixHomeModeSelected', (e) => {
   }
   // 'coaching': just reveals the Studio as-is, already handled by
   // xquixHideHome() uncovering it -- that IS the coaching environment.
+}
+document.addEventListener('xquixHomeModeSelected', (e) => {
+  const mode = e.detail.mode;
+  if(window.XQLearn) XQLearn.enterMode(mode, { source:'home', open:()=>xquixHomeRouteMode(mode) });
+  else xquixHomeRouteMode(mode);
 });
 // Tutorial routing. Only "studio" (XquiX Studio quick guide) maps to
 // real, existing content -- buildFirstCoachingSessionSteps(), the same
@@ -13980,19 +13987,306 @@ document.getElementById('resetBtn').onclick=reset;
 document.getElementById('duplicateBtn').onclick=duplicateSelected;
 document.getElementById('deleteObjBtn').onclick=deleteSelectedObject;
 document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit');
+// ===== XQLearn — the learning system core =====
+// tutorials/TUTORIAL-SYSTEM.md. One registry (every Quick Start, tutorial and
+// help topic, as data), one progress store (per ACCOUNT, cached on the
+// device), and one gate every mode entry goes through (Home's circles and the
+// Mode Switcher). Library, Quick Start and Help presenters read the registry;
+// nothing else keeps its own list.
+//
+// Progress lives in public.user_tutorial_progress (own-row RLS). Signed out,
+// it lives on the device and moves into the account at the next sign-in.
+// Statuses only ever get stronger: started < skipped < completed.
+window.XQLearn = (function(){
+  'use strict';
+  var ID_RE = /^(qs|tut|help)\.[a-z0-9]+([._-][a-z0-9]+)*$/;
+  var RANK = { started:1, skipped:2, completed:3 };
+  var P = 'xquixLearnV1:';
+  var LEGACY_KEY = 'xquixModeQualified';
+  var TABLE = 'user_tutorial_progress';
+  var registry = {}, order = [], listeners = [];
+  var sync = { user:null, loaded:false, loading:false, flushing:false, lastError:null, retryTimer:null };
+
+  // ---------------------------------------------------------------- registry
+  function register(item){
+    if(!item || !ID_RE.test(item.id||'')) throw new Error('XQLearn.register: bad id '+(item && item.id));
+    var layer = item.id.slice(0, item.id.indexOf('.'));
+    var full = Object.assign({
+      layer: layer==='qs' ? 'quickstart' : layer==='tut' ? 'tutorial' : 'help',
+      mode:null, sport:'*', version:1, status:'live', parent:null, group:false,
+      runtime:'studio', title:item.id, available:null, start:null
+    }, item);
+    if(!registry[full.id]) order.push(full.id);
+    registry[full.id] = full;
+    notify();
+    return full;
+  }
+  function get(id){ return registry[id] || null; }
+  function activeSport(){
+    try { return (window.MIZE && MIZE.Sports && MIZE.Sports.activeId) || 'water_polo'; } catch(e){ return 'water_polo'; }
+  }
+  function isAvailable(item){
+    if(!item || item.status!=='live') return false;
+    if(item.sport!=='*' && item.sport!==activeSport()) return false;
+    if(typeof item.available==='function'){ try { return !!item.available(); } catch(e){ return false; } }
+    return true;
+  }
+  // list({ layer, mode, parent, includeUnavailable })
+  function list(f){
+    f = f || {};
+    return order.map(get).filter(function(it){
+      if(f.layer && it.layer!==f.layer) return false;
+      if(f.mode!==undefined && it.mode!==f.mode) return false;
+      if(f.parent!==undefined && it.parent!==f.parent) return false;
+      return f.includeUnavailable ? true : (it.group ? list({ parent:it.id }).length>0 : isAvailable(it));
+    });
+  }
+
+  // ---------------------------------------------------------- device storage
+  function readJSON(k, d){ try { var v = JSON.parse(localStorage.getItem(k)); return v==null ? d : v; } catch(e){ return d; } }
+  function writeJSON(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } }
+  function currentUserId(){
+    try { var u = window.XQUIX && XQUIX.Auth && XQUIX.Auth.getCurrentUser && XQUIX.Auth.getCurrentUser(); return u ? u.id : null; } catch(e){ return null; }
+  }
+  function cacheKey(u){ return P + (u || 'device'); }
+  function rows(u){ return readJSON(cacheKey(u), {}); }
+  function pending(u){ return readJSON(P+'pending:'+u, {}); }
+  function setPending(u, p){ writeJSON(P+'pending:'+u, p); }
+  function stronger(a, b){ return (RANK[a]||0) > (RANK[b]||0); }
+
+  // ---------------------------------------------------------------- progress
+  function statusOf(id){ var r = rows(currentUserId())[id]; return r ? r.status : null; }
+  function isDone(id){ var s = statusOf(id); return s==='completed' || s==='skipped'; }
+
+  // record(id, status[, {source}]) -> true if it changed anything. Never downgrades.
+  function record(id, status, opts){
+    if(!/^(qs|tut)\./.test(id) || !ID_RE.test(id) || !RANK[status]) return false;
+    var u = currentUserId(), all = rows(u), cur = all[id];
+    if(cur && !stronger(status, cur.status)) return false;
+    var it = get(id);
+    all[id] = { status:status, version:(it && it.version) || 1, source:(opts && opts.source) || 'app', at:new Date().toISOString() };
+    writeJSON(cacheKey(u), all);
+    if(u){ var p = pending(u); p[id] = true; setPending(u, p); flush(); }
+    notify();
+    return true;
+  }
+
+  // A mode counts as introduced once its Quick Start (or, until a mode has
+  // one, its legacy first-use tutorial) was completed or skipped -- per
+  // account. Signed out, the device's own old flag still counts.
+  function isModeIntroduced(mode){
+    if(isDone('qs.'+mode)) return true;
+    if(!currentUserId()) return !!readJSON(LEGACY_KEY, {})[mode];
+    return false;
+  }
+
+  // ------------------------------------------------------ account sync
+  function client(){ try { return window.XQUIX && XQUIX.Auth && XQUIX.Auth.getClient && XQUIX.Auth.getClient(); } catch(e){ return null; } }
+  function timeout(promise, s){
+    return Promise.race([promise, new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timed out after '+s+'s')); }, s*1000); })]);
+  }
+  function mergeInto(u, incoming, source, markPending){
+    var all = rows(u), p = pending(u), changed = false;
+    Object.keys(incoming).forEach(function(id){
+      var r = incoming[id];
+      if(!r || !RANK[r.status] || !ID_RE.test(id)) return;
+      if(!all[id] || stronger(r.status, all[id].status)){
+        all[id] = { status:r.status, version:r.version || 1, source:r.source || source || 'app', at:r.at || new Date().toISOString() };
+        if(markPending) p[id] = true;
+        changed = true;
+      }
+    });
+    if(changed){ writeJSON(cacheKey(u), all); setPending(u, p); }
+    return changed;
+  }
+
+  // Synchronous part of a sign-in: move signed-out progress into the account
+  // cache, and -- once per device, into the first account that signs in after
+  // this build -- lift the old per-device xquixModeQualified flags.
+  function adoptDeviceState(u){
+    var dev = rows(null);
+    if(Object.keys(dev).length){
+      mergeInto(u, dev, 'app', true);
+      writeJSON(cacheKey(null), {});
+    }
+    if(!readJSON(P+'legacyImportedBy', null)){
+      var legacy = readJSON(LEGACY_KEY, {}), imp = {};
+      Object.keys(legacy).forEach(function(mode){
+        if(legacy[mode] && ID_RE.test('qs.'+mode)) imp['qs.'+mode] = { status:'completed', source:'device_import' };
+      });
+      mergeInto(u, imp, 'device_import', true);
+      writeJSON(P+'legacyImportedBy', u);
+    }
+  }
+
+  function load(u){
+    var c = client();
+    if(!c || !u) return Promise.resolve(false);
+    sync.loading = true;
+    return timeout(c.from(TABLE).select('item_id,status,content_version,source'), 15).then(function(res){
+      if(res.error) throw res.error;
+      if(sync.user!==u) return false;          // signed out or switched meanwhile
+      var server = {}, all = rows(u), p = pending(u);
+      (res.data || []).forEach(function(r){ server[r.item_id] = { status:r.status, version:r.content_version, source:r.source }; });
+      mergeInto(u, server, 'app', false);
+      // Anything the device knows better than the server goes up.
+      all = rows(u);
+      Object.keys(all).forEach(function(id){ if(!server[id] || stronger(all[id].status, server[id].status)) p[id] = true; });
+      setPending(u, p);
+      sync.loaded = true; sync.lastError = null;
+      notify();
+      return true;
+    }).catch(function(err){
+      sync.lastError = String(err && err.message || err);
+      schedule();
+      return false;
+    }).then(function(ok){ sync.loading = false; if(ok) flush(); return ok; });
+  }
+
+  // Push queued statuses. Only after this account's rows were read once, so a
+  // stale device value can never overwrite a stronger one on the server.
+  function flush(){
+    var u = sync.user, c = client();
+    if(!u || !c || !sync.loaded || sync.flushing) return Promise.resolve(false);
+    var p = pending(u), ids = Object.keys(p);
+    if(!ids.length) return Promise.resolve(true);
+    var all = rows(u);
+    var payload = ids.filter(function(id){ return all[id]; }).map(function(id){
+      return { user_id:u, item_id:id, status:all[id].status, content_version:all[id].version || 1, source:all[id].source==='device_import' ? 'device_import' : 'app' };
+    });
+    sync.flushing = true;
+    return timeout(c.from(TABLE).upsert(payload, { onConflict:'user_id,item_id' }), 15).then(function(res){
+      if(res && res.error) throw res.error;
+      var now = pending(u);
+      ids.forEach(function(id){ delete now[id]; });
+      setPending(u, now);
+      sync.lastError = null;
+      return true;
+    }).catch(function(err){
+      // Stays queued on the device; nothing claims it was saved.
+      sync.lastError = String(err && err.message || err);
+      schedule();
+      return false;
+    }).then(function(ok){ sync.flushing = false; return ok; });
+  }
+  function schedule(){
+    if(sync.retryTimer) return;
+    sync.retryTimer = setTimeout(function(){ sync.retryTimer = null; if(!sync.loaded) load(sync.user); else flush(); }, 30000);
+  }
+
+  function authChanged(user){
+    var u = user ? user.id : null;
+    if(u===sync.user) { if(u && !sync.loaded && !sync.loading) load(u); return; }
+    sync.user = u; sync.loaded = false; sync.lastError = null;
+    if(u){ adoptDeviceState(u); load(u); }
+    notify();
+  }
+  try { if(window.XQUIX && XQUIX.Auth && XQUIX.Auth.onChange) XQUIX.Auth.onChange(authChanged); } catch(e){}
+  try { window.addEventListener('online', function(){ if(!sync.loaded) load(sync.user); else flush(); }); } catch(e){}
+
+  // -------------------------------------------------------------------- gate
+  // enterMode(mode, { source:'home'|'switcher', open:fn, legacyFirstUse:fn })
+  // The mode always opens first. A Quick Start then runs on top of it if this
+  // account has not completed or skipped it. Until a mode has a Quick Start,
+  // the Mode Switcher keeps its previous first-use behavior (legacyFirstUse).
+  function enterMode(mode, o){
+    o = o || {};
+    var qs = get('qs.'+mode);
+    if(qs && isAvailable(qs) && typeof qs.start==='function' && !isDone(qs.id)){
+      if(o.open) o.open();
+      runItem(qs, { reason:'first-entry' });
+      return 'quickstart';
+    }
+    if(!qs && o.source==='switcher' && typeof o.legacyFirstUse==='function' && !isModeIntroduced(mode)){
+      o.legacyFirstUse(mode);
+      return 'legacy';
+    }
+    if(o.open) o.open();
+    return 'direct';
+  }
+
+  // Start any registered item. ctx.reason: 'first-entry' | 'replay' | 'library' | 'help'.
+  // Replays never change status; first entries record started, then the item's outcome.
+  function runItem(item, ctx){
+    item = typeof item==='string' ? get(item) : item;
+    if(!item || typeof item.start!=='function' || !isAvailable(item)) return false;
+    ctx = Object.assign({ reason:'library' }, ctx || {});
+    var counts = ctx.reason!=='replay';
+    if(counts) record(item.id, 'started');
+    var done = false;
+    ctx.onDone = function(status){
+      if(done) return; done = true;
+      if(counts && (status==='completed' || status==='skipped')) record(item.id, status);
+    };
+    try { item.start(ctx); } catch(err){ console.error('XQLearn: could not start '+item.id, err); return false; }
+    return true;
+  }
+
+  function notify(){ listeners.forEach(function(fn){ try { fn(); } catch(e){} }); }
+
+  return {
+    register:register, get:get, list:list, isAvailable:isAvailable,
+    statusOf:statusOf, isDone:isDone, record:record, isModeIntroduced:isModeIntroduced,
+    enterMode:enterMode, run:runItem,
+    onChange:function(fn){ listeners.push(fn); },
+    syncState:function(){ var u = sync.user; return { user:u, loaded:sync.loaded, pending:u ? Object.keys(pending(u)).length : 0, lastError:sync.lastError }; },
+    // Library sections are data (TUTORIAL-SYSTEM.md §4); the Library screen renders them.
+    sections:[
+      { id:'essentials', title:'XQUIX ESSENTIALS', items:['tut.basics','tut.saving'] },
+      // The sport section lists whatever tutorials are registered for the active sport
+      // (MIZE.Sports.activeId); another sport registers its own and the section follows.
+      { id:'sport', title:function(){ return activeSport()==='water_polo' ? 'LEARN WATER POLO' : 'LEARN THE SPORT'; },
+        items:function(){ return order.filter(function(id){ var it=get(id); return it.layer==='tutorial' && it.sport===activeSport() && !it.parent; }); } },
+      { id:'modes', title:'LEARN THE MODES', items:['tut.coaching','tut.presenting','tut.practice','tut.gametracker','tut.soundbox'] }
+    ],
+    _authChanged:authChanged, _flush:flush, _load:load
+  };
+})();
+
+// ----- The tutorials that exist today, registered as data. -----
+// Adapters start them exactly the way Home's Tutorials banners do (one
+// dispatcher, xquixHomeTutorialSelected), so there is still one launch path
+// per tutorial. Planned items stay hidden until live (decision D2).
+(function(){
+  function homeTutorial(name){ return function(){ document.dispatchEvent(new CustomEvent('xquixHomeTutorialSelected', { detail:{ tutorial:name } })); }; }
+  var L = XQLearn;
+  L.register({ id:'tut.basics',   title:'XquiX Basics',      status:'planned' });
+  L.register({ id:'tut.saving',   title:'Saving & Library',  status:'planned' });
+  L.register({ id:'tut.waterpolo', title:'Water Polo – Made Easy', sport:'water_polo',
+    available:function(){ return !!(window.MIZE && MIZE.Parent && typeof MIZE.Parent.start==='function'); },
+    start:homeTutorial('waterpolo') });
+  L.register({ id:'tut.coaching', mode:'coaching', title:'Coaching Tutorial',
+    available:function(){ return typeof buildFirstCoachingSessionSteps==='function'; },
+    start:homeTutorial('studio') });
+  L.register({ id:'tut.presenting', mode:'presenting', title:'Presentation Tutorial',
+    available:function(){ return typeof window.startPresentationTutorial==='function'; },
+    start:function(){ if(typeof xquixHideHome==='function') xquixHideHome(); window.startPresentationTutorial(); } });
+  L.register({ id:'tut.practice', mode:'practice', title:'Practice Planner Tutorial', status:'planned' });
+  L.register({ id:'tut.soundbox', mode:'soundbox', title:'Sound Box Tutorial', status:'planned' });
+  L.register({ id:'tut.gametracker', mode:'gametracker', title:'Game Tracker Tutorial', group:true, runtime:'gametracker' });
+  [['field','Field Player'],['goalkeeper','Goalkeeper'],['team','One Team'],['fullgame','Full Game']].forEach(function(t){
+    L.register({ id:'tut.gametracker.'+t[0], mode:'gametracker', parent:'tut.gametracker', runtime:'gametracker', title:t[1],
+      available:function(){ return !!(window.MIZE && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start==='function'); },
+      start:homeTutorial('gametracker-'+t[0]) });
+  });
+})();
+
 // ===== Mode Tutorial Qualification System =====
-// Central registry, persistence helpers, and pending-introduction tracker.
-// All qualification reads/writes go through these helpers so the storage
-// backend can be upgraded (e.g. to user-account storage) without touching
-// routing or UI code.
+// The two helpers every first-use path already calls. Since 2026-09-23 they
+// read and write per ACCOUNT through XQLearn (qs.<mode>); the old per-device
+// key is still written so a rollback to an earlier build keeps its state.
+// how: 'completed' (default) or 'skipped' (a deliberate Exit).
 (function () {
   'use strict';
   var _KEY = 'xquixModeQualified';
   function _read() { try { return JSON.parse(localStorage.getItem(_KEY)) || {}; } catch(e) { return {}; } }
-  window.hasModeTutorialQualification = function (mode) { return !!_read()[mode]; };
-  window.setModeTutorialQualification = function (mode) {
+  window.hasModeTutorialQualification = function (mode) {
+    return window.XQLearn ? XQLearn.isModeIntroduced(mode) : !!_read()[mode];
+  };
+  window.setModeTutorialQualification = function (mode, how) {
     var q = _read(); q[mode] = true;
-    try { try{localStorage.setItem(_KEY, JSON.stringify(q));}catch(_lsE){} } catch(e) {}
+    try { localStorage.setItem(_KEY, JSON.stringify(q)); } catch(e) {}
+    if (window.XQLearn) XQLearn.record('qs.' + mode, how === 'skipped' ? 'skipped' : 'completed');
   };
   // Set to the mode name while a first-use tutorial is running.
   // exitTutorial() reads this to qualify on deliberate exit;
@@ -14180,13 +14474,15 @@ document.getElementById('presentationBtn').onclick=()=>togglePresentation('fit')
   }
 
   // ---- Central mode entry with first-use check ----
+  // One gate for every mode entry (XQLearn.enterMode, also used by Home).
+  // A mode with a Quick Start opens and runs it; until a mode has one, the
+  // first use here still launches its full tutorial (_launchFirstUseTutorial).
   function requestXquiXMode(mode) {
-    if (!hasModeTutorialQualification(mode)) {
-      _launchFirstUseTutorial(mode);
-      return;
-    }
-    closeSwitcher();
-    _enterDirect(mode);
+    XQLearn.enterMode(mode, {
+      source: 'switcher',
+      open: function () { closeSwitcher(); _enterDirect(mode); },
+      legacyFirstUse: _launchFirstUseTutorial
+    });
   }
 
   // ---- Mode buttons ----
@@ -15247,7 +15543,7 @@ function exitTutorial(){
   // this covers the Exit Tutorial button path.
   if (window._modeIntroductionPending) {
     if (typeof setModeTutorialQualification === 'function')
-      setModeTutorialQualification(window._modeIntroductionPending);
+      setModeTutorialQualification(window._modeIntroductionPending, 'skipped');
     window._modeIntroductionPending = null;
   }
   document.body.classList.remove('tutorialModeActive');
