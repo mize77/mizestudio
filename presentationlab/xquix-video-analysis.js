@@ -1,5 +1,7 @@
 /* XQUIX.VideoAnalysis — Presentation Lab test build (Phase E).
-   Pause the left screen's video (or show a screenshot there) -> Screens -> Analyze.
+   Pause the game, then Screens -> Left -> Analyze. The picture comes from the left screen when it holds a video file or a
+   screenshot; otherwise (empty, or a YouTube/Vimeo player the browser keeps sealed) from Capture from screen: the coach
+   picks the tab or window where the game is paused, one frame is taken, sharing stops at once. Not on iPad/iPhone.
      1. Field: the coach taps 4+ field markers and names each (automatic marker detection is not built yet).
      2. Players: the detector reads heads, teams, the goalkeeper and the ball; the coach corrects in place.
      3. Show on board: the scene lands on the center board at the same end and in the teams' own cap colors.
@@ -92,8 +94,8 @@
   }
   function grab() {
     const m = sourceMedia();
-    if (!m) return { error: 'Load a video file or a screenshot onto the left screen first (Screens → Left → File).' };
-    if (m.tagName === 'IFRAME') return { error: 'YouTube and Vimeo players can’t be read by the Studio. Load the video file itself (Screens → Left → File), or a screenshot of the moment.' };
+    // nothing readable on the left screen (empty, or a YouTube/Vimeo player the browser keeps sealed): capture from the screen
+    if (!m || m.tagName === 'IFRAME') return { capture: true, embedded: !!m };
     let w, h, name;
     if (m.tagName === 'VIDEO') {
       if (!m.videoWidth) return { error: 'The video has not loaded a picture yet. Play it to the moment you want, pause, and try again.' };
@@ -103,24 +105,57 @@
       if (!m.naturalWidth) return { error: 'The image has not loaded yet.' };
       w = m.naturalWidth; h = m.naturalHeight; name = 'Screenshot scene';
     }
+    const f = frameFrom(m, w, h, name);
+    return f.error ? { capture: true, tainted: true } : f;
+  }
+  function frameFrom(src, w, h, name) {
     const k = Math.min(1, MAX_W / w), cw = Math.round(w * k), ch = Math.round(h * k);
     const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
-    const cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(m, 0, 0, cw, ch);
+    const cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(src, 0, 0, cw, ch);
     let data;
     try { data = cx.getImageData(0, 0, cw, ch); }
-    catch (e) { return { error: 'This video comes from another website that doesn’t allow its picture to be read. Load the file itself (Screens → Left → File).' }; }
+    catch (e) { return { error: 'tainted' }; }
     return { w: cw, h: ch, url: cv.toDataURL('image/jpeg', 0.9), data, name };
+  }
+
+  /* Capture from screen: the coach picks the tab or window with the paused game (YouTube, Vimeo, any player);
+     the browser shows its own picker and sharing indicator. ONE frame is taken and the stream is stopped at once. */
+  const canCapture = () => !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  function captureScreen() {
+    let stream;
+    const req = navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: 'browser', frameRate: 5 }, audio: false,
+      selfBrowserSurface: 'exclude', surfaceSwitching: 'exclude', preferCurrentTab: false, monitorTypeSurfaces: 'include' });   // called inside the tap: needs the user gesture
+    return req.then(st => {
+      stream = st;
+      const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.srcObject = st;
+      return new Promise((res, rej) => {
+        const t = setTimeout(() => rej(new Error('no picture arrived from the shared screen')), 6000);
+        v.onloadeddata = () => { v.play().catch(() => {}); setTimeout(() => { clearTimeout(t); res(v); }, 350); };   // let a real frame arrive
+      });
+    }).then(v => {
+      const f = frameFrom(v, v.videoWidth, v.videoHeight, 'Screen capture scene');
+      return f;
+    }).finally(() => { if (stream) stream.getTracks().forEach(tr => tr.stop()); });
   }
 
   // ---------- open / close ----------
   function open() {
     const g = grab();
     if (g.error) { notify(g.error); return false; }
+    if (g.capture) {
+      if (!canCapture()) { notify('This device can’t share its screen with the Studio (iPad and iPhone browsers don’t allow it). Take a screenshot of the paused game and load it with Screens → Left → File, then tap Analyze.'); return false; }
+      loadModel().catch(() => {});
+      captureScreen().then(f => { if (f.error) { notify('The shared picture could not be read. Try again, or use a screenshot.'); return; } start(f); })
+        .catch(e => { if (e && (e.name === 'NotAllowedError' || e.name === 'AbortError')) return; notify('Screen capture did not work: ' + (e && e.message || e) + '. Use a screenshot instead (Screens → Left → File).'); });
+      return true;
+    }
+    start(g); return true;
+  }
+  function start(g) {
     loadModel().catch(() => {});
     S = { frame: g, spec: { length: 25, width: 20, goalWidth: 3, ropeBehind: 0 }, markers: [], cal: null, step: 'field',
           players: [], ball: null, attacking: null, attackingBy: null, corrections: [] };
     build(); render();
-    return true;
   }
   function close() {
     const o = document.getElementById('xqva'); if (o) o.remove(); document.body.classList.remove('xqvaOpen', 'xqvaLab');
@@ -129,7 +164,8 @@
   }
   function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); const p = $('#xqva .pop'); if (p) p.remove(); else close(); } }
   function notify(text) {
-    if (window.MizeDialog && typeof MizeDialog.alert === 'function') MizeDialog.alert(text); else alert(text);
+    // MizeDialog is a top-level const in index.html: not a window property, so test the binding itself
+    if (typeof MizeDialog !== 'undefined' && MizeDialog && typeof MizeDialog.alert === 'function') MizeDialog.alert(text); else alert(text);
   }
 
   // ---------- layout ----------
@@ -189,8 +225,10 @@
     const g = $('#xqvaLines'); g.innerHTML = '';
     if (!S.cal) return;
     const H = S.cal.H, sp = S.spec, hw = sp.width / 2, u = unit();
+    // a homography is defined up to scale, sign included: "in front of the camera" is the sign a real marker has
+    const m0 = markerWorld(S.markers[0], sp), sg = Math.sign(H[2][0] * m0.X + H[2][1] * m0.Y + H[2][2]) || 1;
     const seg = (X0, Y0, X1, Y1, col, wd, dash) => {
-      const pts = []; for (let i = 0; i <= 24; i++) { const t = i / 24, X = X0 + (X1 - X0) * t, Y = Y0 + (Y1 - Y0) * t, s = H[2][0] * X + H[2][1] * Y + H[2][2]; if (s <= 0) continue; pts.push(VADetect.ap(H, X, Y)); }
+      const pts = []; for (let i = 0; i <= 24; i++) { const t = i / 24, X = X0 + (X1 - X0) * t, Y = Y0 + (Y1 - Y0) * t, s = sg * (H[2][0] * X + H[2][1] * Y + H[2][2]); if (s <= 0) continue; pts.push(VADetect.ap(H, X, Y)); }
       if (pts.length > 1) sv('polyline', { points: pts.map(p => p.join(',')).join(' '), fill: 'none', stroke: col, 'stroke-width': wd * u, 'stroke-dasharray': dash ? `${6 * u} ${5 * u}` : '', opacity: .85 }, g);
     };
     seg(0, -hw, 0, hw, '#ffffff', 1.6); seg(0, -hw, sp.length / 2, -hw, '#ffffff', 1.2); seg(0, hw, sp.length / 2, hw, '#ffffff', 1.2);
@@ -409,9 +447,10 @@
         const L = orig.apply(this, arguments);
         if (g !== 'screens' || !Array.isArray(L)) return L;
         const i = L.findIndex(x => x && x.id === 'mediaClear'); if (i < 0) return L;
-        const m = sourceMedia();
-        L.splice(i + 1, 0, { id: 'analyze', label: 'Analyze', icon: ICON, title: 'Put this paused moment on the center board (video file or screenshot on the left screen)',
-          disabled: !m || m.tagName === 'IFRAME', tap: () => open() });
+        const m = sourceMedia(), readable = m && m.tagName !== 'IFRAME';
+        L.splice(i + 1, 0, { id: 'analyze', label: 'Analyze', icon: ICON,
+          title: readable ? 'Put this paused moment on the center board' : 'Put a paused game on the center board: pick the tab or window where it is paused (YouTube, Vimeo, any player)',
+          tap: () => open() });
         return L;
       };
       wrapped._xqva = true; window.cwItems = wrapped;
@@ -435,7 +474,7 @@
   const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="1.6"/><circle cx="15" cy="10" r="1.6"/><circle cx="12" cy="15" r="1.6"/></svg>';
 
   window.XQUIX = window.XQUIX || {};
-  window.XQUIX.VideoAnalysis = { open, close, state: () => S, loadModel, _grab: grab };
+  window.XQUIX.VideoAnalysis = { open, close, state: () => S, loadModel, _grab: grab, canCapture };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
   window.addEventListener('load', wire);
 })();
