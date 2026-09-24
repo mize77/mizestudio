@@ -1221,6 +1221,7 @@
     padding-right:2px;
   }
   /* Small note line above GT chooser list */
+  .msNote.msLibHead { font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; margin:10px 4px 4px; }
   .msNote {
     font-size:11px; color:rgba(255,255,255,.35); margin:0 0 6px 4px; padding:0;
   }
@@ -1732,7 +1733,10 @@
     align-items:center; justify-content:center; padding:calc(var(--gap) * 1.6) 3% calc(var(--gap) * .8); border-radius:4px;
     background:linear-gradient(180deg, rgba(3,10,10,.50), rgba(3,10,10,.68));
     box-shadow:inset 0 0 0 1px rgba(46,202,184,.16), 0 0 90px 14px rgba(46,202,184,.10); animation:xquixHomeIn .45s ease; }
-  #homeCenterScreen.tutorialsOpen { overflow-y:auto; justify-content:flex-start; }
+  /* Tutorials open: the list starts under the heading and scrolls. (The rule needs #stageWrap's
+     specificity: the mounted screen's justify-content:center otherwise wins, and a list taller than
+     the screen is pushed up over the heading, its top out of reach of the scroll.) */
+  #stageWrap > #homeCenterScreen.tutorialsOpen, #homeCenterScreen.tutorialsOpen { overflow-y:auto; justify-content:flex-start; }
   /* Home's rules on the stage: the room at the intro's final brightness, a minimum room width so
      three 110 px circles fit on a phone (the room is cropped at the sides there, never scaled to
      cover), the board hidden under the mounted screen, no placeholders or load controls on the
@@ -2214,6 +2218,23 @@
      needed (these pills are 4.7:1, so a 2x2 grid would render them ~39px tall
      and the subtitles would be unreadable). */
   .xquixHomeTutorialBanners.drilled > .xquixHomeTutorialBanner, .xquixHomeTutorialBanners.drilled > .xquixHomeSubHead { display:none; }
+  /* Tutorial Library (tutorials/TUTORIAL-SYSTEM.md §7): section headings use the sub-head's micro type;
+     items reuse the banner artwork; a text banner stands in where no artwork exists yet (D4). */
+  .xquixHomeTutorialBanners.drilled > .xqLibSection { display:none; }
+  .xqLibSection { display:flex; flex-direction:column; gap:10px; }
+  .xqLibSection + .xqLibSection { margin-top:6px; }
+  /* Quick Start: the engine's Exit reads "Skip" and leaves at once; Next does the step. */
+  body.xqQuickStart #tutorialSkipStepBtn { font-weight:700; }
+  .xqLibHead { font:800 10px system-ui; letter-spacing:.14em; text-transform:uppercase; color:#8fb9b6; padding:2px 2px 0; }
+  .xqLibItem { position:relative; }
+  .xqLibDone { position:absolute; top:6px; right:10px; font:700 10px system-ui; letter-spacing:.04em; color:#bff5ef; background:rgba(5,20,19,.82);
+    border:1px solid rgba(45,212,200,.55); border-radius:6px; padding:3px 7px; pointer-events:none; }
+  .xqLibTextBanner { position:relative; box-sizing:border-box; width:calc(100% - 6%) !important; margin:0 auto; aspect-ratio:4.4 / 1; border-radius:999px; display:flex; flex-direction:column; justify-content:center; padding:0 12% 0 9%;
+    background:linear-gradient(180deg,#0f1c1c,#070d0d); border:1px solid #2a5f5c; box-shadow:inset 0 1px 0 rgba(127,240,236,.08), 0 0 18px rgba(45,212,200,.08); }
+  .xqLibTextBanner:hover, .xqLibTextBanner:focus-visible { border-color:#2dd4c8; outline:none; }
+  .xqLibTextTitle { font-family:'Archivo',system-ui,sans-serif; font-weight:700; font-size:clamp(15px, 4.2cqw, 22px); color:#f2f7f7; letter-spacing:.02em; }
+  .xqLibTextBanner::after { content:'\203A'; position:absolute; right:7%; top:50%; transform:translateY(-56%); font:500 44px system-ui; color:#2dd4c8; }
+  .xqLibTextSub { font:800 10px system-ui; letter-spacing:.16em; text-transform:uppercase; color:#2dd4c8; margin-top:3px; }
   .xquixHomeSubHead { display:flex; align-items:center; gap:8px; margin-bottom:2px; }
   .xquixHomeSubHead button { font:800 12px system-ui; color:#cfeaea; background:#123c3a;
     border:1px solid #2a5f5c; border-radius:8px; padding:6px 10px; cursor:pointer; touch-action:manipulation; }
@@ -2575,21 +2596,11 @@
   <div id="msTutorials" style="display:none">
     <div class="msHeader">
       <button class="msBackBtn" id="msTutorialsBack" aria-label="Back">&#8249;</button>
-      <span class="msTitle">Replay a tutorial</span>
+      <span class="msTitle">Tutorials</span>
       <button class="msCloseBtn" id="msTutorialsCloseBtn" aria-label="Close">&#10005;</button>
     </div>
-    <button class="modeSwitcherOption" data-replay-tutorial="coaching" role="menuitem">
-      <span class="modeSwitcherDot"></span>Coaching<span class="msQual" id="msq-coaching"></span>
-    </button>
-    <button class="modeSwitcherOption" data-replay-tutorial="gametracker" role="menuitem">
-      <span class="modeSwitcherDot"></span>Game Tracker<span class="msQual" id="msq-gametracker"></span>
-    </button>
-    <button class="modeSwitcherOption" data-replay-tutorial="presenting" role="menuitem">
-      <span class="modeSwitcherDot"></span>Presenting<span class="msQual" id="msq-presenting"></span>
-    </button>
-    <button class="modeSwitcherOption" data-replay-tutorial="practice" role="menuitem">
-      <span class="modeSwitcherDot"></span>Practice<span class="msQual" id="msq-practice"></span>
-    </button>
+    <!-- Rendered from the tutorial registry (XQLearn.library()) each time this view opens. -->
+    <div id="msTutorialsList"></div>
   </div>
 
   <!-- ── Game Tracker chooser: all four tutorials ── -->
@@ -5528,6 +5539,7 @@ function xquixHomeToggleTooltip(circleEl){
 document.getElementById('xquixHomeCircle_tutorials')?.addEventListener('click', function(){
   if(this.classList.contains('locked')){ xquixHomeToggleTooltip(this); return; }
   const g = document.getElementById('xquixHomeTutorialBanners');
+  if(g && !g.classList.contains('open') && typeof xquixRenderTutorialLibrary==='function') xquixRenderTutorialLibrary();
   const opened = g?.classList.toggle('open');
   // MS-001 §15: the tutorial choice REPLACES the grid on the centre screen; Back restores it.
   document.getElementById('homeCenterScreen')?.classList.toggle('tutorialsOpen', !!opened);
@@ -5557,9 +5569,12 @@ document.querySelectorAll('.xquixHomeTutorialBanner').forEach(el => {
     // anything -- one more level of exactly the mechanism the Tutorials circle
     // already uses for the group above. Everything else dispatches as before.
     const sub = this.dataset.submenu;
+    // A Library item (xquixRenderTutorialLibrary sets data-learn-id) launches through the
+    // registry, so its progress is recorded; the adapter then dispatches as below.
+    if(!sub && this.dataset.learnId && window.XQLearn){ XQLearn.launch(this.dataset.learnId, 'home'); return; }
     if(sub){
       const group = document.getElementById(sub);
-      const parent = this.parentElement;
+      const parent = this.closest('.xquixHomeTutorialBanners');   // the list, also when the banner sits in a Library item
       group?.classList.add('open');
       parent?.classList.add('drilled');   // hide the top level while drilled in
       // The five mode circles already fill a phone screen, so anything opened
@@ -6088,12 +6103,11 @@ document.addEventListener('xquixHomeTutorialSelected', (e) => {
     }
     xquixHideHome();
     closeToolPanels();
-    window._modeIntroductionPending = 'coaching';
+    // Since the Coaching Quick Start exists (tutorial system Step 3), the full tutorial from the
+    // Library no longer marks Coaching introduced -- that is qs.coaching's, per account.
     startTutorial(buildFirstCoachingSessionSteps(), {
       needsIntroSequenceSeeded: true,
       onComplete: ()=>{
-        if(typeof setModeTutorialQualification==='function') setModeTutorialQualification('coaching');
-        window._modeIntroductionPending = null;
         MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.');
       }
     });
@@ -14295,13 +14309,73 @@ window.XQLearn = (function(){
       if(done) return; done = true;
       if(counts && (status==='completed' || status==='skipped')) record(item.id, status);
     };
+    if(counts && item.layer==='tutorial'){
+      if(item.runtime==='studio') track.pendingStudio = { id:item.id, t:Date.now() };
+      else if(item.runtime==='gametracker') watchGameTracker(item.id);
+    }
     try { item.start(ctx); } catch(err){ console.error('XQLearn: could not start '+item.id, err); return false; }
     return true;
   }
 
+  // ---------------------------------------------- full-tutorial completion
+  // Library launches record started at once; completed is recorded when the
+  // runtime reaches its own end. Studio engine: startTutorial / completeTutorial
+  // / exitTutorial call the _engine* hooks below; the run started from the
+  // Library binds to the next startTutorial() within 15 s (the Water Polo
+  // tutorial starts asynchronously). Start over keeps the binding (_hold).
+  var track = { pendingStudio:null, activeStudio:null, hold:false, gtTimer:null };
+  function engineStarted(){
+    if(track.hold) return;
+    var p = track.pendingStudio;
+    track.activeStudio = (p && Date.now()-p.t < 15000) ? p.id : null;
+    track.pendingStudio = null;
+  }
+  function engineFinished(){
+    if(track.activeStudio) record(track.activeStudio, 'completed');
+    track.activeStudio = null;
+  }
+  function engineLeft(){ if(!track.hold) track.activeStudio = null; }
+  // The Game Tracker's tutorial runtime ends in its own dialog; "Lessons
+  // complete" is its completion. Polled, so its module needs no change.
+  function watchGameTracker(id){
+    clearInterval(track.gtTimer);
+    var t0 = Date.now(), seen = false;
+    track.gtTimer = setInterval(function(){
+      var U = window.XquiXGameTrackerTutorial, dlg = document.getElementById('xgtuDlg');
+      var h = dlg && dlg.querySelector('h2');
+      if(h && /Lessons complete/i.test(h.textContent)){ record(id, 'completed'); clearInterval(track.gtTimer); return; }
+      var running = !!(U && U.isRunning && U.isRunning());
+      if(running) seen = true;
+      if((seen && !running && !dlg) || Date.now()-t0 > 4*3600*1000 || (!seen && Date.now()-t0 > 20000)) clearInterval(track.gtTimer);
+    }, 1000);
+  }
+
+  // The Library as data: sections with their live items (D2: planned and
+  // unavailable items are left out; a section with nothing live is left out).
+  function library(){
+    return (api.sections || []).map(function(sec){
+      var ids = typeof sec.items==='function' ? sec.items() : sec.items;
+      var items = ids.map(get).filter(function(it){
+        if(!it) return false;
+        return it.group ? list({ parent:it.id }).length>0 : isAvailable(it);
+      });
+      return { id:sec.id, title:typeof sec.title==='function' ? sec.title() : sec.title, items:items };
+    }).filter(function(sec){ return sec.items.length>0; });
+  }
+
   function notify(){ listeners.forEach(function(fn){ try { fn(); } catch(e){} }); }
 
-  return {
+  // Start an item the user picked in the Library (Home or the Mode Switcher).
+  function launch(id, surface){
+    var it = get(id); if(!it) return false;
+    if(it.layer==='quickstart'){
+      if(typeof it.openMode==='function') it.openMode(surface);
+      return runItem(it, { reason:'replay', surface:surface });
+    }
+    return runItem(it, { reason:'library', surface:surface });
+  }
+  var api = {
+    launch:launch,
     register:register, get:get, list:list, isAvailable:isAvailable,
     statusOf:statusOf, isDone:isDone, record:record, isModeIntroduced:isModeIntroduced,
     enterMode:enterMode, run:runItem,
@@ -14314,39 +14388,256 @@ window.XQLearn = (function(){
       // (MIZE.Sports.activeId); another sport registers its own and the section follows.
       { id:'sport', title:function(){ return activeSport()==='water_polo' ? 'LEARN WATER POLO' : 'LEARN THE SPORT'; },
         items:function(){ return order.filter(function(id){ var it=get(id); return it.layer==='tutorial' && it.sport===activeSport() && !it.parent; }); } },
-      { id:'modes', title:'LEARN THE MODES', items:['tut.coaching','tut.presenting','tut.practice','tut.gametracker','tut.soundbox'] }
+      { id:'modes', title:'LEARN THE MODES', items:['tut.coaching','tut.presenting','tut.practice','tut.gametracker','tut.soundbox'] },
+      // Replaying a Quick Start (MIZE: "replay the Quick Start later through Help or a similar menu").
+      // The Library is that menu until a Help control exists; a replay never changes the status.
+      { id:'quickstarts', title:'QUICK STARTS', items:function(){ return order.filter(function(id){ return get(id).layer==='quickstart'; }); } }
     ],
-    _authChanged:authChanged, _flush:flush, _load:load
+    library:library,
+    _authChanged:authChanged, _flush:flush, _load:load,
+    _engineStarted:engineStarted, _engineFinished:engineFinished, _engineLeft:engineLeft,
+    _hold:function(b){ track.hold = !!b; }
   };
+  return api;
 })();
 
 // ----- The tutorials that exist today, registered as data. -----
-// Adapters start them exactly the way Home's Tutorials banners do (one
-// dispatcher, xquixHomeTutorialSelected), so there is still one launch path
-// per tutorial. Planned items stay hidden until live (decision D2).
+// Each adapter starts its tutorial by the path that surface already used, so
+// behavior is unchanged: from Home the same xquixHomeTutorialSelected dispatch
+// the banners always made; from the Mode Switcher its own replay / chooser
+// path (ctx.surface === 'switcher'). art = the id of the banner artwork
+// already in index.html; items without one get a text banner (decision D4).
+// Planned items stay hidden until live (decision D2).
 (function(){
-  function homeTutorial(name){ return function(){ document.dispatchEvent(new CustomEvent('xquixHomeTutorialSelected', { detail:{ tutorial:name } })); }; }
+  function homeTutorial(name){ document.dispatchEvent(new CustomEvent('xquixHomeTutorialSelected', { detail:{ tutorial:name } })); }
   var L = XQLearn;
   L.register({ id:'tut.basics',   title:'XquiX Basics',      status:'planned' });
   L.register({ id:'tut.saving',   title:'Saving & Library',  status:'planned' });
-  L.register({ id:'tut.waterpolo', title:'Water Polo – Made Easy', sport:'water_polo',
+  L.register({ id:'tut.waterpolo', title:'Water Polo – Made Easy', sport:'water_polo', art:'xquixHomeBanner_waterpolo',
     available:function(){ return !!(window.MIZE && MIZE.Parent && typeof MIZE.Parent.start==='function'); },
-    start:homeTutorial('waterpolo') });
-  L.register({ id:'tut.coaching', mode:'coaching', title:'Coaching Tutorial',
+    start:function(ctx){ if(window.closeModeChanger) closeModeChanger(); homeTutorial('waterpolo'); } });
+  L.register({ id:'tut.coaching', mode:'coaching', title:'Coaching Tutorial', art:'xquixHomeBanner_studio',
     available:function(){ return typeof buildFirstCoachingSessionSteps==='function'; },
-    start:homeTutorial('studio') });
+    start:function(ctx){ if(ctx.surface==='switcher' && window.xquixReplayModeTutorial) return xquixReplayModeTutorial('coaching'); homeTutorial('studio'); } });
   L.register({ id:'tut.presenting', mode:'presenting', title:'Presentation Tutorial',
     available:function(){ return typeof window.startPresentationTutorial==='function'; },
-    start:function(){ if(typeof xquixHideHome==='function') xquixHideHome(); window.startPresentationTutorial(); } });
+    start:function(ctx){ if(window.closeModeChanger) closeModeChanger(); if(typeof xquixHideHome==='function') xquixHideHome(); window.startPresentationTutorial(); } });
   L.register({ id:'tut.practice', mode:'practice', title:'Practice Planner Tutorial', status:'planned' });
   L.register({ id:'tut.soundbox', mode:'soundbox', title:'Sound Box Tutorial', status:'planned' });
-  L.register({ id:'tut.gametracker', mode:'gametracker', title:'Game Tracker Tutorial', group:true, runtime:'gametracker' });
-  [['field','Field Player'],['goalkeeper','Goalkeeper'],['team','One Team'],['fullgame','Full Game']].forEach(function(t){
-    L.register({ id:'tut.gametracker.'+t[0], mode:'gametracker', parent:'tut.gametracker', runtime:'gametracker', title:t[1],
+  L.register({ id:'tut.gametracker', mode:'gametracker', title:'Game Tracker Tutorial', group:true, runtime:'gametracker', art:'xquixHomeBanner_gametracker' });
+  // Titles are the labels the product already shows for these four (artwork alt text, the Mode Switcher).
+  [['field','Field Player'],['goalkeeper','Goalkeeper'],['team','Your Team'],['fullgame','The Whole Game']].forEach(function(t){
+    L.register({ id:'tut.gametracker.'+t[0], mode:'gametracker', parent:'tut.gametracker', runtime:'gametracker', title:t[1], art:'xquixHomeBanner_gametracker_'+t[0],
       available:function(){ return !!(window.MIZE && MIZE.GameTrackerTutorial && typeof MIZE.GameTrackerTutorial.start==='function'); },
-      start:homeTutorial('gametracker-'+t[0]) });
+      start:function(ctx){ if(ctx.surface==='switcher' && window.xquixLaunchGTTutorial) return xquixLaunchGTTutorial(t[0], 'replay'); homeTutorial('gametracker-'+t[0]); } });
   });
 })();
+
+// ===== The Tutorial Library on Home (brief Step 2) =====
+// Home -> TUTORIALS renders XQLearn.library(): one heading per section, one
+// banner per item, the Game Tracker group drilling down as before. The
+// existing banner artwork is reused (moved into place, never copied); an item
+// without artwork gets a text banner in the same 4.7:1 frame (D4). A small
+// "Completed" mark shows a finished tutorial for this account.
+function xquixLibraryItemEl(it, idx){
+  var wrap = document.createElement('div');
+  wrap.className = 'xqLibItem'; wrap.dataset.learnId = it.id;
+  var done = XQLearn.statusOf(it.id)==='completed' || (it.group && XQLearn.list({ parent:it.id }).some(function(c){ return XQLearn.statusOf(c.id)==='completed'; }) && XQLearn.list({ parent:it.id }).every(function(c){ return XQLearn.statusOf(c.id)==='completed'; }));
+  var art = it.art && document.getElementById(it.art);
+  var el;
+  if(art){ el = art; }
+  else {
+    el = document.createElement('div');
+    el.className = 'xquixHomeTutorialBanner xqLibTextBanner';
+    el.setAttribute('role','button'); el.tabIndex = 0;
+    var qs = it.layer==='quickstart';
+    var t = document.createElement('span'); t.className = 'xqLibTextTitle'; t.textContent = it.title.replace(qs ? / Quick Start$/ : / Tutorial$/, '');
+    var s = document.createElement('span'); s.className = 'xqLibTextSub'; s.textContent = qs ? 'Quick Start' : 'Tutorial';
+    el.appendChild(t); el.appendChild(s);
+    var go = function(){ XQLearn.launch(it.id, 'home'); };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', function(e){ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); go(); } });
+  }
+  el.dataset.learnId = it.id;
+  el.setAttribute('aria-label', it.title + (done ? ' (completed)' : ''));
+  el.style.animationDelay = (0.03 + idx*0.07).toFixed(2) + 's';
+  wrap.appendChild(el);
+  if(done){ var m = document.createElement('span'); m.className = 'xqLibDone'; m.setAttribute('aria-hidden','true'); m.textContent = '\u2713 Completed'; wrap.appendChild(m); }
+  return wrap;
+}
+function xquixRenderTutorialLibrary(){
+  var root = document.getElementById('xquixHomeTutorialBanners');
+  var gt = document.getElementById('xquixHomeGametrackerBanners');
+  if(!root || !window.XQLearn) return;
+  // Park every artwork banner first, so a re-render never loses one.
+  var park = document.getElementById('xqLibArtPark');
+  if(!park){ park = document.createElement('div'); park.id = 'xqLibArtPark'; park.style.display = 'none'; root.appendChild(park); }
+  root.querySelectorAll('img.xquixHomeTutorialBanner').forEach(function(img){ if(img.id) park.appendChild(img); });
+  root.querySelectorAll('.xqLibSection, .xqLibItem').forEach(function(n){ n.remove(); });
+  var idx = 0;
+  XQLearn.library().forEach(function(sec){
+    var box = document.createElement('div'); box.className = 'xqLibSection'; box.dataset.section = sec.id;
+    var h = document.createElement('div'); h.className = 'xqLibHead'; h.textContent = sec.title; box.appendChild(h);
+    sec.items.forEach(function(it){ box.appendChild(xquixLibraryItemEl(it, idx++)); });
+    root.insertBefore(box, gt || park);
+  });
+  if(gt){
+    var head = gt.querySelector('.xquixHomeSubHead');
+    XQLearn.list({ parent:'tut.gametracker' }).forEach(function(it, i){ gt.appendChild(xquixLibraryItemEl(it, i)); });
+    if(head) gt.insertBefore(head, gt.firstChild);
+  }
+}
+
+// ===== Quick Start presenter (brief Step 3; TUTORIAL-SYSTEM.md §6) =====
+// Runs a qs.* item's steps on the Studio engine with the Quick Start contract:
+// the mode is already open; the board is the user's own and comes back exactly
+// as it was (snapshot/restore, like the Presentation tutorial); nothing is
+// seeded; Skip leaves at once (no leave screen) and Next does the step; no
+// voice switches. The engine's reset of the board and tools is skipped via
+// steps.tutorialOptions.quickStart.
+window.XQQuickStart = (function(){
+  'use strict';
+  var run = null;   // { ctx, saved, labels, observer, done }
+  function snapshot(){
+    var s = { frames: (typeof frames!=='undefined' && frames) ? frames.slice() : [], cur: (typeof currentFrame==='number') ? currentFrame : 0, scene:null, mode:(typeof mode!=='undefined') ? mode : 'select' };
+    try { s.scene = getState(); } catch(e){}
+    return s;
+  }
+  function restore(s){
+    if(!s) return;
+    try {
+      if(typeof setMode==='function') setMode('select');
+      frames = s.frames; currentFrame = Math.min(Math.max(0, s.cur), Math.max(0, frames.length-1));
+      if(s.scene && typeof loadState==='function') loadState(s.scene);
+      if(typeof renderFrames==='function') renderFrames();
+      if(typeof clearSelection==='function') clearSelection();
+    } catch(err){ console.error('Quick Start: could not put the board back', err); }
+  }
+  function label(id, text){ var el = document.getElementById(id); if(!el) return null; var old = el.textContent; el.textContent = text; return old; }
+  function finish(status){
+    if(!run || run.done) return;
+    var r = run; r.done = true; run = null;
+    try { r.observer && r.observer.disconnect(); } catch(e){}
+    document.body.classList.remove('xqQuickStart');
+    if(r.labels){ label('tutorialExitBtn', r.labels.exit); label('tutorialSkipStepBtn', r.labels.skip); }
+    restore(r.saved);
+    if(r.ctx && r.ctx.onDone) r.ctx.onDone(status);
+  }
+  // start(steps, ctx, { prepare }) -- prepare() may put something on an empty
+  // board for the Quick Start to work with; it is undone with everything else.
+  // steps may be a function: it is built after prepare(), so it can look at the board it will run on.
+  function start(steps, ctx, opts){
+    opts = opts || {};
+    if(typeof tutorialModeActive!=='undefined' && tutorialModeActive) return false;   // never on top of a running tutorial
+    run = { ctx:ctx, saved:snapshot(), done:false };
+    try { if(opts.prepare) opts.prepare(); } catch(e){}
+    if(typeof steps==='function') steps = steps();
+    steps.tutorialOptions = { quickStart:true, surface:true, exitScreen:false, voice:false, avoidTargets:true };
+    document.body.classList.add('xqQuickStart');
+    startTutorial(steps, { completionMessage:'', onComplete:function(){ finish('completed'); } });
+    if(!(typeof tutorialModeActive!=='undefined' && tutorialModeActive)){ finish('skipped'); return false; }
+    run.labels = { exit:label('tutorialExitBtn', 'Skip'), skip:label('tutorialSkipStepBtn', 'Next') };
+    // Skip (the engine's Exit) ends the run without completing: that is the user's decision.
+    // Completion calls finish('completed') synchronously first, so this sees it done.
+    run.observer = new MutationObserver(function(){ if(!document.body.classList.contains('tutorialModeActive')) finish('skipped'); });
+    run.observer.observe(document.body, { attributes:true, attributeFilter:['class'] });
+    return true;
+  }
+  return { start:start, isRunning:function(){ return !!run; }, _finish:finish };
+})();
+
+// ----- qs.coaching: about 45 seconds, six steps -----
+// Select and move a player, the Player Action Bar (the ball), drawing, and
+// where the rest lives. Works on whatever is on the coach's board; an empty
+// board gets the tutorial's own reference formation for the duration.
+function buildCoachingQuickStartSteps(){
+  var touch = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  var target = null, start = null, drawBase = 0, drawSig = '', drawAt = 0, side = 'left';
+  var pl = function(){ return target ? document.querySelector('.player[data-label="'+target+'"]') : null; };
+  var ack = function(){ return typeof tutorialManualAck!=='undefined' && !!tutorialManualAck; };
+  var drawings = function(){ return [].slice.call(document.querySelectorAll('#arrowsGroup .drawing')); };
+  function pickPlayer(){
+    var all = [].slice.call(document.querySelectorAll('#board .player')).filter(function(el){ return el.style.display!=='none' && el.dataset.hidden!=='true'; });
+    var field = all.filter(function(el){ return el.dataset.team!=='goalie'; });
+    var list = field.length ? field : all;
+    if(!list.length) return null;
+    // the field player nearest the middle of the pool: easy to see and to reach
+    list.sort(function(a,b){ return Math.abs(+a.dataset.x-15)+Math.abs(+a.dataset.y-10) - (Math.abs(+b.dataset.x-15)+Math.abs(+b.dataset.y-10)); });
+    return list[0].dataset.label;
+  }
+  // The player is chosen now, from the board the Quick Start runs on, and the box goes to the other
+  // half of the field so it never sits on the player the steps are about.
+  target = pickPlayer();
+  (function(){ var el = pl(); if(el) side = (+el.dataset.x > 15) ? 'left' : 'right'; })();
+  var base = { skipSuccessMessage:true, skipDimPhase:true, bannerSide:side };
+  var S = function(o){ return Object.assign({}, base, o); };
+  return [
+    S({ id:'qsSelect',
+      instruction:'Quick Start, about 45 seconds. Tap the highlighted player to select it.',
+      onEnter:function(){ if(!pl()) target = pickPlayer(); },
+      highlight:function(){ return pl(); },
+      validate:{ type:'custom', fn:function(){ var el = pl(); return !!el && typeof selected!=='undefined' && selected.size===1 && selected.has(el); } },
+      autoComplete:function(){ var el = pl(); if(el){ clearSelection(); setSelected(el, true); } } }),
+    S({ id:'qsMove',
+      instruction: touch ? 'Now move it: drag the player, or use the Direction Pad.' : 'Now move it: drag the player to a new spot.',
+      onEnter:function(){ var el = pl(); start = el ? { x:+el.dataset.x, y:+el.dataset.y } : null; },
+      highlight:function(){ var el = pl(); return touch ? [el, '#directionPad'] : el; },
+      validate:{ type:'custom', fn:function(){ var el = pl(); if(!el || !start) return false; var dx = +el.dataset.x-start.x, dy = +el.dataset.y-start.y; return Math.sqrt(dx*dx+dy*dy) >= 0.8; } },
+      autoComplete:function(){ var el = pl(); if(!el) return; el.dataset.x = String(+el.dataset.x + (+el.dataset.x > 15 ? -1.5 : 1.5)); place(el); } }),
+    S({ id:'qsBall',
+      instruction:'The buttons next to a selected player act on that player. Tap the highlighted ball icon to give this player the ball.',
+      onEnter:function(){ var el = pl(); if(el && !(selected.size===1 && selected.has(el))){ clearSelection(); setSelected(el, true); } },
+      highlight:function(){ return [pl(), '#paClaimBallBtn']; },
+      validate:{ type:'custom', fn:function(){ var el = pl(); return !!el && typeof ballCarrier!=='undefined' && ballCarrier===el; } },
+      autoComplete:function(){ var el = pl(); if(el && typeof moveBallTo==='function') moveBallTo(el, 'right'); } }),
+    S({ id:'qsDrawOn',
+      instruction:'To draw, tap the highlighted Draw icon in QUICKS.',
+      highlight:function(){ return cwTutTarget('quicks', '[data-src="freeDrawBtn"]'); },
+      validate:{ type:'custom', fn:function(){ return mode==='freeDraw'; } },
+      onValidated:function(){ if(typeof closeQcbDrawingToolsPopup==='function') closeQcbDrawingToolsPopup(); },
+      autoComplete:function(){ if(mode!=='freeDraw') cwTutPress('quicks', '[data-src="freeDrawBtn"]'); } }),
+    S({ id:'qsDraw',
+      instruction:'Draw a line on the field with your finger or mouse.',
+      allowedSelectors:'#board',
+      onEnter:function(){ drawBase = drawings().length; drawSig = ''; drawAt = Date.now(); },
+      validate:{ type:'custom', fn:function(){
+        var d = drawings(); if(d.length <= drawBase) return false;
+        var sig = d.map(function(el){ return el.getAttribute('d')||''; }).join('|');
+        if(sig !== drawSig){ drawSig = sig; drawAt = Date.now(); return false; }
+        return Date.now()-drawAt >= 1200; } },
+      autoComplete:function(){
+        var g = document.getElementById('arrowsGroup'), b = document.getElementById('board'); if(!g || !b) return;
+        var r = b.getBoundingClientRect(), path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', 'M '+(r.width*0.4)+','+(r.height*0.55)+' L '+(r.width*0.6)+','+(r.height*0.4));
+        path.classList.add('drawing'); path.dataset.kind='freehand'; path.dataset.id='quickStart'+Date.now(); g.appendChild(path);
+        drawSig = ''; drawAt = 0; setTimeout(function(){ if(tutorialModeActive) goToTutorialStep(tutorialStepIndex+1); }, 0); } }),
+    S({ id:'qsDone', requiresAcknowledge:true,
+      instruction:'That is all you need to start. Your board goes back to how it was.\n\nEvery other tool is in the console (FUNCTIONS, QUICKS, CREATOR, SYSTEM). Home → Tutorials → Coaching teaches them all.',
+      onEnter:function(){ if(typeof setMode==='function') setMode('select'); },
+      highlight:'#tutorialAcknowledgeBtn',
+      validate:{ type:'custom', fn:ack },
+      autoComplete:function(){ var b = document.getElementById('tutorialAcknowledgeBtn'); if(b) b.click(); } })
+  ];
+}
+XQLearn.register({ id:'qs.coaching', mode:'coaching', title:'Coaching Quick Start', runtime:'studio', version:1,
+  // A replay from the Library: into Coaching first (from Home, the same route as its circle).
+  openMode:function(surface){
+    if(window.closeModeChanger) closeModeChanger();
+    var home = document.getElementById('xquixHomeScreen');
+    if(home && home.classList.contains('open') && typeof xquixHomeRouteMode==='function') xquixHomeRouteMode('coaching');
+    if(document.body.classList.contains('presentation') && typeof togglePresentation==='function') togglePresentation();
+  },
+  available:function(){ return typeof startTutorial==='function' && typeof cwTutTarget==='function'; },
+  start:function(ctx){
+    // The mode has just opened (from Home the board is still being refitted): start a moment later.
+    setTimeout(function(){
+      if(!XQQuickStart.start(buildCoachingQuickStartSteps, ctx, { prepare:function(){
+        if(!document.querySelector('#board .player') && typeof tutorialFormationState==='function' && typeof loadState==='function'){
+          var st = tutorialFormationState('T03 - Attacker Moved'); if(st) loadState(st);
+        }
+      } })) { /* a tutorial was already running: stays 'started', offered again next entry */ }
+    }, 550);
+  } });
 
 // ===== Mode Tutorial Qualification System =====
 // The two helpers every first-use path already calls. Since 2026-09-23 they
@@ -14399,10 +14690,32 @@ window.XQLearn = (function(){
     document.getElementById('msGTChooser').style.display  = v === 'gtchooser' ? '' : 'none';
   }
 
-  function _syncQualBadges() {
-    ['coaching','gametracker','presenting','practice'].forEach(function (m) {
-      var el = document.getElementById('msq-' + m);
-      if (el) el.textContent = hasModeTutorialQualification(m) ? '\u2713' : '';
+  // The Tutorials view lists the Tutorial Library from the registry (the same
+  // XQLearn.library() Home renders): one label per section, one row per item,
+  // a check for a tutorial this account completed. The Game Tracker row opens
+  // the chooser below, as before.
+  function _renderTutorialsList() {
+    var box = document.getElementById('msTutorialsList');
+    if (!box || !window.XQLearn) return;
+    box.innerHTML = '';
+    XQLearn.library().forEach(function (sec) {
+      var h = document.createElement('p'); h.className = 'msNote msLibHead'; h.textContent = sec.title; box.appendChild(h);
+      sec.items.forEach(function (it) {
+        var b = document.createElement('button');
+        b.className = 'modeSwitcherOption'; b.setAttribute('role', 'menuitem'); b.dataset.learnId = it.id;
+        var kids = it.group ? XQLearn.list({ parent: it.id }) : null;
+        var done = kids ? kids.every(function (k) { return XQLearn.statusOf(k.id) === 'completed'; }) : XQLearn.statusOf(it.id) === 'completed';
+        var dot = document.createElement('span'); dot.className = 'modeSwitcherDot';
+        var q = document.createElement('span'); q.className = 'msQual'; q.textContent = done ? '\u2713' : '';
+        b.appendChild(dot); b.appendChild(document.createTextNode(it.title.replace(/ (Tutorial|Quick Start)$/, ''))); b.appendChild(q);
+        if (done) b.setAttribute('aria-label', it.title + ' (completed)');
+        b.onclick = function () {
+          if (it.group) { _gtCtx = 'replay'; _showView('gtchooser'); return; }
+          closeSwitcher();
+          XQLearn.launch(it.id, 'switcher');
+        };
+        box.appendChild(b);
+      });
     });
   }
 
@@ -14452,7 +14765,7 @@ window.XQLearn = (function(){
   // ---- Tutorials button ----
   var tutBtn = document.getElementById('msTutorialsBtn');
   if (tutBtn) tutBtn.addEventListener('click', function () {
-    _syncQualBadges();
+    _renderTutorialsList();
     _showView('tutorials');
   });
 
@@ -14572,50 +14885,38 @@ window.XQLearn = (function(){
     };
   });
 
-  // ---- Tutorial replay buttons ----
-  panel.querySelectorAll('[data-replay-tutorial]').forEach(function (btn) {
-    btn.onclick = function () {
-      var mode = btn.dataset.replayTutorial;
-      // Replay: never set _modeIntroductionPending → qualification unchanged
-      if (mode === 'coaching') {
-        closeSwitcher();
-        if (document.body.classList.contains('presentation')) togglePresentation();
-        if (typeof xquixHideHome === 'function') xquixHideHome();
-        if (typeof buildFirstCoachingSessionSteps === 'function' && typeof startTutorial === 'function') {
-          startTutorial(buildFirstCoachingSessionSteps(), {
-            needsIntroSequenceSeeded: true,
-            onComplete: function () {
-              MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.');
-            }
-          });
+  // ---- Replaying the Coaching tutorial from here ----
+  // The registry's tut.coaching adapter calls this when launched from the Mode
+  // Switcher (ctx.surface 'switcher'): the replay path this panel always used.
+  // Replay never sets _modeIntroductionPending, so qualification is unchanged.
+  function _replayModeTutorial(mode) {
+    if (mode !== 'coaching') return;
+    closeSwitcher();
+    if (document.body.classList.contains('presentation')) togglePresentation();
+    if (typeof xquixHideHome === 'function') xquixHideHome();
+    if (typeof buildFirstCoachingSessionSteps === 'function' && typeof startTutorial === 'function') {
+      startTutorial(buildFirstCoachingSessionSteps(), {
+        needsIntroSequenceSeeded: true,
+        onComplete: function () {
+          MizeDialog.alert('Congratulations! You\u2019ve completed your first coaching session. You can now explore, modify and create tactical presentations with confidence.');
         }
-      } else if (mode === 'gametracker') {
-        _gtCtx = 'replay';
-        _showView('gtchooser');
-      } else if (mode === 'presenting') {
-        closeSwitcher();
-        if (typeof startPresentationTutorial === 'function') {
-          startPresentationTutorial();
-        } else {
-          MizeDialog.alert('The Presenting tutorial is coming soon \u2014 check back after Phase\u00a02.', 'Not yet available');
-        }
-      } else if (mode === 'practice') {
-        closeSwitcher();
-        if (typeof startPracticeTutorial === 'function') {
-          startPracticeTutorial();
-        } else {
-          MizeDialog.alert('The Practice tutorial is coming soon \u2014 check back after Phase\u00a02.', 'Not yet available');
-        }
-      }
-    };
-  });
+      });
+    }
+  }
 
   // ---- GT tutorial chooser buttons ----
+  // First use launches directly (and qualifies Game Tracker on close); from the
+  // Tutorials list it goes through the registry so the run is recorded, and the
+  // adapter comes back to _launchGTTutorial with 'replay'.
   panel.querySelectorAll('[data-gt-tutorial]').forEach(function (btn) {
     btn.onclick = function () {
       var name = btn.dataset.gtTutorial;
       closeSwitcher();
-      _launchGTTutorial(name, _gtCtx);
+      if (_gtCtx === 'replay' && window.XQLearn && XQLearn.get('tut.gametracker.' + name)) {
+        XQLearn.run('tut.gametracker.' + name, { reason: 'library', surface: 'switcher' });
+      } else {
+        _launchGTTutorial(name, _gtCtx);
+      }
     };
   });
 
@@ -14623,6 +14924,8 @@ window.XQLearn = (function(){
   window.closeModeChanger  = closeSwitcher;
   window.openModeChanger   = openSwitcher;
   window.requestXquiXMode  = requestXquiXMode;
+  window.xquixReplayModeTutorial = _replayModeTutorial;
+  window.xquixLaunchGTTutorial   = _launchGTTutorial;
 })();
 function toggleMultiSelect(){
   multiSelectMode=!multiSelectMode;
@@ -15487,6 +15790,7 @@ let activeTutorialSequenceName = null; // set by whatever loads a sequence befor
 function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenceSeeded } = {}){
   tutorialCompletionMessage = completionMessage || 'Congratulations! You\u2019ve completed your first coaching session.';
   if(!steps || !steps.length) return;
+  if(window.XQLearn) XQLearn._engineStarted(); // binds a run started from the Tutorial Library (records its completion)
   // Whatever menu/panel the tutorial was launched from must not be left
   // open -- once tutorialModeActive flips on, the input guard blocks
   // clicks on anything that isn't the current step's highlighted target,
@@ -15498,6 +15802,9 @@ function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenc
   closePresentationPanels();
   document.querySelectorAll('.cmdCategory.open').forEach(c=>c.classList.remove('open'));
   closeToolPanels();
+  // A Quick Start (steps.tutorialOptions.quickStart, tutorials/TUTORIAL-SYSTEM.md §6) runs on the user's own
+  // board as it is: none of the resets below (board cleared, tools off, Front Court left) apply to it.
+  if(!(steps && steps.tutorialOptions && steps.tutorialOptions.quickStart)){
   // Also closed here (not just in the step that later asks to reopen it):
   // open by default, it covers part of the field for the entire first half
   // of the tutorial otherwise.
@@ -15558,6 +15865,7 @@ function startTutorial(steps, { onComplete, completionMessage, needsIntroSequenc
   // showing stale active/"On" styling even though the underlying state
   // above is now correctly off.
   if(typeof renderQuickCommandBar==='function') renderQuickCommandBar();
+  }
   // The intro sequence needs to be findable through the real Open Sequence
   // UI (Steps 1-3 have the coach navigate there and tap it by name) --
   // that list only reads localStorage, so the embedded-data fallback used
@@ -15608,6 +15916,7 @@ let tutorialOpts = {}, tutorialStartArgs = null;
 function exitTutorial(){
   if(!tutorialModeActive) return;
   tutorialModeActive = false;
+  if(window.XQLearn) XQLearn._engineLeft();
   if(typeof XQTutVoice!=='undefined') XQTutVoice.onExit();
   document.getElementById('tutorialLeaveScreen')?.classList.remove('open');
   document.body.classList.remove('tutVoice');
@@ -15678,9 +15987,11 @@ function restartCurrentTutorial(){
   if(typeof rebuild!=='function'){ exitTutorial(); return; }
   const pending = window._modeIntroductionPending;
   window._modeIntroductionPending = null;
+  if(window.XQLearn) XQLearn._hold(true);   // Start over is the same run: keep its Library binding
   exitTutorial();
   window._modeIntroductionPending = pending || null;
   startTutorial(rebuild(), { onComplete:args.onComplete, completionMessage:args.completionMessage, needsIntroSequenceSeeded:args.needsIntroSequenceSeeded });
+  if(window.XQLearn) XQLearn._hold(false);
 }
 document.getElementById('tutorialLeaveKeepBtn')?.addEventListener('click', hideTutorialLeaveScreen);
 document.getElementById('tutorialLeaveExitBtn')?.addEventListener('click', ()=>{ hideTutorialLeaveScreen(); exitTutorial(); });
@@ -15721,6 +16032,7 @@ function tutorialLayoutNav(){
     .filter(e=>e && e.getClientRects().length && getComputedStyle(e).visibility!=='hidden' && seen(e)).map(e=>e.getBoundingClientRect()).filter(q=>q.width);
   for(let k=0; k<below.length; k++){ const o=below.find(q=>hitsR(bottom, side, q)); if(!o) break; bottom=Math.round(innerHeight - o.top + 8); }
   tutorialAvoidConsole(sr);
+  tutorialAvoidTargets(sr);
   // the instruction box never sits on the row (a short phone screen in landscape): it moves up above it
   const bn=document.getElementById('tutorialBanner');
   if(bn && bn.offsetHeight){ const br=bn.getBoundingClientRect(), rowTop=innerHeight-bottom-rowH-8;
@@ -15737,6 +16049,27 @@ window.addEventListener('resize', ()=>{ _tutNavLast=''; setTimeout(()=>{ if(tuto
 // field), and while a step points at a console control the Direction Pad and the Player Action Bar step aside: on
 // a phone they can sit over the console (portrait: the pad; a small phone in landscape: the action bar over the
 // rail). Both come back with the next player step.
+// Opt-in (tutorialOpts.avoidTargets, the Quick Starts): the instruction box never sits on what the step asks
+// for. When it does -- a Quick Start points at whichever player is on the coach's board, anywhere on the field --
+// it moves to the first free place: the other half, then the top or the bottom of the screen, never on the
+// console or the Skip/Next row.
+function tutorialAvoidTargets(sr){
+  if(!tutorialOpts || !tutorialOpts.avoidTargets) return;
+  const step=tutorialSteps[tutorialStepIndex], bn=document.getElementById('tutorialBanner'); if(!bn || !step) return;
+  let ts=[]; try{ ts=resolveTutorialHighlightTargets(step.highlight).filter(e=>e && !bn.contains(e)).map(e=>e.getBoundingClientRect()).filter(q=>q.width && q.width<innerWidth*0.6); }catch(e){}
+  if(!ts.length) return;
+  const nav=['tutorialExitBtn','tutorialSkipStepBtn'].map(id=>document.getElementById(id)).filter(Boolean).map(e=>e.getBoundingClientRect()).filter(q=>q.width);
+  const avoid=ts.concat(sr ? [sr] : [], nav);
+  const hit=(a,q)=>a.left<q.right+6 && a.right>q.left-6 && a.top<q.bottom+6 && a.bottom>q.top-6;
+  const r=bn.getBoundingClientRect(); if(!r.width || !ts.some(q=>hit(r,q))) return;
+  const w=r.width, h=r.height, m=8;
+  const xs=[innerWidth*0.25, innerWidth*0.75, innerWidth*0.5].map(x=>Math.max(w/2+m, Math.min(innerWidth-w/2-m, x)));
+  const ys=[r.top+h/2, h/2+m, innerHeight-h/2-m, innerHeight/2].map(y=>Math.max(h/2+m, Math.min(innerHeight-h/2-m, y)));
+  for(const y of ys) for(const x of xs){
+    const c={ left:x-w/2, right:x+w/2, top:y-h/2, bottom:y+h/2 };
+    if(!avoid.some(q=>hit(c,q))){ bn.style.left=x+'px'; bn.style.top=y+'px'; return; }
+  }
+}
 function tutorialAvoidConsole(sr){
   const step=tutorialSteps[tutorialStepIndex];
   let onConsole=false;
@@ -16013,6 +16346,7 @@ function completeTutorial(){
   tutorialHideAllHighlights();
   if(tutorialPhaseTimer) clearTimeout(tutorialPhaseTimer);
   const cb = tutorialOnComplete;
+  if(window.XQLearn) XQLearn._engineFinished(); // a Library run reached its end: completed for this account
   exitTutorial();
   if(cb) cb();
 }
@@ -26107,6 +26441,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !document.body.
 
 <script src="xquix-game-tracker.js"></script>
 <script src="xquix-game-tracker-tutorial.js"></script>
+<script src="xquix-presentation-tutorial.js"></script>
 <script src="xquix-player-rig.js"></script>
 <script src="xquix-pose-resolver.js"></script>
 <script src="xquix-sound-studio.js"></script>
