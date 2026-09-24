@@ -1752,6 +1752,15 @@
      camera chrome, live information column on the right screen. The tracker's own chrome
      (z 999980+) sits above all of it, the shield included. */
   body[data-stage="gametracker"] #studioTrack > .camOff { filter:none; }
+  /* ...and it must beat the stage's focus dimming (body.xqStage:not(.panorama) #studioTrack > .camOff: brightness(.38)), which has the
+     higher specificity -- since that rule landed the TEAM and GAME screens were shown at 38 % brightness (MIZE 2026-09-23: "not clearly
+     visible"). */
+  body.xqStage[data-stage="gametracker"]:not(.panorama) #studioTrack > .camOff { filter:none; }
+  /* The tracker's camera is locked, so nothing on its stage ever moves as a camera move -- but the stage's 1 s camera transitions
+     (frames, board, console, room) still ran on every re-layout: rotating a phone animated the whole studio from the old size to
+     the new one, and the field's scroll was computed mid-animation from half-way sizes, leaving the field in the wrong place
+     (MIZE 2026-09-23). No camera transitions for this consumer. */
+  body[data-stage="gametracker"] { --cam-d:0s; }
   body[data-stage="gametracker"] #studioNavLeft, body[data-stage="gametracker"] #studioNavRight, body[data-stage="gametracker"] #studioFrameDots { display:none !important; }
   body[data-stage="gametracker"] .studioFramePlaceholder, body[data-stage="gametracker"] .studioFrameClearBtn,
   body[data-stage="gametracker"] #emptyFieldAddBtn, body[data-stage="gametracker"] #saveOpenBtn { display:none !important; }
@@ -1866,8 +1875,8 @@
     border-radius:4px; padding:20px 40px 22px; overflow-y:auto; }
   body[data-stage="gametracker"].gtSheetScreen #xgtSheet .xgtGoal { max-height:190px; width:auto; max-width:100%; margin-left:auto; margin-right:auto; display:block; }
   body[data-stage="gametracker"].gtSheetScreen #xgtSheet > * { max-width:620px; margin-left:auto !important; margin-right:auto !important; }
-  body[data-stage="gametracker"].gtSheetScreen #board, body[data-stage="gametracker"].gtSheetScreen #xgtOppoZone, body[data-stage="gametracker"].gtSheetScreen #gtStageBanner,
-  body[data-stage="gametracker"].gtStatsScreen #board, body[data-stage="gametracker"].gtStatsScreen #xgtOppoZone { visibility:hidden !important; }
+  body[data-stage="gametracker"].gtSheetScreen #board, body[data-stage="gametracker"].gtSheetScreen #gtStageBanner,
+  body[data-stage="gametracker"].gtStatsScreen #board { visibility:hidden !important; }
   /* the console carries Start tracking and Mode -- except in a tutorial, whose steps may point at the form's own buttons */
   body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="setup"] #xgtX, body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="setup"] #xgtGo, body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="setup"] #xgtGo + .xgtNote,
   body[data-stage="gametracker"]:not(.gtTut) #xgtSheet[data-kind="landing"] #xgtX { display:none !important; }
@@ -1892,7 +1901,7 @@
     transform:none !important; z-index:999990; border-radius:4px; background:linear-gradient(180deg, rgba(6,14,15,.97), rgba(3,8,9,.99)); color:#eaf7f5; border:1px solid rgba(46,202,184,.18);
     box-shadow:inset 0 2px 0 rgba(150,215,210,.10), 0 18px 40px rgba(0,0,0,.55); font-family:'Archivo',system-ui,sans-serif; }
   body[data-stage="gametracker"].gtLibScreen #xgtSheet { visibility:hidden !important; pointer-events:none !important; }
-  body[data-stage="gametracker"].gtLibScreen #board, body[data-stage="gametracker"].gtLibScreen #xgtOppoZone, body[data-stage="gametracker"].gtLibScreen #toolPanelBackdrop { visibility:hidden !important; }
+  body[data-stage="gametracker"].gtLibScreen #board, body[data-stage="gametracker"].gtLibScreen #toolPanelBackdrop { visibility:hidden !important; }
   body[data-stage="gametracker"] #coachingLibraryPanel .toolPanelHeader { background:rgba(6,14,15,.98); border-bottom-color:rgba(255,255,255,.08); }
   body[data-stage="gametracker"] #coachingLibraryPanel h3, body[data-stage="gametracker"] #coachingLibraryPanel h4 { color:#eef9f8; }
   body[data-stage="gametracker"] #coachingLibraryPanel .closeToolPanelBtn, body[data-stage="gametracker"] #coachingLibraryPanel .libTypeFilterPill, body[data-stage="gametracker"] #coachingLibraryPanel .libViewTab, body[data-stage="gametracker"] #coachingLibraryPanel .libViewModeBtn,
@@ -12572,7 +12581,10 @@ function gtStageMode(){
 function gtStageOpts(mode){
   return mode==='portrait'
     ? { camera:'center', lockCamera:true, instant:true, readingBox:'screen', fitScreen:true, insetTop:gtPortraitInset }
-    : { camera:'center', lockCamera:true, instant:true, roomCamera:'pan', readingBox:'screen' };
+    : { camera:'center', lockCamera:true, instant:true, roomCamera:'pan',
+        // landscape phones (MIZE 2026-09-23: "maximized ... we should be OK with a different ratio"): the centre screen takes the
+        // wall between the side screens, from under the ceiling to the console (readingBox 'stage'), not the photographed frame
+        readingBox: window.innerHeight<600 ? 'stage' : 'screen' };
 }
 function gtStageFlags(){
   const b=document.body, on=typeof XQStage!=='undefined' && XQStage.consumer()==='gametracker', m=gtStageMode();
@@ -12586,12 +12598,32 @@ function gtStageOrient(){
   gtStageFlags();
   const m=gtStageMode(); if(m===_gtMode) return;
   _gtMode=m;
-  const o=XQStage.opts(); delete o.fitScreen; delete o.roomCamera; delete o.insetTop; Object.assign(o, gtStageOpts(m));
+  const o=XQStage.opts(); delete o.fitScreen; delete o.roomCamera; delete o.insetTop; delete o.readingBox; Object.assign(o, gtStageOpts(m));
   _gtPhase=null; gtSheetSync();
   XQStage.layout();
 }
-window.addEventListener('resize', gtStageOrient);
-window.visualViewport?.addEventListener('resize', gtStageOrient);
+// Rotating a phone fires resize events while the browser is still moving its bars and visualViewport catches up
+// (iOS Safari reports the new layout size before the visual one): a layout run from those numbers left the screen
+// in the wrong place or partly off the display (MIZE 2026-09-23). So after any resize the stage waits until both
+// sizes have held still for two checks, then lays out from the settled numbers -- once, and once more after the
+// tracker's own resize correction (220 ms) -- which also returns the field to its canonical scroll.
+let _gtSettleT=null, _gtSettleKey='', _gtSettleN=0;
+function gtStageSettle(){
+  if(typeof XQStage==='undefined' || XQStage.consumer()!=='gametracker') return;
+  clearTimeout(_gtSettleT); _gtSettleKey=''; _gtSettleN=0;
+  const tick=()=>{
+    if(XQStage.consumer()!=='gametracker') return;
+    const k=[window.innerWidth, window.innerHeight, viewportWidth(), viewportHeight()].map(Math.round).join('x');
+    if(k!==_gtSettleKey){ _gtSettleKey=k; _gtSettleN=0; _gtSettleT=setTimeout(tick, 100); return; }
+    if(++_gtSettleN<2){ _gtSettleT=setTimeout(tick, 100); return; }
+    gtStageOrient(); XQStage.layout();
+    _gtSettleT=setTimeout(()=>{ if(XQStage.consumer()==='gametracker') XQStage.layout(); }, 320);
+  };
+  _gtSettleT=setTimeout(tick, 100);
+}
+window.addEventListener('resize', ()=>{ gtStageOrient(); gtStageSettle(); });
+window.addEventListener('orientationchange', gtStageSettle);
+window.visualViewport?.addEventListener('resize', ()=>{ gtStageOrient(); gtStageSettle(); });
 // Portrait: the centre screen and the console under it are centred as one group in the viewport (a short Safari viewport --
 // an SE with its bars is 548 px -- would otherwise push the console off the bottom). Returns the room's vertical offset.
 let _gtConsoleH=170;
@@ -12644,19 +12676,30 @@ function gtStageRects(){
   const top=Math.round(r.bottom+8);
   st.setProperty('--gtFlL', Math.round(Math.max(8, Math.min(cx-fw/2, innerWidth-fw-8)))+'px'); st.setProperty('--gtFlW', Math.round(fw)+'px');
   st.setProperty('--gtFlMax', Math.max(150, innerHeight-top-8)+'px');
+
   // Portrait (MIZE 2026-09-23): long sheets use a taller frame -- the centre screen extended up into the black above the room --
   // and the console sits under the screen at its controls' natural size, in two rows, instead of being scaled down to the floor.
   if(document.body.classList.contains('gtPortrait')){
     const tallT=10;
     st.setProperty('--gtTallT', tallT+'px'); st.setProperty('--gtTallH', Math.round(Math.max(r.height, r.bottom-tallT))+'px');
     if(c && c.childElementCount){
-      const ctop=Math.round(Math.max(r.bottom+10, parseFloat(c.style.top)||0));
+      const ctop=Math.round(r.bottom+10);   // the same 10 px gap gtPortraitInset() centres with
       c.style.left='8px'; c.style.width=Math.round(viewportWidth()-16)+'px'; c.style.top=ctop+'px'; c.style.height='';
       XQStage._fitControls();
       // the group centring above uses the console's real height: re-lay out once if it changed (two rows vs one in setup)
       const ch=Math.round(c.offsetHeight); if(ch>40 && Math.abs(ch-_gtConsoleH)>2){ _gtConsoleH=ch; setTimeout(()=>XQStage.layout(), 0); }
     }
   }
+}
+// The OPPO dome belongs to the tracker's zone layer; its flat edge goes to the top of the field as the centre screen frames it
+// at the field's canonical scroll -- run only from the stage's layout (which has just set that scroll), never from a sheet
+// change, so a coach's own scroll of the field never moves it (API.setOppoEdge; MIZE 2026-09-23).
+function gtOppoEdgeSync(){
+  const T=window.XquiXGameTracker, w=document.getElementById('stageWrap');
+  if(!T || typeof T.setOppoEdge!=='function' || typeof T.screenToBoard!=='function' || !w || XQStage.consumer()!=='gametracker') return;
+  const r=w.getBoundingClientRect(); if(!r.width) return;
+  const b=T.screenToBoard(r.left+r.width/2, r.top+1);
+  if(b && isFinite(b.x)) T.setOppoEdge(b.x-0.05);
 }
 function gtSheetSync(){
   const b=document.body;
@@ -12721,7 +12764,7 @@ function gtSheetWatch(){
   // a tracker tutorial starting or ending changes the phase without a sheet change: re-sync then (wrapped once)
   const TT=window.XquiXGameTrackerTutorial;
   if(TT && !TT._gtStageWrapped){ TT._gtStageWrapped=true; ['start','exit'].forEach(k=>{ const f=TT[k]; if(typeof f==='function') TT[k]=function(){ const r=f.apply(this, arguments); setTimeout(gtSheetSync, 0); return r; }; }); }
-  if(!gtSheetWatch._layoutHooked){ gtSheetWatch._layoutHooked=true; XQStage.on('layout', ()=>{ if(XQStage.consumer()==='gametracker') gtStageRects(); }); }
+  if(!gtSheetWatch._layoutHooked){ gtSheetWatch._layoutHooked=true; XQStage.on('layout', ()=>{ if(XQStage.consumer()==='gametracker'){ gtStageRects(); gtOppoEdgeSync(); } }); }
 }
 
 let _gtTeamNode=null;
