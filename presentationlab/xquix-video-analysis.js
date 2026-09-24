@@ -485,7 +485,9 @@
       if (typeof resetTimelineForFormationLoad === 'function') resetTimelineForFormationLoad();
     } catch (e) { msg('The board could not take the scene: ' + e.message, 'warn'); return; }
     window.XQUIX.VideoAnalysis.last = rec;
+    const snapshot = trainingRecord(rec);
     close();
+    saveForTraining(snapshot);
     try { if (typeof XQStage !== 'undefined' && XQStage.isOpen()) XQStage.setCamera('center'); } catch (e) {}
     if (out.excluded.length) setTimeout(() => notify(out.excluded.length + (out.excluded.length === 1 ? ' player was' : ' players were') + ' left off the board: outside the 25 × 20 m field seen from this goal.'), 900);
   }
@@ -494,6 +496,74 @@
     let best = null, bd = 1e9;
     for (const p of S.players) { const d = Math.hypot(p.head[0] - px[0], p.head[1] - px[1]); if (d < bd) { bd = d; best = p; } }
     return best && bd < Math.max(60, 3 * best.capPx) ? best : null;
+  }
+
+  // ---------- learning by doing (MIZE, 2026-09-24) ----------
+  /* Every confirmed scene is kept as training data: the frame (private bucket video-analysis, <user id>/<scene id>.jpg)
+     and a row in public.video_analysis_scenes with the field, the detector's reading, what the coach confirmed and every
+     correction. Platform admin (MIZE) only, by RLS; nothing is sent for anyone else. */
+  function trainingRecord(rec) {
+    const round = v => (typeof v === 'number' ? +v.toFixed(1) : v);
+    return {
+      name: rec.name, frameUrl: S.frame.url, w: S.frame.w, h: S.frame.h,
+      field: { markers: S.markers.map(m => ({ key: m.key, side: m.side, u: round(m.u), v: round(m.v), auto: !!m.auto, X: markerWorld(m, S.spec).X, Y: markerWorld(m, S.spec).Y })),
+               auto: S.autoField || null, fit: S.fitInfo || null, width: S.spec.width, ropeBehind: S.spec.ropeBehind, H: S.cal && S.cal.H },
+      detector: S.detector || null,
+      confirmed: { players: S.players.map(p => ({ id: p.id, head: p.head.map(round), waterline: p.waterline.map(round), capPx: p.capPx, team: p.team, role: p.role, source: p.source || 'detector', detectConf: p.detectConf ?? null })),
+                   ball: S.ball ? { px: S.ball.px.map(round), source: S.ball.source } : null, attacking: S.attacking, attackingBy: S.attackingBy },
+      corrections: S.corrections, frameCheck: Object.assign({}, S.metrics || {}, { teamSep: S.teamSep ?? null }), formation: rec.videoAnalysis
+    };
+  }
+  function toast(text, warn) {
+    let t = document.getElementById('xqvaToast');
+    if (!t) { t = el('div', { id: 'xqvaToast' }, document.body);
+      t.style.cssText = 'position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:2147481600;background:#0e1416;color:#e8eef0;border:1px solid #2a3a3e;border-radius:8px;padding:8px 14px;font:600 13px system-ui,-apple-system,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.5);transition:opacity .4s;max-width:min(560px,calc(100vw - 32px));text-align:center'; }
+    t.textContent = text; t.style.borderColor = warn ? 'rgba(242,194,48,.7)' : 'rgba(46,202,184,.55)'; t.style.opacity = '1';
+    clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = '0'; }, warn ? 6000 : 3000);
+  }
+  const auth = () => (window.XQUIX && XQUIX.Auth && XQUIX.Auth.getClient) ? XQUIX.Auth : null;
+  async function saveForTraining(r) {
+    const A = auth(), sb = A && A.getClient(), user = A && A.getCurrentUser();
+    if (!sb || !user) { toast('Not saved for learning: sign in to the Studio first.', true); return { saved: false, why: 'signed out' }; }
+    try {
+      const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), path = user.id + '/' + id + '.jpg';
+      const blob = await (await fetch(r.frameUrl)).blob();
+      const up = await sb.storage.from('video-analysis').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+      if (up.error) throw up.error;
+      const row = { id, name: r.name, source: document.getElementById('labBanner') ? 'lab' : 'studio', frame_path: path, frame_w: r.w, frame_h: r.h,
+        field: r.field, detector: r.detector, confirmed: r.confirmed, corrections: r.corrections, frame_check: r.frameCheck, formation: r.formation,
+        app_version: window.LAB_PINNED ? 'presentationlab ' + window.LAB_PINNED : 'studio' };
+      const ins = await sb.from('video_analysis_scenes').insert(row);
+      if (ins.error) throw ins.error;
+      toast('Scene saved for learning.');
+      return { saved: true, id };
+    } catch (e) {
+      const m = (e && (e.message || e.error)) || String(e);
+      toast(/row-level security|permission|403|Unauthorized/i.test(m) ? 'Not saved for learning: only the platform admin’s scenes are collected.' : 'Not saved for learning: ' + m, true);
+      return { saved: false, why: m };
+    }
+  }
+  /* The lab's LAB panel gets "Export training scenes": every saved scene with its frame, one JSON file to download. */
+  async function exportScenes(btn) {
+    const A = auth(), sb = A && A.getClient();
+    if (!sb || !A.getCurrentUser()) { toast('Sign in to the Studio to export.', true); return; }
+    btn.disabled = true; const label = btn.textContent;
+    try {
+      const { data, error } = await sb.from('video_analysis_scenes').select('*').order('created_at');
+      if (error) throw error;
+      const out = [];
+      for (let i = 0; i < data.length; i++) {
+        btn.textContent = `Exporting ${i + 1} / ${data.length}…`;
+        const r = data[i]; let frame = null;
+        if (r.frame_path) { const dl = await sb.storage.from('video-analysis').download(r.frame_path);
+          if (!dl.error) frame = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(dl.data); }); }
+        out.push(Object.assign({}, r, { frame }));
+      }
+      const blob = new Blob([JSON.stringify({ kind: 'xquix-video-analysis-training', exportedAt: new Date().toISOString(), scenes: out })], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'xquix-training-scenes-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); a.remove();
+      toast(`${out.length} scenes exported.`);
+    } catch (e) { toast('Export failed: ' + ((e && e.message) || e), true); }
+    btn.disabled = false; btn.textContent = label;
   }
 
   // ---------- Studio wiring (lab) ----------
@@ -525,6 +595,12 @@
         setTimeout(() => { try { if (typeof cwRender === 'function') cwRender(); } catch (_) {} }, 50);
       }, true);
     }
+    // 3. LAB panel: export the collected training scenes
+    const panel = document.getElementById('labPanel');
+    if (panel && !document.getElementById('labVaExport')) {
+      const b = document.createElement('button'); b.id = 'labVaExport'; b.textContent = 'Export training scenes (video analysis)';
+      b.addEventListener('click', () => exportScenes(b)); panel.appendChild(b);
+    }
     // keep the Analyze button's enabled state current when the left screen changes
     const c = document.getElementById('videoContent');
     if (c && !c._xqva) { c._xqva = true; new MutationObserver(() => { try { if (typeof cwRender === 'function') cwRender(); } catch (_) {} }).observe(c, { childList: true }); }
@@ -532,7 +608,7 @@
   const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="1.6"/><circle cx="15" cy="10" r="1.6"/><circle cx="12" cy="15" r="1.6"/></svg>';
 
   window.XQUIX = window.XQUIX || {};
-  window.XQUIX.VideoAnalysis = { open, close, state: () => S, loadModel, _grab: grab, canCapture };
+  window.XQUIX.VideoAnalysis = { open, close, state: () => S, loadModel, _grab: grab, canCapture, saveForTraining, exportScenes };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
   window.addEventListener('load', wire);
 })();
