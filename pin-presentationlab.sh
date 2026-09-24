@@ -25,6 +25,9 @@ for f in xquix-game-tracker.js xquix-game-tracker-tutorial.js xquix-player-rig.j
 done
 [ -f "$LAB/xquix-presentation-tutorial.js" ] || cp xquix-presentation-tutorial.js "$LAB/xquix-presentation-tutorial.js"
 echo "    kept    $LAB/xquix-presentation-tutorial.js (work in progress, never overwritten)"
+for f in homography.js va-geometry.js va-detect.js va-model.json xquix-video-analysis.js; do
+  if [ -f "$LAB/$f" ]; then echo "    kept    $LAB/$f (Video Analysis test, lab-owned, never overwritten)"; else echo "    absent  $LAB/$f (Video Analysis test not installed - Analyze will be missing)"; fi
+done
 
 echo "==> Building $LAB/index.html from the live index.html"
 (
@@ -86,6 +89,17 @@ else:
     assert anchor in src, 'game tracker tutorial tag not found - cannot place the presentation tutorial'
     src = src.replace(anchor, anchor + '\n' + loader(['xquix-presentation-tutorial.js']), 1)
     print('    added the Presentation tutorial loader (production does not load it yet)')
+
+# --- 2b. Video Analysis test (Phase E, video-analysis/PHASE-E-LAB.md): lab-only, lab-owned files.
+#         Screens -> Left gets "Analyze"; the left screen's File also takes a screenshot.
+VA = ['homography.js', 'va-geometry.js', 'va-detect.js', 'xquix-video-analysis.js']
+if all(os.path.exists(os.path.join(LAB, f)) for f in VA):
+    pt = loader(['xquix-presentation-tutorial.js'])
+    assert pt in src, 'presentation tutorial loader not found - cannot place the video analysis test'
+    src = src.replace(pt, pt + '\n' + loader(VA), 1)
+    print('    added the Video Analysis test loader (lab only)')
+else:
+    print('    Video Analysis test files absent - not loaded')
 
 # --- 3. An unmistakable banner, and a small LAB panel with a direct launcher.
 banner = """<div id="labBanner">Presentation Lab · pinned Studio snapshot · not the live app</div>

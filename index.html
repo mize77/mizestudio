@@ -2005,6 +2005,13 @@
   body.tutorialModeActive[data-stage="home"] #tutorialCheckmark { z-index:9005; }
   body.tutorialModeActive[data-stage="home"] #tutorialLeaveScreen { z-index:9010; }
   body.tutorialModeActive[data-stage="home"] #tutorialHeard { z-index:9011; }
+  /* A Quick Start runs on top of whatever mode it introduces -- Practice's choosing frame sits at 9400 -- so its
+     chrome goes above everything, in the same order. */
+  body.tutorialModeActive.xqQuickStart #tutorialDimOverlay { z-index:9501; }
+  body.tutorialModeActive.xqQuickStart #tutorialSpotlight, body.tutorialModeActive.xqQuickStart .tutorialSpotlightRing { z-index:9502; }
+  body.tutorialModeActive.xqQuickStart .tutorialArrowEl { z-index:9503; }
+  body.tutorialModeActive.xqQuickStart #tutorialBanner, body.tutorialModeActive.xqQuickStart #tutorialExitBtn, body.tutorialModeActive.xqQuickStart #tutorialSkipStepBtn { z-index:9504; }
+  body.tutorialModeActive.xqQuickStart #tutorialCheckmark { z-index:9505; }
   body[data-stage="home"] #stageLights, body[data-stage="soundbox"] #stageLights { z-index:9000; }
   /* The room layer (XQStage.setRoomLayer): on the room rect inside #psRoom -- the photograph's own stacking
      context, no z-index/transform of its own so a blending canvas inside it blends with the room -- below the
@@ -14520,19 +14527,23 @@ window.XQQuickStart = (function(){
     try { r.observer && r.observer.disconnect(); } catch(e){}
     document.body.classList.remove('xqQuickStart');
     if(r.labels){ label('tutorialExitBtn', r.labels.exit); label('tutorialSkipStepBtn', r.labels.skip); }
-    restore(r.saved);
+    if(r.restoreBoard) restore(r.saved);
+    try { if(r.cleanup) r.cleanup(); } catch(e){ console.error('Quick Start cleanup', e); }
     if(r.ctx && r.ctx.onDone) r.ctx.onDone(status);
   }
   // start(steps, ctx, { prepare }) -- prepare() may put something on an empty
   // board for the Quick Start to work with; it is undone with everything else.
   // steps may be a function: it is built after prepare(), so it can look at the board it will run on.
+  // opts: prepare(), cleanup() (runs after the board is back), surface (the Workbench console, default
+  // true -- modes on the stage's own console say false), restoreBoard (default true; a Quick Start that
+  // never touches the board says false).
   function start(steps, ctx, opts){
     opts = opts || {};
     if(typeof tutorialModeActive!=='undefined' && tutorialModeActive) return false;   // never on top of a running tutorial
-    run = { ctx:ctx, saved:snapshot(), done:false };
+    run = { ctx:ctx, saved:snapshot(), done:false, cleanup:opts.cleanup || null, restoreBoard:opts.restoreBoard!==false };
     try { if(opts.prepare) opts.prepare(); } catch(e){}
     if(typeof steps==='function') steps = steps();
-    steps.tutorialOptions = { quickStart:true, surface:true, exitScreen:false, voice:false, avoidTargets:true };
+    steps.tutorialOptions = { quickStart:true, surface:opts.surface!==false, exitScreen:false, voice:false, avoidTargets:true };
     document.body.classList.add('xqQuickStart');
     startTutorial(steps, { completionMessage:'', onComplete:function(){ finish('completed'); } });
     if(!(typeof tutorialModeActive!=='undefined' && tutorialModeActive)){ finish('skipped'); return false; }
@@ -14637,6 +14648,111 @@ XQLearn.register({ id:'qs.coaching', mode:'coaching', title:'Coaching Quick Star
         }
       } })) { /* a tutorial was already running: stays 'started', offered again next entry */ }
     }, 550);
+  } });
+
+
+// ----- shared bits for the mode Quick Starts -----
+function xqQsAck(id, text, extra){
+  return Object.assign({ id:id, requiresAcknowledge:true, skipSuccessMessage:true, skipDimPhase:true, bannerSide:'left', instruction:text,
+    highlight:'#tutorialAcknowledgeBtn',
+    validate:{ type:'custom', fn:function(){ return typeof tutorialManualAck!=='undefined' && !!tutorialManualAck; } },
+    autoComplete:function(){ var b = document.getElementById('tutorialAcknowledgeBtn'); if(b) b.click(); } }, extra || {});
+}
+// The mode has just opened; start once its stage has settled.
+function xqQsLater(ms, fn){ setTimeout(fn, ms); }
+
+// ----- qs.presenting: about 40 seconds, six steps -----
+// The Full Studio View, turning the camera and back, where the play is run, how to leave.
+// Nothing on the board changes; the camera goes back to where it was.
+function buildPresentingQuickStartSteps(){
+  var cam = function(){ return (typeof XQStage!=='undefined' && XQStage.isOpen()) ? XQStage.camera() : null; };
+  var B = function(id){ return '[data-id="'+id+'"]'; };
+  return [
+    xqQsAck('qsPresIntro', 'Quick Start, about 40 seconds. This is the Full Studio View: your board on the centre screen, a screen on each side. Presentation’s controls are in the panel below.'),
+    { id:'qsPresCamera', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'left',
+      instruction:'The camera is in the CAMERA group. Tap the highlighted CAMERA tab.',
+      highlight:function(){ return cwTutTarget('camera', null); },
+      validate:{ type:'custom', fn:function(){ return cwTutGroupShown('camera'); } },
+      autoComplete:function(){ cwTutShowGroup('camera'); } },
+    { id:'qsPresRight', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'left',
+      instruction:'Tap the highlighted Right to turn the camera to the right screen.',
+      highlight:function(){ return cwTutTarget('camera', B('camRight')); },
+      validate:{ type:'custom', fn:function(){ return cam()==='right'; } },
+      autoComplete:function(){ if(cam()!=='right') cwTutPress('camera', B('camRight')); } },
+    { id:'qsPresStudio', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'left',
+      instruction:'And back to the whole studio: tap the highlighted Studio.',
+      highlight:function(){ return cwTutTarget('camera', B('camPan')); },
+      validate:{ type:'custom', fn:function(){ return cam()==='pan'; } },
+      autoComplete:function(){ if(cam()!=='pan') cwTutPress('camera', B('camPan')); } },
+    { id:'qsPresPresent', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'left',
+      instruction:'Your sequence runs from the PRESENT group: Play, or Next and Previous one step at a time. Tap the highlighted PRESENT tab.',
+      highlight:function(){ return cwTutTarget('present', null); },
+      validate:{ type:'custom', fn:function(){ return cwTutGroupShown('present'); } },
+      autoComplete:function(){ cwTutShowGroup('present'); } },
+    xqQsAck('qsPresDone', 'To leave, open SYSTEM and choose Modes (on a computer, Esc works too).\n\nHome → Tutorials → Presentation teaches the rest: the Spotlight, the Shot Clock and the side screens.')
+  ];
+}
+XQLearn.register({ id:'qs.presenting', mode:'presenting', title:'Presentation Quick Start', runtime:'studio', version:1,
+  openMode:function(surface){
+    if(window.closeModeChanger) closeModeChanger();
+    var home = document.getElementById('xquixHomeScreen');
+    if(home && home.classList.contains('open') && typeof xquixHomeRouteMode==='function') xquixHomeRouteMode('presenting');
+    else if(!document.body.classList.contains('presentation') && typeof togglePresentation==='function') togglePresentation('fit');
+  },
+  available:function(){ return typeof startTutorial==='function' && typeof cwTutTarget==='function' && typeof togglePresentation==='function'; },
+  start:function(ctx){
+    xqQsLater(900, function(){
+      var cam0 = (typeof XQStage!=='undefined' && XQStage.isOpen()) ? XQStage.camera() : null;
+      XQQuickStart.start(buildPresentingQuickStartSteps, ctx, { restoreBoard:false, cleanup:function(){
+        if(cam0 && typeof XQStage!=='undefined' && XQStage.isOpen() && document.body.classList.contains('presentation') && XQStage.camera()!==cam0) XQStage.setCamera(cam0);
+      } });
+    });
+  } });
+
+// ----- qs.practice: about 40 seconds, five steps -----
+// Where things are, opening the Drill Library on the centre screen (and closing it with Cancel, so nothing
+// is added to the coach's session), minutes and Run, Save. Nothing is saved or changed.
+function buildPracticeQuickStartSteps(){
+  var portrait = document.body.classList.contains('prPortrait');
+  var left = portrait ? '#prTiles [data-pick="library"]' : '#prBuildLeft';
+  var con = function(id){ return document.querySelector('#stageConsole [data-id="'+id+'"]'); };
+  var picking = function(){ return typeof _prPick!=='undefined' && !!_prPick; };
+  return [
+    xqQsAck('qsPrIntro', portrait
+      ? 'Quick Start, about 40 seconds. Your practice session is in the middle. The two tiles above open the Drill Library and your saved sessions.'
+      : 'Quick Start, about 40 seconds. Your practice session is on the centre screen. The Drill Library is on the left screen, your saved sessions on the right.'),
+    { id:'qsPrLibrary', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'right',
+      instruction: portrait ? 'Tap the highlighted Drill Library tile.' : 'Tap the highlighted left screen to open the Drill Library.',
+      highlight:left,
+      validate:{ type:'custom', fn:function(){ return picking() && _prPick==='library'; } },
+      autoComplete:function(){ if(typeof prPickOpen==='function') prPickOpen('library'); } },
+    { id:'qsPrCancel', skipSuccessMessage:true, skipDimPhase:true, bannerSide:'right',
+      instruction:'You choose drills here: tap them, set their minutes, and Confirm adds them to the session. Nothing to add now: tap the highlighted Cancel.',
+      highlight:function(){ return con('cancel'); },
+      validate:{ type:'custom', fn:function(){ return !picking(); } },
+      autoComplete:function(){ var c = con('cancel'); if(c) c.click(); } },
+    xqQsAck('qsPrRun', 'In the session, + and − set a drill’s minutes and the arrows change the order. ▶ Run (highlighted) walks through the drills one by one on the board.',
+      { highlight:function(){ return ['#tutorialAcknowledgeBtn', con('run')].filter(Boolean); } }),
+    xqQsAck('qsPrDone', 'Save keeps the session in your library. Exit goes back to Coaching, Modes to another mode.\n\nHome → Tutorials lists the tutorials that are ready.',
+      { highlight:function(){ return ['#tutorialAcknowledgeBtn', con('save')].filter(Boolean); } })
+  ];
+}
+XQLearn.register({ id:'qs.practice', mode:'practice', title:'Practice Planner Quick Start', runtime:'studio', version:1,
+  openMode:function(surface){
+    if(window.closeModeChanger) closeModeChanger();
+    var home = document.getElementById('xquixHomeScreen');
+    if(home && home.classList.contains('open') && typeof xquixHomeRouteMode==='function') xquixHomeRouteMode('practice');
+    else if(typeof openPracticeStudio==='function' && !(typeof _prStage!=='undefined' && _prStage)) openPracticeStudio();
+  },
+  // Only where the Practice Planner opens on the stage (its Build phase) -- the old panel has none of this.
+  available:function(){ return typeof openPracticeStudio==='function' && typeof prPickOpen==='function'; },
+  start:function(ctx){
+    xqQsLater(800, function(){
+      if(!(typeof _prStage!=='undefined' && _prStage && _prStage.phase==='build')) return;   // stays 'started': offered next time
+      XQQuickStart.start(buildPracticeQuickStartSteps, ctx, { surface:false, restoreBoard:false, cleanup:function(){
+        if(typeof _prPick!=='undefined' && _prPick){ var c = document.querySelector('#stageConsole [data-id="cancel"]'); if(c) c.click(); }
+      } });
+    });
   } });
 
 // ===== Mode Tutorial Qualification System =====
@@ -16005,7 +16121,7 @@ let _tutNavLast = '';
 function tutorialLayoutNav(){
   const exit=document.getElementById('tutorialExitBtn'), skip=document.getElementById('tutorialSkipStepBtn'), vn=document.getElementById('tutorialVoiceNav');
   if(!exit || !skip) return;
-  const managed = tutorialModeActive && (tutorialOpts.voice || tutorialOpts.surface);
+  const managed = tutorialModeActive && (tutorialOpts.voice || tutorialOpts.surface || tutorialOpts.quickStart);   // Quick Starts: Skip · Next as one row
   const els=[exit, skip, vn].filter(Boolean);
   if(!managed){ if(_tutNavLast){ els.forEach(e=>{ e.style.left=''; e.style.right=''; e.style.bottom=''; }); _tutNavLast=''; } return; }
   const items=[exit, skip].concat(vn && getComputedStyle(vn).display!=='none' ? [vn] : []);
@@ -16030,6 +16146,10 @@ function tutorialLayoutNav(){
     return !!h && (e===h || e.contains(h) || !!(h.closest && h.closest('#tutorialExitBtn, #tutorialSkipStepBtn, #tutorialVoiceNav, #tutorialBanner, #tutorialSpotlight, .tutorialSpotlightRing'))); };
   const below=['#stageConsole .stageConsolePanel', '#timelineCommandsBar', '#studioNavLeft', '#studioNavRight'].map(q=>document.querySelector(q))
     .filter(e=>e && e.getClientRects().length && getComputedStyle(e).visibility!=='hidden' && seen(e)).map(e=>e.getBoundingClientRect()).filter(q=>q.width);
+  // The stage console's own buttons count wherever they are shown (seen() cannot test them: under a tutorial's
+  // interaction lock they take no pointer, so elementFromPoint passes through them). Practice's portrait console
+  // sits bottom-left, under the row.
+  document.querySelectorAll('#stageConsole .stageConsoleBtn').forEach(e=>{ if(e.getClientRects().length && getComputedStyle(e).visibility!=='hidden' && getComputedStyle(document.getElementById('stageConsole')).display!=='none'){ const q=e.getBoundingClientRect(); if(q.width) below.push(q); } });
   for(let k=0; k<below.length; k++){ const o=below.find(q=>hitsR(bottom, side, q)); if(!o) break; bottom=Math.round(innerHeight - o.top + 8); }
   tutorialAvoidConsole(sr);
   tutorialAvoidTargets(sr);
@@ -16461,7 +16581,7 @@ function tutorialTrackLoop(){
       positionTutorialArrows(step.highlight);
     }
     updateTutorialBannerPlayingVisibility();
-    if(tutorialOpts.voice || tutorialOpts.surface) tutorialLayoutNav();
+    if(tutorialOpts.voice || tutorialOpts.surface || tutorialOpts.quickStart) tutorialLayoutNav();
     if(!tutorialAdvancing && step.validate && evaluateTutorialValidator(step.validate)){
       tutorialAdvancing = true;
       tutorialHideAllHighlights();
