@@ -257,12 +257,15 @@
     opts = opts || {};
     const width = opts.width || 20, hw = width / 2, t0 = Date.now();
     const C = prep(img, opts.channels || 4);
-    let best = null, firstWhy = null, seen = null;
+    let best = null, firstWhy = null, seen = null, bestFar = null;
     for (const scheme of SCHEMES) {
       const R = ropes(C, scheme);
       const far = R.filter(r => r.marks[0] && r.crOK && r.n === 4);
       if (!far.length) continue;
       seen = seen || scheme;
+      // the best-read far lane line is kept even when no near side pairs with it: the coach then adds the two
+      // middle-of-the-field points (PHASE-E-LAB.md 1b2) instead of marking everything by hand
+      for (const f of far) if (!bestFar || f.score > bestFar.score) bestFar = { score: f.score, marks: f.marks, scheme };
       const meanV = r => { const v = Object.values(r.marks).filter(Boolean).map(p => p[1]); return v.reduce((a, b) => a + b, 0) / v.length; };
       for (const f of far.slice(0, 3)) {
         const fl = f.line, nrm = [-fl.d[1], fl.d[0]];
@@ -284,7 +287,7 @@
     const res = { ms: Date.now() - t0 };
     if (!best) {
       if (!seen) return Object.assign(res, { refs: null, why: 'No lane line with its marks was found from the goal line to 6 m (red to 2 m, then one color to 6 m).' });
-      return Object.assign(res, { refs: null, scheme: { x: NAMES[seen.x] }, why: `The near lane line’s 5 m or 6 m section was not found (in this pool: the 5 m marker and the end of the ${NAMES[seen.x]} section).` });
+      return Object.assign(res, { refs: null, scheme: { x: NAMES[seen.x] }, far: bestFar && { marks: bestFar.marks, scheme: { x: NAMES[bestFar.scheme.x] } }, why: `The near lane line’s 5 m or 6 m section was not found (in this pool: the 5 m marker and the end of the ${NAMES[seen.x]} section).` });
     }
     return Object.assign(res, { refs: best.refs, resid: best.resid, goal: best.goal, scheme: { x: NAMES[best.scheme.x] }, why: null });
   }
