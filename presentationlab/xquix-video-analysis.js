@@ -367,13 +367,21 @@
     const T = S.tags;
     const field = (key, ph, title) => { const i = el('input', { type: 'text', placeholder: ph, title, value: T[key] || '', 'aria-label': ph, autocomplete: 'off', autocapitalize: 'words' }, box);
       i.addEventListener('input', () => { T[key] = i.value.trim(); bottom(); }); i.addEventListener('keydown', ev => ev.stopPropagation()); return i; };
-    el('span', { class: 'lbl', text: 'Teams' }, box);
+    // MIZE 2026-09-24: offense first - its team and its system side by side - then defense the same way
+    el('span', { class: 'lbl', id: 'xqvaLblOff', text: 'Offense' }, box);
     field('teamAttacking', 'Attacking team', 'The team attacking in this scene');
-    field('teamDefending', 'Defending team', 'The team defending in this scene');
-    el('span', { class: 'lbl', text: 'System' }, box);
     field('systemOffense', 'Offensive system', 'The attacking team’s system (e.g. 6-on-5, center play) — this or the defensive one is required');
+    el('span', { class: 'lbl', id: 'xqvaLblDef', text: 'Defense' }, box);
+    field('teamDefending', 'Defending team', 'The team defending in this scene');
     field('systemDefense', 'Defensive system', 'The defending team’s system (e.g. press, zone, M-drop) — this or the offensive one is required');
     el('span', { class: 'hint', text: 'one system is required' }, box);
+  }
+  // the labels say which caps attack once the coach (or the pairs) decided
+  function tagLabels() {
+    const o = $('#xqvaLblOff'), d = $('#xqvaLblDef'); if (!o || !d) return;
+    const cap = t => t === 'light' ? 'light caps' : 'dark caps';
+    o.textContent = S.attacking ? `Offense (${cap(S.attacking)})` : 'Offense';
+    d.textContent = S.attacking ? `Defense (${cap(S.attacking === 'light' ? 'dark' : 'light')})` : 'Defense';
   }
   function showReady() { const c = { unknown: 0 }; S.players.forEach(p => { if (p.role !== 'goalkeeper' && p.team === 'unknown') c.unknown++; }); return !!(S.attacking && !c.unknown && tagsComplete()); }
   function bottom() {
@@ -403,7 +411,7 @@
       else msg(`${n} markers · they agree to ${S.fitInfo.mean.toFixed(2)} m on average` + (S.fitInfo.mean > 0.35 ? ' — they disagree: a marker is probably misplaced or misnamed (check the drawn lines)' : ''), S.fitInfo.mean > 0.35 ? 'warn' : '');
       return;
     }
-    renderTags();
+    renderTags(); tagLabels();
     const c = { light: 0, dark: 0, unknown: 0, gk: 0 }; S.players.forEach(p => { if (p.role === 'goalkeeper') c.gk++; else c[p.team]++; });
     const st = el('span', { class: 'stat' }, b);
     st.innerHTML = `Light <b>${c.light}</b> · Dark <b>${c.dark}</b> · Goalkeeper <b>${c.gk}</b>` + (c.unknown ? ` · <span class="warn">Team unread <b>${c.unknown}</b></span>` : '') + ` · Ball ${S.ball ? '✓' : '<span class="warn">none</span>'}`;
